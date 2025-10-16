@@ -1,4 +1,5 @@
 import '../../domain/entities/lyrics_entities.dart';
+import '../../../core/constants/app_constants.dart';
 
 class LyricsModel extends Lyrics {
   const LyricsModel({

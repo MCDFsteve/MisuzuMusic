@@ -1,8 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/error/exceptions.dart';
+import '../../../core/error/exceptions.dart' as app_exceptions;
 
 class DatabaseHelper {
   static Database? _database;
@@ -31,7 +30,7 @@ class DatabaseHelper {
         onUpgrade: _onUpgrade,
       );
     } catch (e) {
-      throw DatabaseException('Failed to initialize database: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Failed to initialize database: ${e.toString()}');
     }
   }
 
@@ -131,7 +130,7 @@ class DatabaseHelper {
       ''');
 
     } catch (e) {
-      throw DatabaseException('Failed to create database tables: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Failed to create database tables: ${e.toString()}');
     }
   }
 
@@ -143,7 +142,7 @@ class DatabaseHelper {
       //   await db.execute('ALTER TABLE tracks ADD COLUMN new_column TEXT');
       // }
     } catch (e) {
-      throw DatabaseException('Failed to upgrade database: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Failed to upgrade database: ${e.toString()}');
     }
   }
 
@@ -175,7 +174,7 @@ class DatabaseHelper {
         offset: offset,
       );
     } catch (e) {
-      throw DatabaseException('Query failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Query failed: ${e.toString()}');
     }
   }
 
@@ -184,7 +183,7 @@ class DatabaseHelper {
       final db = await database;
       return await db.insert(table, values, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (e) {
-      throw DatabaseException('Insert failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Insert failed: ${e.toString()}');
     }
   }
 
@@ -198,7 +197,7 @@ class DatabaseHelper {
       final db = await database;
       return await db.update(table, values, where: where, whereArgs: whereArgs);
     } catch (e) {
-      throw DatabaseException('Update failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Update failed: ${e.toString()}');
     }
   }
 
@@ -211,7 +210,7 @@ class DatabaseHelper {
       final db = await database;
       return await db.delete(table, where: where, whereArgs: whereArgs);
     } catch (e) {
-      throw DatabaseException('Delete failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Delete failed: ${e.toString()}');
     }
   }
 
@@ -223,7 +222,7 @@ class DatabaseHelper {
       final db = await database;
       return await db.rawQuery(sql, arguments);
     } catch (e) {
-      throw DatabaseException('Raw query failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Raw query failed: ${e.toString()}');
     }
   }
 
@@ -232,7 +231,7 @@ class DatabaseHelper {
       final db = await database;
       return await db.rawInsert(sql, arguments);
     } catch (e) {
-      throw DatabaseException('Raw insert failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Raw insert failed: ${e.toString()}');
     }
   }
 
@@ -241,7 +240,7 @@ class DatabaseHelper {
       final db = await database;
       return await db.rawUpdate(sql, arguments);
     } catch (e) {
-      throw DatabaseException('Raw update failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Raw update failed: ${e.toString()}');
     }
   }
 
@@ -250,7 +249,7 @@ class DatabaseHelper {
       final db = await database;
       return await db.rawDelete(sql, arguments);
     } catch (e) {
-      throw DatabaseException('Raw delete failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Raw delete failed: ${e.toString()}');
     }
   }
 
@@ -260,7 +259,7 @@ class DatabaseHelper {
       final db = await database;
       return await db.transaction(action);
     } catch (e) {
-      throw DatabaseException('Transaction failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Transaction failed: ${e.toString()}');
     }
   }
 
@@ -272,7 +271,7 @@ class DatabaseHelper {
       operations(batch);
       return await batch.commit();
     } catch (e) {
-      throw DatabaseException('Batch operation failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Batch operation failed: ${e.toString()}');
     }
   }
 
@@ -287,7 +286,7 @@ class DatabaseHelper {
         ORDER BY rank
       ''', [query]);
     } catch (e) {
-      throw DatabaseException('Search failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Search failed: ${e.toString()}');
     }
   }
 
@@ -297,7 +296,7 @@ class DatabaseHelper {
       final db = await database;
       await db.execute('VACUUM');
     } catch (e) {
-      throw DatabaseException('Vacuum failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Vacuum failed: ${e.toString()}');
     }
   }
 
@@ -306,7 +305,7 @@ class DatabaseHelper {
       final db = await database;
       await db.execute('ANALYZE');
     } catch (e) {
-      throw DatabaseException('Analyze failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Analyze failed: ${e.toString()}');
     }
   }
 
@@ -321,7 +320,7 @@ class DatabaseHelper {
 
       return pageCount * pageSize;
     } catch (e) {
-      throw DatabaseException('Failed to get database size: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Failed to get database size: ${e.toString()}');
     }
   }
 
@@ -341,7 +340,7 @@ class DatabaseHelper {
       await databaseFactory.deleteDatabase(path);
       _database = null;
     } catch (e) {
-      throw DatabaseException('Failed to delete database: ${e.toString()}');
+      throw app_exceptions.DatabaseException('Failed to delete database: ${e.toString()}');
     }
   }
 }

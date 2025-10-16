@@ -301,9 +301,9 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       final artist = metadata?.artist ?? 'Unknown Artist';
       final album = metadata?.album ?? 'Unknown Album';
       final duration = metadata?.duration ?? Duration.zero;
-      final year = metadata?.year;
+      final year = metadata?.year?.year;
       final trackNumber = metadata?.trackNumber;
-      final genre = metadata?.genre;
+      final genre = metadata?.genres?.isNotEmpty == true ? metadata!.genres!.first : null;
 
       return TrackModel(
         id: _uuid.v4(),
