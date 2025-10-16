@@ -1,0 +1,55 @@
+// Core constants for the Misuzu Music application
+class AppConstants {
+  // App Information
+  static const String appName = 'Misuzu Music';
+  static const String version = '1.0.0';
+
+  // Audio Formats
+  static const List<String> supportedAudioFormats = [
+    '.mp3',
+    '.flac',
+    '.aac',
+    '.wav',
+    '.ogg',
+    '.m4a',
+  ];
+
+  // Database
+  static const String dbName = 'misuzu_music.db';
+  static const int dbVersion = 1;
+
+  // Cache
+  static const String artworkCacheDir = 'artwork_cache';
+  static const String lyricsCacheDir = 'lyrics_cache';
+
+  // Settings Keys
+  static const String settingsVolume = 'volume';
+  static const String settingsMusicFolderPath = 'music_folder_path';
+  static const String settingsShowLyricsAnnotation = 'show_lyrics_annotation';
+  static const String settingsAnnotationFontSize = 'annotation_font_size';
+  static const String settingsPlayMode = 'play_mode';
+
+  // Japanese Text Processing
+  static const String mecabDictPath = 'assets/mecab_dict';
+}
+
+enum PlayMode {
+  sequence,
+  shuffle,
+  repeatOne,
+  repeatAll,
+}
+
+enum PlayerState {
+  playing,
+  paused,
+  stopped,
+  loading,
+}
+
+enum TextType {
+  kanji,
+  katakana,
+  hiragana,
+  other,
+}

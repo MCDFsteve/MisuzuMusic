@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter create --org com.misuzu misuzu_music)",
+      "Bash(tree lib/ -I 'main.dart')",
+      "Bash(flutter pub get)",
+      "Bash(flutter analyze)",
+      "Read(//Library/Afolder/FlutterProject/**)",
+      "Bash(find . -maxdepth 1 ! -name '.' -exec mv {} ../ ;)",
+      "Bash(git init)",
+      "Bash(git branch -m main)",
+      "Bash(git add .)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
