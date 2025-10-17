@@ -86,44 +86,12 @@ class _HomePageContentState extends State<HomePageContent> {
         final artworkPath = _currentArtworkPath(playerState);
         const headerHeight = 76.0;
         final sectionLabel = _currentSectionLabel(_selectedIndex);
-        final statsLabel = _composeHeaderStatsLabel(context.watch<MusicLibraryBloc>().state);
+        final statsLabel = _composeHeaderStatsLabel(
+          context.watch<MusicLibraryBloc>().state,
+        );
 
         return MacosWindow(
           titleBar: null,
-          sidebar: Sidebar(
-            minWidth: 200,
-            maxWidth: 300,
-            builder: (context, scrollController) {
-              return SidebarItems(
-                currentIndex: _selectedIndex,
-                onChanged: (index) {
-                  setState(() {
-                    _selectedIndex = index;
-                  });
-                },
-                scrollController: scrollController,
-                itemSize: SidebarItemSize.large,
-                items: const [
-                  SidebarItem(
-                    leading: MacosIcon(CupertinoIcons.music_albums_fill),
-                    label: Text('音乐库'),
-                  ),
-                  SidebarItem(
-                    leading: MacosIcon(CupertinoIcons.music_note_list),
-                    label: Text('播放列表'),
-                  ),
-                  SidebarItem(
-                    leading: MacosIcon(CupertinoIcons.search),
-                    label: Text('搜索'),
-                  ),
-                  SidebarItem(
-                    leading: MacosIcon(CupertinoIcons.settings),
-                    label: Text('设置'),
-                  ),
-                ],
-              );
-            },
-          ),
           child: MacosScaffold(
             toolBar: null,
             children: [
@@ -144,7 +112,8 @@ class _HomePageContentState extends State<HomePageContent> {
                               ? _BlurredArtworkBackground(
                                   key: ValueKey<String>(artworkPath),
                                   artworkPath: artworkPath,
-                                  isDarkMode: MacosTheme.of(context).brightness == Brightness.dark,
+                                  isDarkMode:
+                                      MacosTheme.of(context).brightness == Brightness.dark,
                                 )
                               : Container(
                                   key: const ValueKey<String>('default_background'),
@@ -152,27 +121,35 @@ class _HomePageContentState extends State<HomePageContent> {
                                 ),
                         ),
                       ),
-                      Positioned.fill(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: _buildMainContent(topPadding: headerHeight),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _MacOSNavigationPane(
+                            selectedIndex: _selectedIndex,
+                            onSelect: (index) {
+                              if (_selectedIndex != index) {
+                                setState(() => _selectedIndex = index);
+                              }
+                            },
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _MacOSGlassHeader(
+                                  height: headerHeight,
+                                  sectionLabel: sectionLabel,
+                                  statsLabel: statsLabel,
+                                  onSelectMusicFolder: _selectMusicFolder,
+                                ),
+                                Expanded(
+                                  child: _buildMainContent(),
+                                ),
+                                const MacOSPlayerControlBar(),
+                              ],
                             ),
-                            const MacOSPlayerControlBar(),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        child: _MacOSGlassHeader(
-                          height: headerHeight,
-                          sectionLabel: sectionLabel,
-                          statsLabel: statsLabel,
-                          onSelectMusicFolder: _selectMusicFolder,
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   );
@@ -278,34 +255,19 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
-  Widget _buildMainContent({double topPadding = 0}) {
-    Widget child;
+  Widget _buildMainContent() {
     switch (_selectedIndex) {
       case 0:
-        child = const MusicLibraryView();
-        break;
+        return const MusicLibraryView();
       case 1:
-        child = const PlaylistView();
-        break;
+        return const PlaylistView();
       case 2:
-        child = const SearchView();
-        break;
+        return const SearchView();
       case 3:
-        child = const SettingsView();
-        break;
+        return const SettingsView();
       default:
-        child = const MusicLibraryView();
-        break;
+        return const MusicLibraryView();
     }
-
-    if (topPadding > 0) {
-      child = Padding(
-        padding: EdgeInsets.only(top: topPadding),
-        child: child,
-      );
-    }
-
-    return child;
   }
 
   String _currentSectionLabel(int index) {
@@ -627,6 +589,137 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _MacOSNavigationPane extends StatelessWidget {
+  const _MacOSNavigationPane({
+    required this.selectedIndex,
+    required this.onSelect,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+
+  static const _items = <_NavigationItem>[
+    _NavigationItem(
+      icon: CupertinoIcons.music_albums_fill,
+      label: '音乐库',
+    ),
+    _NavigationItem(
+      icon: CupertinoIcons.music_note_list,
+      label: '播放列表',
+    ),
+    _NavigationItem(
+      icon: CupertinoIcons.search,
+      label: '搜索',
+    ),
+    _NavigationItem(
+      icon: CupertinoIcons.settings,
+      label: '设置',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MacosTheme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
+    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.7);
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          width: 220,
+          decoration: BoxDecoration(
+            color: frostedColor,
+            border: Border(
+              right: BorderSide(
+                color: theme.dividerColor.withOpacity(0.35),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(0, 80, 0, 92),
+            itemCount: _items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 6),
+            itemBuilder: (context, index) {
+              final item = _items[index];
+              final bool active = selectedIndex == index;
+              return _NavigationTile(
+                item: item,
+                active: active,
+                textColor: textColor,
+                onTap: () => onSelect(index),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavigationItem {
+  const _NavigationItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+}
+
+class _NavigationTile extends StatelessWidget {
+  const _NavigationTile({
+    required this.item,
+    required this.active,
+    required this.textColor,
+    required this.onTap,
+  });
+
+  final _NavigationItem item;
+  final bool active;
+  final Color textColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MacosTheme.of(context);
+    const activeBackground = Color(0xFF1b66ff);
+    final Color inactiveColor = textColor.withOpacity(0.72);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutQuad,
+        margin: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: active ? activeBackground : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            MacosIcon(
+              item.icon,
+              size: 18,
+              color: active ? Colors.white : inactiveColor,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                item.label,
+                style: theme.typography.body.copyWith(
+                  color: active ? Colors.white : textColor.withOpacity(0.82),
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
