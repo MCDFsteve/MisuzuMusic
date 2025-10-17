@@ -80,16 +80,26 @@ class MaterialPlayerControlBar extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.skip_previous),
-                    onPressed: canControl
-                        ? () {
-                            context.read<PlayerBloc>().add(
-                              const PlayerSkipPrevious(),
-                            );
-                          }
-                        : null,
-                    tooltip: '上一首',
+                  SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: _MaterialHoverIconButton(
+                      tooltip: '上一首',
+                      enabled: canControl,
+                      baseColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                      hoverColor: Theme.of(context).colorScheme.onSurface,
+                      iconBuilder: (color) => Icon(
+                        Icons.skip_previous,
+                        color: color,
+                      ),
+                      onPressed: canControl
+                          ? () {
+                              context.read<PlayerBloc>().add(
+                                    const PlayerSkipPrevious(),
+                                  );
+                            }
+                          : null,
+                    ),
                   ),
                   if (showLoadingIndicator)
                     const SizedBox(
@@ -98,30 +108,51 @@ class MaterialPlayerControlBar extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   else
-                    IconButton(
-                      icon: Icon(
-                        isPlaying ? Icons.pause : Icons.play_arrow,
-                        size: 32,
-                      ),
-                      onPressed: () {
-                        if (isPlaying) {
-                          context.read<PlayerBloc>().add(const PlayerPause());
-                        } else if (isPaused) {
-                          context.read<PlayerBloc>().add(const PlayerResume());
-                        }
-                      },
-                      tooltip: isPlaying ? '暂停' : '播放',
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.skip_next),
-                    onPressed: canControl
-                        ? () {
-                            context.read<PlayerBloc>().add(
-                              const PlayerSkipNext(),
-                            );
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: _MaterialHoverIconButton(
+                        tooltip: isPlaying ? '暂停' : '播放',
+                        enabled: true,
+                        baseColor: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.8),
+                        hoverColor: Theme.of(context).colorScheme.onSurface,
+                        iconBuilder: (color) => Icon(
+                          isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: color,
+                          size: 32,
+                        ),
+                        onPressed: () {
+                          if (isPlaying) {
+                            context.read<PlayerBloc>().add(const PlayerPause());
+                          } else if (isPaused) {
+                            context.read<PlayerBloc>().add(const PlayerResume());
                           }
-                        : null,
-                    tooltip: '下一首',
+                        },
+                      ),
+                    ),
+                  SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: _MaterialHoverIconButton(
+                      tooltip: '下一首',
+                      enabled: canControl,
+                      baseColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                      hoverColor: Theme.of(context).colorScheme.onSurface,
+                      iconBuilder: (color) => Icon(
+                        Icons.skip_next,
+                        color: color,
+                      ),
+                      onPressed: canControl
+                          ? () {
+                              context.read<PlayerBloc>().add(
+                                    const PlayerSkipNext(),
+                                  );
+                            }
+                          : null,
+                    ),
                   ),
                 ],
               ),
@@ -238,5 +269,94 @@ class MaterialPlayerControlBar extends StatelessWidget {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
     return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+  }
+}
+
+class _MaterialHoverIconButton extends StatefulWidget {
+  const _MaterialHoverIconButton({
+    required this.iconBuilder,
+    required this.onPressed,
+    required this.enabled,
+    required this.baseColor,
+    required this.hoverColor,
+    this.tooltip,
+  });
+
+  final Widget Function(Color color) iconBuilder;
+  final VoidCallback? onPressed;
+  final bool enabled;
+  final Color baseColor;
+  final Color hoverColor;
+  final String? tooltip;
+
+  @override
+  State<_MaterialHoverIconButton> createState() => _MaterialHoverIconButtonState();
+}
+
+class _MaterialHoverIconButtonState extends State<_MaterialHoverIconButton> {
+  bool _hovering = false;
+  bool _pressing = false;
+
+  bool get _enabled => widget.enabled && widget.onPressed != null;
+
+  void _setHovering(bool value) {
+    if (!_enabled) return;
+    setState(() => _hovering = value);
+  }
+
+  void _setPressing(bool value) {
+    if (!_enabled) return;
+    setState(() => _pressing = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color targetColor;
+    if (!_enabled) {
+      targetColor = widget.baseColor.withOpacity(0.45);
+    } else if (_hovering) {
+      targetColor = widget.hoverColor;
+    } else {
+      targetColor = widget.baseColor;
+    }
+
+    final scale = !_enabled
+        ? 1.0
+        : _pressing
+            ? 0.95
+            : (_hovering ? 1.12 : 1.0);
+
+    final icon = AnimatedScale(
+      scale: scale,
+      duration: const Duration(milliseconds: 140),
+      curve: _pressing ? Curves.easeInOut : Curves.easeOutBack,
+      child: widget.iconBuilder(targetColor),
+    );
+
+    final interactive = MouseRegion(
+      cursor: _enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) => _setHovering(true),
+      onExit: (_) {
+        _setHovering(false);
+        _setPressing(false);
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _enabled ? widget.onPressed : null,
+        onTapDown: _enabled ? (_) => _setPressing(true) : null,
+        onTapUp: _enabled ? (_) => _setPressing(false) : null,
+        onTapCancel: _enabled ? () => _setPressing(false) : null,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: icon,
+        ),
+      ),
+    );
+
+    if (widget.tooltip == null || widget.tooltip!.isEmpty) {
+      return interactive;
+    }
+
+    return Tooltip(message: widget.tooltip!, child: interactive);
   }
 }

@@ -128,28 +128,44 @@ class MacOSPlayerControlBar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        MacosIconButton(
-          icon: MacosIcon(
-            CupertinoIcons.shuffle,
-            color: secondaryIconColor,
-            size: 18,
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: _MacHoverIconButton(
+            tooltip: '随机播放',
+            enabled: true,
+            baseColor: secondaryIconColor,
+            hoverColor: iconColor,
+            iconBuilder: (color) => MacosIcon(
+              CupertinoIcons.shuffle,
+              color: color,
+              size: 18,
+            ),
+            onPressed: () {
+              // TODO: 实现随机播放切换
+            },
           ),
-          onPressed: () {
-            // TODO: 实现随机播放切换
-          },
         ),
         const SizedBox(width: 12),
-        MacosIconButton(
-          icon: MacosIcon(
-            CupertinoIcons.backward_fill,
-            color: canControl ? iconColor : secondaryIconColor,
-            size: 20,
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: _MacHoverIconButton(
+            tooltip: '上一首',
+            enabled: canControl,
+            baseColor: secondaryIconColor,
+            hoverColor: iconColor,
+            iconBuilder: (color) => MacosIcon(
+              CupertinoIcons.backward_fill,
+              color: color,
+              size: 20,
+            ),
+            onPressed: canControl
+                ? () {
+                    context.read<PlayerBloc>().add(const PlayerSkipPrevious());
+                  }
+                : null,
           ),
-          onPressed: canControl
-              ? () {
-                  context.read<PlayerBloc>().add(const PlayerSkipPrevious());
-                }
-              : null,
         ),
         const SizedBox(width: 8),
         if (showLoadingIndicator)
@@ -163,20 +179,20 @@ class MacOSPlayerControlBar extends StatelessWidget {
             child: const Center(child: ProgressCircle(radius: 8)),
           )
         else
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: MacosIconButton(
-              icon: MacosIcon(
+          SizedBox(
+            width: 36,
+            height: 36,
+            child: _MacHoverIconButton(
+              tooltip: isPlaying ? '暂停' : '播放',
+              enabled: true,
+              baseColor: iconColor.withOpacity(0.8),
+              hoverColor: iconColor,
+              iconBuilder: (color) => MacosIcon(
                 isPlaying
                     ? CupertinoIcons.pause_fill
                     : CupertinoIcons.play_fill,
-                color: iconColor,
-                size: 16,
+                color: color,
+                size: 18,
               ),
               onPressed: () {
                 if (isPlaying) {
@@ -188,28 +204,44 @@ class MacOSPlayerControlBar extends StatelessWidget {
             ),
           ),
         const SizedBox(width: 8),
-        MacosIconButton(
-          icon: MacosIcon(
-            CupertinoIcons.forward_fill,
-            color: canControl ? iconColor : secondaryIconColor,
-            size: 20,
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: _MacHoverIconButton(
+            tooltip: '下一首',
+            enabled: canControl,
+            baseColor: secondaryIconColor,
+            hoverColor: iconColor,
+            iconBuilder: (color) => MacosIcon(
+              CupertinoIcons.forward_fill,
+              color: color,
+              size: 20,
+            ),
+            onPressed: canControl
+                ? () {
+                    context.read<PlayerBloc>().add(const PlayerSkipNext());
+                  }
+                : null,
           ),
-          onPressed: canControl
-              ? () {
-                  context.read<PlayerBloc>().add(const PlayerSkipNext());
-                }
-              : null,
         ),
         const SizedBox(width: 12),
-        MacosIconButton(
-          icon: MacosIcon(
-            CupertinoIcons.repeat,
-            color: secondaryIconColor,
-            size: 18,
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: _MacHoverIconButton(
+            tooltip: '循环模式',
+            enabled: true,
+            baseColor: secondaryIconColor,
+            hoverColor: iconColor,
+            iconBuilder: (color) => MacosIcon(
+              CupertinoIcons.repeat,
+              color: color,
+              size: 18,
+            ),
+            onPressed: () {
+              // TODO: 实现循环模式切换
+            },
           ),
-          onPressed: () {
-            // TODO: 实现循环模式切换
-          },
         ),
       ],
     );
@@ -338,6 +370,103 @@ class _TrackInfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MacHoverIconButton extends StatefulWidget {
+  const _MacHoverIconButton({
+    required this.iconBuilder,
+    required this.onPressed,
+    required this.enabled,
+    required this.baseColor,
+    required this.hoverColor,
+    this.tooltip,
+  });
+
+  final Widget Function(Color color) iconBuilder;
+  final VoidCallback? onPressed;
+  final bool enabled;
+  final Color baseColor;
+  final Color hoverColor;
+  final String? tooltip;
+
+  @override
+  State<_MacHoverIconButton> createState() => _MacHoverIconButtonState();
+}
+
+class _MacHoverIconButtonState extends State<_MacHoverIconButton> {
+  bool _hovering = false;
+  bool _pressing = false;
+
+  void _setHovering(bool value) {
+    if (!_mountedEnabled) return;
+    setState(() => _hovering = value);
+  }
+
+  void _setPressing(bool value) {
+    if (!_mountedEnabled) return;
+    setState(() => _pressing = value);
+  }
+
+  bool get _mountedEnabled => widget.enabled && mounted;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.enabled && widget.onPressed != null;
+    final Color targetColor;
+    if (!enabled) {
+      targetColor = widget.baseColor.withOpacity(0.45);
+    } else if (_hovering) {
+      targetColor = widget.hoverColor;
+    } else {
+      targetColor = widget.baseColor;
+    }
+
+    final scale = !enabled
+        ? 1.0
+        : _pressing
+            ? 0.95
+            : (_hovering ? 1.12 : 1.0);
+
+    final child = AnimatedScale(
+      scale: scale,
+      duration: const Duration(milliseconds: 140),
+      curve: _pressing ? Curves.easeInOut : Curves.easeOutBack,
+      child: widget.iconBuilder(targetColor),
+    );
+
+    final interactiveChild = MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (enabled) _setHovering(true);
+      },
+      onExit: (_) {
+        if (enabled) {
+          _setHovering(false);
+          _setPressing(false);
+        }
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: enabled ? widget.onPressed : null,
+        onTapDown: enabled ? (_) => _setPressing(true) : null,
+        onTapUp: enabled ? (_) => _setPressing(false) : null,
+        onTapCancel: enabled ? () => _setPressing(false) : null,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: child,
+        ),
+      ),
+    );
+
+    if (widget.tooltip == null || widget.tooltip!.isEmpty) {
+      return interactiveChild;
+    }
+
+    return MacosTooltip(
+      message: widget.tooltip!,
+      child: interactiveChild,
     );
   }
 }
