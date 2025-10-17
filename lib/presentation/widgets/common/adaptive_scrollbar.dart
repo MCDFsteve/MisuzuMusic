@@ -8,7 +8,7 @@ class AdaptiveScrollbar extends StatefulWidget {
     required this.builder,
     required this.isDarkMode,
     this.controller,
-    this.margin = const EdgeInsets.only(right: 10),
+    this.margin = EdgeInsets.zero,
     this.trackRadius = const Radius.circular(3),
     this.thumbWidth = 6,
     this.minThumbExtent = 36,
@@ -139,10 +139,18 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
         final availableHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight - widget.margin.vertical
             : MediaQuery.of(context).size.height - widget.margin.vertical;
+        final trackExtent = availableHeight > 0 ? availableHeight : 0.0;
+
+        final baseBehavior = ScrollConfiguration.of(context);
+        final behaviorWithHiddenScrollbar =
+            baseBehavior.copyWith(scrollbars: false);
 
         final content = NotificationListener<ScrollNotification>(
           onNotification: _handleScrollNotification,
-          child: widget.builder(_controller),
+          child: ScrollConfiguration(
+            behavior: behaviorWithHiddenScrollbar,
+            child: widget.builder(_controller),
+          ),
         );
 
         return Stack(
@@ -153,36 +161,96 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
                 right: widget.margin.right,
                 top: widget.margin.top,
                 bottom: widget.margin.bottom,
-                child: IgnorePointer(
-                  ignoring: true,
-                  child: Container(
-                    width: widget.thumbWidth,
-                    decoration: BoxDecoration(
-                      color: trackColor,
-                      borderRadius: BorderRadius.all(widget.trackRadius),
-                    ),
-                  ),
-                ),
-              ),
-            if (_isScrollable)
-              Positioned(
-                right: widget.margin.right,
-                top: widget.margin.top + _thumbOffset,
-                child: IgnorePointer(
-                  ignoring: true,
-                  child: Container(
-                    width: widget.thumbWidth,
-                    height: _thumbExtent.clamp(0, availableHeight),
-                    decoration: BoxDecoration(
-                      color: thumbColor,
-                      borderRadius: BorderRadius.all(widget.trackRadius),
-                    ),
-                  ),
+                child: _ScrollbarRail(
+                  height: trackExtent,
+                  width: widget.thumbWidth,
+                  trackRadius: widget.trackRadius,
+                  trackColor: trackColor,
+                  thumbColor: thumbColor,
+                  thumbExtent: _thumbExtent.clamp(0, availableHeight),
+                  thumbOffset: _thumbOffset,
+                  onDragTo: (dy) => _jumpToPosition(dy, trackExtent),
                 ),
               ),
           ],
         );
       },
+    );
+  }
+
+  void _jumpToPosition(double dy, double trackExtent) {
+    if (!_controller.hasClients) {
+      return;
+    }
+
+    final maxScroll = _controller.position.maxScrollExtent;
+    if (maxScroll <= 0 || trackExtent <= 0) {
+      return;
+    }
+
+    final effectiveRange = (trackExtent - _thumbExtent).clamp(0.0, double.infinity);
+    final clampedDy = (dy - (_thumbExtent / 2)).clamp(0.0, effectiveRange);
+    final fraction = effectiveRange == 0 ? 0 : (clampedDy / effectiveRange);
+    final target = fraction * maxScroll;
+    _controller.jumpTo(target);
+  }
+}
+
+class _ScrollbarRail extends StatelessWidget {
+  const _ScrollbarRail({
+    required this.height,
+    required this.width,
+    required this.trackRadius,
+    required this.trackColor,
+    required this.thumbColor,
+    required this.thumbExtent,
+    required this.thumbOffset,
+    required this.onDragTo,
+  });
+
+  final double height;
+  final double width;
+  final Radius trackRadius;
+  final Color trackColor;
+  final Color thumbColor;
+  final double thumbExtent;
+  final double thumbOffset;
+  final ValueChanged<double> onDragTo;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTapDown: (details) => onDragTo(details.localPosition.dy),
+      onVerticalDragStart: (details) => onDragTo(details.localPosition.dy),
+      onVerticalDragUpdate: (details) => onDragTo(details.localPosition.dy),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: trackColor,
+                  borderRadius: BorderRadius.all(trackRadius),
+                ),
+              ),
+            ),
+            Positioned(
+              top: thumbOffset.clamp(0, height - thumbExtent),
+              child: Container(
+                width: width,
+                height: thumbExtent,
+                decoration: BoxDecoration(
+                  color: thumbColor,
+                  borderRadius: BorderRadius.all(trackRadius),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

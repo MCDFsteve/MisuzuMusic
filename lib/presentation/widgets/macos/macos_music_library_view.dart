@@ -34,7 +34,6 @@ class MacOSMusicLibraryView extends StatelessWidget {
 
     return AdaptiveScrollbar(
       isDarkMode: isDarkMode,
-      margin: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
       builder: (controller) {
         return ListView.separated(
           controller: controller,

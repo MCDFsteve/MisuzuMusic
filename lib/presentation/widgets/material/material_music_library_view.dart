@@ -53,7 +53,6 @@ class MaterialMusicLibraryView extends StatelessWidget {
         Expanded(
           child: AdaptiveScrollbar(
             isDarkMode: Theme.of(context).brightness == Brightness.dark,
-            margin: const EdgeInsets.only(right: 6, top: 4, bottom: 4),
             builder: (controller) {
               return ListView.builder(
                 controller: controller,
