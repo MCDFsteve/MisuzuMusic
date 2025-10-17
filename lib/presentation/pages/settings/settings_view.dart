@@ -318,7 +318,7 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
                                 : FontWeight.w400,
                             color: isSelected
                                 ? (isDarkMode
-                                    ? Colors.black
+                                    ? Colors.white
                                     : Colors.black.withOpacity(0.85))
                                 : (isDarkMode
                                     ? Colors.white.withOpacity(0.85)
