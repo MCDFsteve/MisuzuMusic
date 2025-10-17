@@ -35,28 +35,48 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        child: _isHovering ? _buildDetailedProgressBar() : _buildSimpleProgressBar(),
+        child: _isHovering
+            ? _buildDetailedProgressBar()
+            : _buildSimpleProgressBar(),
       ),
     );
   }
 
   Widget _buildSimpleProgressBar() {
-    return Container(
-      height: 3,
-      decoration: BoxDecoration(
-        color: widget.secondaryColor.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(1.5),
-      ),
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: widget.progress.clamp(0.0, 1.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: widget.primaryColor,
-            borderRadius: BorderRadius.circular(1.5),
+    const barHeight = 3.0;
+    final barRadius = BorderRadius.circular(barHeight / 2);
+    final clampedProgress = widget.progress.clamp(0.0, 1.0).toDouble();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 0.0;
+        final filledWidth = maxWidth * clampedProgress;
+
+        return SizedBox(
+          height: barHeight,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: widget.secondaryColor.withOpacity(0.3),
+              borderRadius: barRadius,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                height: barHeight,
+                width: filledWidth,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: widget.primaryColor,
+                    borderRadius: barRadius,
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -71,7 +91,8 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
             onChanged: (value) {
               if (widget.duration.inMilliseconds > 0) {
                 final newPosition = Duration(
-                  milliseconds: (widget.duration.inMilliseconds * value).round(),
+                  milliseconds: (widget.duration.inMilliseconds * value)
+                      .round(),
                 );
                 context.read<PlayerBloc>().add(PlayerSeekTo(newPosition));
               }

@@ -23,7 +23,8 @@ class MaterialPlayerControlBar extends StatelessWidget {
         if (state is PlayerPlaying || state is PlayerPaused) {
           final playingState = state as dynamic;
           trackTitle = playingState.track.title;
-          trackArtist = '${playingState.track.artist} • ${playingState.track.album}';
+          trackArtist =
+              '${playingState.track.artist} • ${playingState.track.album}';
           position = playingState.position;
           duration = playingState.duration;
           if (duration.inMilliseconds > 0) {
@@ -71,9 +72,13 @@ class MaterialPlayerControlBar extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.skip_previous),
-                    onPressed: (isPlaying || isPaused) ? () {
-                      context.read<PlayerBloc>().add(const PlayerSkipPrevious());
-                    } : null,
+                    onPressed: (isPlaying || isPaused)
+                        ? () {
+                            context.read<PlayerBloc>().add(
+                              const PlayerSkipPrevious(),
+                            );
+                          }
+                        : null,
                     tooltip: '上一首',
                   ),
                   if (isLoading)
@@ -99,9 +104,13 @@ class MaterialPlayerControlBar extends StatelessWidget {
                     ),
                   IconButton(
                     icon: const Icon(Icons.skip_next),
-                    onPressed: (isPlaying || isPaused) ? () {
-                      context.read<PlayerBloc>().add(const PlayerSkipNext());
-                    } : null,
+                    onPressed: (isPlaying || isPaused)
+                        ? () {
+                            context.read<PlayerBloc>().add(
+                              const PlayerSkipNext(),
+                            );
+                          }
+                        : null,
                     tooltip: '下一首',
                   ),
                 ],
@@ -113,22 +122,65 @@ class MaterialPlayerControlBar extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    GestureDetector(
-                      onTapDown: (details) {
-                        if (duration.inMilliseconds > 0) {
-                          final box = context.findRenderObject() as RenderBox;
-                          final localPosition = details.localPosition;
-                          final progress = localPosition.dx / box.size.width;
-                          final newPosition = Duration(
-                            milliseconds: (duration.inMilliseconds * progress).round(),
-                          );
-                          context.read<PlayerBloc>().add(PlayerSeekTo(newPosition));
-                        }
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final clampedProgress = progress
+                            .clamp(0.0, 1.0)
+                            .toDouble();
+                        final trackWidth = constraints.maxWidth;
+                        final filledWidth = trackWidth.isFinite
+                            ? trackWidth * clampedProgress
+                            : 0.0;
+
+                        return GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTapDown: (details) {
+                            final durationInMs = duration.inMilliseconds;
+                            if (durationInMs <= 0 ||
+                                !trackWidth.isFinite ||
+                                trackWidth == 0) {
+                              return;
+                            }
+
+                            final tappedProgress =
+                                (details.localPosition.dx / trackWidth)
+                                    .clamp(0.0, 1.0)
+                                    .toDouble();
+                            final newPosition = Duration(
+                              milliseconds: (durationInMs * tappedProgress)
+                                  .round(),
+                            );
+                            context.read<PlayerBloc>().add(
+                              PlayerSeekTo(newPosition),
+                            );
+                          },
+                          child: SizedBox(
+                            height: 4,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: SizedBox(
+                                  width: filledWidth,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
                       },
-                      child: LinearProgressIndicator(
-                        value: progress.clamp(0.0, 1.0),
-                        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      ),
                     ),
                     const SizedBox(height: 4),
                     Row(
