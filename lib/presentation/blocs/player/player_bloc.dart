@@ -149,6 +149,26 @@ class PlayerLoading extends PlayerBlocState {
         queue,
         currentIndex,
       ];
+
+  PlayerLoading copyWith({
+    Track? track,
+    Duration? position,
+    Duration? duration,
+    double? volume,
+    PlayMode? playMode,
+    List<Track>? queue,
+    int? currentIndex,
+  }) {
+    return PlayerLoading(
+      track: track ?? this.track,
+      position: position ?? this.position,
+      duration: duration ?? this.duration,
+      volume: volume ?? this.volume,
+      playMode: playMode ?? this.playMode,
+      queue: queue ?? this.queue,
+      currentIndex: currentIndex ?? this.currentIndex,
+    );
+  }
 }
 
 class PlayerPlaying extends PlayerBlocState {
@@ -424,6 +444,20 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
   Future<void> _onSetPlayMode(PlayerSetPlayMode event, Emitter<PlayerBlocState> emit) async {
     try {
       await _audioPlayerService.setPlayMode(event.playMode);
+      final currentState = state;
+      if (currentState is PlayerPlaying) {
+        emit(currentState.copyWith(playMode: event.playMode));
+      } else if (currentState is PlayerPaused) {
+        emit(currentState.copyWith(playMode: event.playMode));
+      } else if (currentState is PlayerLoading) {
+        emit(currentState.copyWith(playMode: event.playMode));
+      } else if (currentState is PlayerStopped) {
+        emit(PlayerStopped(
+          volume: currentState.volume,
+          playMode: event.playMode,
+          queue: currentState.queue,
+        ));
+      }
     } catch (e) {
       emit(PlayerError('Failed to set play mode: ${e.toString()}'));
     }

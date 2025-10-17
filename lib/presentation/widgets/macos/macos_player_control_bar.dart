@@ -5,8 +5,8 @@ import 'package:macos_ui/macos_ui.dart';
 
 import '../../blocs/player/player_bloc.dart';
 import 'macos_progress_bar.dart';
-import 'macos_volume_control.dart';
 import '../common/artwork_thumbnail.dart';
+import '../../../core/constants/app_constants.dart';
 
 class MacOSPlayerControlBar extends StatelessWidget {
   const MacOSPlayerControlBar({super.key});
@@ -132,25 +132,6 @@ class MacOSPlayerControlBar extends StatelessWidget {
           width: 32,
           height: 32,
           child: _MacHoverIconButton(
-            tooltip: '随机播放',
-            enabled: true,
-            baseColor: secondaryIconColor,
-            hoverColor: iconColor,
-            iconBuilder: (color) => MacosIcon(
-              CupertinoIcons.shuffle,
-              color: color,
-              size: 18,
-            ),
-            onPressed: () {
-              // TODO: 实现随机播放切换
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 32,
-          height: 32,
-          child: _MacHoverIconButton(
             tooltip: '上一首',
             enabled: canControl,
             baseColor: secondaryIconColor,
@@ -234,13 +215,11 @@ class MacOSPlayerControlBar extends StatelessWidget {
             baseColor: secondaryIconColor,
             hoverColor: iconColor,
             iconBuilder: (color) => MacosIcon(
-              CupertinoIcons.repeat,
+              _playModeIcon(context),
               color: color,
               size: 18,
             ),
-            onPressed: () {
-              // TODO: 实现循环模式切换
-            },
+            onPressed: () => _cyclePlayMode(context),
           ),
         ),
       ],
@@ -254,55 +233,242 @@ class MacOSPlayerControlBar extends StatelessWidget {
   }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        MacosIconButton(
-          icon: MacosIcon(
-            CupertinoIcons.ellipsis,
-            color: secondaryIconColor,
-            size: 16,
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: _MacHoverIconButton(
+            tooltip: '音量',
+            enabled: true,
+            baseColor: secondaryIconColor,
+            hoverColor: MacosTheme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : MacosColors.labelColor,
+            iconBuilder: (color) => MacosIcon(
+              CupertinoIcons.volume_up,
+              color: color,
+              size: 16,
+            ),
+            onPressed: () {},
           ),
-          onPressed: () {
-            // TODO: 显示更多选项菜单
-          },
         ),
         const SizedBox(width: 8),
-        MacosIconButton(
-          icon: MacosIcon(
-            CupertinoIcons.quote_bubble,
-            color: secondaryIconColor,
-            size: 16,
-          ),
-          onPressed: () {
-            // TODO: 显示歌词面板
-          },
+        _MacVolumeSlider(
+          volume: volume,
+          color: secondaryIconColor,
         ),
-        const SizedBox(width: 8),
-        MacosIconButton(
-          icon: MacosIcon(
-            CupertinoIcons.list_bullet,
-            color: secondaryIconColor,
-            size: 16,
-          ),
-          onPressed: () {
-            // TODO: 显示播放列表
-          },
-        ),
-        const SizedBox(width: 8),
-        MacosIconButton(
-          icon: MacosIcon(
-            CupertinoIcons.hifispeaker,
-            color: secondaryIconColor,
-            size: 16,
-          ),
-          onPressed: () {
-            // TODO: 选择输出设备
-          },
-        ),
-        const SizedBox(width: 12),
-        MacOSVolumeControl(volume: volume, iconColor: secondaryIconColor),
       ],
     );
+  }
+}
+
+class _MacVolumeSlider extends StatefulWidget {
+  const _MacVolumeSlider({
+    required this.volume,
+    required this.color,
+  });
+
+  final double volume;
+  final Color color;
+
+  @override
+  State<_MacVolumeSlider> createState() => _MacVolumeSliderState();
+}
+
+IconData _playModeIcon(BuildContext context) {
+  switch (_currentPlayMode(context)) {
+    case PlayMode.sequence:
+      return CupertinoIcons.arrow_right;
+    case PlayMode.shuffle:
+      return CupertinoIcons.shuffle;
+    case PlayMode.repeatOne:
+      return CupertinoIcons.repeat_1;
+    case PlayMode.repeatAll:
+      return CupertinoIcons.repeat;
+  }
+  return CupertinoIcons.arrow_right;
+}
+
+String _playModeTooltip(BuildContext context) {
+  switch (_currentPlayMode(context)) {
+    case PlayMode.sequence:
+      return '顺序播放';
+    case PlayMode.shuffle:
+      return '随机播放';
+    case PlayMode.repeatOne:
+      return '单曲循环';
+    case PlayMode.repeatAll:
+      return '全部循环';
+  }
+  return '顺序播放';
+}
+
+void _cyclePlayMode(BuildContext context) {
+  final bloc = context.read<PlayerBloc>();
+  final current = _currentPlayMode(context);
+  final next = _playModeNext(current);
+  bloc.add(PlayerSetPlayMode(next));
+}
+
+PlayMode _playModeNext(PlayMode current) {
+  switch (current) {
+    case PlayMode.sequence:
+      return PlayMode.shuffle;
+    case PlayMode.shuffle:
+      return PlayMode.repeatAll;
+    case PlayMode.repeatAll:
+      return PlayMode.repeatOne;
+    case PlayMode.repeatOne:
+      return PlayMode.sequence;
+  }
+  return PlayMode.sequence;
+}
+
+PlayMode _currentPlayMode(BuildContext context) {
+  final bloc = context.read<PlayerBloc>();
+  final state = bloc.state;
+  if (state is PlayerPlaying) {
+    return state.playMode;
+  }
+  if (state is PlayerPaused) {
+    return state.playMode;
+  }
+  if (state is PlayerLoading) {
+    return state.playMode;
+  }
+  if (state is PlayerStopped) {
+    return state.playMode;
+  }
+  return PlayMode.sequence;
+}
+
+class _MacVolumeSliderState extends State<_MacVolumeSlider> {
+  bool _hovering = false;
+  late double _currentVolume;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentVolume = widget.volume;
+  }
+
+  @override
+  void didUpdateWidget(covariant _MacVolumeSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_dragging && widget.volume != _currentVolume) {
+      _currentVolume = widget.volume.clamp(0.0, 1.0);
+    }
+  }
+
+  bool _dragging = false;
+
+  void _updateVolume(BuildContext context, double value) {
+    setState(() => _currentVolume = value);
+    context.read<PlayerBloc>().add(PlayerSetVolume(value));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sliderColor = widget.color;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) {
+        setState(() => _hovering = false);
+        _dragging = false;
+      },
+      child: Container(
+        width: 140,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 16,
+              child: Align(
+                alignment: Alignment.center,
+                child: Container(
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: sliderColor.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(1.5),
+                  ),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: _currentVolume.clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: sliderColor,
+                        borderRadius: BorderRadius.circular(1.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 20,
+              child: OverflowBox(
+                maxHeight: 32,
+                alignment: Alignment.center,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 150),
+                  opacity: _hovering || _dragging ? 1.0 : 0.0,
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 2,
+                      inactiveTrackColor: sliderColor.withOpacity(0.2),
+                      activeTrackColor: sliderColor,
+                      thumbShape: _VolumeThumbShape(sliderColor),
+                    ),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Slider(
+                        value: _currentVolume.clamp(0.0, 1.0),
+                        onChangeStart: (_) => _dragging = true,
+                        onChangeEnd: (_) => _dragging = false,
+                        onChanged: (value) => _updateVolume(context, value),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VolumeThumbShape extends SliderComponentShape {
+  const _VolumeThumbShape(this.color);
+
+  final Color color;
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(12, 12);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    context.canvas.drawCircle(center, 6, paint);
   }
 }
 
