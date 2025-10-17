@@ -418,8 +418,24 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
   }
 
   Future<void> _onSetVolume(PlayerSetVolume event, Emitter<PlayerBlocState> emit) async {
+    final targetVolume = event.volume.clamp(0.0, 1.0);
     try {
-      await _setVolume(event.volume);
+      await _setVolume(targetVolume);
+
+      final currentState = state;
+      if (currentState is PlayerPlaying) {
+        emit(currentState.copyWith(volume: targetVolume));
+      } else if (currentState is PlayerPaused) {
+        emit(currentState.copyWith(volume: targetVolume));
+      } else if (currentState is PlayerLoading) {
+        emit(currentState.copyWith(volume: targetVolume));
+      } else if (currentState is PlayerStopped) {
+        emit(PlayerStopped(
+          volume: targetVolume,
+          playMode: currentState.playMode,
+          queue: currentState.queue,
+        ));
+      }
     } catch (e) {
       emit(PlayerError('Failed to set volume: ${e.toString()}'));
     }
