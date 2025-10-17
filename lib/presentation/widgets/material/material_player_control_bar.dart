@@ -13,8 +13,10 @@ class MaterialPlayerControlBar extends StatelessWidget {
       builder: (context, state) {
         final isPlaying = state is PlayerPlaying;
         final isPaused = state is PlayerPaused;
-        final isLoading = state is PlayerLoading;
-        final canControl = isPlaying || isPaused || isLoading;
+        final loadingState = state is PlayerLoading ? state as PlayerLoading : null;
+        final showLoadingIndicator = loadingState != null && loadingState.track == null;
+        final canControl =
+            isPlaying || isPaused || (loadingState != null && loadingState.track != null);
 
         String trackTitle = '暂无播放';
         String trackArtist = '选择音乐开始播放';
@@ -89,7 +91,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
                         : null,
                     tooltip: '上一首',
                   ),
-                  if (isLoading)
+                  if (showLoadingIndicator)
                     const SizedBox(
                       width: 32,
                       height: 32,

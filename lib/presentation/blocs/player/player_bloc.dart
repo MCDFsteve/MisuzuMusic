@@ -135,7 +135,7 @@ class PlayerLoading extends PlayerBlocState {
     this.duration = Duration.zero,
     this.volume = 1.0,
     this.playMode = PlayMode.sequence,
-    this.queue = const [],
+    this.queue = const <Track>[],
     this.currentIndex = 0,
   });
 
@@ -512,15 +512,52 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
         ));
         break;
       case PlayerState.loading:
-        emit(PlayerLoading(
-          track: currentTrack,
-          position: position,
-          duration: duration,
-          volume: volume,
-          playMode: playMode,
-          queue: queue,
-          currentIndex: currentIndex,
-        ));
+        if (currentTrack == null) {
+          emit(PlayerLoading(
+            track: null,
+            position: position,
+            duration: duration,
+            volume: volume,
+            playMode: playMode,
+            queue: queue,
+            currentIndex: currentIndex,
+          ));
+        } else {
+          final currentState = state;
+          if (currentState is PlayerPlaying) {
+            emit(
+              currentState.copyWith(
+                position: position,
+                duration: duration,
+                volume: volume,
+                playMode: playMode,
+                queue: queue,
+                currentIndex: currentIndex,
+              ),
+            );
+          } else if (currentState is PlayerPaused) {
+            emit(
+              currentState.copyWith(
+                position: position,
+                duration: duration,
+                volume: volume,
+                playMode: playMode,
+                queue: queue,
+                currentIndex: currentIndex,
+              ),
+            );
+          } else {
+            emit(PlayerLoading(
+              track: currentTrack,
+              position: position,
+              duration: duration,
+              volume: volume,
+              playMode: playMode,
+              queue: queue,
+              currentIndex: currentIndex,
+            ));
+          }
+        }
         break;
     }
   }

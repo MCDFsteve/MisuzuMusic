@@ -17,8 +17,10 @@ class MacOSPlayerControlBar extends StatelessWidget {
       builder: (context, state) {
         final isPlaying = state is PlayerPlaying;
         final isPaused = state is PlayerPaused;
-        final isLoading = state is PlayerLoading;
-        final canControl = isPlaying || isPaused || isLoading;
+        final loadingState = state is PlayerLoading ? state as PlayerLoading : null;
+        final showLoadingIndicator = loadingState != null && loadingState.track == null;
+        final canControl =
+            isPlaying || isPaused || (loadingState != null && loadingState.track != null);
 
         String trackTitle = '暂无播放';
         String trackArtist = '选择音乐开始播放';
@@ -67,7 +69,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
                   context: context,
                   isPlaying: isPlaying,
                   isPaused: isPaused,
-                  isLoading: isLoading,
+                  showLoadingIndicator: showLoadingIndicator,
                   iconColor: iconColor,
                   secondaryIconColor: secondaryIconColor,
                 ),
@@ -117,11 +119,11 @@ class MacOSPlayerControlBar extends StatelessWidget {
     required BuildContext context,
     required bool isPlaying,
     required bool isPaused,
-    required bool isLoading,
+    required bool showLoadingIndicator,
     required Color iconColor,
     required Color secondaryIconColor,
   }) {
-    final canControl = isPlaying || isPaused || isLoading;
+    final canControl = isPlaying || isPaused || showLoadingIndicator;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -150,7 +152,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
               : null,
         ),
         const SizedBox(width: 8),
-        if (isLoading)
+        if (showLoadingIndicator)
           Container(
             width: 32,
             height: 32,
