@@ -186,7 +186,7 @@ class _SettingsSection extends StatelessWidget {
         : Colors.black.withOpacity(0.6);
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
           title,
@@ -326,8 +326,8 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
                                       ? Colors.black
                                       : Colors.black.withOpacity(0.85))
                                   : (isDarkMode
-                                      ? Colors.white.withOpacity(0.7)
-                                      : Colors.black.withOpacity(0.6)),
+                                      ? Colors.white.withOpacity(0.85)
+                                      : Colors.black.withOpacity(0.75)),
                             ),
                             child: Text(label),
                           ),
