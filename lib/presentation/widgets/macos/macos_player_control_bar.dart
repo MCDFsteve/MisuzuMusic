@@ -145,7 +145,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
       children: [
         SizedBox(
           width: 36,
-          height: 36,
+          height: 48,
           child: _MacHoverIconButton(
             key: const ValueKey('mac_prev_button'),
             tooltip: '上一首',
@@ -166,19 +166,25 @@ class MacOSPlayerControlBar extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         if (showLoadingIndicator)
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              shape: BoxShape.circle,
+          SizedBox(
+            width: 56,
+            height: 56,
+            child: Center(
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(child: ProgressCircle(radius: 8)),
+              ),
             ),
-            child: const Center(child: ProgressCircle(radius: 8)),
           )
         else
           SizedBox(
-            width: 48,
-            height: 48,
+            width: 56,
+            height: 56,
             child: _MacHoverIconButton(
               key: const ValueKey('mac_play_button'),
               tooltip: isPlaying ? '暂停' : '播放',
@@ -200,7 +206,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
                         : CupertinoIcons.play_fill,
                     key: ValueKey(showPauseVisual),
                     color: color,
-                    size: 30,
+                    size: 34,
                   ),
                 ),
               ),
@@ -216,7 +222,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         const SizedBox(width: 8),
         SizedBox(
           width: 36,
-          height: 36,
+          height: 48,
           child: _MacHoverIconButton(
             key: const ValueKey('mac_next_button'),
             tooltip: '下一首',
@@ -669,7 +675,7 @@ class _MacHoverIconButtonState extends State<_MacHoverIconButton> {
         onTapCancel: enabled ? () => _setPressing(false) : null,
         child: Padding(
           padding: const EdgeInsets.all(4),
-          child: child,
+          child: Center(child: child),
         ),
       ),
     );

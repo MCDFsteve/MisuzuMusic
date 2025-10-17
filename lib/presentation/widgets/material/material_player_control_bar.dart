@@ -86,7 +86,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
             children: [
               SizedBox(
                 width: 36,
-                height: 36,
+                height: 48,
                 child: _MaterialHoverIconButton(
                   key: const ValueKey('material_prev_button'),
                   tooltip: '上一首',
@@ -107,17 +107,23 @@ class MaterialPlayerControlBar extends StatelessWidget {
                       : null,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               if (showLoadingIndicator)
                 const SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  width: 56,
+                  height: 56,
+                  child: Center(
+                    child: SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
                 )
               else
                 SizedBox(
-                  width: 48,
-                  height: 48,
+                  width: 56,
+                  height: 56,
                   child: _MaterialHoverIconButton(
                     key: const ValueKey('material_play_button'),
                     tooltip: isPlaying ? '暂停' : '播放',
@@ -137,7 +143,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
                           showPauseVisual ? Icons.pause : Icons.play_arrow,
                           key: ValueKey(showPauseVisual),
                           color: color,
-                          size: 38,
+                          size: 42,
                         ),
                       ),
                     ),
@@ -150,10 +156,10 @@ class MaterialPlayerControlBar extends StatelessWidget {
                     },
                   ),
                 ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               SizedBox(
                 width: 36,
-                height: 36,
+                height: 48,
                 child: _MaterialHoverIconButton(
                   key: const ValueKey('material_next_button'),
                   tooltip: '下一首',
@@ -403,7 +409,7 @@ class _MaterialHoverIconButtonState extends State<_MaterialHoverIconButton> {
         onTapCancel: _enabled ? () => _setPressing(false) : null,
         child: Padding(
           padding: const EdgeInsets.all(4),
-          child: icon,
+          child: Center(child: icon),
         ),
       ),
     );
