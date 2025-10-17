@@ -43,7 +43,7 @@ class HomePage extends StatelessWidget {
             skipToNext: sl<SkipToNext>(),
             skipToPrevious: sl<SkipToPrevious>(),
             audioPlayerService: sl<AudioPlayerService>(),
-          ),
+          )..add(const PlayerRestoreLastSession()),
         ),
       ],
       child: const HomePageContent(),

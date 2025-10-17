@@ -28,6 +28,9 @@ class AppConstants {
   static const String settingsShowLyricsAnnotation = 'show_lyrics_annotation';
   static const String settingsAnnotationFontSize = 'annotation_font_size';
   static const String settingsPlayMode = 'play_mode';
+  static const String settingsPlaybackQueue = 'playback_queue';
+  static const String settingsPlaybackIndex = 'playback_index';
+  static const String settingsPlaybackPosition = 'playback_position_ms';
 
   // Japanese Text Processing
   static const String mecabDictPath = 'assets/mecab_dict';

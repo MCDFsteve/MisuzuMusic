@@ -74,11 +74,22 @@ class PlayerSetPlayMode extends PlayerEvent {
 class PlayerSetQueue extends PlayerEvent {
   final List<Track> tracks;
   final int? startIndex;
+  final bool autoPlay;
+  final Duration? initialPosition;
 
-  const PlayerSetQueue(this.tracks, {this.startIndex});
+  const PlayerSetQueue(
+    this.tracks, {
+    this.startIndex,
+    this.autoPlay = true,
+    this.initialPosition,
+  });
 
   @override
-  List<Object?> get props => [tracks, startIndex];
+  List<Object?> get props => [tracks, startIndex, autoPlay, initialPosition];
+}
+
+class PlayerRestoreLastSession extends PlayerEvent {
+  const PlayerRestoreLastSession();
 }
 
 class PlayerPositionChanged extends PlayerEvent {
@@ -349,6 +360,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
     on<PlayerPositionChanged>(_onPositionChanged);
     on<PlayerDurationChanged>(_onDurationChanged);
     on<PlayerStateChanged>(_onPlayerStateChanged);
+    on<PlayerRestoreLastSession>(_onRestoreLastSession);
   }
 
   void _initializeSubscriptions() {
@@ -484,19 +496,90 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
       print('🎵 PlayerBloc: 设置播放队列 - ${event.tracks.length} 首歌曲');
       print('🎵 PlayerBloc: 开始索引 - ${event.startIndex}');
 
-      await _audioPlayerService.setQueue(event.tracks);
+      await _audioPlayerService.setQueue(
+        event.tracks,
+        startIndex: event.startIndex ?? 0,
+      );
 
       if (event.startIndex != null && event.tracks.isNotEmpty) {
         final trackToPlay = event.tracks[event.startIndex!];
-        print('🎵 PlayerBloc: 即将播放歌曲 - ${trackToPlay.title}');
-        print('🎵 PlayerBloc: 文件路径 - ${trackToPlay.filePath}');
+        if (event.autoPlay) {
+          print('🎵 PlayerBloc: 即将播放歌曲 - ${trackToPlay.title}');
+          print('🎵 PlayerBloc: 文件路径 - ${trackToPlay.filePath}');
 
-        await _playTrack(trackToPlay);
-        print('🎵 PlayerBloc: 播放命令已发送');
+          await _playTrack(trackToPlay);
+          print('🎵 PlayerBloc: 播放命令已发送');
+        } else {
+          print('🎵 PlayerBloc: 预加载歌曲 - ${trackToPlay.title}');
+          await _audioPlayerService.loadTrack(trackToPlay);
+          final targetPosition = event.initialPosition ?? Duration.zero;
+          if (targetPosition > Duration.zero) {
+            await _seekToPosition(targetPosition);
+          }
+
+          emit(PlayerPaused(
+            track: trackToPlay,
+            position: targetPosition,
+            duration: trackToPlay.duration,
+            volume: _audioPlayerService.volume,
+            playMode: _audioPlayerService.playMode,
+            queue: event.tracks,
+            currentIndex: event.startIndex!,
+          ));
+        }
       }
     } catch (e) {
       print('❌ PlayerBloc: 设置队列失败 - $e');
       emit(PlayerError('Failed to set queue: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onRestoreLastSession(
+    PlayerRestoreLastSession event,
+    Emitter<PlayerBlocState> emit,
+  ) async {
+    try {
+      final session = await _audioPlayerService.loadLastSession();
+      final currentVolume = _audioPlayerService.volume;
+      final currentPlayMode = _audioPlayerService.playMode;
+
+      if (session == null || session.queue.isEmpty) {
+        emit(PlayerStopped(
+          volume: currentVolume,
+          playMode: currentPlayMode,
+          queue: const [],
+        ));
+        return;
+      }
+
+      await _audioPlayerService.setPlayMode(session.playMode);
+      await _audioPlayerService.setQueue(
+        session.queue,
+        startIndex: session.currentIndex,
+      );
+
+      final track = session.queue[session.currentIndex];
+      await _audioPlayerService.loadTrack(track);
+
+      if (session.position > Duration.zero) {
+        await _seekToPosition(session.position);
+      }
+
+      emit(PlayerPaused(
+        track: track,
+        position: session.position,
+        duration: track.duration,
+        volume: session.volume,
+        playMode: session.playMode,
+        queue: session.queue,
+        currentIndex: session.currentIndex,
+      ));
+    } catch (e) {
+      emit(PlayerStopped(
+        volume: _audioPlayerService.volume,
+        playMode: _audioPlayerService.playMode,
+        queue: const [],
+      ));
     }
   }
 

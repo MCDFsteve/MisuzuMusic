@@ -49,7 +49,7 @@ class DependencyInjection {
       // Services
       print('🎵 注册服务...');
       sl.registerLazySingleton<AudioPlayerService>(
-        () => AudioPlayerServiceImpl(),
+        () => AudioPlayerServiceImpl(sl()),
       );
 
       sl.registerLazySingleton<JapaneseProcessingService>(

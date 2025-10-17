@@ -1,10 +1,27 @@
 import '../entities/music_entities.dart';
 import '../../core/constants/app_constants.dart';
 
+class PlaybackSession {
+  const PlaybackSession({
+    required this.queue,
+    required this.currentIndex,
+    required this.position,
+    required this.playMode,
+    required this.volume,
+  });
+
+  final List<Track> queue;
+  final int currentIndex;
+  final Duration position;
+  final PlayMode playMode;
+  final double volume;
+}
+
 // Audio player service interface
 abstract class AudioPlayerService {
   // Playback control
   Future<void> play(Track track);
+  Future<void> loadTrack(Track track);
   Future<void> pause();
   Future<void> resume();
   Future<void> stop();
@@ -24,7 +41,7 @@ abstract class AudioPlayerService {
   bool get isPlaying;
 
   // Queue management
-  Future<void> setQueue(List<Track> tracks);
+  Future<void> setQueue(List<Track> tracks, {int startIndex = 0});
   Future<void> addToQueue(Track track);
   Future<void> removeFromQueue(int index);
   Future<void> clearQueue();
@@ -38,6 +55,9 @@ abstract class AudioPlayerService {
   // Next/Previous
   Future<void> skipToNext();
   Future<void> skipToPrevious();
+
+  // Persistence
+  Future<PlaybackSession?> loadLastSession();
 
   // Cleanup
   Future<void> dispose();
