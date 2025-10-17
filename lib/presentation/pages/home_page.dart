@@ -157,7 +157,7 @@ class _HomePageContentState extends State<HomePageContent> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
-                              child: _buildMainContent(topPadding: headerHeight + 12),
+                              child: _buildMainContent(topPadding: headerHeight),
                             ),
                             const MacOSPlayerControlBar(),
                           ],
