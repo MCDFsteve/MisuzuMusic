@@ -195,7 +195,6 @@ class _SettingsCardState extends State<_SettingsCard> {
   void _handleExit(PointerExitEvent event) {
     setState(() {
       _isHovering = false;
-      _glowAlignment = Alignment.center;
     });
   }
 
@@ -213,7 +212,7 @@ class _SettingsCardState extends State<_SettingsCard> {
             _cardSize = measuredSize;
           }
 
-          final glowStart = Colors.white.withOpacity(0.9);
+          final glowStart = Colors.white.withOpacity(0.18);
 
           return ClipRRect(
             borderRadius: BorderRadius.circular(16),
