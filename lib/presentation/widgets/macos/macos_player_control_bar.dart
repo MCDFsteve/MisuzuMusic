@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -129,8 +131,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           child: _MacHoverIconButton(
             tooltip: '上一首',
             enabled: canControl,
@@ -139,7 +141,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
             iconBuilder: (color) => MacosIcon(
               CupertinoIcons.backward_fill,
               color: color,
-              size: 20,
+              size: 22,
             ),
             onPressed: canControl
                 ? () {
@@ -161,8 +163,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
           )
         else
           SizedBox(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             child: _MacHoverIconButton(
               tooltip: isPlaying ? '暂停' : '播放',
               enabled: true,
@@ -173,7 +175,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
                     ? CupertinoIcons.pause_fill
                     : CupertinoIcons.play_fill,
                 color: color,
-                size: 18,
+                size: 24,
               ),
               onPressed: () {
                 if (isPlaying) {
@@ -186,8 +188,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
           ),
         const SizedBox(width: 8),
         SizedBox(
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           child: _MacHoverIconButton(
             tooltip: '下一首',
             enabled: canControl,
@@ -196,7 +198,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
             iconBuilder: (color) => MacosIcon(
               CupertinoIcons.forward_fill,
               color: color,
-              size: 20,
+              size: 22,
             ),
             onPressed: canControl
                 ? () {
@@ -207,8 +209,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         SizedBox(
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           child: _MacHoverIconButton(
             tooltip: '循环模式',
             enabled: true,
@@ -217,7 +219,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
             iconBuilder: (color) => MacosIcon(
               _playModeIcon(context),
               color: color,
-              size: 18,
+              size: 22,
             ),
             onPressed: () => _cyclePlayMode(context),
           ),
@@ -235,8 +237,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           child: _MacHoverIconButton(
             tooltip: '音量',
             enabled: true,
@@ -247,7 +249,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
             iconBuilder: (color) => MacosIcon(
               CupertinoIcons.volume_up,
               color: color,
-              size: 16,
+              size: 20,
             ),
             onPressed: () {},
           ),
@@ -373,102 +375,124 @@ class _MacVolumeSliderState extends State<_MacVolumeSlider> {
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
-      onExit: (_) {
-        setState(() => _hovering = false);
+      onExit: (_) => setState(() {
+        _hovering = false;
         _dragging = false;
-      },
+      }),
       child: SizedBox(
         width: 140,
         height: 32,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final trackWidth = constraints.maxWidth;
-            final fillWidth = trackWidth * _currentVolume.clamp(0.0, 1.0);
+            if (trackWidth <= 0) {
+              return const SizedBox.shrink();
+            }
 
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: sliderColor.withOpacity(0.25),
-                      borderRadius: BorderRadius.circular(1.5),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 0,
-                  width: fillWidth,
-                  child: Container(
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: sliderColor,
-                      borderRadius: BorderRadius.circular(1.5),
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 150),
-                    opacity: _hovering || _dragging ? 1.0 : 0.0,
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 2,
-                        inactiveTrackColor: sliderColor.withOpacity(0.2),
-                        activeTrackColor: sliderColor,
-                        thumbShape: _VolumeThumbShape(sliderColor),
+            final clampedVolume = _currentVolume.clamp(0.0, 1.0);
+            final fillWidth = trackWidth * clampedVolume;
+            const trackHeight = 2.0;
+            const knobDiameter = 10.0;
+            final knobRadius = knobDiameter / 2;
+            final knobCenter = fillWidth;
+            final knobLeft = math.max(
+              0.0,
+              math.min(knobCenter - knobRadius, trackWidth - knobDiameter),
+            );
+            final knobTop = (constraints.maxHeight - knobDiameter) / 2;
+            final trackTop = (constraints.maxHeight - trackHeight) / 2;
+            final isDarkMode = MacosTheme.of(context).brightness == Brightness.dark;
+            final showKnob = _hovering || _dragging;
+
+            void handlePosition(Offset localPosition) {
+              final relative = (localPosition.dx / trackWidth).clamp(0.0, 1.0);
+              _updateVolume(context, relative);
+            }
+
+            return GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTapDown: (details) => handlePosition(details.localPosition),
+              onHorizontalDragStart: (details) {
+                setState(() => _dragging = true);
+                handlePosition(details.localPosition);
+              },
+              onHorizontalDragUpdate: (details) => handlePosition(details.localPosition),
+              onHorizontalDragEnd: (_) => setState(() => _dragging = false),
+              onHorizontalDragCancel: () => setState(() => _dragging = false),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: trackTop,
+                    child: Container(
+                      height: trackHeight,
+                      decoration: BoxDecoration(
+                        color: sliderColor.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(1),
                       ),
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: Slider(
-                          value: _currentVolume.clamp(0.0, 1.0),
-                          onChangeStart: (_) => _dragging = true,
-                          onChangeEnd: (_) => _dragging = false,
-                          onChanged: (value) => _updateVolume(context, value),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    top: trackTop,
+                    child: SizedBox(
+                      width: fillWidth,
+                      child: Container(
+                        height: trackHeight,
+                        decoration: BoxDecoration(
+                          color: sliderColor,
+                          borderRadius: BorderRadius.circular(1),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                  Positioned(
+                    left: knobLeft,
+                    top: knobTop,
+                    child: IgnorePointer(
+                      ignoring: true,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 150),
+                        opacity: showKnob ? 1.0 : 0.0,
+                        child: AnimatedScale(
+                          duration: const Duration(milliseconds: 150),
+                          scale: showKnob ? 1.0 : 0.85,
+                          child: Container(
+                            width: knobDiameter,
+                            height: knobDiameter,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: sliderColor,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isDarkMode
+                                      ? Colors.black.withOpacity(0.4)
+                                      : Colors.black26,
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? MacosColors.controlBackgroundColor
+                                    : Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),
       ),
     );
-  }
-}
-
-class _VolumeThumbShape extends SliderComponentShape {
-  const _VolumeThumbShape(this.color);
-
-  final Color color;
-
-  @override
-  Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(12, 12);
-
-  @override
-  void paint(
-    PaintingContext context,
-    Offset center, {
-    required Animation<double> activationAnimation,
-    required Animation<double> enableAnimation,
-    required bool isDiscrete,
-    required TextPainter labelPainter,
-    required RenderBox parentBox,
-    required SliderThemeData sliderTheme,
-    required TextDirection textDirection,
-    required double value,
-    required double textScaleFactor,
-    required Size sizeWithOverflow,
-  }) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    context.canvas.drawCircle(center, 6, paint);
   }
 }
 

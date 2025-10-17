@@ -91,6 +91,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
                       iconBuilder: (color) => Icon(
                         Icons.skip_previous,
                         color: color,
+                        size: 28,
                       ),
                       onPressed: canControl
                           ? () {
@@ -144,6 +145,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
                       iconBuilder: (color) => Icon(
                         Icons.skip_next,
                         color: color,
+                        size: 28,
                       ),
                       onPressed: canControl
                           ? () {
@@ -243,19 +245,40 @@ class MaterialPlayerControlBar extends StatelessWidget {
 
               // 音量控制
               const SizedBox(width: 16),
-              const Icon(Icons.volume_up, size: 20),
+              Icon(
+                Icons.volume_up,
+                size: 24,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 8),
               SizedBox(
-                width: 100,
-                child: Slider(
-                  value: (state is PlayerPlaying || state is PlayerPaused)
-                      ? (state as dynamic).volume
-                      : 1.0,
-                  onChanged: (value) {
-                    context.read<PlayerBloc>().add(PlayerSetVolume(value));
-                  },
-                  min: 0.0,
-                  max: 1.0,
+                width: 120,
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 4,
+                    trackShape: const RectangularSliderTrackShape(),
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 7,
+                      disabledThumbRadius: 7,
+                    ),
+                    overlayShape: SliderComponentShape.noOverlay,
+                    activeTrackColor: Theme.of(context).colorScheme.primary,
+                    inactiveTrackColor: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withOpacity(0.2),
+                    thumbColor: Theme.of(context).colorScheme.primary,
+                  ),
+                  child: Slider(
+                    value: (state is PlayerPlaying || state is PlayerPaused)
+                        ? (state as dynamic).volume.clamp(0.0, 1.0)
+                        : 1.0,
+                    onChanged: (value) {
+                      context.read<PlayerBloc>().add(PlayerSetVolume(value));
+                    },
+                    min: 0.0,
+                    max: 1.0,
+                  ),
                 ),
               ),
             ],
