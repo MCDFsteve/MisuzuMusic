@@ -1,26 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/di/dependency_injection.dart';
+import '../../domain/services/audio_player_service.dart';
 import '../../domain/usecases/music_usecases.dart';
+import '../../domain/usecases/player_usecases.dart';
 import '../blocs/music_library/music_library_bloc.dart';
+import '../blocs/player/player_bloc.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => MusicLibraryBloc(
-        getAllTracks: sl<GetAllTracks>(),
-        searchTracks: sl<SearchTracks>(),
-        scanMusicDirectory: sl<ScanMusicDirectory>(),
-        getAllArtists: sl<GetAllArtists>(),
-        getAllAlbums: sl<GetAllAlbums>(),
-      )..add(const LoadAllTracks()),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => MusicLibraryBloc(
+            getAllTracks: sl<GetAllTracks>(),
+            searchTracks: sl<SearchTracks>(),
+            scanMusicDirectory: sl<ScanMusicDirectory>(),
+            getAllArtists: sl<GetAllArtists>(),
+            getAllAlbums: sl<GetAllAlbums>(),
+          )..add(const LoadAllTracks()),
+        ),
+        BlocProvider(
+          create: (context) => PlayerBloc(
+            playTrack: sl<PlayTrack>(),
+            pausePlayer: sl<PausePlayer>(),
+            resumePlayer: sl<ResumePlayer>(),
+            stopPlayer: sl<StopPlayer>(),
+            seekToPosition: sl<SeekToPosition>(),
+            setVolume: sl<SetVolume>(),
+            skipToNext: sl<SkipToNext>(),
+            skipToPrevious: sl<SkipToPrevious>(),
+            audioPlayerService: sl<AudioPlayerService>(),
+          ),
+        ),
+      ],
       child: const HomePageContent(),
     );
   }
@@ -662,17 +684,66 @@ class MusicLibraryView extends StatelessWidget {
                   children: [
                     Text(
                       '${state.tracks.length} 首歌曲, ${state.artists.length} 位艺术家, ${state.albums.length} 张专辑',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
+                      style: defaultTargetPlatform == TargetPlatform.macOS
+                          ? MacosTheme.of(context)
+                              .typography
+                              .body
+                              .copyWith(color: MacosColors.systemGrayColor)
+                          : Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey[600],
+                              ),
                     ),
                     const Spacer(),
                     if (state.searchQuery?.isNotEmpty == true)
-                      Chip(
-                        label: Text('搜索: ${state.searchQuery}'),
-                        deleteIcon: const Icon(Icons.close, size: 18),
-                        onDeleted: () {
-                          context.read<MusicLibraryBloc>().add(const LoadAllTracks());
+                      Builder(
+                        builder: (context) {
+                          if (defaultTargetPlatform == TargetPlatform.macOS) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: MacosTheme.of(context)
+                                    .primaryColor
+                                    .withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '搜索: ${state.searchQuery}',
+                                    style: MacosTheme.of(context)
+                                        .typography
+                                        .caption1,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () {
+                                      context
+                                          .read<MusicLibraryBloc>()
+                                          .add(const LoadAllTracks());
+                                    },
+                                    child: const MacosIcon(
+                                      CupertinoIcons.xmark_circle_fill,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return Chip(
+                            label: Text('搜索: ${state.searchQuery}'),
+                            deleteIcon: const Icon(Icons.close, size: 18),
+                            onDeleted: () {
+                              context
+                                  .read<MusicLibraryBloc>()
+                                  .add(const LoadAllTracks());
+                            },
+                          );
                         },
                       ),
                   ],
@@ -685,38 +756,99 @@ class MusicLibraryView extends StatelessWidget {
                   itemCount: state.tracks.length,
                   itemBuilder: (context, index) {
                     final track = state.tracks[index];
-                    return Material(
-                      type: MaterialType.transparency,
-                      child: ListTile(
-                        leading: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(4),
+                    if (defaultTargetPlatform == TargetPlatform.macOS) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12.0,
+                          vertical: 6.0,
+                        ),
+                        child: MacosListTile(
+                          mouseCursor: SystemMouseCursors.click,
+                          leadingWhitespace: 12,
+                          leading: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: MacosTheme.of(context)
+                                  .dividerColor
+                                  .withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Center(
+                              child: MacosIcon(Icons.music_note),
+                            ),
                           ),
-                          child: const Icon(Icons.music_note),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  track.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _formatDuration(track.duration),
+                                style: MacosTheme.of(context)
+                                    .typography
+                                    .caption1,
+                              ),
+                            ],
+                          ),
+                          subtitle: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${track.artist} • ${track.album}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          onClick: () {
+                            context.read<PlayerBloc>().add(
+                                  PlayerSetQueue(state.tracks, startIndex: index),
+                                );
+                          },
                         ),
-                        title: Text(
-                          track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      );
+                    } else {
+                      return Material(
+                        type: MaterialType.transparency,
+                        child: ListTile(
+                          leading: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Icon(Icons.music_note),
+                          ),
+                          title: Text(
+                            track.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${track.artist} • ${track.album}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: Text(
+                            _formatDuration(track.duration),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          onTap: () {
+                            context.read<PlayerBloc>().add(
+                                  PlayerSetQueue(state.tracks, startIndex: index),
+                                );
+                          },
                         ),
-                        subtitle: Text(
-                          '${track.artist} • ${track.album}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Text(
-                          _formatDuration(track.duration),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        onTap: () {
-                          print('🎵 点击播放: ${track.title} - ${track.artist}');
-                          // TODO: 播放音乐
-                        },
-                      ),
-                    );
+                      );
+                    }
                   },
                 ),
               ),
@@ -828,11 +960,20 @@ class SearchView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          TextField(
+    final bool isMac = defaultTargetPlatform == TargetPlatform.macOS;
+
+    final Widget searchField = isMac
+        ? MacosTextField(
+            placeholder: '搜索歌曲、艺术家或专辑...',
+            prefix: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4.0),
+              child: MacosIcon(CupertinoIcons.search),
+            ),
+            onChanged: (value) {
+              print('🔍 搜索内容: $value');
+            },
+          )
+        : TextField(
             decoration: const InputDecoration(
               hintText: '搜索歌曲、艺术家或专辑...',
               prefixIcon: Icon(Icons.search),
@@ -841,6 +982,15 @@ class SearchView extends StatelessWidget {
             onChanged: (value) {
               print('🔍 搜索内容: $value');
             },
+          );
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: searchField,
           ),
           const SizedBox(height: 16),
           const Expanded(
