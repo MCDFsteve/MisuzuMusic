@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 
@@ -8,14 +9,14 @@ import '../../domain/entities/music_entities.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../datasources/local/music_local_datasource.dart';
 import '../models/music_models.dart';
+import '../../core/constants/app_constants.dart';
 
 class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   final MusicLocalDataSource _localDataSource;
   final Uuid _uuid = const Uuid();
 
-  MusicLibraryRepositoryImpl({
-    required MusicLocalDataSource localDataSource,
-  }) : _localDataSource = localDataSource;
+  MusicLibraryRepositoryImpl({required MusicLocalDataSource localDataSource})
+    : _localDataSource = localDataSource;
 
   @override
   Future<List<Track>> getAllTracks() async {
@@ -43,7 +44,9 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       final trackModels = await _localDataSource.getTracksByArtist(artist);
       return trackModels.map((model) => model.toEntity()).toList();
     } catch (e) {
-      throw DatabaseException('Failed to get tracks by artist: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to get tracks by artist: ${e.toString()}',
+      );
     }
   }
 
@@ -129,7 +132,10 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   @override
   Future<Album?> getAlbumByTitleAndArtist(String title, String artist) async {
     try {
-      final albumModel = await _localDataSource.getAlbumByTitleAndArtist(title, artist);
+      final albumModel = await _localDataSource.getAlbumByTitleAndArtist(
+        title,
+        artist,
+      );
       return albumModel?.toEntity();
     } catch (e) {
       throw DatabaseException('Failed to get album: ${e.toString()}');
@@ -142,7 +148,9 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       final albumModels = await _localDataSource.getAlbumsByArtist(artist);
       return albumModels.map((model) => model.toEntity()).toList();
     } catch (e) {
-      throw DatabaseException('Failed to get albums by artist: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to get albums by artist: ${e.toString()}',
+      );
     }
   }
 
@@ -200,7 +208,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     try {
       final playlist = await getPlaylistById(playlistId);
       if (playlist != null) {
-        final updatedTrackIds = List<String>.from(playlist.trackIds)..add(trackId);
+        final updatedTrackIds = List<String>.from(playlist.trackIds)
+          ..add(trackId);
         final updatedPlaylist = playlist.copyWith(
           trackIds: updatedTrackIds,
           updatedAt: DateTime.now(),
@@ -208,16 +217,22 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         await updatePlaylist(updatedPlaylist);
       }
     } catch (e) {
-      throw DatabaseException('Failed to add track to playlist: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to add track to playlist: ${e.toString()}',
+      );
     }
   }
 
   @override
-  Future<void> removeTrackFromPlaylist(String playlistId, String trackId) async {
+  Future<void> removeTrackFromPlaylist(
+    String playlistId,
+    String trackId,
+  ) async {
     try {
       final playlist = await getPlaylistById(playlistId);
       if (playlist != null) {
-        final updatedTrackIds = List<String>.from(playlist.trackIds)..remove(trackId);
+        final updatedTrackIds = List<String>.from(playlist.trackIds)
+          ..remove(trackId);
         final updatedPlaylist = playlist.copyWith(
           trackIds: updatedTrackIds,
           updatedAt: DateTime.now(),
@@ -225,7 +240,9 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         await updatePlaylist(updatedPlaylist);
       }
     } catch (e) {
-      throw DatabaseException('Failed to remove track from playlist: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to remove track from playlist: ${e.toString()}',
+      );
     }
   }
 
@@ -238,22 +255,22 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       }
 
       final audioFiles = await _findAudioFiles(directory);
-      final tracks = <TrackModel>[];
 
       for (final file in audioFiles) {
         try {
-          final track = await _createTrackFromFile(file);
+          final existing = await _localDataSource.getTrackByFilePath(file.path);
+          final track = await _createTrackFromFile(file, existingTrack: existing);
           if (track != null) {
-            tracks.add(track);
+            if (existing != null) {
+              await _localDataSource.updateTrack(track);
+            } else {
+              await _localDataSource.insertTrack(track);
+            }
           }
         } catch (e) {
           // Log error but continue processing other files
           print('Error processing file ${file.path}: $e');
         }
-      }
-
-      if (tracks.isNotEmpty) {
-        await _localDataSource.insertTracks(tracks);
       }
     } catch (e) {
       throw FileSystemException('Failed to scan directory: ${e.toString()}');
@@ -278,7 +295,14 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
   Future<List<File>> _findAudioFiles(Directory directory) async {
     final audioFiles = <File>[];
-    final supportedExtensions = {'.mp3', '.flac', '.aac', '.wav', '.ogg', '.m4a'};
+    final supportedExtensions = {
+      '.mp3',
+      '.flac',
+      '.aac',
+      '.wav',
+      '.ogg',
+      '.m4a',
+    };
 
     await for (final entity in directory.list(recursive: true)) {
       if (entity is File) {
@@ -292,10 +316,13 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     return audioFiles;
   }
 
-  Future<TrackModel?> _createTrackFromFile(File file) async {
+  Future<TrackModel?> _createTrackFromFile(
+    File file, {
+    TrackModel? existingTrack,
+  }) async {
     try {
       // Read metadata
-      final metadata = await readMetadata(file, getImage: false);
+      final metadata = await readMetadata(file, getImage: true);
 
       final title = metadata?.title ?? path.basenameWithoutExtension(file.path);
       final artist = metadata?.artist ?? 'Unknown Artist';
@@ -303,16 +330,24 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       final duration = metadata?.duration ?? Duration.zero;
       final year = metadata?.year?.year;
       final trackNumber = metadata?.trackNumber;
-      final genre = metadata?.genres?.isNotEmpty == true ? metadata!.genres!.first : null;
+      final genre = metadata?.genres?.isNotEmpty == true
+          ? metadata!.genres!.first
+          : null;
+
+      final artworkPath = await _saveArtwork(
+        metadata,
+        previousArtworkPath: existingTrack?.artworkPath,
+      );
 
       return TrackModel(
-        id: _uuid.v4(),
+        id: existingTrack?.id ?? _uuid.v4(),
         title: title,
         artist: artist,
         album: album,
         filePath: file.path,
         duration: duration,
-        dateAdded: DateTime.now(),
+        dateAdded: existingTrack?.dateAdded ?? DateTime.now(),
+        artworkPath: artworkPath,
         trackNumber: trackNumber,
         year: year,
         genre: genre,
@@ -322,14 +357,75 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
       // Fallback: create track with filename only
       return TrackModel(
-        id: _uuid.v4(),
+        id: existingTrack?.id ?? _uuid.v4(),
         title: path.basenameWithoutExtension(file.path),
-        artist: 'Unknown Artist',
-        album: 'Unknown Album',
+        artist: existingTrack?.artist ?? 'Unknown Artist',
+        album: existingTrack?.album ?? 'Unknown Album',
         filePath: file.path,
-        duration: Duration.zero,
-        dateAdded: DateTime.now(),
+        duration: existingTrack?.duration ?? Duration.zero,
+        dateAdded: existingTrack?.dateAdded ?? DateTime.now(),
+        artworkPath: existingTrack?.artworkPath,
+        trackNumber: existingTrack?.trackNumber,
+        year: existingTrack?.year,
+        genre: existingTrack?.genre,
       );
+    }
+  }
+
+  Future<String?> _saveArtwork(
+    AudioMetadata? metadata, {
+    String? previousArtworkPath,
+  }) async {
+    if (metadata == null || metadata.pictures.isEmpty) {
+      return previousArtworkPath;
+    }
+
+    final picture = metadata.pictures.first;
+    if (picture.bytes.isEmpty) {
+      return previousArtworkPath;
+    }
+
+    final extension = _extensionFromMimeType(picture.mimetype);
+    final cacheDir = await _artworkCacheDirectory();
+    final filePath = path.join(cacheDir.path, '${_uuid.v4()}$extension');
+
+    final file = File(filePath);
+    await file.writeAsBytes(picture.bytes, flush: true);
+
+    if (previousArtworkPath != null && previousArtworkPath != filePath) {
+      final previousFile = File(previousArtworkPath);
+      if (await previousFile.exists()) {
+        await previousFile.delete();
+      }
+    }
+
+    return filePath;
+  }
+
+  Future<Directory> _artworkCacheDirectory() async {
+    final supportDir = await getApplicationSupportDirectory();
+    final cacheDir = Directory(
+      path.join(supportDir.path, AppConstants.artworkCacheDir),
+    );
+    if (!await cacheDir.exists()) {
+      await cacheDir.create(recursive: true);
+    }
+    return cacheDir;
+  }
+
+  String _extensionFromMimeType(String mimetype) {
+    switch (mimetype.toLowerCase()) {
+      case 'image/jpeg':
+      case 'image/jpg':
+        return '.jpg';
+      case 'image/png':
+        return '.png';
+      case 'image/gif':
+        return '.gif';
+      case 'image/bmp':
+        return '.bmp';
+      default:
+        return '.img';
     }
   }
 }

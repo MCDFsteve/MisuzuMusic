@@ -129,6 +129,24 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   }
 
   @override
+  Future<TrackModel?> getTrackByFilePath(String filePath) async {
+    try {
+      final maps = await _databaseHelper.query(
+        'tracks',
+        where: 'file_path = ?',
+        whereArgs: [filePath],
+        limit: 1,
+      );
+      if (maps.isEmpty) {
+        return null;
+      }
+      return TrackModel.fromMap(maps.first);
+    } catch (e) {
+      throw DatabaseException('Failed to get track by file path: ${e.toString()}');
+    }
+  }
+
+  @override
   Future<List<ArtistModel>> getAllArtists() async {
     try {
       final maps = await _databaseHelper.rawQuery('''

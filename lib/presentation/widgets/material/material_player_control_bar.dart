@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../blocs/player/player_bloc.dart';
+import '../common/artwork_thumbnail.dart';
 
 class MaterialPlayerControlBar extends StatelessWidget {
   const MaterialPlayerControlBar({super.key});
@@ -19,6 +20,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
         Duration position = Duration.zero;
         Duration duration = Duration.zero;
         double progress = 0.0;
+        String? artworkPath;
 
         if (state is PlayerPlaying || state is PlayerPaused) {
           final playingState = state as dynamic;
@@ -27,6 +29,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
               '${playingState.track.artist} • ${playingState.track.album}';
           position = playingState.position;
           duration = playingState.duration;
+          artworkPath = playingState.track.artworkPath;
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
           }
@@ -37,14 +40,18 @@ class MaterialPlayerControlBar extends StatelessWidget {
           child: Row(
             children: [
               // 当前播放歌曲信息
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(4),
+              ArtworkThumbnail(
+                artworkPath: artworkPath,
+                size: 48,
+                borderRadius: BorderRadius.circular(4),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
+                borderColor: Theme.of(context).dividerColor,
+                placeholder: Icon(
+                  Icons.music_note,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                child: const Icon(Icons.music_note),
               ),
               const SizedBox(width: 12),
               Expanded(

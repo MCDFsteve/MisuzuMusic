@@ -12,6 +12,7 @@ abstract class MusicLocalDataSource {
   Future<void> updateTrack(TrackModel track);
   Future<void> deleteTrack(String id);
   Future<void> insertTracks(List<TrackModel> tracks);
+  Future<TrackModel?> getTrackByFilePath(String filePath);
 
   // Artist operations
   Future<List<ArtistModel>> getAllArtists();

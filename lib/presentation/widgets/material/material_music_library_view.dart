@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
+import '../common/artwork_thumbnail.dart';
 
 class MaterialMusicLibraryView extends StatelessWidget {
   final List<Track> tracks;
@@ -30,9 +31,9 @@ class MaterialMusicLibraryView extends StatelessWidget {
             children: [
               Text(
                 '${tracks.length} 首歌曲, ${artists.length} 位艺术家, ${albums.length} 张专辑',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
               ),
               const Spacer(),
               if (searchQuery?.isNotEmpty == true)
@@ -56,14 +57,18 @@ class MaterialMusicLibraryView extends StatelessWidget {
               return Material(
                 type: MaterialType.transparency,
                 child: ListTile(
-                  leading: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(4),
+                  leading: ArtworkThumbnail(
+                    artworkPath: track.artworkPath,
+                    size: 48,
+                    borderRadius: BorderRadius.circular(4),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderColor: Theme.of(context).dividerColor,
+                    placeholder: Icon(
+                      Icons.music_note,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    child: const Icon(Icons.music_note),
                   ),
                   title: Text(
                     track.title,
@@ -90,8 +95,8 @@ class MaterialMusicLibraryView extends StatelessWidget {
 
                     if (file.existsSync()) {
                       context.read<PlayerBloc>().add(
-                            PlayerSetQueue(tracks, startIndex: index),
-                          );
+                        PlayerSetQueue(tracks, startIndex: index),
+                      );
                     } else {
                       print('❌ 文件不存在: ${track.filePath}');
                     }

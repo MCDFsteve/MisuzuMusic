@@ -1,47 +1,15 @@
-import 'dart:math' as math;
-
-import 'dart:math' as math;
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:macos_ui/macos_ui.dart';
 
 import '../../blocs/player/player_bloc.dart';
 import 'macos_progress_bar.dart';
 import 'macos_volume_control.dart';
+import '../common/artwork_thumbnail.dart';
 
-class MacOSPlayerControlBar extends StatefulWidget {
+class MacOSPlayerControlBar extends StatelessWidget {
   const MacOSPlayerControlBar({super.key});
-
-  @override
-  State<MacOSPlayerControlBar> createState() => _MacOSPlayerControlBarState();
-}
-
-class _MacOSPlayerControlBarState extends State<MacOSPlayerControlBar> {
-  double _leftControlsWidth = 0;
-  double _rightControlsWidth = 0;
-
-  void _updateLeftWidth(Size size) => _updateIfNeeded(size.width, isLeft: true);
-
-  void _updateRightWidth(Size size) =>
-      _updateIfNeeded(size.width, isLeft: false);
-
-  void _updateIfNeeded(double newWidth, {required bool isLeft}) {
-    final currentWidth = isLeft ? _leftControlsWidth : _rightControlsWidth;
-    if ((newWidth - currentWidth).abs() < 0.5) {
-      return;
-    }
-
-    setState(() {
-      if (isLeft) {
-        _leftControlsWidth = newWidth;
-      } else {
-        _rightControlsWidth = newWidth;
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +25,7 @@ class _MacOSPlayerControlBarState extends State<MacOSPlayerControlBar> {
         Duration duration = Duration.zero;
         double progress = 0.0;
         double volume = 1.0;
+        String? artworkPath;
 
         if (state is PlayerPlaying || state is PlayerPaused) {
           final playingState = state as dynamic;
@@ -66,6 +35,7 @@ class _MacOSPlayerControlBarState extends State<MacOSPlayerControlBar> {
           position = playingState.position;
           duration = playingState.duration;
           volume = playingState.volume;
+          artworkPath = playingState.track.artworkPath;
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
           }
@@ -78,122 +48,65 @@ class _MacOSPlayerControlBarState extends State<MacOSPlayerControlBar> {
             ? Colors.white70
             : MacosColors.secondaryLabelColor;
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final availableWidth = constraints.maxWidth;
-            final measuredLeft = _leftControlsWidth;
-            final measuredRight = _rightControlsWidth;
-            final baseGap = 16.0;
-
-            double leftPaddingAdjustment = 0;
-            double rightPaddingAdjustment = 0;
-
-            if (measuredLeft > 0 && measuredRight > 0) {
-              final diff = measuredRight - measuredLeft;
-              if (diff > 0) {
-                leftPaddingAdjustment = diff / 2;
-              } else if (diff < 0) {
-                rightPaddingAdjustment = -diff / 2;
-              }
-
-              if (availableWidth.isFinite) {
-                final occupiedWidth = measuredLeft + measuredRight;
-                final remainingWidth = math.max(
-                  0.0,
-                  availableWidth - occupiedWidth - (baseGap * 2),
-                );
-                final maxAdjustment = remainingWidth / 2;
-                leftPaddingAdjustment = math.min(
-                  leftPaddingAdjustment,
-                  maxAdjustment,
-                );
-                rightPaddingAdjustment = math.min(
-                  rightPaddingAdjustment,
-                  maxAdjustment,
-                );
-              }
-            }
-
-            double leftPadding = baseGap + leftPaddingAdjustment;
-            double rightPadding = baseGap + rightPaddingAdjustment;
-
-            if (availableWidth.isFinite && measuredLeft > 0 && measuredRight > 0) {
-              final leftover = math.max(
-                0.0,
-                availableWidth - measuredLeft - measuredRight,
-              );
-              final totalPadding = leftPadding + rightPadding;
-              if (totalPadding > leftover && totalPadding > 0) {
-                final scale = leftover / totalPadding;
-                leftPadding *= scale;
-                rightPadding *= scale;
-              }
-            }
-
-            return Container(
-              height: 80,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: theme.canvasColor,
-                border: Border(
-                  top: BorderSide(color: theme.dividerColor, width: 0.5),
+        return Container(
+          height: 80,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: theme.canvasColor,
+            border: Border(
+              top: BorderSide(color: theme.dividerColor, width: 0.5),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                flex: 0,
+                child: _buildPlaybackControls(
+                  context: context,
+                  isPlaying: isPlaying,
+                  isPaused: isPaused,
+                  isLoading: isLoading,
+                  iconColor: iconColor,
+                  secondaryIconColor: secondaryIconColor,
                 ),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _MeasureSize(
-                    onChange: _updateLeftWidth,
-                    child: _buildPlaybackControls(
-                      context: context,
-                      isPlaying: isPlaying,
-                      isPaused: isPaused,
-                      isLoading: isLoading,
-                      iconColor: iconColor,
-                      secondaryIconColor: secondaryIconColor,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _TrackInfoRow(
+                      title: trackTitle,
+                      subtitle: trackArtist,
+                      artworkPath: artworkPath,
+                      titleColor: iconColor,
+                      subtitleColor: secondaryIconColor,
                     ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        left: leftPadding,
-                        right: rightPadding,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          _TrackInfoRow(
-                            title: trackTitle,
-                            subtitle: trackArtist,
-                            titleColor: iconColor,
-                            subtitleColor: secondaryIconColor,
-                          ),
-                          const SizedBox(height: 4),
-                          MacOSProgressBar(
-                            progress: progress,
-                            position: position,
-                            duration: duration,
-                            primaryColor: iconColor,
-                            secondaryColor: secondaryIconColor,
-                          ),
-                        ],
-                      ),
+                    const SizedBox(height: 4),
+                    MacOSProgressBar(
+                      progress: progress,
+                      position: position,
+                      duration: duration,
+                      primaryColor: iconColor,
+                      secondaryColor: secondaryIconColor,
                     ),
-                  ),
-                  _MeasureSize(
-                    onChange: _updateRightWidth,
-                    child: _buildAuxiliaryControls(
-                      context: context,
-                      secondaryIconColor: secondaryIconColor,
-                      volume: volume,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            );
-          },
+              const SizedBox(width: 16),
+              Flexible(
+                flex: 0,
+                child: _buildAuxiliaryControls(
+                  context: context,
+                  secondaryIconColor: secondaryIconColor,
+                  volume: volume,
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -360,12 +273,14 @@ class _TrackInfoRow extends StatelessWidget {
   const _TrackInfoRow({
     required this.title,
     required this.subtitle,
+    required this.artworkPath,
     required this.titleColor,
     required this.subtitleColor,
   });
 
   final String title;
   final String subtitle;
+  final String? artworkPath;
   final Color titleColor;
   final Color subtitleColor;
 
@@ -376,20 +291,16 @@ class _TrackInfoRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.max,
       children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: MacosColors.controlBackgroundColor,
-            borderRadius: BorderRadius.circular(5),
-            border: Border.all(color: theme.dividerColor, width: 0.5),
-          ),
-          child: const Center(
-            child: MacosIcon(
-              CupertinoIcons.music_note,
-              color: MacosColors.systemGrayColor,
-              size: 14,
-            ),
+        ArtworkThumbnail(
+          artworkPath: artworkPath,
+          size: 34,
+          borderRadius: BorderRadius.circular(5),
+          backgroundColor: MacosColors.controlBackgroundColor,
+          borderColor: theme.dividerColor,
+          placeholder: const MacosIcon(
+            CupertinoIcons.music_note,
+            color: MacosColors.systemGrayColor,
+            size: 14,
           ),
         ),
         const SizedBox(width: 10),
@@ -423,46 +334,5 @@ class _TrackInfoRow extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _MeasureSize extends SingleChildRenderObjectWidget {
-  const _MeasureSize({required this.onChange, required super.child});
-
-  final ValueChanged<Size> onChange;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) {
-    return _RenderMeasureSize(onChange);
-  }
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    covariant _RenderMeasureSize renderObject,
-  ) {
-    renderObject.onChange = onChange;
-  }
-}
-
-class _RenderMeasureSize extends RenderProxyBox {
-  _RenderMeasureSize(this.onChange);
-
-  ValueChanged<Size> onChange;
-  Size? _oldSize;
-
-  @override
-  void performLayout() {
-    super.performLayout();
-    final newSize = size;
-    if (_oldSize == newSize) {
-      return;
-    }
-    _oldSize = newSize;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (attached) {
-        onChange(newSize);
-      }
-    });
   }
 }

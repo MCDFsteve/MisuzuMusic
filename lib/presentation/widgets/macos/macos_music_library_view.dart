@@ -6,6 +6,7 @@ import 'package:macos_ui/macos_ui.dart';
 
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
+import '../common/artwork_thumbnail.dart';
 
 class MacOSMusicLibraryView extends StatelessWidget {
   final List<Track> tracks;
@@ -71,9 +72,8 @@ class MacOSMusicLibraryView extends StatelessWidget {
                     children: [
                       Text(
                         '搜索: $searchQuery',
-                        style: MacosTheme.of(context).typography.caption1.copyWith(
-                          color: MacosColors.controlAccentColor,
-                        ),
+                        style: MacosTheme.of(context).typography.caption1
+                            .copyWith(color: MacosColors.controlAccentColor),
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
@@ -113,23 +113,16 @@ class MacOSMusicLibraryView extends StatelessWidget {
                 ),
                 child: MacosListTile(
                   mouseCursor: SystemMouseCursors.click,
-                  leading: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: MacosColors.controlBackgroundColor,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: MacosTheme.of(context).dividerColor,
-                        width: 0.5,
-                      ),
-                    ),
-                    child: const Center(
-                      child: MacosIcon(
-                        CupertinoIcons.music_note,
-                        color: MacosColors.systemGrayColor,
-                        size: 20,
-                      ),
+                  leading: ArtworkThumbnail(
+                    artworkPath: track.artworkPath,
+                    size: 48,
+                    borderRadius: BorderRadius.circular(6),
+                    backgroundColor: MacosColors.controlBackgroundColor,
+                    borderColor: MacosTheme.of(context).dividerColor,
+                    placeholder: const MacosIcon(
+                      CupertinoIcons.music_note,
+                      color: MacosColors.systemGrayColor,
+                      size: 20,
                     ),
                   ),
                   title: Row(
@@ -137,9 +130,8 @@ class MacOSMusicLibraryView extends StatelessWidget {
                       Expanded(
                         child: Text(
                           track.title,
-                          style: MacosTheme.of(context).typography.body.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: MacosTheme.of(context).typography.body
+                              .copyWith(fontWeight: FontWeight.w500),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -147,9 +139,8 @@ class MacOSMusicLibraryView extends StatelessWidget {
                       const SizedBox(width: 16),
                       Text(
                         _formatDuration(track.duration),
-                        style: MacosTheme.of(context).typography.caption1.copyWith(
-                          color: MacosColors.systemGrayColor,
-                        ),
+                        style: MacosTheme.of(context).typography.caption1
+                            .copyWith(color: MacosColors.systemGrayColor),
                       ),
                     ],
                   ),
@@ -157,9 +148,8 @@ class MacOSMusicLibraryView extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       '${track.artist} • ${track.album}',
-                      style: MacosTheme.of(context).typography.caption1.copyWith(
-                        color: MacosColors.systemGrayColor,
-                      ),
+                      style: MacosTheme.of(context).typography.caption1
+                          .copyWith(color: MacosColors.systemGrayColor),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -175,8 +165,8 @@ class MacOSMusicLibraryView extends StatelessWidget {
 
                     if (file.existsSync()) {
                       context.read<PlayerBloc>().add(
-                            PlayerSetQueue(tracks, startIndex: index),
-                          );
+                        PlayerSetQueue(tracks, startIndex: index),
+                      );
                     } else {
                       print('❌ 文件不存在: ${track.filePath}');
                     }
