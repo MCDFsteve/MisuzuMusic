@@ -270,6 +270,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
   }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
           width: 36,
@@ -290,9 +291,12 @@ class MacOSPlayerControlBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        _MacVolumeSlider(
-          volume: volume,
-          color: iconColor,
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: _MacVolumeSlider(
+            volume: volume,
+            color: iconColor,
+          ),
         ),
       ],
     );
@@ -410,7 +414,7 @@ class _MacVolumeSliderState extends State<_MacVolumeSlider> {
       }),
       child: SizedBox(
         width: 140,
-        height: 32,
+        height: 36,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final trackWidth = constraints.maxWidth;
@@ -429,7 +433,6 @@ class _MacVolumeSliderState extends State<_MacVolumeSlider> {
               math.min(knobCenter - knobRadius, trackWidth - knobDiameter),
             );
             final knobTop = (constraints.maxHeight - knobDiameter) / 2;
-            final trackTop = (constraints.maxHeight - trackHeight) / 2;
             final isDarkMode = MacosTheme.of(context).brightness == Brightness.dark;
             final showKnob = _hovering || _dragging;
 
@@ -451,28 +454,29 @@ class _MacVolumeSliderState extends State<_MacVolumeSlider> {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: trackTop,
-                    child: Container(
+                  Center(
+                    child: SizedBox(
                       height: trackHeight,
-                      decoration: BoxDecoration(
-                        color: sliderColor.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(1),
+                      width: trackWidth,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: sliderColor.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
                       ),
                     ),
                   ),
-                  Positioned(
-                    left: 0,
-                    top: trackTop,
-                    child: SizedBox(
-                      width: fillWidth,
-                      child: Container(
+                  Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        width: fillWidth,
                         height: trackHeight,
-                        decoration: BoxDecoration(
-                          color: sliderColor,
-                          borderRadius: BorderRadius.circular(1),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: sliderColor,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
                         ),
                       ),
                     ),
