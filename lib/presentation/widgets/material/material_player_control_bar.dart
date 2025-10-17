@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -38,250 +40,261 @@ class MaterialPlayerControlBar extends StatelessWidget {
           }
         }
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
+        final theme = Theme.of(context);
+        final bool isDarkMode = theme.brightness == Brightness.dark;
+        final Color frostedColor = theme.colorScheme.surface.withOpacity(
+          isDarkMode ? 0.25 : 0.6,
+        );
+
+        final rowChildren = <Widget>[
+          // 当前播放歌曲信息
+          ArtworkThumbnail(
+            artworkPath: artworkPath,
+            size: 48,
+            borderRadius: BorderRadius.circular(4),
+            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            borderColor: theme.dividerColor,
+            placeholder: Icon(
+              Icons.music_note,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  trackTitle,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  trackArtist,
+                  style: const TextStyle(fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          // 播放控制按钮
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // 当前播放歌曲信息
-              ArtworkThumbnail(
-                artworkPath: artworkPath,
-                size: 48,
-                borderRadius: BorderRadius.circular(4),
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest,
-                borderColor: Theme.of(context).dividerColor,
-                placeholder: Icon(
-                  Icons.music_note,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: _MaterialHoverIconButton(
+                  tooltip: '上一首',
+                  enabled: canControl,
+                  baseColor: theme.colorScheme.onSurfaceVariant,
+                  hoverColor: theme.colorScheme.onSurface,
+                  iconBuilder: (color) => Icon(
+                    Icons.skip_previous,
+                    color: color,
+                    size: 28,
+                  ),
+                  onPressed: canControl
+                      ? () {
+                          context.read<PlayerBloc>().add(
+                                const PlayerSkipPrevious(),
+                              );
+                        }
+                      : null,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      trackTitle,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                      overflow: TextOverflow.ellipsis,
+              if (showLoadingIndicator)
+                const SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: _MaterialHoverIconButton(
+                    tooltip: isPlaying ? '暂停' : '播放',
+                    enabled: true,
+                    baseColor: theme.colorScheme.onSurface.withOpacity(0.8),
+                    hoverColor: theme.colorScheme.onSurface,
+                    iconBuilder: (color) => Icon(
+                      isPlaying ? Icons.pause : Icons.play_arrow,
+                      color: color,
+                      size: 32,
                     ),
-                    Text(
-                      trackArtist,
-                      style: const TextStyle(fontSize: 12),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    onPressed: () {
+                      if (isPlaying) {
+                        context.read<PlayerBloc>().add(const PlayerPause());
+                      } else if (isPaused) {
+                        context.read<PlayerBloc>().add(const PlayerResume());
+                      }
+                    },
+                  ),
+                ),
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: _MaterialHoverIconButton(
+                  tooltip: '下一首',
+                  enabled: canControl,
+                  baseColor: theme.colorScheme.onSurfaceVariant,
+                  hoverColor: theme.colorScheme.onSurface,
+                  iconBuilder: (color) => Icon(
+                    Icons.skip_next,
+                    color: color,
+                    size: 28,
+                  ),
+                  onPressed: canControl
+                      ? () {
+                          context.read<PlayerBloc>().add(
+                                const PlayerSkipNext(),
+                              );
+                        }
+                      : null,
                 ),
               ),
+            ],
+          ),
 
-              // 播放控制按钮
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: _MaterialHoverIconButton(
-                      tooltip: '上一首',
-                      enabled: canControl,
-                      baseColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                      hoverColor: Theme.of(context).colorScheme.onSurface,
-                      iconBuilder: (color) => Icon(
-                        Icons.skip_previous,
-                        color: color,
-                        size: 28,
-                      ),
-                      onPressed: canControl
-                          ? () {
-                              context.read<PlayerBloc>().add(
-                                    const PlayerSkipPrevious(),
-                                  );
-                            }
-                          : null,
-                    ),
-                  ),
-                  if (showLoadingIndicator)
-                    const SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: _MaterialHoverIconButton(
-                        tooltip: isPlaying ? '暂停' : '播放',
-                        enabled: true,
-                        baseColor: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.8),
-                        hoverColor: Theme.of(context).colorScheme.onSurface,
-                        iconBuilder: (color) => Icon(
-                          isPlaying ? Icons.pause : Icons.play_arrow,
-                          color: color,
-                          size: 32,
-                        ),
-                        onPressed: () {
-                          if (isPlaying) {
-                            context.read<PlayerBloc>().add(const PlayerPause());
-                          } else if (isPaused) {
-                            context.read<PlayerBloc>().add(const PlayerResume());
-                          }
-                        },
-                      ),
-                    ),
-                  SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: _MaterialHoverIconButton(
-                      tooltip: '下一首',
-                      enabled: canControl,
-                      baseColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                      hoverColor: Theme.of(context).colorScheme.onSurface,
-                      iconBuilder: (color) => Icon(
-                        Icons.skip_next,
-                        color: color,
-                        size: 28,
-                      ),
-                      onPressed: canControl
-                          ? () {
-                              context.read<PlayerBloc>().add(
-                                    const PlayerSkipNext(),
-                                  );
-                            }
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
+          // 进度条
+          Expanded(
+            flex: 2,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
+                    final trackWidth = constraints.maxWidth;
+                    final filledWidth =
+                        trackWidth.isFinite ? trackWidth * clampedProgress : 0.0;
 
-              // 进度条
-              Expanded(
-                flex: 2,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final clampedProgress = progress
-                            .clamp(0.0, 1.0)
-                            .toDouble();
-                        final trackWidth = constraints.maxWidth;
-                        final filledWidth = trackWidth.isFinite
-                            ? trackWidth * clampedProgress
-                            : 0.0;
+                    return GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTapDown: (details) {
+                        final durationInMs = duration.inMilliseconds;
+                        if (durationInMs <= 0 ||
+                            !trackWidth.isFinite ||
+                            trackWidth == 0) {
+                          return;
+                        }
 
-                        return GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTapDown: (details) {
-                            final durationInMs = duration.inMilliseconds;
-                            if (durationInMs <= 0 ||
-                                !trackWidth.isFinite ||
-                                trackWidth == 0) {
-                              return;
-                            }
-
-                            final tappedProgress =
-                                (details.localPosition.dx / trackWidth)
-                                    .clamp(0.0, 1.0)
-                                    .toDouble();
-                            final newPosition = Duration(
-                              milliseconds: (durationInMs * tappedProgress)
-                                  .round(),
-                            );
-                            context.read<PlayerBloc>().add(
-                              PlayerSeekTo(newPosition),
-                            );
-                          },
-                          child: SizedBox(
-                            height: 4,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: SizedBox(
-                                  width: filledWidth,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
+                        final tappedProgress =
+                            (details.localPosition.dx / trackWidth)
+                                .clamp(0.0, 1.0)
+                                .toDouble();
+                        final newPosition = Duration(
+                          milliseconds: (durationInMs * tappedProgress).round(),
+                        );
+                        context.read<PlayerBloc>().add(
+                          PlayerSeekTo(newPosition),
+                        );
+                      },
+                      child: SizedBox(
+                        height: 4,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              width: filledWidth,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatDuration(position),
+                      style: const TextStyle(fontSize: 12),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _formatDuration(position),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        Text(
-                          _formatDuration(duration),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
+                    Text(
+                      _formatDuration(duration),
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ],
                 ),
-              ),
+              ],
+            ),
+          ),
 
-              // 音量控制
-              const SizedBox(width: 16),
-              Icon(
-                Icons.volume_up,
-                size: 24,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+          // 音量控制
+          const SizedBox(width: 16),
+          Icon(
+            Icons.volume_up,
+            size: 24,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 120,
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 4,
+                trackShape: const RectangularSliderTrackShape(),
+                thumbShape: const RoundSliderThumbShape(
+                  enabledThumbRadius: 7,
+                  disabledThumbRadius: 7,
+                ),
+                overlayShape: SliderComponentShape.noOverlay,
+                activeTrackColor: theme.colorScheme.primary,
+                inactiveTrackColor: theme.colorScheme.onSurfaceVariant.withOpacity(0.2),
+                thumbColor: theme.colorScheme.primary,
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 120,
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 4,
-                    trackShape: const RectangularSliderTrackShape(),
-                    thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 7,
-                      disabledThumbRadius: 7,
-                    ),
-                    overlayShape: SliderComponentShape.noOverlay,
-                    activeTrackColor: Theme.of(context).colorScheme.primary,
-                    inactiveTrackColor: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withOpacity(0.2),
-                    thumbColor: Theme.of(context).colorScheme.primary,
+              child: Slider(
+                value: (state is PlayerPlaying || state is PlayerPaused)
+                    ? (state as dynamic).volume.clamp(0.0, 1.0)
+                    : 1.0,
+                onChanged: (value) {
+                  context.read<PlayerBloc>().add(PlayerSetVolume(value));
+                },
+                min: 0.0,
+                max: 1.0,
+              ),
+            ),
+          ),
+        ];
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: frostedColor,
+                  border: Border.all(
+                    color: theme.dividerColor.withOpacity(0.15),
+                    width: 1,
                   ),
-                  child: Slider(
-                    value: (state is PlayerPlaying || state is PlayerPaused)
-                        ? (state as dynamic).volume.clamp(0.0, 1.0)
-                        : 1.0,
-                    onChanged: (value) {
-                      context.read<PlayerBloc>().add(PlayerSetVolume(value));
-                    },
-                    min: 0.0,
-                    max: 1.0,
+                ),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  child: Row(
+                    children: rowChildren,
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         );
       },

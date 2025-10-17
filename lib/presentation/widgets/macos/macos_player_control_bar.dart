@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -53,65 +54,73 @@ class MacOSPlayerControlBar extends StatelessWidget {
             ? Colors.white70
             : MacosColors.secondaryLabelColor;
 
-        return Container(
-          height: 80,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            color: theme.canvasColor,
-            border: Border(
-              top: BorderSide(color: theme.dividerColor, width: 0.5),
+        final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.7);
+
+        return ClipRect(
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              height: 80,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: frostedColor,
+                border: Border(
+                  top: BorderSide(color: theme.dividerColor.withOpacity(0.5), width: 0.5),
+                  bottom: BorderSide(color: theme.dividerColor.withOpacity(0.15), width: 0.5),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(
+                    flex: 0,
+                    child: _buildPlaybackControls(
+                      context: context,
+                      isPlaying: isPlaying,
+                      isPaused: isPaused,
+                      showLoadingIndicator: showLoadingIndicator,
+                      iconColor: iconColor,
+                      secondaryIconColor: secondaryIconColor,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _TrackInfoRow(
+                          title: trackTitle,
+                          subtitle: trackArtist,
+                          artworkPath: artworkPath,
+                          titleColor: iconColor,
+                          subtitleColor: secondaryIconColor,
+                        ),
+                        const SizedBox(height: 4),
+                        MacOSProgressBar(
+                          progress: progress,
+                          position: position,
+                          duration: duration,
+                          primaryColor: iconColor,
+                          secondaryColor: secondaryIconColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Flexible(
+                    flex: 0,
+                    child: _buildAuxiliaryControls(
+                      context: context,
+                      iconColor: iconColor,
+                      secondaryIconColor: secondaryIconColor,
+                      volume: volume,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Flexible(
-                flex: 0,
-                child: _buildPlaybackControls(
-                  context: context,
-                  isPlaying: isPlaying,
-                  isPaused: isPaused,
-                  showLoadingIndicator: showLoadingIndicator,
-                  iconColor: iconColor,
-                  secondaryIconColor: secondaryIconColor,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _TrackInfoRow(
-                      title: trackTitle,
-                      subtitle: trackArtist,
-                      artworkPath: artworkPath,
-                      titleColor: iconColor,
-                      subtitleColor: secondaryIconColor,
-                    ),
-                    const SizedBox(height: 4),
-                    MacOSProgressBar(
-                      progress: progress,
-                      position: position,
-                      duration: duration,
-                      primaryColor: iconColor,
-                      secondaryColor: secondaryIconColor,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Flexible(
-                flex: 0,
-                child: _buildAuxiliaryControls(
-                  context: context,
-                  iconColor: iconColor,
-                  secondaryIconColor: secondaryIconColor,
-                  volume: volume,
-                ),
-              ),
-            ],
           ),
         );
       },
