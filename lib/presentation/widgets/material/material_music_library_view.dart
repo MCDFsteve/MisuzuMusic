@@ -1,0 +1,113 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../domain/entities/music_entities.dart';
+import '../../blocs/player/player_bloc.dart';
+
+class MaterialMusicLibraryView extends StatelessWidget {
+  final List<Track> tracks;
+  final List<Artist> artists;
+  final List<Album> albums;
+  final String? searchQuery;
+
+  const MaterialMusicLibraryView({
+    super.key,
+    required this.tracks,
+    required this.artists,
+    required this.albums,
+    this.searchQuery,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // 统计信息
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Text(
+                '${tracks.length} 首歌曲, ${artists.length} 位艺术家, ${albums.length} 张专辑',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+              ),
+              const Spacer(),
+              if (searchQuery?.isNotEmpty == true)
+                Chip(
+                  label: Text('搜索: $searchQuery'),
+                  deleteIcon: const Icon(Icons.close, size: 18),
+                  onDeleted: () {
+                    // Clear search
+                  },
+                ),
+            ],
+          ),
+        ),
+
+        // 音乐列表
+        Expanded(
+          child: ListView.builder(
+            itemCount: tracks.length,
+            itemBuilder: (context, index) {
+              final track = tracks[index];
+              return Material(
+                type: MaterialType.transparency,
+                child: ListTile(
+                  leading: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(Icons.music_note),
+                  ),
+                  title: Text(
+                    track.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${track.artist} • ${track.album}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Text(
+                    _formatDuration(track.duration),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  onTap: () {
+                    print('🎵 Material点击歌曲: ${track.title}');
+                    print('🎵 文件路径: ${track.filePath}');
+                    print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
+
+                    // 先检查文件是否存在
+                    final file = File(track.filePath);
+                    print('🎵 文件是否存在: ${file.existsSync()}');
+
+                    if (file.existsSync()) {
+                      context.read<PlayerBloc>().add(
+                            PlayerSetQueue(tracks, startIndex: index),
+                          );
+                    } else {
+                      print('❌ 文件不存在: ${track.filePath}');
+                    }
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+  }
+}

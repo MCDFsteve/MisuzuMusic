@@ -87,10 +87,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> play(Track track) async {
     try {
+      print('🎵 AudioService: 开始播放 - ${track.title}');
+      print('🎵 AudioService: 文件路径 - ${track.filePath}');
+
       _currentTrack = track;
       await _audioPlayer.setFilePath(track.filePath);
       await _audioPlayer.play();
+
+      print('🎵 AudioService: 播放命令执行完成');
     } catch (e) {
+      print('❌ AudioService: 播放失败 - $e');
       throw AudioPlaybackException('Failed to play track: ${e.toString()}');
     }
   }
@@ -168,9 +174,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
   @override
   Future<void> setQueue(List<Track> tracks) async {
+    print('🎵 AudioService: 设置队列 - ${tracks.length} 首歌曲');
     _queue.clear();
     _queue.addAll(tracks);
     _currentIndex = 0;
+    print('🎵 AudioService: 队列设置完成');
   }
 
   @override

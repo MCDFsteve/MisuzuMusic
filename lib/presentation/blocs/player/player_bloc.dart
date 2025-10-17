@@ -320,9 +320,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
 
   Future<void> _onPlayTrack(PlayerPlayTrack event, Emitter<PlayerBlocState> emit) async {
     try {
+      print('🎵 PlayerBloc: 开始播放音轨 - ${event.track.title}');
       emit(const PlayerLoading());
       await _playTrack(event.track);
+      print('🎵 PlayerBloc: 播放音轨完成');
     } catch (e) {
+      print('❌ PlayerBloc: 播放音轨失败 - $e');
       emit(PlayerError('Failed to play track: ${e.toString()}'));
     }
   }
@@ -393,11 +396,21 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
 
   Future<void> _onSetQueue(PlayerSetQueue event, Emitter<PlayerBlocState> emit) async {
     try {
+      print('🎵 PlayerBloc: 设置播放队列 - ${event.tracks.length} 首歌曲');
+      print('🎵 PlayerBloc: 开始索引 - ${event.startIndex}');
+
       await _audioPlayerService.setQueue(event.tracks);
+
       if (event.startIndex != null && event.tracks.isNotEmpty) {
-        await _playTrack(event.tracks[event.startIndex!]);
+        final trackToPlay = event.tracks[event.startIndex!];
+        print('🎵 PlayerBloc: 即将播放歌曲 - ${trackToPlay.title}');
+        print('🎵 PlayerBloc: 文件路径 - ${trackToPlay.filePath}');
+
+        await _playTrack(trackToPlay);
+        print('🎵 PlayerBloc: 播放命令已发送');
       }
     } catch (e) {
+      print('❌ PlayerBloc: 设置队列失败 - $e');
       emit(PlayerError('Failed to set queue: ${e.toString()}'));
     }
   }

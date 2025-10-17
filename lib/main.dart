@@ -1,12 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:macos_ui/macos_ui.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'core/di/dependency_injection.dart';
 import 'presentation/pages/home_page.dart';
 
+/// This method initializes window configuration.
+Future<void> _configureWindow() async {
+  if (defaultTargetPlatform == TargetPlatform.macOS) {
+    // Initialize window manager
+    await windowManager.ensureInitialized();
+
+    // Configure window options
+    const windowOptions = WindowOptions(
+      size: Size(1440, 810),
+      minimumSize: Size(1200, 675),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.hidden,
+    );
+
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize window configuration
+  await _configureWindow();
 
   // Initialize dependency injection
   await DependencyInjection.init();
