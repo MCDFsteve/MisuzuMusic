@@ -202,7 +202,7 @@ class _SettingsSection extends StatelessWidget {
           child: Text(
             subtitle,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w400,
               color: subtitleColor,
               height: 1.2,
@@ -269,52 +269,55 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
           ),
         ),
         const SizedBox(height: 8),
-        Center(
-          child: Container(
-            width: 252,
-            height: 44,
-            decoration: BoxDecoration(
-              color: isDarkMode
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Stack(
-              children: [
-                AnimatedAlign(
-                  duration: const Duration(milliseconds: 420),
-                  curve: Curves.elasticOut,
-                  alignment: _alignmentForIndex(_currentIndex),
-                  child: FractionallySizedBox(
-                    widthFactor: 1 / _tabs.length,
-                    heightFactor: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? Colors.white.withOpacity(0.12)
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+        Container(
+          width: 252,
+          height: 24,
+          decoration: BoxDecoration(
+            color: isDarkMode
+                ? Colors.white.withOpacity(0.05)
+                : Colors.black.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Stack(
+            children: [
+              AnimatedAlign(
+                duration: const Duration(milliseconds: 420),
+                curve: Curves.elasticOut,
+                alignment: _alignmentForIndex(_currentIndex),
+                child: FractionallySizedBox(
+                  widthFactor: 1 / _tabs.length,
+                  heightFactor: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? Colors.white.withOpacity(0.12)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(_tabs.length, (index) {
-                    final label = _tabs[index];
-                    final isSelected = index == _currentIndex;
-                    return SizedBox(
-                      width: 84,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => _handleTap(index),
-                        child: Center(
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(_tabs.length, (index) {
+                  final label = _tabs[index];
+                  final isSelected = index == _currentIndex;
+                  return SizedBox(
+                    width: 84,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _handleTap(index),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
                           child: AnimatedDefaultTextStyle(
                             duration: const Duration(milliseconds: 200),
                             style: theme.typography.body.copyWith(
+                              fontSize: 10,
                               fontWeight: isSelected
                                   ? FontWeight.w600
                                   : FontWeight.w400,
@@ -330,11 +333,11 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
                           ),
                         ),
                       ),
-                    );
-                  }),
-                ),
-              ],
-            ),
+                    ),
+                  );
+                }),
+              ),
+            ],
           ),
         ),
       ],
