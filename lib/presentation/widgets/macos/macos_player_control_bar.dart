@@ -106,6 +106,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
                 flex: 0,
                 child: _buildAuxiliaryControls(
                   context: context,
+                  iconColor: iconColor,
                   secondaryIconColor: secondaryIconColor,
                   volume: volume,
                 ),
@@ -230,6 +231,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
 
   Widget _buildAuxiliaryControls({
     required BuildContext context,
+    required Color iconColor,
     required Color secondaryIconColor,
     required double volume,
   }) {
@@ -257,7 +259,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         const SizedBox(width: 8),
         _MacVolumeSlider(
           volume: volume,
-          color: secondaryIconColor,
+          color: iconColor,
         ),
       ],
     );
@@ -478,7 +480,7 @@ class _MacVolumeSliderState extends State<_MacVolumeSlider> {
                                 color: isDarkMode
                                     ? MacosColors.controlBackgroundColor
                                     : Colors.white,
-                                width: 1.5,
+                                width: 2,
                               ),
                             ),
                           ),
