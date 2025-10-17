@@ -268,6 +268,9 @@ class MacOSPlayerControlBar extends StatelessWidget {
     required Color secondaryIconColor,
     required double volume,
   }) {
+    final clampedVolume = volume.clamp(0.0, 1.0);
+    final volumeIcon = _volumeIconForValue(clampedVolume);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -276,16 +279,26 @@ class MacOSPlayerControlBar extends StatelessWidget {
           width: 36,
           height: 36,
           child: _MacHoverIconButton(
-            tooltip: '音量',
+            tooltip: '音量 ${(clampedVolume * 100).round()}%',
             enabled: true,
             baseColor: secondaryIconColor,
             hoverColor: MacosTheme.of(context).brightness == Brightness.dark
                 ? Colors.white
                 : MacosColors.labelColor,
-            iconBuilder: (color) => MacosIcon(
-              CupertinoIcons.volume_up,
-              color: color,
-              size: 20,
+            iconBuilder: (color) => AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              switchInCurve: Curves.easeOutBack,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child),
+              ),
+              child: MacosIcon(
+                volumeIcon,
+                key: ValueKey<int>(volumeIcon.codePoint),
+                color: color,
+                size: 24,
+              ),
             ),
             onPressed: () {},
           ),
@@ -314,6 +327,19 @@ class _MacVolumeSlider extends StatefulWidget {
 
   @override
   State<_MacVolumeSlider> createState() => _MacVolumeSliderState();
+}
+
+IconData _volumeIconForValue(double volume) {
+  if (volume <= 0.001) {
+    return CupertinoIcons.speaker_slash_fill;
+  }
+  if (volume < 0.33) {
+    return CupertinoIcons.speaker_1_fill;
+  }
+  if (volume < 0.66) {
+    return CupertinoIcons.speaker_2_fill;
+  }
+  return CupertinoIcons.speaker_3_fill;
 }
 
 IconData _playModeIcon(BuildContext context) {
