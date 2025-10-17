@@ -14,8 +14,8 @@ Future<void> _configureWindow() async {
 
     // Configure window options
     const windowOptions = WindowOptions(
-      size: Size(1440, 810),
-      minimumSize: Size(1200, 675),
+      size: Size(1067, 600), // 16:9 ratio with height 600
+      minimumSize: Size(800, 450), // 16:9 minimum size
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,

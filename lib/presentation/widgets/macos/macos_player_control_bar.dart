@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:macos_ui/macos_ui.dart';
 
 import '../../blocs/player/player_bloc.dart';
+import 'macos_volume_control.dart';
+import 'macos_progress_bar.dart';
 
 class MacOSPlayerControlBar extends StatelessWidget {
   const MacOSPlayerControlBar({super.key});
@@ -38,8 +40,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
         final secondaryIconColor = isDarkMode ? Colors.white70 : MacosColors.secondaryLabelColor;
 
         return Container(
-          height: 90,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          height: 80, // 减少高度以适应内容
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), // 减少垂直padding
           decoration: BoxDecoration(
             color: MacosTheme.of(context).canvasColor,
             border: Border(
@@ -89,22 +91,22 @@ class MacOSPlayerControlBar extends StatelessWidget {
                     // 播放/暂停按钮
                     if (isLoading)
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 32, // 减小按钮尺寸
+                        height: 32,
                         decoration: BoxDecoration(
                           color: iconColor.withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Center(
                           child: ProgressCircle(
-                            radius: 10,
+                            radius: 8,
                           ),
                         ),
                       )
                     else
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 32, // 减小按钮尺寸
+                        height: 32,
                         decoration: BoxDecoration(
                           color: iconColor.withOpacity(0.1),
                           shape: BoxShape.circle,
@@ -113,7 +115,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
                           icon: MacosIcon(
                             isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
                             color: iconColor,
-                            size: 18,
+                            size: 16,
                           ),
                           onPressed: () {
                             if (isPlaying) {
@@ -160,17 +162,18 @@ class MacOSPlayerControlBar extends StatelessWidget {
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min, // 添加这个属性
                   children: [
                     // 歌曲信息行
                     Row(
                       children: [
                         // 专辑封面
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 40, // 减小封面尺寸
+                          height: 40,
                           decoration: BoxDecoration(
                             color: MacosColors.controlBackgroundColor,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(5),
                             border: Border.all(
                               color: MacosTheme.of(context).dividerColor,
                               width: 0.5,
@@ -180,34 +183,34 @@ class MacOSPlayerControlBar extends StatelessWidget {
                             child: MacosIcon(
                               CupertinoIcons.music_note,
                               color: MacosColors.systemGrayColor,
-                              size: 20,
+                              size: 16,
                             ),
                           ),
                         ),
 
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
 
                         // 歌曲标题和艺术家
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min, // 添加这个属性
                             children: [
                               Text(
                                 trackTitle,
                                 style: MacosTheme.of(context).typography.body.copyWith(
                                   fontWeight: FontWeight.w500,
-                                  fontSize: 13,
+                                  fontSize: 12, // 减小字体
                                   color: iconColor,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                               ),
-                              const SizedBox(height: 1),
                               Text(
                                 trackArtist,
                                 style: MacosTheme.of(context).typography.caption1.copyWith(
-                                  fontSize: 11,
+                                  fontSize: 10, // 减小字体
                                   color: secondaryIconColor,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -219,58 +222,15 @@ class MacOSPlayerControlBar extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6), // 减小间距
 
-                    // 进度条区域
-                    Row(
-                      children: [
-                        // 当前时间
-                        SizedBox(
-                          width: 40,
-                          child: Text(
-                            _formatDuration(position),
-                            style: MacosTheme.of(context).typography.caption2.copyWith(
-                              fontSize: 10,
-                              color: secondaryIconColor,
-                            ),
-                            textAlign: TextAlign.left,
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        // 进度条
-                        Expanded(
-                          child: MacosSlider(
-                            value: progress.clamp(0.0, 1.0),
-                            onChanged: (value) {
-                              if (duration.inMilliseconds > 0) {
-                                final newPosition = Duration(
-                                  milliseconds: (duration.inMilliseconds * value).round(),
-                                );
-                                context.read<PlayerBloc>().add(PlayerSeekTo(newPosition));
-                              }
-                            },
-                            min: 0.0,
-                            max: 1.0,
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        // 总时长
-                        SizedBox(
-                          width: 40,
-                          child: Text(
-                            _formatDuration(duration),
-                            style: MacosTheme.of(context).typography.caption2.copyWith(
-                              fontSize: 10,
-                              color: secondaryIconColor,
-                            ),
-                            textAlign: TextAlign.right,
-                          ),
-                        ),
-                      ],
+                    // 进度条区域 - Apple Music风格
+                    MacOSProgressBar(
+                      progress: progress,
+                      position: position,
+                      duration: duration,
+                      primaryColor: iconColor,
+                      secondaryColor: secondaryIconColor,
                     ),
                   ],
                 ),
@@ -278,7 +238,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
 
               // 右侧功能区（固定宽度）
               SizedBox(
-                width: 200,
+                width: 350, // 增加宽度以容纳所有控件
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -294,7 +254,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
                       },
                     ),
 
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
 
                     // 歌词/评论
                     MacosIconButton(
@@ -308,7 +268,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
                       },
                     ),
 
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
 
                     // 播放列表
                     MacosIconButton(
@@ -322,7 +282,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
                       },
                     ),
 
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
 
                     // 输出设备
                     MacosIconButton(
@@ -336,27 +296,14 @@ class MacOSPlayerControlBar extends StatelessWidget {
                       },
                     ),
 
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
 
-                    // 音量控制
-                    MacosIcon(
-                      CupertinoIcons.speaker_1_fill,
-                      size: 14,
-                      color: secondaryIconColor,
-                    ),
-                    const SizedBox(width: 6),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 60, maxWidth: 60),
-                      child: MacosSlider(
-                        value: (state is PlayerPlaying || state is PlayerPaused)
-                            ? (state as dynamic).volume
-                            : 1.0,
-                        onChanged: (value) {
-                          context.read<PlayerBloc>().add(PlayerSetVolume(value));
-                        },
-                        min: 0.0,
-                        max: 1.0,
-                      ),
+                    // 音量控制 - 模块化组件
+                    MacOSVolumeControl(
+                      volume: (state is PlayerPlaying || state is PlayerPaused)
+                          ? (state as dynamic).volume
+                          : 1.0,
+                      iconColor: secondaryIconColor,
                     ),
                   ],
                 ),
