@@ -85,7 +85,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                width: 36,
+                width: 32,
                 height: 48,
                 child: _MaterialHoverIconButton(
                   key: const ValueKey('material_prev_button'),
@@ -107,11 +107,11 @@ class MaterialPlayerControlBar extends StatelessWidget {
                       : null,
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               if (showLoadingIndicator)
                 const SizedBox(
-                  width: 56,
-                  height: 56,
+                  width: 46,
+                  height: 46,
                   child: Center(
                     child: SizedBox(
                       width: 32,
@@ -122,8 +122,8 @@ class MaterialPlayerControlBar extends StatelessWidget {
                 )
               else
                 SizedBox(
-                  width: 56,
-                  height: 56,
+                  width: 46,
+                  height: 46,
                   child: _MaterialHoverIconButton(
                     key: const ValueKey('material_play_button'),
                     tooltip: isPlaying ? '暂停' : '播放',
@@ -156,9 +156,9 @@ class MaterialPlayerControlBar extends StatelessWidget {
                     },
                   ),
                 ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               SizedBox(
-                width: 36,
+                width: 32,
                 height: 48,
                 child: _MaterialHoverIconButton(
                   key: const ValueKey('material_next_button'),
@@ -381,11 +381,13 @@ class _MaterialHoverIconButtonState extends State<_MaterialHoverIconButton> {
       targetColor = widget.baseColor;
     }
 
+    const hoverScale = 1.05;
+    const pressScale = 0.95;
     final scale = !_enabled
         ? 1.0
         : _pressing
-            ? 0.95
-            : (_hovering ? 1.12 : 1.0);
+            ? pressScale
+            : (_hovering ? hoverScale : 1.0);
 
     final icon = AnimatedScale(
       scale: scale,
@@ -408,7 +410,7 @@ class _MaterialHoverIconButtonState extends State<_MaterialHoverIconButton> {
         onTapUp: _enabled ? (_) => _setPressing(false) : null,
         onTapCancel: _enabled ? () => _setPressing(false) : null,
         child: Padding(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
           child: Center(child: icon),
         ),
       ),

@@ -144,7 +144,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: 36,
+          width: 32,
           height: 48,
           child: _MacHoverIconButton(
             key: const ValueKey('mac_prev_button'),
@@ -164,11 +164,11 @@ class MacOSPlayerControlBar extends StatelessWidget {
                 : null,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 2),
         if (showLoadingIndicator)
           SizedBox(
-            width: 56,
-            height: 56,
+            width: 46,
+            height: 46,
             child: Center(
               child: Container(
                 width: 32,
@@ -183,8 +183,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
           )
         else
           SizedBox(
-            width: 56,
-            height: 56,
+            width: 46,
+            height: 46,
             child: _MacHoverIconButton(
               key: const ValueKey('mac_play_button'),
               tooltip: isPlaying ? '暂停' : '播放',
@@ -219,9 +219,9 @@ class MacOSPlayerControlBar extends StatelessWidget {
               },
             ),
           ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 2),
         SizedBox(
-          width: 36,
+          width: 32,
           height: 48,
           child: _MacHoverIconButton(
             key: const ValueKey('mac_next_button'),
@@ -643,11 +643,13 @@ class _MacHoverIconButtonState extends State<_MacHoverIconButton> {
       targetColor = widget.baseColor;
     }
 
+    const hoverScale = 1.05;
+    const pressScale = 0.95;
     final scale = !enabled
         ? 1.0
         : _pressing
-            ? 0.95
-            : (_hovering ? 1.12 : 1.0);
+            ? pressScale
+            : (_hovering ? hoverScale : 1.0);
 
     final child = AnimatedScale(
       scale: scale,
@@ -674,7 +676,7 @@ class _MacHoverIconButtonState extends State<_MacHoverIconButton> {
         onTapUp: enabled ? (_) => _setPressing(false) : null,
         onTapCancel: enabled ? () => _setPressing(false) : null,
         child: Padding(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
           child: Center(child: child),
         ),
       ),
