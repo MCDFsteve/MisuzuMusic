@@ -33,6 +33,8 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
   static const _trackHeight = 2.0;
   static const _knobDiameter = 10.0;
   static const _timeLabelWidth = 48.0;
+  static const _timeGap = -5.0;
+  static const double _timeVerticalOffset = 0.3;
 
   bool _isHovering = false;
   bool _isDragging = false;
@@ -204,36 +206,46 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
     final textStyle = theme.typography.caption1.copyWith(
       fontSize: 10,
       color: widget.secondaryColor,
+      height: 1.0,
     );
 
     return Stack(
       clipBehavior: Clip.none,
-      alignment: Alignment.center,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FractionalTranslation(
-            translation: const Offset(-1.0, 0),
-            child: SizedBox(
-              width: _timeLabelWidth,
-              child: Text(
-                _formatDuration(widget.position),
-                textAlign: TextAlign.right,
-                style: textStyle,
+        Positioned(
+          left: -_timeLabelWidth - _timeGap,
+          top: 0,
+          bottom: 0,
+          child: SizedBox(
+            width: _timeLabelWidth,
+            height: _knobDiameter,
+            child: Center(
+              child: Transform.translate(
+                offset: const Offset(0, _timeVerticalOffset),
+                child: Text(
+                  _formatDuration(widget.position),
+                  textAlign: TextAlign.right,
+                  style: textStyle,
+                ),
               ),
             ),
           ),
         ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FractionalTranslation(
-            translation: const Offset(1.0, 0),
-            child: SizedBox(
-              width: _timeLabelWidth,
-              child: Text(
-                _formatDuration(widget.duration),
-                textAlign: TextAlign.left,
-                style: textStyle,
+        Positioned(
+          right: -_timeLabelWidth - _timeGap,
+          top: 0,
+          bottom: 0,
+          child: SizedBox(
+            width: _timeLabelWidth,
+            height: _knobDiameter,
+            child: Center(
+              child: Transform.translate(
+                offset: const Offset(0, _timeVerticalOffset),
+                child: Text(
+                  _formatDuration(widget.duration),
+                  textAlign: TextAlign.left,
+                  style: textStyle,
+                ),
               ),
             ),
           ),
