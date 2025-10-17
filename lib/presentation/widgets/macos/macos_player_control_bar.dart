@@ -22,6 +22,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         final isPaused = state is PlayerPaused;
         final loadingState = state is PlayerLoading ? state as PlayerLoading : null;
         final showLoadingIndicator = loadingState != null && loadingState.track == null;
+        final showPauseVisual = !(state is PlayerPaused || state is PlayerStopped || state is PlayerError || state is PlayerInitial);
         final canControl =
             isPlaying || isPaused || (loadingState != null && loadingState.track != null);
 
@@ -77,11 +78,12 @@ class MacOSPlayerControlBar extends StatelessWidget {
                     child: _buildPlaybackControls(
                       context: context,
                       isPlaying: isPlaying,
-                      isPaused: isPaused,
-                      showLoadingIndicator: showLoadingIndicator,
-                      iconColor: iconColor,
-                      secondaryIconColor: secondaryIconColor,
-                    ),
+                  isPaused: isPaused,
+                  showLoadingIndicator: showLoadingIndicator,
+                  showPauseVisual: showPauseVisual,
+                  iconColor: iconColor,
+                  secondaryIconColor: secondaryIconColor,
+                ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -132,6 +134,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
     required bool isPlaying,
     required bool isPaused,
     required bool showLoadingIndicator,
+    required bool showPauseVisual,
     required Color iconColor,
     required Color secondaryIconColor,
   }) {
@@ -182,19 +185,23 @@ class MacOSPlayerControlBar extends StatelessWidget {
               enabled: true,
               baseColor: iconColor.withOpacity(0.85),
               hoverColor: iconColor,
-              iconBuilder: (color) => AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                transitionBuilder: (child, animation) => ScaleTransition(
-                  scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-                  child: child,
-                ),
-                child: MacosIcon(
-                  isPlaying
-                      ? CupertinoIcons.pause_fill
-                      : CupertinoIcons.play_fill,
-                  key: ValueKey(isPlaying),
-                  color: color,
-                  size: 30,
+              iconBuilder: (color) => Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  switchInCurve: Curves.easeOutBack,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: animation,
+                    child: child,
+                  ),
+                  child: MacosIcon(
+                    showPauseVisual
+                        ? CupertinoIcons.pause_fill
+                        : CupertinoIcons.play_fill,
+                    key: ValueKey(showPauseVisual),
+                    color: color,
+                    size: 30,
+                  ),
                 ),
               ),
               onPressed: () {

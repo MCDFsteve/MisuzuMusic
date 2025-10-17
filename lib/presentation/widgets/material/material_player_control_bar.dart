@@ -16,6 +16,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
         final isPlaying = state is PlayerPlaying;
         final isPaused = state is PlayerPaused;
         final loadingState = state is PlayerLoading ? state as PlayerLoading : null;
+        final bool showPauseVisual = !(state is PlayerPaused || state is PlayerStopped || state is PlayerError || state is PlayerInitial);
         final showLoadingIndicator = loadingState != null && loadingState.track == null;
         final canControl =
             isPlaying || isPaused || (loadingState != null && loadingState.track != null);
@@ -123,17 +124,21 @@ class MaterialPlayerControlBar extends StatelessWidget {
                     enabled: true,
                     baseColor: theme.colorScheme.onSurface.withOpacity(0.85),
                     hoverColor: theme.colorScheme.onSurface,
-                    iconBuilder: (color) => AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      transitionBuilder: (child, animation) => ScaleTransition(
-                        scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-                        child: child,
-                      ),
-                      child: Icon(
-                        isPlaying ? Icons.pause : Icons.play_arrow,
-                        key: ValueKey(isPlaying),
-                        color: color,
-                        size: 38,
+                    iconBuilder: (color) => Center(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        switchInCurve: Curves.easeOutBack,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (child, animation) => ScaleTransition(
+                          scale: animation,
+                          child: child,
+                        ),
+                        child: Icon(
+                          showPauseVisual ? Icons.pause : Icons.play_arrow,
+                          key: ValueKey(showPauseVisual),
+                          color: color,
+                          size: 38,
+                        ),
                       ),
                     ),
                     onPressed: () {
