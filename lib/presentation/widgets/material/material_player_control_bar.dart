@@ -87,6 +87,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
                 width: 36,
                 height: 36,
                 child: _MaterialHoverIconButton(
+                  key: const ValueKey('material_prev_button'),
                   tooltip: '上一首',
                   enabled: canControl,
                   baseColor: theme.colorScheme.onSurfaceVariant,
@@ -105,6 +106,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
                       : null,
                 ),
               ),
+              const SizedBox(width: 8),
               if (showLoadingIndicator)
                 const SizedBox(
                   width: 32,
@@ -113,17 +115,26 @@ class MaterialPlayerControlBar extends StatelessWidget {
                 )
               else
                 SizedBox(
-                  width: 40,
-                  height: 40,
+                  width: 48,
+                  height: 48,
                   child: _MaterialHoverIconButton(
+                    key: const ValueKey('material_play_button'),
                     tooltip: isPlaying ? '暂停' : '播放',
                     enabled: true,
-                    baseColor: theme.colorScheme.onSurface.withOpacity(0.8),
+                    baseColor: theme.colorScheme.onSurface.withOpacity(0.85),
                     hoverColor: theme.colorScheme.onSurface,
-                    iconBuilder: (color) => Icon(
-                      isPlaying ? Icons.pause : Icons.play_arrow,
-                      color: color,
-                      size: 32,
+                    iconBuilder: (color) => AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      transitionBuilder: (child, animation) => ScaleTransition(
+                        scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                        child: child,
+                      ),
+                      child: Icon(
+                        isPlaying ? Icons.pause : Icons.play_arrow,
+                        key: ValueKey(isPlaying),
+                        color: color,
+                        size: 38,
+                      ),
                     ),
                     onPressed: () {
                       if (isPlaying) {
@@ -134,10 +145,12 @@ class MaterialPlayerControlBar extends StatelessWidget {
                     },
                   ),
                 ),
+              const SizedBox(width: 8),
               SizedBox(
                 width: 36,
                 height: 36,
                 child: _MaterialHoverIconButton(
+                  key: const ValueKey('material_next_button'),
                   tooltip: '下一首',
                   enabled: canControl,
                   baseColor: theme.colorScheme.onSurfaceVariant,
@@ -310,6 +323,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
 
 class _MaterialHoverIconButton extends StatefulWidget {
   const _MaterialHoverIconButton({
+    super.key,
     required this.iconBuilder,
     required this.onPressed,
     required this.enabled,

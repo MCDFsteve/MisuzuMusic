@@ -144,6 +144,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
           width: 36,
           height: 36,
           child: _MacHoverIconButton(
+            key: const ValueKey('mac_prev_button'),
             tooltip: '上一首',
             enabled: canControl,
             baseColor: secondaryIconColor,
@@ -173,19 +174,28 @@ class MacOSPlayerControlBar extends StatelessWidget {
           )
         else
           SizedBox(
-            width: 40,
-            height: 40,
+            width: 48,
+            height: 48,
             child: _MacHoverIconButton(
+              key: const ValueKey('mac_play_button'),
               tooltip: isPlaying ? '暂停' : '播放',
               enabled: true,
-              baseColor: iconColor.withOpacity(0.8),
+              baseColor: iconColor.withOpacity(0.85),
               hoverColor: iconColor,
-              iconBuilder: (color) => MacosIcon(
-                isPlaying
-                    ? CupertinoIcons.pause_fill
-                    : CupertinoIcons.play_fill,
-                color: color,
-                size: 24,
+              iconBuilder: (color) => AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                transitionBuilder: (child, animation) => ScaleTransition(
+                  scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                  child: child,
+                ),
+                child: MacosIcon(
+                  isPlaying
+                      ? CupertinoIcons.pause_fill
+                      : CupertinoIcons.play_fill,
+                  key: ValueKey(isPlaying),
+                  color: color,
+                  size: 30,
+                ),
               ),
               onPressed: () {
                 if (isPlaying) {
@@ -201,6 +211,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
           width: 36,
           height: 36,
           child: _MacHoverIconButton(
+            key: const ValueKey('mac_next_button'),
             tooltip: '下一首',
             enabled: canControl,
             baseColor: secondaryIconColor,
@@ -571,6 +582,7 @@ class _TrackInfoRow extends StatelessWidget {
 
 class _MacHoverIconButton extends StatefulWidget {
   const _MacHoverIconButton({
+    super.key,
     required this.iconBuilder,
     required this.onPressed,
     required this.enabled,
