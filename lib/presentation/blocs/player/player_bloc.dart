@@ -145,7 +145,7 @@ class PlayerLoading extends PlayerBlocState {
     this.position = Duration.zero,
     this.duration = Duration.zero,
     this.volume = 1.0,
-    this.playMode = PlayMode.sequence,
+    this.playMode = PlayMode.repeatAll,
     this.queue = const <Track>[],
     this.currentIndex = 0,
   });
@@ -512,14 +512,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
         } else {
           print('🎵 PlayerBloc: 预加载歌曲 - ${trackToPlay.title}');
           await _audioPlayerService.loadTrack(trackToPlay);
-          final targetPosition = event.initialPosition ?? Duration.zero;
-          if (targetPosition > Duration.zero) {
-            await _seekToPosition(targetPosition);
+          final rawPosition = event.initialPosition ?? Duration.zero;
+          final clampedPosition = rawPosition > trackToPlay.duration
+              ? trackToPlay.duration
+              : rawPosition;
+          if (clampedPosition > Duration.zero) {
+            await _seekToPosition(clampedPosition);
           }
 
           emit(PlayerPaused(
             track: trackToPlay,
-            position: targetPosition,
+            position: clampedPosition,
             duration: trackToPlay.duration,
             volume: _audioPlayerService.volume,
             playMode: _audioPlayerService.playMode,
@@ -561,13 +564,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
       final track = session.queue[session.currentIndex];
       await _audioPlayerService.loadTrack(track);
 
-      if (session.position > Duration.zero) {
-        await _seekToPosition(session.position);
+      final clampedPosition = session.position > track.duration
+          ? track.duration
+          : session.position;
+
+      if (clampedPosition > Duration.zero) {
+        await _seekToPosition(clampedPosition);
       }
 
       emit(PlayerPaused(
         track: track,
-        position: session.position,
+        position: clampedPosition,
         duration: track.duration,
         volume: session.volume,
         playMode: session.playMode,

@@ -222,7 +222,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
           width: 36,
           height: 36,
           child: _MacHoverIconButton(
-            tooltip: '循环模式',
+            tooltip: _playModeTooltip(context),
             enabled: true,
             baseColor: secondaryIconColor,
             hoverColor: iconColor,
@@ -290,30 +290,26 @@ class _MacVolumeSlider extends StatefulWidget {
 
 IconData _playModeIcon(BuildContext context) {
   switch (_currentPlayMode(context)) {
-    case PlayMode.sequence:
-      return CupertinoIcons.arrow_right;
-    case PlayMode.shuffle:
-      return CupertinoIcons.shuffle;
-    case PlayMode.repeatOne:
-      return CupertinoIcons.repeat_1;
     case PlayMode.repeatAll:
       return CupertinoIcons.repeat;
+    case PlayMode.repeatOne:
+      return CupertinoIcons.repeat_1;
+    case PlayMode.shuffle:
+      return CupertinoIcons.shuffle;
   }
-  return CupertinoIcons.arrow_right;
+  return CupertinoIcons.repeat;
 }
 
 String _playModeTooltip(BuildContext context) {
   switch (_currentPlayMode(context)) {
-    case PlayMode.sequence:
-      return '顺序播放';
-    case PlayMode.shuffle:
-      return '随机播放';
+    case PlayMode.repeatAll:
+      return '列表循环';
     case PlayMode.repeatOne:
       return '单曲循环';
-    case PlayMode.repeatAll:
-      return '全部循环';
+    case PlayMode.shuffle:
+      return '随机播放';
   }
-  return '顺序播放';
+  return '列表循环';
 }
 
 void _cyclePlayMode(BuildContext context) {
@@ -325,16 +321,14 @@ void _cyclePlayMode(BuildContext context) {
 
 PlayMode _playModeNext(PlayMode current) {
   switch (current) {
-    case PlayMode.sequence:
-      return PlayMode.shuffle;
-    case PlayMode.shuffle:
-      return PlayMode.repeatAll;
     case PlayMode.repeatAll:
       return PlayMode.repeatOne;
     case PlayMode.repeatOne:
-      return PlayMode.sequence;
+      return PlayMode.shuffle;
+    case PlayMode.shuffle:
+      return PlayMode.repeatAll;
   }
-  return PlayMode.sequence;
+  return PlayMode.repeatAll;
 }
 
 PlayMode _currentPlayMode(BuildContext context) {
@@ -352,7 +346,7 @@ PlayMode _currentPlayMode(BuildContext context) {
   if (state is PlayerStopped) {
     return state.playMode;
   }
-  return PlayMode.sequence;
+  return PlayMode.repeatAll;
 }
 
 class _MacVolumeSliderState extends State<_MacVolumeSlider> {

@@ -195,7 +195,7 @@ class PlayerState extends Equatable {
     this.isPlaying = false,
     this.position = Duration.zero,
     this.duration = Duration.zero,
-    this.playMode = PlayMode.sequence,
+    this.playMode = PlayMode.repeatAll,
     this.volume = 1.0,
   });
 

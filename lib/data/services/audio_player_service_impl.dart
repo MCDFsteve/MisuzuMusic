@@ -32,7 +32,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   final List<Track> _queue = [];
   int _currentIndex = 0;
   Track? _currentTrack;
-  PlayMode _playMode = PlayMode.sequence;
+  PlayMode _playMode = PlayMode.repeatAll;
   double _volume = 1.0;
   DateTime _lastPositionPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -109,10 +109,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     try {
       _playMode = PlayMode.values.firstWhere(
         (mode) => mode.name == savedMode,
-        orElse: () => PlayMode.sequence,
+        orElse: () => PlayMode.repeatAll,
       );
     } catch (_) {
-      _playMode = PlayMode.sequence;
+      _playMode = PlayMode.repeatAll;
     }
   }
 
@@ -367,15 +367,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     if (_queue.isEmpty) return;
 
     switch (_playMode) {
-      case PlayMode.sequence:
-        if (_currentIndex < _queue.length - 1) {
-          _currentIndex++;
-          await _persistQueueState();
-          await play(_queue[_currentIndex]);
-        } else {
-          await stop();
-        }
-        break;
       case PlayMode.repeatAll:
         _currentIndex = (_currentIndex + 1) % _queue.length;
         await _persistQueueState();
@@ -397,13 +388,14 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     if (_queue.isEmpty) return;
 
     switch (_playMode) {
-      case PlayMode.sequence:
       case PlayMode.repeatAll:
-        if (_currentIndex > 0) {
-          _currentIndex--;
-          await _persistQueueState();
-          await play(_queue[_currentIndex]);
+        if (_queue.length > 1) {
+          _currentIndex = (_currentIndex - 1) < 0
+              ? _queue.length - 1
+              : _currentIndex - 1;
         }
+        await _persistQueueState();
+        await play(_queue[_currentIndex]);
         break;
       case PlayMode.repeatOne:
         await play(_queue[_currentIndex]);
@@ -418,11 +410,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
   void _handleTrackCompleted() {
     switch (_playMode) {
-      case PlayMode.sequence:
-        if (_currentIndex < _queue.length - 1) {
-          skipToNext();
-        }
-        break;
       case PlayMode.repeatAll:
       case PlayMode.repeatOne:
       case PlayMode.shuffle:
@@ -475,10 +462,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
               try {
                 return PlayMode.values.firstWhere(
                   (mode) => mode.name == savedMode,
-                  orElse: () => PlayMode.sequence,
+                  orElse: () => PlayMode.repeatAll,
                 );
               } catch (_) {
-                return PlayMode.sequence;
+                return PlayMode.repeatAll;
               }
             }()
           : _playMode;

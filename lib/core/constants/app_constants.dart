@@ -37,10 +37,9 @@ class AppConstants {
 }
 
 enum PlayMode {
-  sequence,
-  shuffle,
-  repeatOne,
   repeatAll,
+  repeatOne,
+  shuffle,
 }
 
 enum PlayerState {
