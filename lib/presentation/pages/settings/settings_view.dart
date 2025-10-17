@@ -1,8 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:macos_ui/macos_ui.dart';
-import 'dart:ui' as ui;
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/theme/theme_controller.dart';
@@ -135,7 +137,7 @@ class _MobileSettingsView extends StatelessWidget {
   }
 }
 
-class _SettingsCard extends StatelessWidget {
+class _SettingsCard extends StatefulWidget {
   const _SettingsCard({
     required this.child,
     required this.isDarkMode,
@@ -145,36 +147,134 @@ class _SettingsCard extends StatelessWidget {
   final bool isDarkMode;
 
   @override
+  State<_SettingsCard> createState() => _SettingsCardState();
+}
+
+class _SettingsCardState extends State<_SettingsCard> {
+  Alignment _glowAlignment = Alignment.center;
+  bool _isHovering = false;
+  Size _cardSize = Size.zero;
+
+  Offset _calculateAlignmentOffset(Offset localPosition) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox?.hasSize == true) {
+      _cardSize = renderBox!.size;
+    }
+
+    final width = _cardSize.width;
+    final height = _cardSize.height;
+    if (width <= 0 || height <= 0) {
+      return const Offset(0.5, 0.5);
+    }
+
+    // 保持光晕不被裁剪：针对小尺寸光源，可适当偏移以覆盖范围。
+    final insetX = widget.isDarkMode ? 16.0 : 12.0;
+    final insetY = widget.isDarkMode ? 16.0 : 12.0;
+    final effectiveWidth = (width - insetX * 2).clamp(16.0, double.infinity);
+    final effectiveHeight = (height - insetY * 2).clamp(16.0, double.infinity);
+    final dx = ((localPosition.dx - insetX) / effectiveWidth).clamp(0.0, 1.0);
+    final dy = ((localPosition.dy - insetY) / effectiveHeight).clamp(0.0, 1.0);
+    return Offset(dx, dy);
+  }
+
+  void _handleEnter(PointerEnterEvent event) {
+    final normalized = _calculateAlignmentOffset(event.localPosition);
+    setState(() {
+      _isHovering = true;
+      _glowAlignment = Alignment(normalized.dx * 2 - 1, normalized.dy * 2 - 1);
+    });
+  }
+
+  void _handleHover(PointerHoverEvent event) {
+    final normalized = _calculateAlignmentOffset(event.localPosition);
+    setState(() {
+      _glowAlignment = Alignment(normalized.dx * 2 - 1, normalized.dy * 2 - 1);
+    });
+  }
+
+  void _handleExit(PointerExitEvent event) {
+    setState(() {
+      _isHovering = false;
+      _glowAlignment = Alignment.center;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: isDarkMode
-                ? const Color(0xFF1C1C1E).withOpacity(0.3)
-                : Colors.white.withOpacity(0.3),
+    return MouseRegion(
+      onEnter: _handleEnter,
+      onHover: _handleHover,
+      onExit: _handleExit,
+      child: Builder(
+        builder: (context) {
+          final renderBox = context.findRenderObject() as RenderBox?;
+          final measuredSize = renderBox?.hasSize == true ? renderBox!.size : null;
+          if (measuredSize != null && measuredSize != Size.zero) {
+            _cardSize = measuredSize;
+          }
+
+          final glowStart = Colors.white.withOpacity(0.9);
+
+          return ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDarkMode
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.08),
-              width: 0.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isDarkMode
-                    ? Colors.black.withOpacity(0.4)
-                    : Colors.black.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Stack(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: widget.isDarkMode
+                          ? const Color(0xFF1C1C1E).withOpacity(0.3)
+                          : Colors.white.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: widget.isDarkMode
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.black.withOpacity(0.08),
+                        width: 0.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: widget.isDarkMode
+                              ? Colors.black.withOpacity(0.4)
+                              : Colors.black.withOpacity(0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: widget.child,
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        opacity: _isHovering ? 1 : 0,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          decoration: BoxDecoration(
+                            gradient: RadialGradient(
+                              center: _glowAlignment,
+                              radius: 0.85,
+                              colors: [
+                                glowStart,
+                                Colors.white.withOpacity(0.0),
+                              ],
+                              stops: const [0, 1],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: child,
-        ),
+            ),
+          );
+        },
       ),
     );
   }
