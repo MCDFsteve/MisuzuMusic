@@ -63,6 +63,10 @@ class HomePageContent extends StatefulWidget {
 
 class _HomePageContentState extends State<HomePageContent> {
   int _selectedIndex = 0;
+  double _navigationWidth = 200;
+
+  static const double _navMinWidth = 100;
+  static const double _navMaxWidth = 220;
 
   @override
   Widget build(BuildContext context) {
@@ -124,14 +128,22 @@ class _HomePageContentState extends State<HomePageContent> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _MacOSNavigationPane(
-                            selectedIndex: _selectedIndex,
-                            onSelect: (index) {
-                              if (_selectedIndex != index) {
-                                setState(() => _selectedIndex = index);
-                              }
-                            },
-                          ),
+                      _MacOSNavigationPane(
+                        width: _navigationWidth,
+                        collapsed: _navigationWidth <= 112,
+                        headerHeight: headerHeight,
+                        selectedIndex: _selectedIndex,
+                        onSelect: (index) {
+                          if (_selectedIndex != index) {
+                            setState(() => _selectedIndex = index);
+                          }
+                        },
+                        onResize: (width) {
+                          setState(() {
+                            _navigationWidth = width.clamp(_navMinWidth, _navMaxWidth);
+                          });
+                        },
+                      ),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -596,12 +608,20 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
 
 class _MacOSNavigationPane extends StatelessWidget {
   const _MacOSNavigationPane({
+    required this.width,
+    required this.collapsed,
+    required this.headerHeight,
     required this.selectedIndex,
     required this.onSelect,
+    required this.onResize,
   });
 
+  final double width;
+  final bool collapsed;
+  final double headerHeight;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
+  final ValueChanged<double> onResize;
 
   static const _items = <_NavigationItem>[
     _NavigationItem(
@@ -629,37 +649,55 @@ class _MacOSNavigationPane extends StatelessWidget {
     final textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
     final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.7);
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          width: 220,
-          decoration: BoxDecoration(
-            color: frostedColor,
-            border: Border(
-              right: BorderSide(
-                color: theme.dividerColor.withOpacity(0.35),
-                width: 0.5,
+    return Stack(
+      children: [
+        ClipRect(
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              width: width,
+              decoration: BoxDecoration(
+                color: frostedColor,
+                border: Border(
+                  right: BorderSide(
+                    color: theme.dividerColor.withOpacity(0.35),
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: ListView.separated(
+                padding: EdgeInsets.fromLTRB(0, headerHeight + 12, 0, 92),
+                itemCount: _items.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  final item = _items[index];
+                  final bool active = selectedIndex == index;
+                  return _NavigationTile(
+                    item: item,
+                    active: active,
+                    collapsed: collapsed,
+                    textColor: textColor,
+                    onTap: () => onSelect(index),
+                  );
+                },
               ),
             ),
           ),
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(0, 80, 0, 92),
-            itemCount: _items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 6),
-            itemBuilder: (context, index) {
-              final item = _items[index];
-              final bool active = selectedIndex == index;
-              return _NavigationTile(
-                item: item,
-                active: active,
-                textColor: textColor,
-                onTap: () => onSelect(index),
-              );
-            },
+        ),
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragUpdate: (details) => onResize(width + details.delta.dx),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.resizeColumn,
+              child: const SizedBox(width: 8),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -675,12 +713,14 @@ class _NavigationTile extends StatelessWidget {
   const _NavigationTile({
     required this.item,
     required this.active,
+    required this.collapsed,
     required this.textColor,
     required this.onTap,
   });
 
   final _NavigationItem item;
   final bool active;
+  final bool collapsed;
   final Color textColor;
   final VoidCallback onTap;
 
@@ -692,34 +732,40 @@ class _NavigationTile extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOutQuad,
+      child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: active ? activeBackground : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Row(
-          children: [
-            MacosIcon(
-              item.icon,
-              size: 18,
-              color: active ? Colors.white : inactiveColor,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                item.label,
-                style: theme.typography.body.copyWith(
-                  color: active ? Colors.white : textColor.withOpacity(0.82),
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+        child: collapsed
+            ? Center(
+                child: MacosIcon(
+                  item.icon,
+                  size: 18,
+                  color: active ? Colors.white : inactiveColor,
                 ),
+              )
+            : Row(
+                children: [
+                  MacosIcon(
+                    item.icon,
+                    size: 18,
+                    color: active ? Colors.white : inactiveColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      item.label,
+                      style: theme.typography.body.copyWith(
+                        color: active ? Colors.white : textColor.withOpacity(0.82),
+                        fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
