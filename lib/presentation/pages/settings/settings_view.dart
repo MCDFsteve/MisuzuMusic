@@ -62,7 +62,6 @@ class _MacOSSettingsView extends StatelessWidget {
                   _SettingsSection(
                     title: '外观',
                     subtitle: '自定义应用的外观和主题',
-                    icon: CupertinoIcons.paintbrush_fill,
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 20),
@@ -106,7 +105,6 @@ class _MobileSettingsView extends StatelessWidget {
                   _SettingsSection(
                     title: '外观',
                     subtitle: '自定义应用的外观和主题',
-                    icon: CupertinoIcons.paintbrush_fill,
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 20),
@@ -173,13 +171,11 @@ class _SettingsSection extends StatelessWidget {
   const _SettingsSection({
     required this.title,
     required this.subtitle,
-    required this.icon,
     required this.isDarkMode,
   });
 
   final String title;
   final String subtitle;
-  final IconData icon;
   final bool isDarkMode;
 
   @override
@@ -188,49 +184,29 @@ class _SettingsSection extends StatelessWidget {
     final subtitleColor = isDarkMode
         ? Colors.white.withOpacity(0.7)
         : Colors.black.withOpacity(0.6);
-    final iconColor = isDarkMode
-        ? Colors.white.withOpacity(0.8)
-        : Colors.black.withOpacity(0.7);
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            size: 18,
-            color: iconColor,
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: titleColor,
+            letterSpacing: -0.3,
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 8),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: titleColor,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: subtitleColor,
-                  height: 1.3,
-                ),
-              ),
-            ],
+          child: Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: subtitleColor,
+              height: 1.2,
+            ),
           ),
         ),
       ],
@@ -252,43 +228,23 @@ class _ThemeModeControl extends StatefulWidget {
 }
 
 class _ThemeModeControlState extends State<_ThemeModeControl> {
-  late MacosTabController _controller;
-
-  static const _tabs = <MacosTab>[
-    MacosTab(label: '浅色'),
-    MacosTab(label: '深色'),
-    MacosTab(label: '系统'),
-  ];
+  static const _tabs = ['浅色', '深色', '系统'];
+  late int _currentIndex;
 
   @override
   void initState() {
     super.initState();
-    _controller = MacosTabController(
-      initialIndex: _modeToIndex(widget.currentMode),
-      length: _tabs.length,
-    )..addListener(_handleControllerChange);
+    _currentIndex = _modeToIndex(widget.currentMode);
   }
 
   @override
   void didUpdateWidget(covariant _ThemeModeControl oldWidget) {
     super.didUpdateWidget(oldWidget);
     final index = _modeToIndex(widget.currentMode);
-    if (_controller.index != index) {
-      _controller.index = index;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_handleControllerChange);
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _handleControllerChange() {
-    final mode = _indexToMode(_controller.index);
-    if (mode != widget.currentMode) {
-      widget.onChanged(mode);
+    if (_currentIndex != index) {
+      setState(() {
+        _currentIndex = index;
+      });
     }
   }
 
@@ -313,20 +269,99 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: isDarkMode
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: MacosSegmentedControl(
-            tabs: _tabs,
-            controller: _controller,
+        Center(
+          child: Container(
+            width: 252,
+            height: 44,
+            decoration: BoxDecoration(
+              color: isDarkMode
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.black.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Stack(
+              children: [
+                AnimatedAlign(
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.elasticOut,
+                  alignment: _alignmentForIndex(_currentIndex),
+                  child: FractionallySizedBox(
+                    widthFactor: 1 / _tabs.length,
+                    heightFactor: 1,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? Colors.white.withOpacity(0.12)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(_tabs.length, (index) {
+                    final label = _tabs[index];
+                    final isSelected = index == _currentIndex;
+                    return SizedBox(
+                      width: 84,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _handleTap(index),
+                        child: Center(
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style: theme.typography.body.copyWith(
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: isSelected
+                                  ? (isDarkMode
+                                      ? Colors.black
+                                      : Colors.black.withOpacity(0.85))
+                                  : (isDarkMode
+                                      ? Colors.white.withOpacity(0.7)
+                                      : Colors.black.withOpacity(0.6)),
+                            ),
+                            child: Text(label),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
+  }
+
+  void _handleTap(int index) {
+    if (_currentIndex == index) {
+      return;
+    }
+
+    setState(() {
+      _currentIndex = index;
+    });
+
+    final mode = _indexToMode(index);
+    if (mode != widget.currentMode) {
+      widget.onChanged(mode);
+    }
+  }
+
+  Alignment _alignmentForIndex(int index) {
+    if (_tabs.length == 1) {
+      return Alignment.center;
+    }
+    final step = 2 / (_tabs.length - 1);
+    return Alignment(-1 + (step * index), 0);
   }
 
   int _modeToIndex(ThemeMode mode) {
