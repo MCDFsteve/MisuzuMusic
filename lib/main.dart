@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'core/di/dependency_injection.dart';
 import 'presentation/pages/home_page.dart';
+import 'core/theme/theme_controller.dart';
 
 /// This method initializes window configuration.
 Future<void> _configureWindow() async {
@@ -46,46 +47,52 @@ class MisuzuMusicApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeController = sl<ThemeController>();
+
+    return AnimatedBuilder(
+      animation: themeController,
+      builder: (context, _) {
     // 根据平台选择不同的UI框架
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
-      return MacosApp(
-        title: 'Misuzu Music',
-        debugShowCheckedModeBanner: false,
-        theme: MacosThemeData.light(),
-        darkTheme: MacosThemeData.dark(),
-        themeMode: ThemeMode.system,
-        home: const HomePage(),
-      );
-    } else {
-      // 其他平台使用Material Design
-      return MaterialApp(
-        title: 'Misuzu Music',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.deepPurple,
-            brightness: Brightness.light,
-          ),
-          appBarTheme: const AppBarTheme(
-            centerTitle: true,
-            elevation: 0,
-          ),
-        ),
-        darkTheme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.deepPurple,
-            brightness: Brightness.dark,
-          ),
-          appBarTheme: const AppBarTheme(
-            centerTitle: true,
-            elevation: 0,
-          ),
-        ),
-        themeMode: ThemeMode.system,
-        home: const HomePage(),
-      );
-    }
+        if (defaultTargetPlatform == TargetPlatform.macOS) {
+          return MacosApp(
+            title: 'Misuzu Music',
+            debugShowCheckedModeBanner: false,
+            theme: MacosThemeData.light(),
+            darkTheme: MacosThemeData.dark(),
+            themeMode: themeController.themeMode,
+            home: const HomePage(),
+          );
+        } else {
+          return MaterialApp(
+            title: 'Misuzu Music',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.deepPurple,
+                brightness: Brightness.light,
+              ),
+              appBarTheme: const AppBarTheme(
+                centerTitle: true,
+                elevation: 0,
+              ),
+            ),
+            darkTheme: ThemeData(
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.deepPurple,
+                brightness: Brightness.dark,
+              ),
+              appBarTheme: const AppBarTheme(
+                centerTitle: true,
+                elevation: 0,
+              ),
+            ),
+            themeMode: themeController.themeMode,
+            home: const HomePage(),
+          );
+        }
+      },
+    );
   }
 }

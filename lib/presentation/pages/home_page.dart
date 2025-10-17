@@ -18,6 +18,7 @@ import '../widgets/macos/macos_player_control_bar.dart';
 import '../widgets/macos/macos_music_library_view.dart';
 import '../widgets/material/material_player_control_bar.dart';
 import '../widgets/material/material_music_library_view.dart';
+import 'settings/settings_view.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -473,7 +474,7 @@ class _MacOSGlassHeader extends StatelessWidget {
     final isDarkMode = theme.brightness == Brightness.dark;
     final Color textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
 
-    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.7);
+    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.55);
 
     return ClipRect(
       child: BackdropFilter(
@@ -647,7 +648,7 @@ class _MacOSNavigationPane extends StatelessWidget {
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
-    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.7);
+    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.52);
 
     return Stack(
       children: [
@@ -788,9 +789,19 @@ class _BlurredArtworkBackground extends StatelessWidget {
       return Container(color: MacosTheme.of(context).canvasColor);
     }
 
-    final overlayStrong = Colors.black.withOpacity(isDarkMode ? 0.65 : 0.45);
-    final overlayMid = Colors.black.withOpacity(isDarkMode ? 0.4 : 0.25);
-    final overlayWeak = Colors.black.withOpacity(isDarkMode ? 0.55 : 0.35);
+    final Color overlayStrong;
+    final Color overlayMid;
+    final Color overlayWeak;
+
+    if (isDarkMode) {
+      overlayStrong = Colors.black.withOpacity(0.6);
+      overlayMid = Colors.black.withOpacity(0.38);
+      overlayWeak = Colors.black.withOpacity(0.48);
+    } else {
+      overlayStrong = Colors.white.withOpacity(0.42);
+      overlayMid = Colors.white.withOpacity(0.28);
+      overlayWeak = Colors.white.withOpacity(0.22);
+    }
 
     return ClipRect(
       child: Stack(
@@ -800,8 +811,10 @@ class _BlurredArtworkBackground extends StatelessWidget {
             imageFilter: ui.ImageFilter.blur(sigmaX: 45, sigmaY: 45),
             child: ColorFiltered(
               colorFilter: ColorFilter.mode(
-                Colors.black.withOpacity(isDarkMode ? 0.25 : 0.2),
-                BlendMode.darken,
+                isDarkMode
+                    ? Colors.black.withOpacity(0.22)
+                    : Colors.white.withOpacity(0.28),
+                isDarkMode ? BlendMode.darken : BlendMode.screen,
               ),
               child: Image.file(
                 file,
@@ -1009,64 +1022,6 @@ class SearchView extends StatelessWidget {
                 style: MacosTheme.of(context).typography.body.copyWith(
                   color: MacosColors.systemGrayColor,
                 ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class SettingsView extends StatelessWidget {
-  const SettingsView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '设置',
-            style: MacosTheme.of(context).typography.largeTitle,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            '音乐播放',
-            style: MacosTheme.of(context).typography.title2,
-          ),
-          const SizedBox(height: 12),
-          MacosListTile(
-            leading: const MacosIcon(CupertinoIcons.speaker_2),
-            title: Text(
-              '音量',
-              style: MacosTheme.of(context).typography.body,
-            ),
-            subtitle: Text(
-              '调整播放音量',
-              style: MacosTheme.of(context).typography.caption1.copyWith(
-                color: MacosColors.systemGrayColor,
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            '日语歌词',
-            style: MacosTheme.of(context).typography.title2,
-          ),
-          const SizedBox(height: 12),
-          MacosListTile(
-            leading: const MacosIcon(CupertinoIcons.textformat),
-            title: Text(
-              '假名注音',
-              style: MacosTheme.of(context).typography.body,
-            ),
-            subtitle: Text(
-              '为汉字和片假名显示平假名注音',
-              style: MacosTheme.of(context).typography.caption1.copyWith(
-                color: MacosColors.systemGrayColor,
               ),
             ),
           ),
