@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 /// 通用自定义滚动条包装器，用于确保浅色模式下的滚动条保持足够的对比度。
@@ -33,6 +35,9 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
   double _thumbOffset = 0;
   double _thumbExtent = 0;
   bool _isScrollable = false;
+  bool _isRailVisible = false;
+  bool _isHovering = false;
+  Timer? _hideTimer;
 
   @override
   void initState() {
@@ -62,6 +67,7 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
     if (_ownsController) {
       _controller.dispose();
     }
+    _hideTimer?.cancel();
     super.dispose();
   }
 
@@ -97,7 +103,9 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
           _isScrollable = false;
           _thumbExtent = viewportExtent;
           _thumbOffset = 0;
+          _isRailVisible = false;
         });
+        _hideTimer?.cancel();
       }
       return;
     }
@@ -113,7 +121,9 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
       _isScrollable = true;
       _thumbExtent = thumbExtent;
       _thumbOffset = thumbOffset;
+      _isRailVisible = true;
     });
+    _restartHideTimer();
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
@@ -133,6 +143,7 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
     final trackColor = widget.isDarkMode
         ? Colors.white.withOpacity(0.18)
         : Colors.black.withOpacity(0.2);
+    final railWidth = widget.thumbWidth * (_isHovering ? 2 : 1);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -153,6 +164,8 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
           ),
         );
 
+        final showRail = _isScrollable && (_isRailVisible || _isHovering);
+
         return Stack(
           children: [
             content,
@@ -161,15 +174,24 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
                 right: widget.margin.right,
                 top: widget.margin.top,
                 bottom: widget.margin.bottom,
-                child: _ScrollbarRail(
-                  height: trackExtent,
-                  width: widget.thumbWidth,
-                  trackRadius: widget.trackRadius,
-                  trackColor: trackColor,
-                  thumbColor: thumbColor,
-                  thumbExtent: _thumbExtent.clamp(0, availableHeight),
-                  thumbOffset: _thumbOffset,
-                  onDragTo: (dy) => _jumpToPosition(dy, trackExtent),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 150),
+                  opacity: showRail ? 1 : 0,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    onEnter: (_) => _setHovering(true),
+                    onExit: (_) => _setHovering(false),
+                    child: _ScrollbarRail(
+                      height: trackExtent,
+                      width: railWidth,
+                      trackRadius: widget.trackRadius,
+                      trackColor: trackColor,
+                      thumbColor: thumbColor,
+                      thumbExtent: _thumbExtent.clamp(0, availableHeight),
+                      thumbOffset: _thumbOffset,
+                      onDragTo: (dy) => _jumpToPosition(dy, trackExtent),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -193,6 +215,38 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
     final fraction = effectiveRange == 0 ? 0 : (clampedDy / effectiveRange);
     final target = fraction * maxScroll;
     _controller.jumpTo(target);
+  }
+
+  void _setHovering(bool value) {
+    if (_isHovering == value) {
+      return;
+    }
+    setState(() {
+      _isHovering = value;
+      if (value) {
+        _isRailVisible = true;
+      }
+    });
+    if (value) {
+      _hideTimer?.cancel();
+    } else {
+      _restartHideTimer();
+    }
+  }
+
+  void _restartHideTimer() {
+    _hideTimer?.cancel();
+    if (!_isScrollable) {
+      return;
+    }
+    _hideTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (!mounted || _isHovering) {
+        return;
+      }
+      setState(() {
+        _isRailVisible = false;
+      });
+    });
   }
 }
 
@@ -224,7 +278,9 @@ class _ScrollbarRail extends StatelessWidget {
       onTapDown: (details) => onDragTo(details.localPosition.dy),
       onVerticalDragStart: (details) => onDragTo(details.localPosition.dy),
       onVerticalDragUpdate: (details) => onDragTo(details.localPosition.dy),
-      child: SizedBox(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
         width: width,
         height: height,
         child: Stack(
