@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -130,11 +133,45 @@ class _HomePageContentState extends State<HomePageContent> {
         children: [
           ContentArea(
             builder: (context, scrollController) {
-              return Column(
-                children: [
-                  Expanded(child: _buildMainContent()),
-                  const MacOSPlayerControlBar(),
-                ],
+              return BlocBuilder<PlayerBloc, PlayerBlocState>(
+                builder: (context, playerState) {
+                  final theme = MacosTheme.of(context);
+                  final isDarkMode = theme.brightness == Brightness.dark;
+                  final artworkPath = _currentArtworkPath(playerState);
+
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Positioned.fill(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 500),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          transitionBuilder: (child, animation) => FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                          child: artworkPath != null
+                              ? _BlurredArtworkBackground(
+                                  key: ValueKey<String>(artworkPath),
+                                  artworkPath: artworkPath,
+                                  isDarkMode: isDarkMode,
+                                )
+                              : Container(
+                                  key: const ValueKey<String>('default_background'),
+                                  color: theme.canvasColor,
+                                ),
+                        ),
+                      ),
+                      Column(
+                        children: [
+                          Expanded(child: _buildMainContent()),
+                          const MacOSPlayerControlBar(),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -249,6 +286,24 @@ class _HomePageContentState extends State<HomePageContent> {
       default:
         return const MusicLibraryView();
     }
+  }
+
+  String? _currentArtworkPath(PlayerBlocState state) {
+    String? path;
+    if (state is PlayerPlaying) {
+      path = state.track.artworkPath;
+    } else if (state is PlayerPaused) {
+      path = state.track.artworkPath;
+    } else if (state is PlayerLoading && state.track != null) {
+      path = state.track!.artworkPath;
+    }
+
+    if (path == null || path.isEmpty) {
+      return null;
+    }
+
+    final file = File(path);
+    return file.existsSync() ? path : null;
   }
 
   Future<void> _selectMusicFolder() async {
@@ -366,6 +421,63 @@ class _HomePageContentState extends State<HomePageContent> {
         ),
       );
     }
+  }
+}
+
+class _BlurredArtworkBackground extends StatelessWidget {
+  const _BlurredArtworkBackground({
+    super.key,
+    required this.artworkPath,
+    required this.isDarkMode,
+  });
+
+  final String artworkPath;
+  final bool isDarkMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final file = File(artworkPath);
+    if (!file.existsSync()) {
+      return Container(color: MacosTheme.of(context).canvasColor);
+    }
+
+    final overlayStrong = Colors.black.withOpacity(isDarkMode ? 0.65 : 0.45);
+    final overlayMid = Colors.black.withOpacity(isDarkMode ? 0.4 : 0.25);
+    final overlayWeak = Colors.black.withOpacity(isDarkMode ? 0.55 : 0.35);
+
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: 45, sigmaY: 45),
+            child: ColorFiltered(
+              colorFilter: ColorFilter.mode(
+                Colors.black.withOpacity(isDarkMode ? 0.25 : 0.2),
+                BlendMode.darken,
+              ),
+              child: Image.file(
+                file,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  overlayStrong,
+                  overlayMid,
+                  overlayWeak,
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
