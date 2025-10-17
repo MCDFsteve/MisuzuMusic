@@ -195,7 +195,9 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
           ),
         ],
         border: Border.all(
-          color: isDarkMode ? MacosColors.controlBackgroundColor : Colors.white,
+          color: isDarkMode
+              ? MacosColors.controlBackgroundColor
+              : Colors.black.withOpacity(0.12),
           width: 2,
         ),
       ),

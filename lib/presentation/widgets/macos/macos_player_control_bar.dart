@@ -57,7 +57,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         final iconColor = isDarkMode ? Colors.white : MacosColors.labelColor;
         final secondaryIconColor = isDarkMode
             ? Colors.white70
-            : MacosColors.secondaryLabelColor;
+            : MacosColors.labelColor.withOpacity(0.72);
 
         final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.7);
 
@@ -557,7 +557,7 @@ class _MacVolumeSliderState extends State<_MacVolumeSlider> {
                               border: Border.all(
                                 color: isDarkMode
                                     ? MacosColors.controlBackgroundColor
-                                    : Colors.white,
+                                    : Colors.black.withOpacity(0.12),
                                 width: 2,
                               ),
                             ),

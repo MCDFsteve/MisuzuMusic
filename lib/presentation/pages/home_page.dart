@@ -132,7 +132,6 @@ class _HomePageContentState extends State<HomePageContent> {
                       _MacOSNavigationPane(
                         width: _navigationWidth,
                         collapsed: _navigationWidth <= 112,
-                        headerHeight: headerHeight,
                         selectedIndex: _selectedIndex,
                         onSelect: (index) {
                           if (_selectedIndex != index) {
@@ -581,6 +580,12 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
 
   @override
   Widget build(BuildContext context) {
+    final baseColor = widget.color;
+    final isLightBase = baseColor.computeLuminance() > 0.5;
+    final hoverTarget = isLightBase
+        ? baseColor.withOpacity(0.9)
+        : Color.lerp(baseColor, MacosColors.controlAccentColor, 0.35)!;
+
     return MouseRegion(
       onEnter: (_) => _controller.forward(),
       onExit: (_) => _controller.reverse(),
@@ -588,11 +593,7 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
         animation: _controller,
         builder: (context, child) {
           final scale = 1.0 + (_controller.value * 0.08);
-          final color = Color.lerp(
-            widget.color.withOpacity(0.75),
-            Colors.white,
-            _controller.value,
-          );
+          final color = Color.lerp(baseColor, hoverTarget, _controller.value);
           return Transform.scale(
             scale: scale,
             child: MacosIcon(
@@ -611,7 +612,6 @@ class _MacOSNavigationPane extends StatelessWidget {
   const _MacOSNavigationPane({
     required this.width,
     required this.collapsed,
-    required this.headerHeight,
     required this.selectedIndex,
     required this.onSelect,
     required this.onResize,
@@ -619,7 +619,6 @@ class _MacOSNavigationPane extends StatelessWidget {
 
   final double width;
   final bool collapsed;
-  final double headerHeight;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final ValueChanged<double> onResize;
@@ -667,7 +666,7 @@ class _MacOSNavigationPane extends StatelessWidget {
                 ),
               ),
               child: ListView.separated(
-                padding: EdgeInsets.fromLTRB(0, headerHeight + 12, 0, 92),
+                padding: const EdgeInsets.fromLTRB(0, 84, 0, 92),
                 itemCount: _items.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 6),
                 itemBuilder: (context, index) {
