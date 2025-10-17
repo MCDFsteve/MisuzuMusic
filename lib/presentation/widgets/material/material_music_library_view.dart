@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
+import '../common/adaptive_scrollbar.dart';
 import '../common/artwork_thumbnail.dart';
 
 class MaterialMusicLibraryView extends StatelessWidget {
@@ -50,58 +51,64 @@ class MaterialMusicLibraryView extends StatelessWidget {
 
         // 音乐列表
         Expanded(
-          child: ListView.builder(
-            itemCount: tracks.length,
-            itemBuilder: (context, index) {
-              final track = tracks[index];
-              return Material(
-                type: MaterialType.transparency,
-                child: ListTile(
-                  leading: ArtworkThumbnail(
-                    artworkPath: track.artworkPath,
-                    size: 48,
-                    borderRadius: BorderRadius.circular(4),
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    borderColor: Theme.of(context).dividerColor,
-                    placeholder: Icon(
-                      Icons.music_note,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+          child: AdaptiveScrollbar(
+            isDarkMode: Theme.of(context).brightness == Brightness.dark,
+            margin: const EdgeInsets.only(right: 6, top: 4, bottom: 4),
+            builder: (controller) {
+              return ListView.builder(
+                controller: controller,
+                itemCount: tracks.length,
+                itemBuilder: (context, index) {
+                  final track = tracks[index];
+                  return Material(
+                    type: MaterialType.transparency,
+                    child: ListTile(
+                      leading: ArtworkThumbnail(
+                        artworkPath: track.artworkPath,
+                        size: 48,
+                        borderRadius: BorderRadius.circular(4),
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        borderColor: Theme.of(context).dividerColor,
+                        placeholder: Icon(
+                          Icons.music_note,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      title: Text(
+                        track.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${track.artist} • ${track.album}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Text(
+                        _formatDuration(track.duration),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      onTap: () {
+                        print('🎵 Material点击歌曲: ${track.title}');
+                        print('🎵 文件路径: ${track.filePath}');
+                        print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
+
+                        final file = File(track.filePath);
+                        print('🎵 文件是否存在: ${file.existsSync()}');
+
+                        if (file.existsSync()) {
+                          context.read<PlayerBloc>().add(
+                            PlayerSetQueue(tracks, startIndex: index),
+                          );
+                        } else {
+                          print('❌ 文件不存在: ${track.filePath}');
+                        }
+                      },
                     ),
-                  ),
-                  title: Text(
-                    track.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    '${track.artist} • ${track.album}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: Text(
-                    _formatDuration(track.duration),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  onTap: () {
-                    print('🎵 Material点击歌曲: ${track.title}');
-                    print('🎵 文件路径: ${track.filePath}');
-                    print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
-
-                    // 先检查文件是否存在
-                    final file = File(track.filePath);
-                    print('🎵 文件是否存在: ${file.existsSync()}');
-
-                    if (file.existsSync()) {
-                      context.read<PlayerBloc>().add(
-                        PlayerSetQueue(tracks, startIndex: index),
-                      );
-                    } else {
-                      print('❌ 文件不存在: ${track.filePath}');
-                    }
-                  },
-                ),
+                  );
+                },
               );
             },
           ),

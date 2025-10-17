@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../widgets/common/adaptive_scrollbar.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
@@ -49,32 +50,38 @@ class _MacOSSettingsView extends StatelessWidget {
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
-          sliver: SliverToBoxAdapter(
-            child: _SettingsCard(
-              isDarkMode: isDarkMode,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SettingsSection(
-                    title: '外观',
-                    subtitle: '自定义应用的外观和主题',
-                    isDarkMode: isDarkMode,
+    return AdaptiveScrollbar(
+      isDarkMode: isDarkMode,
+      builder: (controller) {
+        return CustomScrollView(
+          controller: controller,
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
+              sliver: SliverToBoxAdapter(
+                child: _SettingsCard(
+                  isDarkMode: isDarkMode,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SettingsSection(
+                        title: '外观',
+                        subtitle: '自定义应用的外观和主题',
+                        isDarkMode: isDarkMode,
+                      ),
+                      const SizedBox(height: 20),
+                      _ThemeModeControl(
+                        currentMode: currentMode,
+                        onChanged: onChanged,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  _ThemeModeControl(
-                    currentMode: currentMode,
-                    onChanged: onChanged,
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -92,32 +99,38 @@ class _MobileSettingsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
-          sliver: SliverToBoxAdapter(
-            child: _SettingsCard(
-              isDarkMode: isDarkMode,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SettingsSection(
-                    title: '外观',
-                    subtitle: '自定义应用的外观和主题',
-                    isDarkMode: isDarkMode,
+    return AdaptiveScrollbar(
+      isDarkMode: isDarkMode,
+      builder: (controller) {
+        return CustomScrollView(
+          controller: controller,
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
+              sliver: SliverToBoxAdapter(
+                child: _SettingsCard(
+                  isDarkMode: isDarkMode,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SettingsSection(
+                        title: '外观',
+                        subtitle: '自定义应用的外观和主题',
+                        isDarkMode: isDarkMode,
+                      ),
+                      const SizedBox(height: 20),
+                      _MobileThemeModeControl(
+                        currentMode: currentMode,
+                        onChanged: onChanged,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  _MobileThemeModeControl(
-                    currentMode: currentMode,
-                    onChanged: onChanged,
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

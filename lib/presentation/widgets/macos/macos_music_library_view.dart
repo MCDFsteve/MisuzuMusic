@@ -7,6 +7,7 @@ import 'package:macos_ui/macos_ui.dart';
 
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
+import '../common/adaptive_scrollbar.dart';
 import '../common/artwork_thumbnail.dart';
 
 class MacOSMusicLibraryView extends StatelessWidget {
@@ -31,82 +32,89 @@ class MacOSMusicLibraryView extends StatelessWidget {
         ? MacosColors.systemGrayColor
         : MacosColors.secondaryLabelColor;
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: tracks.length,
-      separatorBuilder: (context, index) => Divider(
-        height: 1,
-        thickness: 0.5,
-        color: MacosTheme.of(context).dividerColor,
-        indent: 88,
-      ),
-      itemBuilder: (context, index) {
-        final track = tracks[index];
-        return Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 12,
+    return AdaptiveScrollbar(
+      isDarkMode: isDarkMode,
+      margin: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
+      builder: (controller) {
+        return ListView.separated(
+          controller: controller,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: tracks.length,
+          separatorBuilder: (context, index) => Divider(
+            height: 1,
+            thickness: 0.5,
+            color: MacosTheme.of(context).dividerColor,
+            indent: 88,
           ),
-          child: MacosListTile(
-            mouseCursor: SystemMouseCursors.click,
-            leading: ArtworkThumbnail(
-              artworkPath: track.artworkPath,
-              size: 48,
-              borderRadius: BorderRadius.circular(6),
-              backgroundColor: MacosColors.controlBackgroundColor,
-              borderColor: MacosTheme.of(context).dividerColor,
-              placeholder: const MacosIcon(
-                CupertinoIcons.music_note,
-                color: MacosColors.systemGrayColor,
-                size: 20,
+          itemBuilder: (context, index) {
+            final track = tracks[index];
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
               ),
-            ),
-            title: Row(
-              children: [
-                Expanded(
+              child: MacosListTile(
+                mouseCursor: SystemMouseCursors.click,
+                leading: ArtworkThumbnail(
+                  artworkPath: track.artworkPath,
+                  size: 48,
+                  borderRadius: BorderRadius.circular(6),
+                  backgroundColor: MacosColors.controlBackgroundColor,
+                  borderColor: MacosTheme.of(context).dividerColor,
+                  placeholder: const MacosIcon(
+                    CupertinoIcons.music_note,
+                    color: MacosColors.systemGrayColor,
+                    size: 20,
+                  ),
+                ),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        track.title,
+                        style: MacosTheme.of(context).typography.body
+                            .copyWith(fontWeight: FontWeight.w500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      _formatDuration(track.duration),
+                      style: MacosTheme.of(context).typography.caption1
+                          .copyWith(color: subtitleColor),
+                    ),
+                  ],
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 2),
                   child: Text(
-                    track.title,
-                    style: MacosTheme.of(context).typography.body
-                        .copyWith(fontWeight: FontWeight.w500),
+                    '${track.artist} • ${track.album}',
+                    style: MacosTheme.of(context).typography.caption1
+                        .copyWith(color: subtitleColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 16),
-                Text(
-                  _formatDuration(track.duration),
-                  style: MacosTheme.of(context).typography.caption1
-                      .copyWith(color: subtitleColor),
-                ),
-              ],
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                '${track.artist} • ${track.album}',
-                style: MacosTheme.of(context).typography.caption1
-                    .copyWith(color: subtitleColor),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                onClick: () {
+                  print('🎵 macOS点击歌曲: ${track.title}');
+                  print('🎵 文件路径: ${track.filePath}');
+                  print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
+
+                  final file = File(track.filePath);
+                  print('🎵 文件是否存在: ${file.existsSync()}');
+
+                  if (file.existsSync()) {
+                    context.read<PlayerBloc>().add(
+                      PlayerSetQueue(tracks, startIndex: index),
+                    );
+                  } else {
+                    print('❌ 文件不存在: ${track.filePath}');
+                  }
+                },
               ),
-            ),
-            onClick: () {
-              print('🎵 macOS点击歌曲: ${track.title}');
-              print('🎵 文件路径: ${track.filePath}');
-              print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
-
-              final file = File(track.filePath);
-              print('🎵 文件是否存在: ${file.existsSync()}');
-
-              if (file.existsSync()) {
-                context.read<PlayerBloc>().add(
-                  PlayerSetQueue(tracks, startIndex: index),
-                );
-              } else {
-                print('❌ 文件不存在: ${track.filePath}');
-              }
-            },
-          ),
+            );
+          },
         );
       },
     );
