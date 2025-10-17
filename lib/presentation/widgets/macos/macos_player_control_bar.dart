@@ -11,6 +11,10 @@ import 'macos_progress_bar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../../../core/constants/app_constants.dart';
 
+const double _muteThreshold = 0.005;
+const double _defaultRestoreVolume = 0.6;
+double _lastNonMutedVolume = _defaultRestoreVolume;
+
 class MacOSPlayerControlBar extends StatelessWidget {
   const MacOSPlayerControlBar({super.key});
 
@@ -270,6 +274,10 @@ class MacOSPlayerControlBar extends StatelessWidget {
   }) {
     final clampedVolume = volume.clamp(0.0, 1.0);
     final volumeIcon = _volumeIconForValue(clampedVolume);
+    if (clampedVolume > _muteThreshold) {
+      _lastNonMutedVolume = clampedVolume;
+    }
+    final isMuted = clampedVolume <= _muteThreshold;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -300,7 +308,20 @@ class MacOSPlayerControlBar extends StatelessWidget {
                 size: 24,
               ),
             ),
-            onPressed: () {},
+            onPressed: () {
+              final bloc = context.read<PlayerBloc>();
+              if (isMuted) {
+                final restored = _lastNonMutedVolume > _muteThreshold
+                    ? _lastNonMutedVolume
+                    : _defaultRestoreVolume;
+                bloc.add(PlayerSetVolume(restored.clamp(0.0, 1.0)));
+              } else {
+                if (clampedVolume > _muteThreshold) {
+                  _lastNonMutedVolume = clampedVolume;
+                }
+                bloc.add(const PlayerSetVolume(0.0));
+              }
+            },
           ),
         ),
         const SizedBox(width: 8),
