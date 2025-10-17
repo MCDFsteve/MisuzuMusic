@@ -59,7 +59,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
             ? Colors.white70
             : MacosColors.labelColor.withOpacity(0.72);
 
-        final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.7);
+        final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.32);
 
         return ClipRect(
           child: BackdropFilter(
