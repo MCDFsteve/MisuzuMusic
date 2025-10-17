@@ -473,7 +473,7 @@ class _MacOSGlassHeader extends StatelessWidget {
     final isDarkMode = theme.brightness == Brightness.dark;
     final Color textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
 
-    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.55);
+    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.36);
 
     return ClipRect(
       child: BackdropFilter(
@@ -647,7 +647,7 @@ class _MacOSNavigationPane extends StatelessWidget {
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
-    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.52);
+    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.32);
 
     return Stack(
       children: [
