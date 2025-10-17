@@ -18,6 +18,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         final isPlaying = state is PlayerPlaying;
         final isPaused = state is PlayerPaused;
         final isLoading = state is PlayerLoading;
+        final canControl = isPlaying || isPaused || isLoading;
 
         String trackTitle = '暂无播放';
         String trackArtist = '选择音乐开始播放';
@@ -27,7 +28,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         double volume = 1.0;
         String? artworkPath;
 
-        if (state is PlayerPlaying || state is PlayerPaused || state is PlayerLoading) {
+        if (canControl) {
           final playingState = state as dynamic;
           trackTitle = playingState.track.title;
           trackArtist =
@@ -120,6 +121,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
     required Color iconColor,
     required Color secondaryIconColor,
   }) {
+    final canControl = isPlaying || isPaused || isLoading;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -137,10 +140,10 @@ class MacOSPlayerControlBar extends StatelessWidget {
         MacosIconButton(
           icon: MacosIcon(
             CupertinoIcons.backward_fill,
-            color: (isPlaying || isPaused) ? iconColor : secondaryIconColor,
+            color: canControl ? iconColor : secondaryIconColor,
             size: 20,
           ),
-          onPressed: (isPlaying || isPaused)
+          onPressed: canControl
               ? () {
                   context.read<PlayerBloc>().add(const PlayerSkipPrevious());
                 }
@@ -186,10 +189,10 @@ class MacOSPlayerControlBar extends StatelessWidget {
         MacosIconButton(
           icon: MacosIcon(
             CupertinoIcons.forward_fill,
-            color: (isPlaying || isPaused) ? iconColor : secondaryIconColor,
+            color: canControl ? iconColor : secondaryIconColor,
             size: 20,
           ),
-          onPressed: (isPlaying || isPaused)
+          onPressed: canControl
               ? () {
                   context.read<PlayerBloc>().add(const PlayerSkipNext());
                 }

@@ -14,6 +14,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
         final isPlaying = state is PlayerPlaying;
         final isPaused = state is PlayerPaused;
         final isLoading = state is PlayerLoading;
+        final canControl = isPlaying || isPaused || isLoading;
 
         String trackTitle = '暂无播放';
         String trackArtist = '选择音乐开始播放';
@@ -22,7 +23,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
         double progress = 0.0;
         String? artworkPath;
 
-        if (state is PlayerPlaying || state is PlayerPaused || state is PlayerLoading) {
+        if (canControl) {
           final playingState = state as dynamic;
           trackTitle = playingState.track.title;
           trackArtist =
@@ -79,7 +80,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.skip_previous),
-                    onPressed: (isPlaying || isPaused)
+                    onPressed: canControl
                         ? () {
                             context.read<PlayerBloc>().add(
                               const PlayerSkipPrevious(),
@@ -111,7 +112,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
                     ),
                   IconButton(
                     icon: const Icon(Icons.skip_next),
-                    onPressed: (isPlaying || isPaused)
+                    onPressed: canControl
                         ? () {
                             context.read<PlayerBloc>().add(
                               const PlayerSkipNext(),
