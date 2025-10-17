@@ -27,7 +27,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         double volume = 1.0;
         String? artworkPath;
 
-        if (state is PlayerPlaying || state is PlayerPaused) {
+        if (state is PlayerPlaying || state is PlayerPaused || state is PlayerLoading) {
           final playingState = state as dynamic;
           trackTitle = playingState.track.title;
           trackArtist =

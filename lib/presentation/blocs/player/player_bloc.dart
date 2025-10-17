@@ -121,7 +121,34 @@ class PlayerInitial extends PlayerBlocState {
 }
 
 class PlayerLoading extends PlayerBlocState {
-  const PlayerLoading();
+  final Track? track;
+  final Duration position;
+  final Duration duration;
+  final double volume;
+  final PlayMode playMode;
+  final List<Track> queue;
+  final int currentIndex;
+
+  const PlayerLoading({
+    this.track,
+    this.position = Duration.zero,
+    this.duration = Duration.zero,
+    this.volume = 1.0,
+    this.playMode = PlayMode.sequence,
+    this.queue = const [],
+    this.currentIndex = 0,
+  });
+
+  @override
+  List<Object?> get props => [
+        track,
+        position,
+        duration,
+        volume,
+        playMode,
+        queue,
+        currentIndex,
+      ];
 }
 
 class PlayerPlaying extends PlayerBlocState {
@@ -321,7 +348,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
   Future<void> _onPlayTrack(PlayerPlayTrack event, Emitter<PlayerBlocState> emit) async {
     try {
       print('🎵 PlayerBloc: 开始播放音轨 - ${event.track.title}');
-      emit(const PlayerLoading());
+      emit(PlayerLoading(
+        track: event.track,
+        position: Duration.zero,
+        duration: Duration.zero,
+        volume: _audioPlayerService.volume,
+        playMode: _audioPlayerService.playMode,
+        queue: _audioPlayerService.queue,
+        currentIndex: _audioPlayerService.currentIndex,
+      ));
       await _playTrack(event.track);
       print('🎵 PlayerBloc: 播放音轨完成');
     } catch (e) {
@@ -477,7 +512,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
         ));
         break;
       case PlayerState.loading:
-        emit(const PlayerLoading());
+        emit(PlayerLoading(
+          track: currentTrack,
+          position: position,
+          duration: duration,
+          volume: volume,
+          playMode: playMode,
+          queue: queue,
+          currentIndex: currentIndex,
+        ));
         break;
     }
   }

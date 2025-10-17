@@ -22,7 +22,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
         double progress = 0.0;
         String? artworkPath;
 
-        if (state is PlayerPlaying || state is PlayerPaused) {
+        if (state is PlayerPlaying || state is PlayerPaused || state is PlayerLoading) {
           final playingState = state as dynamic;
           trackTitle = playingState.track.title;
           trackArtist =
