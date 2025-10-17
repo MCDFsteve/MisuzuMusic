@@ -377,65 +377,65 @@ class _MacVolumeSliderState extends State<_MacVolumeSlider> {
         setState(() => _hovering = false);
         _dragging = false;
       },
-      child: Container(
+      child: SizedBox(
         width: 140,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 16,
-              child: Align(
-                alignment: Alignment.center,
-                child: Container(
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: sliderColor.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(1.5),
+        height: 32,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final trackWidth = constraints.maxWidth;
+            final fillWidth = trackWidth * _currentVolume.clamp(0.0, 1.0);
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: sliderColor.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(1.5),
+                    ),
                   ),
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: _currentVolume.clamp(0.0, 1.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: sliderColor,
-                        borderRadius: BorderRadius.circular(1.5),
+                ),
+                Positioned(
+                  left: 0,
+                  width: fillWidth,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: sliderColor,
+                      borderRadius: BorderRadius.circular(1.5),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 150),
+                    opacity: _hovering || _dragging ? 1.0 : 0.0,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 2,
+                        inactiveTrackColor: sliderColor.withOpacity(0.2),
+                        activeTrackColor: sliderColor,
+                        thumbShape: _VolumeThumbShape(sliderColor),
+                      ),
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: Slider(
+                          value: _currentVolume.clamp(0.0, 1.0),
+                          onChangeStart: (_) => _dragging = true,
+                          onChangeEnd: (_) => _dragging = false,
+                          onChanged: (value) => _updateVolume(context, value),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              height: 20,
-              child: OverflowBox(
-                maxHeight: 32,
-                alignment: Alignment.center,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 150),
-                  opacity: _hovering || _dragging ? 1.0 : 0.0,
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 2,
-                      inactiveTrackColor: sliderColor.withOpacity(0.2),
-                      activeTrackColor: sliderColor,
-                      thumbShape: _VolumeThumbShape(sliderColor),
-                    ),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Slider(
-                        value: _currentVolume.clamp(0.0, 1.0),
-                        onChangeStart: (_) => _dragging = true,
-                        onChangeEnd: (_) => _dragging = false,
-                        onChanged: (value) => _updateVolume(context, value),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
