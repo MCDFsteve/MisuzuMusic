@@ -186,7 +186,8 @@ class _SettingsSection extends StatelessWidget {
         : Colors.black.withOpacity(0.6);
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
         Text(
           title,
@@ -202,10 +203,10 @@ class _SettingsSection extends StatelessWidget {
           child: Text(
             subtitle,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w400,
               color: subtitleColor,
-              height: 1.2,
+              height: 1.0,
             ),
           ),
         ),
@@ -256,16 +257,13 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: Text(
-            '主题模式',
-            style: theme.typography.body.copyWith(
-              fontWeight: FontWeight.w500,
-              color: isDarkMode
-                  ? Colors.white.withOpacity(0.9)
-                  : Colors.black.withOpacity(0.8),
-            ),
+        Text(
+          '主题模式',
+          style: theme.typography.body.copyWith(
+            fontWeight: FontWeight.w500,
+            color: isDarkMode
+                ? Colors.white.withOpacity(0.9)
+                : Colors.black.withOpacity(0.8),
           ),
         ),
         const SizedBox(height: 8),
@@ -274,8 +272,8 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
           height: 24,
           decoration: BoxDecoration(
             color: isDarkMode
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.04),
+                ? Colors.white.withOpacity(0.12)
+                : Colors.black.withOpacity(0.12),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Stack(
@@ -310,27 +308,23 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => _handleTap(index),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 200),
-                            style: theme.typography.body.copyWith(
-                              fontSize: 10,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: isSelected
-                                  ? (isDarkMode
-                                      ? Colors.black
-                                      : Colors.black.withOpacity(0.85))
-                                  : (isDarkMode
-                                      ? Colors.white.withOpacity(0.85)
-                                      : Colors.black.withOpacity(0.75)),
-                            ),
-                            child: Text(label),
+                      child: Center(
+                        child: AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 200),
+                          style: theme.typography.body.copyWith(
+                            fontSize: 10,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: isSelected
+                                ? (isDarkMode
+                                    ? Colors.black
+                                    : Colors.black.withOpacity(0.85))
+                                : (isDarkMode
+                                    ? Colors.white.withOpacity(0.85)
+                                    : Colors.black.withOpacity(0.75)),
                           ),
+                          child: Text(label),
                         ),
                       ),
                     ),
