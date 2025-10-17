@@ -25,6 +25,12 @@ class MacOSMusicLibraryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = MacosTheme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final subtitleColor = isDarkMode
+        ? MacosColors.systemGrayColor
+        : MacosColors.secondaryLabelColor;
+
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: tracks.length,
@@ -70,7 +76,7 @@ class MacOSMusicLibraryView extends StatelessWidget {
                 Text(
                   _formatDuration(track.duration),
                   style: MacosTheme.of(context).typography.caption1
-                      .copyWith(color: MacosColors.systemGrayColor),
+                      .copyWith(color: subtitleColor),
                 ),
               ],
             ),
@@ -79,7 +85,7 @@ class MacOSMusicLibraryView extends StatelessWidget {
               child: Text(
                 '${track.artist} • ${track.album}',
                 style: MacosTheme.of(context).typography.caption1
-                    .copyWith(color: MacosColors.systemGrayColor),
+                    .copyWith(color: subtitleColor),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
