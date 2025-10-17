@@ -212,7 +212,9 @@ class _SettingsCardState extends State<_SettingsCard> {
             _cardSize = measuredSize;
           }
 
-          final glowStart = Colors.white.withOpacity(0.18);
+          final glowStart = widget.isDarkMode
+              ? Colors.white.withOpacity(0.18)
+              : Colors.white.withOpacity(0.4);
 
           return ClipRRect(
             borderRadius: BorderRadius.circular(16),
