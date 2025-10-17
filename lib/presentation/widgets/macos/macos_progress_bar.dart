@@ -32,6 +32,7 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
   static const _transitionDuration = Duration(milliseconds: 200);
   static const _trackHeight = 2.0;
   static const _knobDiameter = 10.0;
+  static const _timeLabelWidth = 48.0;
 
   bool _isHovering = false;
   bool _isDragging = false;
@@ -82,8 +83,12 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
             if (trackWidth <= 0) {
               return;
             }
-            _seekToRelative(localPosition.dx / trackWidth);
+            final clampedDx = localPosition.dx.clamp(0.0, trackWidth) as double;
+            _seekToRelative(clampedDx / trackWidth);
           }
+
+          final theme = MacosTheme.of(context);
+          final showTimes = _isHovering || _isDragging;
 
           return GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -100,6 +105,7 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
               height: _knobDiameter,
               child: Stack(
                 clipBehavior: Clip.none,
+                alignment: Alignment.center,
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
@@ -121,6 +127,14 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
                           child: _buildKnob(),
                         ),
                       ),
+                    ),
+                  ),
+                  IgnorePointer(
+                    child: AnimatedOpacity(
+                      duration: _transitionDuration,
+                      curve: Curves.easeInOut,
+                      opacity: showTimes ? 1.0 : 0.0,
+                      child: _buildTimeLabels(theme),
                     ),
                   ),
                 ],
@@ -184,5 +198,54 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
         ),
       ),
     );
+  }
+
+  Widget _buildTimeLabels(MacosThemeData theme) {
+    final textStyle = theme.typography.caption1.copyWith(
+      fontSize: 10,
+      color: widget.secondaryColor,
+    );
+
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FractionalTranslation(
+            translation: const Offset(-1.0, 0),
+            child: SizedBox(
+              width: _timeLabelWidth,
+              child: Text(
+                _formatDuration(widget.position),
+                textAlign: TextAlign.right,
+                style: textStyle,
+              ),
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FractionalTranslation(
+            translation: const Offset(1.0, 0),
+            child: SizedBox(
+              width: _timeLabelWidth,
+              child: Text(
+                _formatDuration(widget.duration),
+                textAlign: TextAlign.left,
+                style: textStyle,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final totalSeconds = duration.inSeconds;
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes}:${seconds.toString().padLeft(2, '0')}';
   }
 }
