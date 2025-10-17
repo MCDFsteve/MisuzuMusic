@@ -81,64 +81,57 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Widget _buildMacOSLayout() {
-    return MacosWindow(
-      sidebar: Sidebar(
-        minWidth: 200,
-        maxWidth: 300,
-        builder: (context, scrollController) {
-          return SidebarItems(
-            currentIndex: _selectedIndex,
-            onChanged: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
-            scrollController: scrollController,
-            itemSize: SidebarItemSize.large,
-            items: const [
-              SidebarItem(
-                leading: MacosIcon(CupertinoIcons.music_albums_fill),
-                label: Text('音乐库'),
-              ),
-              SidebarItem(
-                leading: MacosIcon(CupertinoIcons.music_note_list),
-                label: Text('播放列表'),
-              ),
-              SidebarItem(
-                leading: MacosIcon(CupertinoIcons.search),
-                label: Text('搜索'),
-              ),
-              SidebarItem(
-                leading: MacosIcon(CupertinoIcons.settings),
-                label: Text('设置'),
-              ),
-            ],
-          );
-        },
-      ),
-      child: MacosScaffold(
-        toolBar: ToolBar(
-          title: const Text('Misuzu Music'),
-          titleWidth: 200.0,
-          actions: [
-            ToolBarIconButton(
-              label: "选择音乐文件夹",
-              icon: const MacosIcon(CupertinoIcons.folder),
-              onPressed: _selectMusicFolder,
-              showLabel: false,
-              tooltipMessage: '选择音乐文件夹',
-            ),
-          ],
-        ),
-        children: [
-          ContentArea(
-            builder: (context, scrollController) {
-              return BlocBuilder<PlayerBloc, PlayerBlocState>(
-                builder: (context, playerState) {
-                  final theme = MacosTheme.of(context);
-                  final isDarkMode = theme.brightness == Brightness.dark;
-                  final artworkPath = _currentArtworkPath(playerState);
+    return BlocBuilder<PlayerBloc, PlayerBlocState>(
+      builder: (context, playerState) {
+        final theme = MacosTheme.of(context);
+        final isDarkMode = theme.brightness == Brightness.dark;
+        final artworkPath = _currentArtworkPath(playerState);
 
+        return MacosWindow(
+          titleBar: _buildMacOSTitleBar(
+            context: context,
+            isDarkMode: isDarkMode,
+            artworkPath: artworkPath,
+          ),
+          sidebar: Sidebar(
+            minWidth: 200,
+            maxWidth: 300,
+            builder: (context, scrollController) {
+              return SidebarItems(
+                currentIndex: _selectedIndex,
+                onChanged: (index) {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                scrollController: scrollController,
+                itemSize: SidebarItemSize.large,
+                items: const [
+                  SidebarItem(
+                    leading: MacosIcon(CupertinoIcons.music_albums_fill),
+                    label: Text('音乐库'),
+                  ),
+                  SidebarItem(
+                    leading: MacosIcon(CupertinoIcons.music_note_list),
+                    label: Text('播放列表'),
+                  ),
+                  SidebarItem(
+                    leading: MacosIcon(CupertinoIcons.search),
+                    label: Text('搜索'),
+                  ),
+                  SidebarItem(
+                    leading: MacosIcon(CupertinoIcons.settings),
+                    label: Text('设置'),
+                  ),
+                ],
+              );
+            },
+          ),
+          child: MacosScaffold(
+            toolBar: null,
+            children: [
+              ContentArea(
+                builder: (context, scrollController) {
                   return Stack(
                     fit: StackFit.expand,
                     children: [
@@ -164,6 +157,7 @@ class _HomePageContentState extends State<HomePageContent> {
                         ),
                       ),
                       Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(child: _buildMainContent()),
                           const MacOSPlayerControlBar(),
@@ -172,11 +166,11 @@ class _HomePageContentState extends State<HomePageContent> {
                     ],
                   );
                 },
-              );
-            },
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -285,6 +279,118 @@ class _HomePageContentState extends State<HomePageContent> {
         return const SettingsView();
       default:
         return const MusicLibraryView();
+    }
+  }
+
+  TitleBar _buildMacOSTitleBar({
+    required BuildContext context,
+    required bool isDarkMode,
+    String? artworkPath,
+  }) {
+    final theme = MacosTheme.of(context);
+    final borderColor = theme.dividerColor.withOpacity(0.3);
+
+    final file = artworkPath != null && artworkPath.isNotEmpty
+        ? File(artworkPath)
+        : null;
+    final bool hasArtwork = file != null && file.existsSync();
+    final Color titleColor = hasArtwork
+        ? Colors.white
+        : (isDarkMode ? Colors.white : MacosColors.labelColor);
+
+    final BoxDecoration decoration;
+    if (hasArtwork) {
+      decoration = BoxDecoration(
+        image: DecorationImage(
+          image: FileImage(file!),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(
+            Colors.black.withOpacity(isDarkMode ? 0.55 : 0.45),
+            BlendMode.darken,
+          ),
+        ),
+        border: Border(
+          bottom: BorderSide(color: borderColor, width: 0.5),
+        ),
+      );
+    } else {
+      decoration = BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDarkMode
+              ? [
+                  Colors.black.withOpacity(0.6),
+                  Colors.black.withOpacity(0.45),
+                ]
+              : [
+                  theme.canvasColor.withOpacity(0.7),
+                  theme.canvasColor.withOpacity(0.45),
+                ],
+        ),
+        border: Border(
+          bottom: BorderSide(color: borderColor, width: 0.5),
+        ),
+      );
+    }
+
+    return TitleBar(
+      height: 56,
+      centerTitle: false,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: decoration,
+      title: Row(
+        children: [
+          Text(
+            'Misuzu Music',
+            style: theme.typography.title2.copyWith(
+              fontWeight: FontWeight.w600,
+              color: titleColor,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              _currentSectionLabel(_selectedIndex),
+              style: theme.typography.caption1.copyWith(
+                color: titleColor.withOpacity(0.65),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          MacosTooltip(
+            message: '选择音乐文件夹',
+            child: MacosIconButton(
+              backgroundColor: Colors.transparent,
+              hoverColor: MacosColors.controlAccentColor.withOpacity(0.18),
+              mouseCursor: SystemMouseCursors.click,
+              onPressed: () {
+                _selectMusicFolder();
+              },
+              icon: MacosIcon(
+                CupertinoIcons.folder,
+                size: 18,
+                color: titleColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _currentSectionLabel(int index) {
+    switch (index) {
+      case 0:
+        return '音乐库';
+      case 1:
+        return '播放列表';
+      case 2:
+        return '搜索';
+      case 3:
+        return '设置';
+      default:
+        return '音乐库';
     }
   }
 

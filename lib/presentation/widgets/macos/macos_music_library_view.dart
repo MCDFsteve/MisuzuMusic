@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,72 +26,79 @@ class MacOSMusicLibraryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = MacosTheme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final overlayColor = theme.canvasColor.withOpacity(isDarkMode ? 0.32 : 0.58);
+    final borderColor = theme.dividerColor.withOpacity(0.35);
+
     return Column(
       children: [
-        // 统计信息和搜索标签
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: MacosTheme.of(context).canvasColor,
-            border: Border(
-              bottom: BorderSide(
-                color: MacosTheme.of(context).dividerColor,
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              MacosIcon(
-                CupertinoIcons.music_albums_fill,
-                color: MacosColors.systemGrayColor,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${tracks.length} 首歌曲 • ${artists.length} 位艺术家 • ${albums.length} 张专辑',
-                style: MacosTheme.of(context).typography.caption1.copyWith(
-                  color: MacosColors.systemGrayColor,
+        // 统计信息和搜索标签 (毛玻璃)
+        ClipRect(
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              decoration: BoxDecoration(
+                color: overlayColor,
+                border: Border(
+                  bottom: BorderSide(color: borderColor, width: 0.5),
                 ),
               ),
-              const Spacer(),
-              if (searchQuery?.isNotEmpty == true)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+              child: Row(
+                children: [
+                  MacosIcon(
+                    CupertinoIcons.music_albums_fill,
+                    color: MacosColors.systemGrayColor,
+                    size: 16,
                   ),
-                  decoration: BoxDecoration(
-                    color: MacosColors.controlAccentColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: MacosColors.controlAccentColor.withOpacity(0.3),
-                      width: 0.5,
+                  const SizedBox(width: 8),
+                  Text(
+                    '${tracks.length} 首歌曲 • ${artists.length} 位艺术家 • ${albums.length} 张专辑',
+                    style: theme.typography.caption1.copyWith(
+                      color: MacosColors.systemGrayColor.withOpacity(0.95),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '搜索: $searchQuery',
-                        style: MacosTheme.of(context).typography.caption1
-                            .copyWith(color: MacosColors.controlAccentColor),
+                  const Spacer(),
+                  if (searchQuery?.isNotEmpty == true)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
                       ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          // Clear search - implement in parent
-                        },
-                        child: MacosIcon(
-                          CupertinoIcons.xmark_circle_fill,
-                          size: 14,
-                          color: MacosColors.controlAccentColor,
+                      decoration: BoxDecoration(
+                        color: MacosColors.controlAccentColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: MacosColors.controlAccentColor.withOpacity(0.3),
+                          width: 0.5,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-            ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '搜索: $searchQuery',
+                            style: theme.typography.caption1
+                                .copyWith(color: MacosColors.controlAccentColor),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              // Clear search - implement in parent
+                            },
+                            child: MacosIcon(
+                              CupertinoIcons.xmark_circle_fill,
+                              size: 14,
+                              color: MacosColors.controlAccentColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
 
