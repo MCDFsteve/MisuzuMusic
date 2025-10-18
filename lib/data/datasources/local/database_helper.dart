@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 import '../../../core/error/exceptions.dart' as app_exceptions;
+import '../../../core/utils/romaji_transliterator.dart';
 
 class DatabaseHelper {
   static Database? _database;
@@ -309,8 +310,15 @@ class DatabaseHelper {
         return row.hashCode.toString();
       }
 
-      if (tokens.isNotEmpty) {
-        final ftsQuery = tokens.map((token) => '$token*').join(' ');
+      final kanaVariants = <String>{};
+      for (final token in tokens) {
+        kanaVariants.addAll(RomajiTransliterator.toKanaVariants(token));
+      }
+
+      final ftsTokens = <String>{...tokens, ...kanaVariants};
+
+      if (ftsTokens.isNotEmpty) {
+        final ftsQuery = ftsTokens.map((token) => '$token*').join(' ');
         final ftsResults = await db.rawQuery('''
           SELECT tracks.* FROM tracks
           JOIN tracks_fts ON tracks.rowid = tracks_fts.rowid
@@ -327,21 +335,24 @@ class DatabaseHelper {
         }
       }
 
-      final likeArg = trimmed;
-      final likeResults = await db.rawQuery('''
-        SELECT * FROM tracks
-        WHERE title LIKE '%' || ? || '%'
-           OR artist LIKE '%' || ? || '%'
-           OR album LIKE '%' || ? || '%'
-           OR genre LIKE '%' || ? || '%'
-        ORDER BY title COLLATE NOCASE
-      ''', [likeArg, likeArg, likeArg, likeArg]);
+      final likeTerms = <String>{trimmed, ...kanaVariants};
+      for (final term in likeTerms) {
+        if (term.isEmpty) continue;
+        final likeResults = await db.rawQuery('''
+          SELECT * FROM tracks
+          WHERE title LIKE '%' || ? || '%'
+             OR artist LIKE '%' || ? || '%'
+             OR album LIKE '%' || ? || '%'
+             OR genre LIKE '%' || ? || '%'
+          ORDER BY title COLLATE NOCASE
+        ''', [term, term, term, term]);
 
-      for (final rawRow in likeResults) {
-        final row = Map<String, dynamic>.from(rawRow);
-        final key = extractRowKey(row);
-        if (seenKeys.add(key)) {
-          combinedResults.add(row);
+        for (final rawRow in likeResults) {
+          final row = Map<String, dynamic>.from(rawRow);
+          final key = extractRowKey(row);
+          if (seenKeys.add(key)) {
+            combinedResults.add(row);
+          }
         }
       }
 
