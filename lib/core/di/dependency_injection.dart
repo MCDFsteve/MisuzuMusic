@@ -1,7 +1,4 @@
 import 'package:get_it/get_it.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 
 import '../../data/datasources/local/database_helper.dart';
 import '../../data/datasources/local/music_local_datasource.dart';
@@ -22,6 +19,8 @@ import '../../domain/usecases/music_usecases.dart';
 import '../../domain/usecases/player_usecases.dart';
 import '../theme/theme_controller.dart';
 import '../../domain/usecases/lyrics_usecases.dart';
+import '../storage/storage_path_provider.dart';
+import '../storage/binary_config_store.dart';
 
 final sl = GetIt.instance;
 
@@ -30,14 +29,18 @@ class DependencyInjection {
     print('🔧 开始初始化依赖注入...');
 
     try {
-      // External dependencies
-      print('📦 初始化外部依赖...');
-      final sharedPreferences = await SharedPreferences.getInstance();
-      sl.registerLazySingleton(() => sharedPreferences);
+      // Storage setup
+      print('📁 配置存储路径与配置文件...');
+      final storagePathProvider = StoragePathProvider();
+      await storagePathProvider.ensureBaseDir();
+      final configStore = BinaryConfigStore(storagePathProvider);
+      await configStore.init();
+      sl.registerSingleton(storagePathProvider);
+      sl.registerSingleton(configStore);
 
       // Core
       print('🗄️ 初始化数据库...');
-      sl.registerLazySingleton(() => DatabaseHelper.instance);
+      sl.registerLazySingleton(() => DatabaseHelper(sl()));
 
       // Data sources
       print('📊 注册数据源...');

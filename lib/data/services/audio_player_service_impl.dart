@@ -3,22 +3,23 @@ import 'dart:convert';
 
 import 'package:just_audio/just_audio.dart' hide PlayerState;
 import 'package:rxdart/rxdart.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/entities/music_entities.dart';
 import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/services/audio_player_service.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/error/exceptions.dart';
+import '../../core/storage/binary_config_store.dart';
+import '../../core/storage/storage_keys.dart';
+import '../../core/constants/app_constants.dart' show PlayMode, PlayerState;
 
 class AudioPlayerServiceImpl implements AudioPlayerService {
-  AudioPlayerServiceImpl(this._preferences, this._playbackHistoryRepository) {
+  AudioPlayerServiceImpl(this._configStore, this._playbackHistoryRepository) {
     _initializeStreams();
     _restoreVolume();
     _restorePlayMode();
   }
 
-  final SharedPreferences _preferences;
+  final BinaryConfigStore _configStore;
   final PlaybackHistoryRepository _playbackHistoryRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
@@ -95,7 +96,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   }
 
   void _restoreVolume() {
-    final savedVolume = _preferences.getDouble(AppConstants.settingsVolume);
+    final raw = _configStore.getValue<dynamic>(StorageKeys.volume);
+    final savedVolume = raw is num ? raw.toDouble() : null;
     if (savedVolume != null) {
       _volume = savedVolume.clamp(0.0, 1.0);
       unawaited(_audioPlayer.setVolume(_volume));
@@ -103,7 +105,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   }
 
   void _restorePlayMode() {
-    final savedMode = _preferences.getString(AppConstants.settingsPlayMode);
+    final savedMode = _configStore.getValue<String>(StorageKeys.playMode);
     if (savedMode == null) {
       return;
     }
@@ -119,11 +121,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   }
 
   Future<void> _persistVolume() async {
-    await _preferences.setDouble(AppConstants.settingsVolume, _volume);
+    await _configStore.setValue(StorageKeys.volume, _volume);
   }
 
   Future<void> _persistPlayMode() async {
-    await _preferences.setString(AppConstants.settingsPlayMode, _playMode.name);
+    await _configStore.setValue(StorageKeys.playMode, _playMode.name);
   }
 
   Future<void> _persistQueueState() async {
@@ -133,8 +135,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     }
 
     final queueJson = jsonEncode(_queue.map(_trackToJson).toList());
-    await _preferences.setString(AppConstants.settingsPlaybackQueue, queueJson);
-    await _preferences.setInt(AppConstants.settingsPlaybackIndex, _currentIndex);
+    await _configStore.setValue(StorageKeys.playbackQueue, queueJson);
+    await _configStore.setValue(StorageKeys.playbackQueueIndex, _currentIndex);
   }
 
   Future<void> _persistPosition(Duration position) async {
@@ -143,16 +145,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return;
     }
     _lastPositionPersistTime = now;
-    await _preferences.setInt(
-      AppConstants.settingsPlaybackPosition,
+    await _configStore.setValue(
+      StorageKeys.playbackPosition,
       position.inMilliseconds,
     );
   }
 
   Future<void> _clearPersistedQueue() async {
-    await _preferences.remove(AppConstants.settingsPlaybackQueue);
-    await _preferences.remove(AppConstants.settingsPlaybackIndex);
-    await _preferences.remove(AppConstants.settingsPlaybackPosition);
+    await _configStore.remove(StorageKeys.playbackQueue);
+    await _configStore.remove(StorageKeys.playbackQueueIndex);
+    await _configStore.remove(StorageKeys.playbackPosition);
   }
 
   Map<String, dynamic> _trackToJson(Track track) {
@@ -443,7 +445,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<PlaybackSession?> loadLastSession() async {
     try {
-      final queueJson = _preferences.getString(AppConstants.settingsPlaybackQueue);
+      await _configStore.init();
+      final queueJson = _configStore.getValue<String>(StorageKeys.playbackQueue);
       if (queueJson == null || queueJson.isEmpty) {
         return null;
       }
@@ -464,10 +467,15 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         return null;
       }
 
-      final savedIndex = _preferences.getInt(AppConstants.settingsPlaybackIndex) ?? 0;
+      final savedIndex =
+          (_configStore.getValue<dynamic>(StorageKeys.playbackQueueIndex) as num?)
+              ?.toInt() ??
+          0;
       final positionMs =
-          _preferences.getInt(AppConstants.settingsPlaybackPosition) ?? 0;
-      final savedMode = _preferences.getString(AppConstants.settingsPlayMode);
+          (_configStore.getValue<dynamic>(StorageKeys.playbackPosition) as num?)
+                  ?.toInt() ??
+              0;
+      final savedMode = _configStore.getValue<String>(StorageKeys.playMode);
       final playMode = savedMode != null
           ? () {
               try {
@@ -481,9 +489,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
             }()
           : _playMode;
 
+      final rawVolume = _configStore.getValue<dynamic>(StorageKeys.volume);
       final savedVolume =
-          (_preferences.getDouble(AppConstants.settingsVolume) ?? _volume)
-              .clamp(0.0, 1.0);
+          (rawVolume is num ? rawVolume.toDouble() : _volume).clamp(0.0, 1.0);
 
       final clampedIndex = queue.isEmpty
           ? 0

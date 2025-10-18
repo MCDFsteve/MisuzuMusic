@@ -1,61 +1,57 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:rxdart/rxdart.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/constants/app_constants.dart';
+import '../../core/storage/binary_config_store.dart';
+import '../../core/storage/storage_keys.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/repositories/playback_history_repository.dart';
 
 class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
-  PlaybackHistoryRepositoryImpl(this._preferences)
+  PlaybackHistoryRepositoryImpl(this._configStore)
       : _historySubject = BehaviorSubject<List<PlaybackHistoryEntry>>.seeded(const []);
 
   static const int _maxEntries = 200;
 
-  final SharedPreferences _preferences;
+  final BinaryConfigStore _configStore;
   final BehaviorSubject<List<PlaybackHistoryEntry>> _historySubject;
   bool _initialized = false;
 
   Future<void> _ensureInitialized() async {
     if (_initialized) return;
+    await _configStore.init();
     _initialized = true;
     final entries = _readFromPreferences();
     _historySubject.add(entries);
   }
 
   List<PlaybackHistoryEntry> _readFromPreferences() {
-    final stored = _preferences.getString(AppConstants.settingsPlaybackHistory);
-    if (stored == null || stored.isEmpty) {
+    final stored = _configStore.getValue<dynamic>(StorageKeys.playbackHistory);
+    if (stored is! List) {
       return const [];
     }
 
-    try {
-      final decoded = jsonDecode(stored);
-      if (decoded is! List) {
-        return const [];
-      }
-      final entries = <PlaybackHistoryEntry>[];
-      for (final item in decoded) {
-        if (item is! Map<String, dynamic>) {
-          continue;
+    final entries = <PlaybackHistoryEntry>[];
+    for (final item in stored) {
+      if (item is Map<String, dynamic>) {
+        try {
+          entries.add(_entryFromMap(item));
+        } catch (_) {
+          // ignore malformed entry
         }
+      } else if (item is Map) {
         try {
           entries.add(_entryFromMap(Map<String, dynamic>.from(item)));
         } catch (_) {
-          // Skip malformed entry
+          // ignore malformed entry
         }
       }
-      return entries;
-    } catch (_) {
-      return const [];
     }
+    return entries;
   }
 
   Future<void> _persist(List<PlaybackHistoryEntry> entries) async {
-    final encoded = jsonEncode(entries.map(_entryToMap).toList());
-    await _preferences.setString(AppConstants.settingsPlaybackHistory, encoded);
+    final encoded = entries.map(_entryToMap).toList();
+    await _configStore.setValue(StorageKeys.playbackHistory, encoded);
   }
 
   Map<String, dynamic> _entryToMap(PlaybackHistoryEntry entry) {
@@ -169,6 +165,6 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
   Future<void> clearHistory() async {
     await _ensureInitialized();
     _historySubject.add(const []);
-    await _preferences.remove(AppConstants.settingsPlaybackHistory);
+    await _configStore.remove(StorageKeys.playbackHistory);
   }
 }

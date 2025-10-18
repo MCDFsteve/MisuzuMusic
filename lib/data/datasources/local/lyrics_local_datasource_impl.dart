@@ -1,18 +1,17 @@
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../../core/error/exceptions.dart';
+import '../../../core/storage/binary_config_store.dart';
+import '../../../core/storage/storage_keys.dart';
 import '../../models/lyrics_models.dart';
 import 'database_helper.dart';
 import 'lyrics_local_datasource.dart';
 
 class LyricsLocalDataSourceImpl implements LyricsLocalDataSource {
   final DatabaseHelper _databaseHelper;
-  final SharedPreferences _sharedPreferences;
+  final BinaryConfigStore _configStore;
 
-  static const String _lyricsSettingsKey = 'lyrics_settings';
+  static const String _lyricsSettingsKey = StorageKeys.lyricsSettings;
 
-  LyricsLocalDataSourceImpl(this._databaseHelper, this._sharedPreferences);
+  LyricsLocalDataSourceImpl(this._databaseHelper, this._configStore);
 
   @override
   Future<LyricsModel?> getLyricsByTrackId(String trackId) async {
@@ -88,10 +87,13 @@ class LyricsLocalDataSourceImpl implements LyricsLocalDataSource {
   @override
   Future<LyricsSettingsModel> getLyricsSettings() async {
     try {
-      final settingsJson = _sharedPreferences.getString(_lyricsSettingsKey);
-      if (settingsJson != null) {
-        final settingsMap = json.decode(settingsJson) as Map<String, dynamic>;
-        return LyricsSettingsModel.fromMap(settingsMap);
+      await _configStore.init();
+      final raw = _configStore.getValue<dynamic>(_lyricsSettingsKey);
+      if (raw is Map<String, dynamic>) {
+        return LyricsSettingsModel.fromMap(raw);
+      }
+      if (raw is Map) {
+        return LyricsSettingsModel.fromMap(Map<String, dynamic>.from(raw));
       }
       // Return default settings
       return const LyricsSettingsModel();
@@ -103,8 +105,7 @@ class LyricsLocalDataSourceImpl implements LyricsLocalDataSource {
   @override
   Future<void> saveLyricsSettings(LyricsSettingsModel settings) async {
     try {
-      final settingsJson = json.encode(settings.toMap());
-      await _sharedPreferences.setString(_lyricsSettingsKey, settingsJson);
+      await _configStore.setValue(_lyricsSettingsKey, settings.toMap());
     } catch (e) {
       throw DatabaseException('Failed to save lyrics settings: ${e.toString()}');
     }

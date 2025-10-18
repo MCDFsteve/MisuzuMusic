@@ -1339,12 +1339,12 @@ class _PlaylistHistoryList extends StatelessWidget {
             indent: isMac ? 88 : 80,
           ),
           itemBuilder: (context, index) {
-              final entry = filteredEntries[index];
-              final track = entry.track;
-              final playCount = entry.playCount;
-              return TrackListTile(
-                index: index + 1,
-                leading: ArtworkThumbnail(
+            final entry = filteredEntries[index];
+            final track = entry.track;
+            final playCount = entry.playCount;
+            return TrackListTile(
+              index: index + 1,
+              leading: ArtworkThumbnail(
                 artworkPath: track.artworkPath,
                 size: 48,
                 borderRadius: BorderRadius.circular(8),
@@ -1355,7 +1355,7 @@ class _PlaylistHistoryList extends StatelessWidget {
               title: track.title,
               artistAlbum: '${track.artist} • ${track.album}',
               duration: _formatDuration(track.duration),
-              meta: '${_formatPlayedAt(entry.playedAt)} │ ${playCount} 次播放',
+              meta: '${_formatPlayedAt(entry.playedAt)} | ${playCount} 次播放',
               onTap: () => _playTrack(context, track),
             );
           },

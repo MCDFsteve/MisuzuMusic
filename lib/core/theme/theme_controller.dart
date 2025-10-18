@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../storage/binary_config_store.dart';
+import '../storage/storage_keys.dart';
 
 class ThemeController extends ChangeNotifier {
-  ThemeController(this._preferences);
+  ThemeController(this._configStore);
 
-  final SharedPreferences _preferences;
-  static const _storageKey = 'theme_mode';
+  final BinaryConfigStore _configStore;
 
   ThemeMode _themeMode = ThemeMode.system;
   ThemeMode get themeMode => _themeMode;
 
   Future<void> load() async {
-    final stored = _preferences.getString(_storageKey);
+    await _configStore.init();
+    final stored = _configStore.getValue<String>(StorageKeys.themeMode);
     if (stored != null) {
       _themeMode = _decode(stored);
       notifyListeners();
@@ -21,7 +23,7 @@ class ThemeController extends ChangeNotifier {
   Future<void> setThemeMode(ThemeMode mode) async {
     if (_themeMode == mode) return;
     _themeMode = mode;
-    await _preferences.setString(_storageKey, _encode(mode));
+    await _configStore.setValue(StorageKeys.themeMode, _encode(mode));
     notifyListeners();
   }
 

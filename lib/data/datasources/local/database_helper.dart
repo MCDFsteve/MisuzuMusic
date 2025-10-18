@@ -1,17 +1,18 @@
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
 
 import '../../../core/error/exceptions.dart' as app_exceptions;
 import '../../../core/utils/romaji_transliterator.dart';
+import '../../../core/storage/storage_path_provider.dart';
 
 class DatabaseHelper {
-  static Database? _database;
+  DatabaseHelper(this._pathProvider);
+
   static const String _databaseName = 'misuzu_music.db';
   static const int _databaseVersion = 1;
 
-  // Singleton pattern
-  DatabaseHelper._();
-  static final DatabaseHelper instance = DatabaseHelper._();
+  final StoragePathProvider _pathProvider;
+  Database? _database;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -21,8 +22,7 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     try {
-      final databasesPath = await getDatabasesPath();
-      final path = join(databasesPath, _databaseName);
+      final path = await _pathProvider.databasePath(fileName: _databaseName);
 
       return await openDatabase(
         path,
