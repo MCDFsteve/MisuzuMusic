@@ -1233,7 +1233,14 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     if (summaries.isEmpty) {
       summaries.add(allSummary);
     } else {
-      summaries.insert(0, allSummary);
+      summaries.sort((a, b) => a.directoryPath.compareTo(b.directoryPath));
+      final bool isSingleDirectory = summaries.length == 1;
+      if (isSingleDirectory) {
+        return [allSummary];
+      }
+      if (!summaries.any((summary) => summary.directoryPath.isEmpty)) {
+        summaries.insert(0, allSummary);
+      }
     }
 
     return summaries;
