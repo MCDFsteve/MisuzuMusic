@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:just_audio/just_audio.dart' hide PlayerState;
 import 'package:rxdart/rxdart.dart';
+import 'package:crypto/crypto.dart';
 
 import '../../domain/entities/music_entities.dart';
 import '../../domain/repositories/playback_history_repository.dart';
@@ -235,7 +238,12 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
   Future<void> _recordPlayback(Track track) async {
     try {
-      await _playbackHistoryRepository.recordPlay(track, DateTime.now());
+      final fingerprint = await _computeFingerprint(track);
+      await _playbackHistoryRepository.recordPlay(
+        track,
+        DateTime.now(),
+        fingerprint: fingerprint,
+      );
     } catch (e) {
       print('⚠️ AudioService: 记录播放历史失败 - $e');
     }
@@ -521,5 +529,31 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _positionSubject.close();
     await _durationSubject.close();
     await _audioPlayer.dispose();
+  }
+
+  Future<String?> _computeFingerprint(Track track) async {
+    try {
+      final file = File(track.filePath);
+      if (!await file.exists()) {
+        return null;
+      }
+      final stream = file.openRead(0, 10240);
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk in stream) {
+        builder.add(chunk);
+        if (builder.length >= 10240) {
+          break;
+        }
+      }
+      final data = builder.takeBytes();
+      if (data.isEmpty) {
+        return null;
+      }
+      final digest = sha1.convert(data);
+      return digest.toString();
+    } catch (e) {
+      print('⚠️ AudioService: 计算指纹失败 - $e');
+      return null;
+    }
   }
 }

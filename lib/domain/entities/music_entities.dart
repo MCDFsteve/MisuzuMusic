@@ -163,24 +163,28 @@ class PlaybackHistoryEntry extends Entity {
     required this.track,
     required this.playedAt,
     this.playCount = 1,
+    this.fingerprint,
   });
 
   final Track track;
   final DateTime playedAt;
   final int playCount;
+  final String? fingerprint;
 
   @override
-  List<Object> get props => [track, playedAt, playCount];
+  List<Object?> get props => [track, playedAt, playCount, fingerprint];
 
   PlaybackHistoryEntry copyWith({
     Track? track,
     DateTime? playedAt,
     int? playCount,
+    String? fingerprint,
   }) {
     return PlaybackHistoryEntry(
       track: track ?? this.track,
       playedAt: playedAt ?? this.playedAt,
       playCount: playCount ?? this.playCount,
+      fingerprint: fingerprint ?? this.fingerprint,
     );
   }
 }

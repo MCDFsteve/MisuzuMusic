@@ -59,6 +59,7 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
       'playedAt': entry.playedAt.toIso8601String(),
       'track': _trackToMap(entry.track),
       'playCount': entry.playCount,
+      'fingerprint': entry.fingerprint,
     };
   }
 
@@ -70,10 +71,12 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
       throw const FormatException('Invalid track payload');
     }
     final playCount = (map['playCount'] as num?)?.toInt() ?? 1;
+    final fingerprint = map['fingerprint'] as String?;
     return PlaybackHistoryEntry(
       track: _trackFromMap(trackMap),
       playedAt: playedAt,
       playCount: playCount,
+      fingerprint: fingerprint,
     );
   }
 
@@ -122,16 +125,27 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
   }
 
   @override
-  Future<void> recordPlay(Track track, DateTime playedAt) async {
+  Future<void> recordPlay(
+    Track track,
+    DateTime playedAt, {
+    String? fingerprint,
+  }) async {
     await _ensureInitialized();
     final history = List<PlaybackHistoryEntry>.from(_historySubject.value);
-    final existingIndex = history.indexWhere((entry) => entry.track.id == track.id);
+    final key = fingerprint ?? track.id;
+    final existingIndex = history.indexWhere((entry) {
+      if (entry.fingerprint != null) {
+        return entry.fingerprint == key;
+      }
+      return entry.track.id == track.id;
+    });
 
     if (existingIndex != -1) {
       final existing = history.removeAt(existingIndex);
       final updated = existing.copyWith(
         playedAt: playedAt,
         playCount: existing.playCount + 1,
+        fingerprint: existing.fingerprint ?? key,
       );
       history.insert(0, updated);
     } else {
@@ -141,6 +155,7 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
           track: track,
           playedAt: playedAt,
           playCount: 1,
+          fingerprint: key,
         ),
       );
     }

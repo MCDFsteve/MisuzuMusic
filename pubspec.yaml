@@ -66,6 +66,7 @@ dependencies:
   rxdart: ^0.27.7
   get_it: ^7.6.4
   window_manager: ^0.3.7
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:
