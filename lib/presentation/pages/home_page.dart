@@ -27,6 +27,7 @@ import '../widgets/common/artwork_thumbnail.dart';
 import '../widgets/common/adaptive_scrollbar.dart';
 import '../widgets/common/library_search_field.dart';
 import '../widgets/common/track_list_tile.dart';
+import '../widgets/common/hover_glow_overlay.dart';
 import '../../domain/entities/music_entities.dart';
 import 'settings/settings_view.dart';
 
@@ -1130,104 +1131,115 @@ class _LibrarySummaryView extends StatelessWidget {
     final directory = File(track.filePath).parent.path;
     final folderName = p.basename(directory);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            width: 220,
-            height: 220,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: borderColor, width: 0.6),
-              boxShadow: [
-                BoxShadow(
-                  color: isDark
-                      ? Colors.black.withOpacity(0.42)
-                      : Colors.black.withOpacity(0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+    final card = HoverGlowOverlay(
+      isDarkMode: isDark,
+      borderRadius: BorderRadius.circular(20),
+      cursor: SystemMouseCursors.click,
+      glowRadius: 1.0,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        width: 220,
+        height: 220,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor, width: 0.6),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withOpacity(0.42)
+                  : Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: hasArtwork &&
-                      track.artworkPath != null &&
-                      File(track.artworkPath!).existsSync()
-                  ? Image.file(
-                      File(track.artworkPath!),
-                      fit: BoxFit.cover,
-                    )
-                  : Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: isDark
-                              ? [const Color(0xFF3C3C3E), const Color(0xFF1C1C1E)]
-                              : [const Color(0xFFE9F1FF), const Color(0xFFFDFEFF)],
-                        ),
-                      ),
-                      child: Icon(
-                        CupertinoIcons.music_albums,
-                        size: 60,
-                        color: isDark ? Colors.white24 : Colors.black26,
-                      ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: hasArtwork &&
+                  track.artworkPath != null &&
+                  File(track.artworkPath!).existsSync()
+              ? Image.file(
+                  File(track.artworkPath!),
+                  fit: BoxFit.cover,
+                )
+              : Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? [const Color(0xFF3C3C3E), const Color(0xFF1C1C1E)]
+                          : [const Color(0xFFE9F1FF), const Color(0xFFFDFEFF)],
                     ),
-            ),
-          ),
-          const SizedBox(width: 22),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '音乐库',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: titleColor,
-                  letterSpacing: -0.3,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.music_albums,
+                    size: 60,
+                    color: isDark ? Colors.white24 : Colors.black26,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                folderName,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: titleColor,
+        ),
+      ),
+    );
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            card,
+            const SizedBox(width: 22),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '音乐库',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: titleColor,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              SizedBox(
-                width: 280,
-                child: Text(
-                  directory,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 6),
+                Text(
+                  folderName,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: titleColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: 280,
+                  child: Text(
+                    directory,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: subtitleColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$totalTracks 首歌曲 · 点击查看全部',
                   style: TextStyle(
                     fontSize: 12,
                     color: subtitleColor,
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$totalTracks 首歌曲 · 点击查看全部',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: subtitleColor,
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
