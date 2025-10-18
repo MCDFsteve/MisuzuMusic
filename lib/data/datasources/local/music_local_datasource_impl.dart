@@ -13,7 +13,8 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
     try {
       final maps = await _databaseHelper.query(
         'tracks',
-        orderBy: 'date_added DESC',
+        orderBy:
+            'title COLLATE NOCASE ASC, artist COLLATE NOCASE ASC, album COLLATE NOCASE ASC',
       );
       return maps.map((map) => TrackModel.fromMap(map)).toList();
     } catch (e) {
