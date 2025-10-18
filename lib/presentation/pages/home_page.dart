@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -861,7 +860,6 @@ class MusicLibraryView extends StatefulWidget {
 
 class _MusicLibraryViewState extends State<MusicLibraryView> {
   bool _showList = false;
-  final Random _random = Random();
   Track? _summaryTrack;
   bool _summaryHasArtwork = false;
 
@@ -872,31 +870,43 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       return;
     }
 
-    final withArtwork = tracks.where((track) {
-      final artworkPath = track.artworkPath;
-      if (artworkPath == null || artworkPath.isEmpty) {
-        return false;
-      }
-      try {
-        return File(artworkPath).existsSync();
-      } catch (_) {
-        return false;
-      }
-    }).toList();
-
-    Track chosen;
-    bool hasArtwork;
-
-    if (withArtwork.isNotEmpty) {
-      chosen = withArtwork[_random.nextInt(withArtwork.length)];
-      hasArtwork = true;
-    } else {
-      chosen = tracks[_random.nextInt(tracks.length)];
-      hasArtwork = false;
+    bool summaryStillValid = false;
+    if (_summaryTrack != null) {
+      summaryStillValid = tracks.any((track) => track.id == _summaryTrack!.id);
     }
+
+    if (summaryStillValid) {
+      final existing = tracks.firstWhere((track) => track.id == _summaryTrack!.id);
+      _summaryTrack = existing;
+      if (_summaryHasArtwork) {
+        // Reconfirm artwork availability in case文件被移除
+        _summaryHasArtwork = _hasArtwork(existing);
+      }
+      return;
+    }
+
+    final Track? firstWithArtwork = tracks.firstWhere(
+      (track) => _hasArtwork(track),
+      orElse: () => tracks.first,
+    );
+
+    final Track chosen = firstWithArtwork ?? tracks.first;
+    final bool hasArtwork = _hasArtwork(chosen);
 
     _summaryTrack = chosen;
     _summaryHasArtwork = hasArtwork;
+  }
+
+  bool _hasArtwork(Track track) {
+    final artworkPath = track.artworkPath;
+    if (artworkPath == null || artworkPath.isEmpty) {
+      return false;
+    }
+    try {
+      return File(artworkPath).existsSync();
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
