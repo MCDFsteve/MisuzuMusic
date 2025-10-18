@@ -143,11 +143,7 @@ class _HomePageContentState extends State<HomePageContent> {
                         width: _navigationWidth,
                         collapsed: _navigationWidth <= 112,
                         selectedIndex: _selectedIndex,
-                        onSelect: (index) {
-                          if (_selectedIndex != index) {
-                            setState(() => _selectedIndex = index);
-                          }
-                        },
+                        onSelect: _handleNavigationChange,
                         onResize: (width) {
                           setState(() {
                             _navigationWidth = width.clamp(_navMinWidth, _navMaxWidth);
@@ -190,11 +186,7 @@ class _HomePageContentState extends State<HomePageContent> {
         children: [
           NavigationRail(
             selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
+            onDestinationSelected: _handleNavigationChange,
             extended: true,
             destinations: const [
               NavigationRailDestination(
@@ -289,6 +281,20 @@ class _HomePageContentState extends State<HomePageContent> {
         return const SettingsView();
       default:
         return const MusicLibraryView();
+    }
+  }
+
+  void _handleNavigationChange(int index) {
+    if (_selectedIndex == index) {
+      return;
+    }
+
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    if (index == 0) {
+      context.read<MusicLibraryBloc>().add(const LoadAllTracks());
     }
   }
 
