@@ -53,3 +53,13 @@ class GetAllAlbums {
     return await _repository.getAllAlbums();
   }
 }
+
+class GetLibraryDirectories {
+  final MusicLibraryRepository _repository;
+
+  GetLibraryDirectories(this._repository);
+
+  Future<List<String>> call() async {
+    return await _repository.getLibraryDirectories();
+  }
+}

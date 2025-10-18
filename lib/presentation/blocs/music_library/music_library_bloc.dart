@@ -73,27 +73,31 @@ class MusicLibraryLoaded extends MusicLibraryState {
   final List<Artist> artists;
   final List<Album> albums;
   final String? searchQuery;
+  final List<String> libraryDirectories;
 
   const MusicLibraryLoaded({
     required this.tracks,
     required this.artists,
     required this.albums,
+    required this.libraryDirectories,
     this.searchQuery,
   });
 
   @override
-  List<Object?> get props => [tracks, artists, albums, searchQuery];
+  List<Object?> get props => [tracks, artists, albums, libraryDirectories, searchQuery];
 
   MusicLibraryLoaded copyWith({
     List<Track>? tracks,
     List<Artist>? artists,
     List<Album>? albums,
+    List<String>? libraryDirectories,
     String? searchQuery,
   }) {
     return MusicLibraryLoaded(
       tracks: tracks ?? this.tracks,
       artists: artists ?? this.artists,
       albums: albums ?? this.albums,
+      libraryDirectories: libraryDirectories ?? this.libraryDirectories,
       searchQuery: searchQuery ?? this.searchQuery,
     );
   }
@@ -128,6 +132,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
   final ScanMusicDirectory _scanMusicDirectory;
   final GetAllArtists _getAllArtists;
   final GetAllAlbums _getAllAlbums;
+  final GetLibraryDirectories _getLibraryDirectories;
 
   MusicLibraryBloc({
     required GetAllTracks getAllTracks,
@@ -135,11 +140,13 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     required ScanMusicDirectory scanMusicDirectory,
     required GetAllArtists getAllArtists,
     required GetAllAlbums getAllAlbums,
+    required GetLibraryDirectories getLibraryDirectories,
   })  : _getAllTracks = getAllTracks,
         _searchTracks = searchTracks,
         _scanMusicDirectory = scanMusicDirectory,
         _getAllArtists = getAllArtists,
         _getAllAlbums = getAllAlbums,
+        _getLibraryDirectories = getLibraryDirectories,
         super(const MusicLibraryInitial()) {
 
     on<LoadAllTracks>(_onLoadAllTracks);
@@ -160,6 +167,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       final tracks = await _getAllTracks();
       final artists = await _getAllArtists();
       final albums = await _getAllAlbums();
+      final directories = await _getLibraryDirectories();
 
       print('🎵 BLoC: 加载完成 - ${tracks.length} 首歌曲, ${artists.length} 位艺术家, ${albums.length} 张专辑');
 
@@ -167,6 +175,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
         tracks: tracks,
         artists: artists,
         albums: albums,
+        libraryDirectories: directories,
       ));
     } catch (e) {
       print('❌ BLoC: 加载音轨失败: $e');
@@ -185,6 +194,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       final tracks = await _searchTracks(event.query);
       final artists = await _getAllArtists();
       final albums = await _getAllAlbums();
+      final directories = await _getLibraryDirectories();
 
       print('🔍 BLoC: 搜索完成 - 找到 ${tracks.length} 首歌曲');
 
@@ -192,6 +202,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
         tracks: tracks,
         artists: artists,
         albums: albums,
+        libraryDirectories: directories,
         searchQuery: event.query,
       ));
     } catch (e) {

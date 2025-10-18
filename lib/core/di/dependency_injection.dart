@@ -57,6 +57,7 @@ class DependencyInjection {
       sl.registerLazySingleton<MusicLibraryRepository>(
         () => MusicLibraryRepositoryImpl(
           localDataSource: sl(),
+          configStore: sl(),
         ),
       );
 
@@ -90,6 +91,7 @@ class DependencyInjection {
       sl.registerLazySingleton(() => ScanMusicDirectory(sl()));
       sl.registerLazySingleton(() => GetAllArtists(sl()));
       sl.registerLazySingleton(() => GetAllAlbums(sl()));
+      sl.registerLazySingleton(() => GetLibraryDirectories(sl()));
 
       sl.registerLazySingleton(() => PlayTrack(sl()));
       sl.registerLazySingleton(() => PausePlayer(sl()));

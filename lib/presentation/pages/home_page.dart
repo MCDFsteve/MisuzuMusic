@@ -45,6 +45,7 @@ class HomePage extends StatelessWidget {
             scanMusicDirectory: sl<ScanMusicDirectory>(),
             getAllArtists: sl<GetAllArtists>(),
             getAllAlbums: sl<GetAllAlbums>(),
+            getLibraryDirectories: sl<GetLibraryDirectories>(),
           )..add(const LoadAllTracks()),
         ),
         BlocProvider(
@@ -937,42 +938,7 @@ class MusicLibraryView extends StatefulWidget {
 
 class _MusicLibraryViewState extends State<MusicLibraryView> {
   bool _showList = false;
-  Track? _summaryTrack;
-  bool _summaryHasArtwork = false;
-
-  void _selectSummaryTrack(List<Track> tracks) {
-    if (tracks.isEmpty) {
-      _summaryTrack = null;
-      _summaryHasArtwork = false;
-      return;
-    }
-
-    bool summaryStillValid = false;
-    if (_summaryTrack != null) {
-      summaryStillValid = tracks.any((track) => track.id == _summaryTrack!.id);
-    }
-
-    if (summaryStillValid) {
-      final existing = tracks.firstWhere((track) => track.id == _summaryTrack!.id);
-      _summaryTrack = existing;
-      if (_summaryHasArtwork) {
-        // Reconfirm artwork availability in case文件被移除
-        _summaryHasArtwork = _hasArtwork(existing);
-      }
-      return;
-    }
-
-    final Track? firstWithArtwork = tracks.firstWhere(
-      (track) => _hasArtwork(track),
-      orElse: () => tracks.first,
-    );
-
-    final Track chosen = firstWithArtwork ?? tracks.first;
-    final bool hasArtwork = _hasArtwork(chosen);
-
-    _summaryTrack = chosen;
-    _summaryHasArtwork = hasArtwork;
-  }
+  String? _activeDirectoryFilter;
 
   bool _hasArtwork(Track track) {
     final artworkPath = track.artworkPath;
@@ -984,6 +950,81 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     } catch (_) {
       return false;
     }
+  }
+
+  Track? _findPreviewTrack(List<Track> tracks) {
+    if (tracks.isEmpty) {
+      return null;
+    }
+    final withArtwork = tracks.where(_hasArtwork);
+    if (withArtwork.isNotEmpty) {
+      return withArtwork.first;
+    }
+    return tracks.first;
+  }
+
+  bool _isTrackInDirectory(Track track, String directoryPath) {
+    final normalizedDirectory = p.normalize(directoryPath);
+    final trackPath = p.normalize(track.filePath);
+    if (trackPath == normalizedDirectory) {
+      return true;
+    }
+    return p.isWithin(normalizedDirectory, trackPath);
+  }
+
+  List<_DirectorySummaryData> _buildLibrarySummariesData(
+      MusicLibraryLoaded state) {
+    final summaries = <_DirectorySummaryData>[];
+    final normalizedDirectories = <String>{
+      ...state.libraryDirectories.map((dir) => p.normalize(dir)),
+    };
+
+    if (normalizedDirectories.isEmpty) {
+      normalizedDirectories.addAll(
+        state.tracks
+            .map((track) => p.normalize(File(track.filePath).parent.path)),
+      );
+    }
+
+    for (final directory in normalizedDirectories) {
+      final normalizedDirectory = directory;
+      final directoryTracks = state.tracks
+          .where((track) => _isTrackInDirectory(track, normalizedDirectory))
+          .toList();
+
+      if (directoryTracks.isEmpty) {
+        continue;
+      }
+
+      final previewTrack = _findPreviewTrack(directoryTracks);
+      final hasArtwork = previewTrack != null && _hasArtwork(previewTrack);
+
+      summaries.add(
+        _DirectorySummaryData(
+          directoryPath: normalizedDirectory,
+          previewTrack: previewTrack,
+          totalTracks: directoryTracks.length,
+          hasArtwork: hasArtwork,
+        ),
+      );
+    }
+
+    final allPreviewTrack = _findPreviewTrack(state.tracks);
+    final allHasArtwork = allPreviewTrack != null && _hasArtwork(allPreviewTrack);
+    final allSummary = _DirectorySummaryData(
+      directoryPath: '',
+      previewTrack: allPreviewTrack,
+      totalTracks: state.tracks.length,
+      hasArtwork: allHasArtwork,
+    );
+
+    if (summaries.isEmpty) {
+      summaries.add(allSummary);
+    } else {
+      summaries.insert(0, allSummary);
+    }
+
+    return summaries;
   }
 
   @override
@@ -1049,7 +1090,20 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
             );
           }
 
-          _selectSummaryTrack(state.tracks);
+          final summariesData = _buildLibrarySummariesData(state);
+          final normalizedDirectories = summariesData
+              .map((summary) => summary.directoryPath)
+              .toSet();
+          if (_activeDirectoryFilter != null &&
+              !normalizedDirectories.contains(_activeDirectoryFilter)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              setState(() {
+                _activeDirectoryFilter = null;
+                _showList = false;
+              });
+            });
+          }
 
           final hasActiveSearch =
               state.searchQuery != null && state.searchQuery!.trim().isNotEmpty;
@@ -1058,37 +1112,101 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
               if (mounted) setState(() => _showList = true);
             });
           }
+          if (hasActiveSearch && _activeDirectoryFilter != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              setState(() {
+                _activeDirectoryFilter = null;
+              });
+            });
+          }
 
           if (!_showList) {
             return Align(
               alignment: Alignment.topLeft,
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                child: _LibrarySummaryView(
-                  track: _summaryTrack!,
-                  totalTracks: state.tracks.length,
-                  hasArtwork: _summaryHasArtwork,
-                  onTap: () => setState(() => _showList = true),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < summariesData.length; i++)
+                      Padding(
+                        padding: EdgeInsets.only(
+                          bottom: i == summariesData.length - 1 ? 0 : 24,
+                        ),
+                        child: _LibrarySummaryView(
+                          directoryPath: summariesData[i].directoryPath,
+                          previewTrack: summariesData[i].previewTrack,
+                          totalTracks: summariesData[i].totalTracks,
+                          hasArtwork: summariesData[i].hasArtwork,
+                          onTap: () {
+                            setState(() {
+                              _showList = true;
+                              _activeDirectoryFilter =
+                                  summariesData[i].directoryPath.isEmpty
+                                      ? null
+                                      : summariesData[i].directoryPath;
+                            });
+                          },
+                        ),
+                      ),
+                  ],
                 ),
               ),
             );
           }
 
+          final filteredTracks = _activeDirectoryFilter == null
+              ? state.tracks
+              : state.tracks
+                  .where((track) =>
+                      _isTrackInDirectory(track, _activeDirectoryFilter!))
+                  .toList();
+
           final listWidget = isMac
               ? MacOSMusicLibraryView(
-                  tracks: state.tracks,
+                  tracks: filteredTracks,
                   artists: state.artists,
                   albums: state.albums,
                   searchQuery: state.searchQuery,
                 )
               : MaterialMusicLibraryView(
-                  tracks: state.tracks,
+                  tracks: filteredTracks,
                   artists: state.artists,
                   albums: state.albums,
                   searchQuery: state.searchQuery,
                 );
 
-          return listWidget;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_activeDirectoryFilter != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '当前音乐库: ${p.basename(_activeDirectoryFilter!)}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _showList = false;
+                            _activeDirectoryFilter = null;
+                          });
+                        },
+                        child: const Text('返回音乐库列表'),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(child: listWidget),
+            ],
+          );
         }
 
         return _PlaylistMessage(
@@ -1102,13 +1220,15 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
 
 class _LibrarySummaryView extends StatelessWidget {
   const _LibrarySummaryView({
-    required this.track,
+    required this.directoryPath,
+    required this.previewTrack,
     required this.totalTracks,
     required this.hasArtwork,
     required this.onTap,
   });
 
-  final Track track;
+  final String directoryPath;
+  final Track? previewTrack;
   final int totalTracks;
   final bool hasArtwork;
   final VoidCallback onTap;
@@ -1128,8 +1248,12 @@ class _LibrarySummaryView extends StatelessWidget {
         ? Colors.white.withOpacity(0.72)
         : Colors.black.withOpacity(0.64);
 
-    final directory = File(track.filePath).parent.path;
-    final folderName = p.basename(directory);
+    final normalizedDirectory = directoryPath.isEmpty
+        ? ''
+        : p.normalize(directoryPath);
+    final folderName = normalizedDirectory.isEmpty
+        ? '全部歌曲'
+        : p.basename(normalizedDirectory);
 
     final card = HoverGlowOverlay(
       isDarkMode: isDark,
@@ -1157,10 +1281,10 @@ class _LibrarySummaryView extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: hasArtwork &&
-                  track.artworkPath != null &&
-                  File(track.artworkPath!).existsSync()
+                  previewTrack?.artworkPath != null &&
+                  File(previewTrack!.artworkPath!).existsSync()
               ? Image.file(
-                  File(track.artworkPath!),
+                  File(previewTrack!.artworkPath!),
                   fit: BoxFit.cover,
                 )
               : Container(
@@ -1198,7 +1322,7 @@ class _LibrarySummaryView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '音乐库',
+                  folderName,
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -1207,19 +1331,10 @@ class _LibrarySummaryView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  folderName,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: titleColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
                 SizedBox(
                   width: 280,
                   child: Text(
-                    directory,
+                    normalizedDirectory.isEmpty ? '所有目录' : normalizedDirectory,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1243,6 +1358,20 @@ class _LibrarySummaryView extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DirectorySummaryData {
+  const _DirectorySummaryData({
+    required this.directoryPath,
+    required this.previewTrack,
+    required this.totalTracks,
+    required this.hasArtwork,
+  });
+
+  final String directoryPath;
+  final Track? previewTrack;
+  final int totalTracks;
+  final bool hasArtwork;
 }
 
 // 其他视图占位符

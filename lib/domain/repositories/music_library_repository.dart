@@ -34,4 +34,5 @@ abstract class MusicLibraryRepository {
   Future<void> scanDirectory(String path);
   Future<void> refreshLibrary();
   Future<void> clearLibrary();
+  Future<List<String>> getLibraryDirectories();
 }

@@ -9,4 +9,5 @@ class StorageKeys {
   static const themeMode = 'ui.themeMode';
   static const playbackHistory = 'history.entries';
   static const lyricsSettings = 'lyrics.settings';
+  static const libraryDirectories = 'library.directories';
 }

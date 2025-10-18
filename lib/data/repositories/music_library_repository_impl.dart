@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 
 import '../../core/error/exceptions.dart';
+import '../../core/storage/binary_config_store.dart';
+import '../../core/storage/storage_keys.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../datasources/local/music_local_datasource.dart';
@@ -13,10 +15,14 @@ import '../../core/constants/app_constants.dart';
 
 class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   final MusicLocalDataSource _localDataSource;
+  final BinaryConfigStore _configStore;
   final Uuid _uuid = const Uuid();
 
-  MusicLibraryRepositoryImpl({required MusicLocalDataSource localDataSource})
-    : _localDataSource = localDataSource;
+  MusicLibraryRepositoryImpl({
+    required MusicLocalDataSource localDataSource,
+    required BinaryConfigStore configStore,
+  })  : _localDataSource = localDataSource,
+        _configStore = configStore;
 
   @override
   Future<List<Track>> getAllTracks() async {
@@ -254,6 +260,9 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         throw DirectoryNotFoundException(directoryPath);
       }
 
+      final normalizedPath = path.normalize(directory.absolute.path);
+      await _registerLibraryDirectory(normalizedPath);
+
       final audioFiles = await _findAudioFiles(directory);
 
       for (final file in audioFiles) {
@@ -291,6 +300,23 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     } catch (e) {
       throw DatabaseException('Failed to clear library: ${e.toString()}');
     }
+  }
+
+  @override
+  Future<List<String>> getLibraryDirectories() async {
+    await _configStore.init();
+    final raw = _configStore.getValue<dynamic>(StorageKeys.libraryDirectories);
+    if (raw is List) {
+      final cleaned = raw
+          .whereType<String>()
+          .map((value) => path.normalize(value.trim()))
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList();
+      cleaned.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      return cleaned;
+    }
+    return const [];
   }
 
   Future<List<File>> _findAudioFiles(Directory directory) async {
@@ -426,6 +452,24 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         return '.bmp';
       default:
         return '.img';
+    }
+  }
+
+  Future<void> _registerLibraryDirectory(String directoryPath) async {
+    await _configStore.init();
+    final raw = _configStore.getValue<dynamic>(StorageKeys.libraryDirectories);
+    final Set<String> directories = {
+      if (raw is List)
+        ...raw.whereType<String>().map((e) => path.normalize(e.trim())),
+    };
+    final normalized = path.normalize(directoryPath);
+    if (directories.add(normalized)) {
+      final sorted = directories.toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      await _configStore.setValue(
+        StorageKeys.libraryDirectories,
+        sorted,
+      );
     }
   }
 }
