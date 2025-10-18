@@ -1151,7 +1151,27 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       return withArtwork.first;
     }
 
-    withArtwork.sort((a, b) => a.filePath.compareTo(b.filePath));
+    withArtwork.sort((a, b) {
+      final at = (a.title).toLowerCase();
+      final bt = (b.title).toLowerCase();
+      final titleCompare = at.compareTo(bt);
+      if (titleCompare != 0) {
+        return titleCompare;
+      }
+      final aa = (a.artist).toLowerCase();
+      final ba = (b.artist).toLowerCase();
+      final artistCompare = aa.compareTo(ba);
+      if (artistCompare != 0) {
+        return artistCompare;
+      }
+      final al = (a.album).toLowerCase();
+      final bl = (b.album).toLowerCase();
+      final albumCompare = al.compareTo(bl);
+      if (albumCompare != 0) {
+        return albumCompare;
+      }
+      return a.filePath.compareTo(b.filePath);
+    });
     return withArtwork[withArtwork.length ~/ 2];
   }
 

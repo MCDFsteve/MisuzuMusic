@@ -38,7 +38,12 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     super.initState();
     _currentTrack = widget.initialTrack;
     _lyricsScrollController = ScrollController();
-    _lyricsCubit = LyricsCubit(getLyrics: sl<GetLyrics>())
+    _lyricsCubit = LyricsCubit(
+      getLyrics: sl<GetLyrics>(),
+      findLyricsFile: sl<FindLyricsFile>(),
+      loadLyricsFromFile: sl<LoadLyricsFromFile>(),
+      saveLyrics: sl<SaveLyrics>(),
+    )
       ..loadLyricsForTrack(_currentTrack);
   }
 
