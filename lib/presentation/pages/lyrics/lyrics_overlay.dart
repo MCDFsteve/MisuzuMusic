@@ -11,8 +11,9 @@ import '../../../domain/entities/music_entities.dart';
 import '../../../domain/usecases/lyrics_usecases.dart';
 import '../../blocs/lyrics/lyrics_cubit.dart';
 import '../../blocs/player/player_bloc.dart';
-import '../../widgets/common/adaptive_scrollbar.dart';
 import '../../widgets/common/artwork_thumbnail.dart';
+import '../../widgets/common/adaptive_scrollbar.dart';
+import '../../widgets/common/lyrics_display.dart';
 
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
@@ -307,12 +308,6 @@ class _LyricsPanel extends StatelessWidget {
     ScrollController controller,
     bool isDarkMode,
   ) {
-    final TextStyle baseStyle = TextStyle(
-      fontSize: 18,
-      height: 1.5,
-      color: isDarkMode ? Colors.white : Colors.black87,
-    );
-
     if (state is LyricsLoading || state is LyricsInitial) {
       return ListView(
         controller: controller,
@@ -358,19 +353,10 @@ class _LyricsPanel extends StatelessWidget {
         );
       }
 
-      return ListView.separated(
+      return LyricsDisplay(
+        lines: lines,
         controller: controller,
-        itemCount: lines.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final LyricsLine line = lines[index];
-          final String text = _resolveLineText(line);
-          return Text(
-            text.isEmpty ? ' ' : text,
-            style: baseStyle,
-            textAlign: TextAlign.left,
-          );
-        },
+        isDarkMode: isDarkMode,
       );
     }
 
@@ -426,17 +412,4 @@ class _LyricsPanel extends StatelessWidget {
     );
   }
 
-  String _resolveLineText(LyricsLine line) {
-    if (line.originalText.trim().isNotEmpty) {
-      return line.originalText.trim();
-    }
-    if (line.annotatedTexts.isNotEmpty) {
-      final buffer = StringBuffer();
-      for (final annotated in line.annotatedTexts) {
-        buffer.write(annotated.original);
-      }
-      return buffer.toString();
-    }
-    return '';
-  }
 }
