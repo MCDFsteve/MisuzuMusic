@@ -958,11 +958,17 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     if (tracks.isEmpty) {
       return null;
     }
-    final withArtwork = tracks.where(_hasArtwork);
-    if (withArtwork.isNotEmpty) {
+    final withArtwork = tracks.where(_hasArtwork).toList();
+    if (withArtwork.isEmpty) {
+      return tracks.first;
+    }
+
+    if (withArtwork.length == 1) {
       return withArtwork.first;
     }
-    return tracks.first;
+
+    withArtwork.sort((a, b) => a.filePath.compareTo(b.filePath));
+    return withArtwork[withArtwork.length ~/ 2];
   }
 
   bool _isTrackInDirectory(Track track, String directoryPath) {

@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../blocs/player/player_bloc.dart';
 import '../common/artwork_thumbnail.dart';
+import '../../pages/lyrics/lyrics_page.dart';
+import '../../../domain/entities/music_entities.dart';
 
 class MaterialPlayerControlBar extends StatelessWidget {
   const MaterialPlayerControlBar({super.key});
@@ -27,6 +29,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
         Duration duration = Duration.zero;
         double progress = 0.0;
         String? artworkPath;
+        Track? currentTrack;
 
         if (canControl) {
           final playingState = state as dynamic;
@@ -36,6 +39,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
           position = playingState.position;
           duration = playingState.duration;
           artworkPath = playingState.track.artworkPath;
+          currentTrack = playingState.track as Track;
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
           }
@@ -49,16 +53,9 @@ class MaterialPlayerControlBar extends StatelessWidget {
 
         final rowChildren = <Widget>[
           // 当前播放歌曲信息
-          ArtworkThumbnail(
+          _LyricsArtworkButton(
             artworkPath: artworkPath,
-            size: 48,
-            borderRadius: BorderRadius.circular(4),
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            borderColor: theme.dividerColor,
-            placeholder: Icon(
-              Icons.music_note,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            currentTrack: currentTrack,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -352,6 +349,51 @@ class _MaterialHoverIconButton extends StatefulWidget {
 
   @override
   State<_MaterialHoverIconButton> createState() => _MaterialHoverIconButtonState();
+}
+
+class _LyricsArtworkButton extends StatelessWidget {
+  const _LyricsArtworkButton({
+    required this.artworkPath,
+    required this.currentTrack,
+  });
+
+  final String? artworkPath;
+  final Track? currentTrack;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final artwork = ArtworkThumbnail(
+      artworkPath: artworkPath,
+      size: 48,
+      borderRadius: BorderRadius.circular(4),
+      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+      borderColor: theme.dividerColor,
+      placeholder: Icon(
+        Icons.music_note,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+
+    if (currentTrack == null) {
+      return artwork;
+    }
+
+    return Tooltip(
+      message: '查看歌词',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            Navigator.of(context, rootNavigator: true)
+                .push(LyricsPage.route(context, currentTrack!));
+          },
+          child: artwork,
+        ),
+      ),
+    );
+  }
 }
 
 class _MaterialHoverIconButtonState extends State<_MaterialHoverIconButton> {

@@ -10,6 +10,8 @@ import '../../blocs/player/player_bloc.dart';
 import 'macos_progress_bar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../pages/lyrics/lyrics_page.dart';
+import '../../../domain/entities/music_entities.dart';
 
 const double _muteThreshold = 0.005;
 const double _defaultRestoreVolume = 0.6;
@@ -37,6 +39,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         double progress = 0.0;
         double volume = 1.0;
         String? artworkPath;
+        Track? currentTrack;
 
         if (canControl) {
           final playingState = state as dynamic;
@@ -47,6 +50,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
           duration = playingState.duration;
           volume = playingState.volume;
           artworkPath = playingState.track.artworkPath;
+          currentTrack = playingState.track as Track;
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
           }
@@ -102,6 +106,9 @@ class MacOSPlayerControlBar extends StatelessWidget {
                           artworkPath: artworkPath,
                           titleColor: iconColor,
                           subtitleColor: secondaryIconColor,
+                          onArtworkTap: currentTrack == null
+                              ? null
+                              : () => _openLyricsPage(context, currentTrack!),
                         ),
                         const SizedBox(height: 4),
                         MacOSProgressBar(
@@ -336,6 +343,10 @@ class MacOSPlayerControlBar extends StatelessWidget {
     );
   }
 }
+
+  void _openLyricsPage(BuildContext context, Track track) {
+    Navigator.of(context, rootNavigator: true).push(LyricsPage.route(context, track));
+  }
 
 class _MacVolumeSlider extends StatefulWidget {
   const _MacVolumeSlider({
@@ -583,6 +594,7 @@ class _TrackInfoRow extends StatelessWidget {
     required this.artworkPath,
     required this.titleColor,
     required this.subtitleColor,
+    this.onArtworkTap,
   });
 
   final String title;
@@ -590,26 +602,44 @@ class _TrackInfoRow extends StatelessWidget {
   final String? artworkPath;
   final Color titleColor;
   final Color subtitleColor;
+  final VoidCallback? onArtworkTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = MacosTheme.of(context);
+    final bool clickable = onArtworkTap != null;
+
+    Widget artwork = ArtworkThumbnail(
+      artworkPath: artworkPath,
+      size: 34,
+      borderRadius: BorderRadius.circular(5),
+      backgroundColor: MacosColors.controlBackgroundColor,
+      borderColor: theme.dividerColor,
+      placeholder: const MacosIcon(
+        CupertinoIcons.music_note,
+        color: MacosColors.systemGrayColor,
+        size: 14,
+      ),
+    );
+
+    if (clickable) {
+      artwork = MacosTooltip(
+        message: '查看歌词',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onArtworkTap,
+            child: artwork,
+          ),
+        ),
+      );
+    }
 
     return Row(
       mainAxisSize: MainAxisSize.max,
       children: [
-        ArtworkThumbnail(
-          artworkPath: artworkPath,
-          size: 34,
-          borderRadius: BorderRadius.circular(5),
-          backgroundColor: MacosColors.controlBackgroundColor,
-          borderColor: theme.dividerColor,
-          placeholder: const MacosIcon(
-            CupertinoIcons.music_note,
-            color: MacosColors.systemGrayColor,
-            size: 14,
-          ),
-        ),
+        artwork,
         const SizedBox(width: 10),
         Expanded(
           child: Column(
