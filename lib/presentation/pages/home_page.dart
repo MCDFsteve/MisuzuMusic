@@ -1011,42 +1011,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   searchQuery: state.searchQuery,
                 );
 
-          final backButtonColor = isMac
-              ? (MacosTheme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black)
-              : Theme.of(context).colorScheme.onSurface;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: isMac
-                    ? PushButton(
-                        controlSize: ControlSize.regular,
-                        onPressed: () => setState(() => _showList = false),
-                        secondary: true,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            MacosIcon(CupertinoIcons.chevron_back, size: 14),
-                            SizedBox(width: 6),
-                            Text('返回音乐库'),
-                          ],
-                        ),
-                      )
-                    : TextButton.icon(
-                        onPressed: () => setState(() => _showList = false),
-                        icon: const Icon(CupertinoIcons.chevron_back),
-                        label: const Text('返回音乐库'),
-                        style: TextButton.styleFrom(foregroundColor: backButtonColor),
-                      ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(child: listWidget),
-            ],
-          );
+          return listWidget;
         }
 
         return _PlaylistMessage(
