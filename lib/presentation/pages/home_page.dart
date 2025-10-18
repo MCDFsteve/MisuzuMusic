@@ -1124,16 +1124,22 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
           }
 
           if (!_showList) {
+            final bool isDarkMode = isMac
+                ? MacosTheme.of(context).brightness == Brightness.dark
+                : Theme.of(context).brightness == Brightness.dark;
+
             return LayoutBuilder(
               builder: (context, constraints) {
                 final maxWidth = constraints.maxWidth.isFinite
                     ? constraints.maxWidth
                     : MediaQuery.of(context).size.width;
-                const double padding = 24;
+                const EdgeInsets padding = EdgeInsets.all(24);
                 const double spacing = 24;
                 const double preferredTileWidth = 540;
-                final double contentWidth =
-                    math.max(0, maxWidth - padding * 2);
+                final double contentWidth = math.max(
+                  0,
+                  maxWidth - padding.horizontal,
+                );
                 final int columnCount = contentWidth > 0
                     ? math.max(
                         1,
@@ -1153,45 +1159,52 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                     ? math.min(preferredTileWidth, contentWidth)
                     : math.min(preferredTileWidth, rawTileWidth);
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(padding),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: math.max(0, contentWidth),
-                    ),
-                    child: Wrap(
-                      spacing: spacing,
-                      runSpacing: spacing,
-                      children: [
-                        for (final summary in summariesData)
-                          SizedBox(
-                            width: columnCount == 1
-                                ? (contentWidth <= 0
-                                    ? preferredTileWidth
-                                    : math.min(
-                                        preferredTileWidth, contentWidth))
-                                : (tileWidth <= 0
-                                    ? preferredTileWidth
-                                    : tileWidth),
-                            child: _LibrarySummaryView(
-                              directoryPath: summary.directoryPath,
-                              previewTrack: summary.previewTrack,
-                              totalTracks: summary.totalTracks,
-                              hasArtwork: summary.hasArtwork,
-                              onTap: () {
-                                setState(() {
-                                  _showList = true;
-                                  _activeDirectoryFilter =
-                                      summary.directoryPath.isEmpty
-                                          ? null
-                                          : summary.directoryPath;
-                                });
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                return AdaptiveScrollbar(
+                  isDarkMode: isDarkMode,
+                  margin: const EdgeInsets.only(right: 6, top: 16, bottom: 16),
+                  builder: (controller) {
+                    return SingleChildScrollView(
+                      controller: controller,
+                      padding: padding,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: math.max(0, contentWidth),
+                        ),
+                        child: Wrap(
+                          spacing: spacing,
+                          runSpacing: spacing,
+                          children: [
+                            for (final summary in summariesData)
+                              SizedBox(
+                                width: columnCount == 1
+                                    ? (contentWidth <= 0
+                                        ? preferredTileWidth
+                                        : math.min(
+                                            preferredTileWidth, contentWidth))
+                                    : (tileWidth <= 0
+                                        ? preferredTileWidth
+                                        : tileWidth),
+                                child: _LibrarySummaryView(
+                                  directoryPath: summary.directoryPath,
+                                  previewTrack: summary.previewTrack,
+                                  totalTracks: summary.totalTracks,
+                                  hasArtwork: summary.hasArtwork,
+                                  onTap: () {
+                                    setState(() {
+                                      _showList = true;
+                                      _activeDirectoryFilter =
+                                          summary.directoryPath.isEmpty
+                                              ? null
+                                              : summary.directoryPath;
+                                    });
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             );
