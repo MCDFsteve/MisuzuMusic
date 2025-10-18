@@ -24,6 +24,7 @@ import '../widgets/macos/macos_music_library_view.dart';
 import '../widgets/material/material_player_control_bar.dart';
 import '../widgets/material/material_music_library_view.dart';
 import '../widgets/common/artwork_thumbnail.dart';
+import '../widgets/common/library_search_field.dart';
 import '../../domain/entities/music_entities.dart';
 import 'settings/settings_view.dart';
 
@@ -78,6 +79,15 @@ class _HomePageContentState extends State<HomePageContent> {
 
   static const double _navMinWidth = 100;
   static const double _navMaxWidth = 220;
+  String _searchQuery = '';
+  String _activeSearchQuery = '';
+  Timer? _searchDebounce;
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,6 +168,8 @@ class _HomePageContentState extends State<HomePageContent> {
                                   height: headerHeight,
                                   sectionLabel: sectionLabel,
                                   statsLabel: statsLabel,
+                                  searchQuery: _searchQuery,
+                                  onSearchChanged: _onSearchQueryChanged,
                                   onSelectMusicFolder: _selectMusicFolder,
                                 ),
                                 Expanded(
@@ -198,11 +210,6 @@ class _HomePageContentState extends State<HomePageContent> {
                 icon: Icon(Icons.playlist_play_outlined),
                 selectedIcon: Icon(Icons.playlist_play),
                 label: Text('播放列表'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.search_outlined),
-                selectedIcon: Icon(Icons.search),
-                label: Text('搜索'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.settings_outlined),
@@ -258,6 +265,14 @@ class _HomePageContentState extends State<HomePageContent> {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const Spacer(),
+          SizedBox(
+            width: 260,
+            child: LibrarySearchField(
+              query: _searchQuery,
+              onQueryChanged: _onSearchQueryChanged,
+            ),
+          ),
+          const SizedBox(width: 12),
           IconButton(
             icon: const Icon(Icons.folder_open),
             tooltip: '选择音乐文件夹',
@@ -274,14 +289,52 @@ class _HomePageContentState extends State<HomePageContent> {
       case 0:
         return const MusicLibraryView();
       case 1:
-        return const PlaylistView();
+        return PlaylistView(searchQuery: _activeSearchQuery);
       case 2:
-        return const SearchView();
-      case 3:
         return const SettingsView();
       default:
         return const MusicLibraryView();
     }
+  }
+
+  void _onSearchQueryChanged(String value) {
+    final trimmed = value.trim();
+    if (_searchQuery == value && _activeSearchQuery == trimmed) {
+      return;
+    }
+
+    _searchDebounce?.cancel();
+
+    setState(() {
+      _searchQuery = value;
+      _activeSearchQuery = trimmed;
+    });
+
+    final bloc = context.read<MusicLibraryBloc>();
+    if (trimmed.isEmpty) {
+      bloc.add(const LoadAllTracks());
+      return;
+    }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 320), () {
+      if (!mounted) return;
+      context.read<MusicLibraryBloc>().add(SearchTracksEvent(trimmed));
+    });
+  }
+
+  void _resetSearch() {
+    if (_searchQuery.isEmpty && _activeSearchQuery.isEmpty) {
+      return;
+    }
+
+    _searchDebounce?.cancel();
+
+    setState(() {
+      _searchQuery = '';
+      _activeSearchQuery = '';
+    });
+
+    context.read<MusicLibraryBloc>().add(const LoadAllTracks());
   }
 
   void _handleNavigationChange(int index) {
@@ -289,11 +342,18 @@ class _HomePageContentState extends State<HomePageContent> {
       return;
     }
 
+    final bool shouldResetSearch = index != 0 &&
+        (_searchQuery.isNotEmpty || _activeSearchQuery.isNotEmpty);
+
+    if (shouldResetSearch) {
+      _resetSearch();
+    }
+
     setState(() {
       _selectedIndex = index;
     });
 
-    if (index == 0) {
+    if (!shouldResetSearch && index == 0) {
       context.read<MusicLibraryBloc>().add(const LoadAllTracks());
     }
   }
@@ -305,8 +365,6 @@ class _HomePageContentState extends State<HomePageContent> {
       case 1:
         return '播放列表';
       case 2:
-        return '搜索';
-      case 3:
         return '设置';
       default:
         return '音乐库';
@@ -475,12 +533,16 @@ class _MacOSGlassHeader extends StatelessWidget {
     required this.height,
     required this.sectionLabel,
     required this.statsLabel,
+    required this.searchQuery,
+    required this.onSearchChanged,
     required this.onSelectMusicFolder,
   });
 
   final double height;
   final String sectionLabel;
   final String? statsLabel;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
   final VoidCallback onSelectMusicFolder;
 
   @override
@@ -546,6 +608,16 @@ class _MacOSGlassHeader extends StatelessWidget {
                     ),
                   ),
                 ),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 220, maxWidth: 320),
+                  child: LibrarySearchField(
+                    query: searchQuery,
+                    onQueryChanged: onSearchChanged,
+                  ),
+                ),
+              ),
               MacosTooltip(
                 message: '选择音乐文件夹',
                 child: MacosIconButton(
@@ -647,10 +719,6 @@ class _MacOSNavigationPane extends StatelessWidget {
     _NavigationItem(
       icon: CupertinoIcons.music_note_list,
       label: '播放列表',
-    ),
-    _NavigationItem(
-      icon: CupertinoIcons.search,
-      label: '搜索',
     ),
     _NavigationItem(
       icon: CupertinoIcons.settings,
@@ -1165,10 +1233,17 @@ class _LibrarySummaryView extends StatelessWidget {
 
 // 其他视图占位符
 class PlaylistView extends StatelessWidget {
-  const PlaylistView({super.key});
+  const PlaylistView({
+    super.key,
+    required this.searchQuery,
+  });
+
+  final String searchQuery;
 
   @override
   Widget build(BuildContext context) {
+    final trimmedQuery = searchQuery.trim();
+
     return BlocBuilder<PlaybackHistoryCubit, PlaybackHistoryState>(
       builder: (context, state) {
         switch (state.status) {
@@ -1185,7 +1260,10 @@ class PlaylistView extends StatelessWidget {
               message: '暂无播放列表',
             );
           case PlaybackHistoryStatus.loaded:
-            return _PlaylistHistoryList(entries: state.entries);
+            return _PlaylistHistoryList(
+              entries: state.entries,
+              searchQuery: trimmedQuery,
+            );
         }
       },
     );
@@ -1193,9 +1271,13 @@ class PlaylistView extends StatelessWidget {
 }
 
 class _PlaylistHistoryList extends StatelessWidget {
-  const _PlaylistHistoryList({required this.entries});
+  const _PlaylistHistoryList({
+    required this.entries,
+    required this.searchQuery,
+  });
 
   final List<PlaybackHistoryEntry> entries;
+  final String searchQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -1203,6 +1285,26 @@ class _PlaylistHistoryList extends StatelessWidget {
     final isDark = isMac
         ? MacosTheme.of(context).brightness == Brightness.dark
         : Theme.of(context).brightness == Brightness.dark;
+
+    final normalizedQuery = searchQuery.isEmpty ? null : searchQuery.toLowerCase();
+    final filteredEntries = normalizedQuery == null
+        ? entries
+        : entries.where((entry) {
+            final track = entry.track;
+            final title = track.title.toLowerCase();
+            final artist = track.artist.toLowerCase();
+            final album = track.album.toLowerCase();
+            return title.contains(normalizedQuery) ||
+                artist.contains(normalizedQuery) ||
+                album.contains(normalizedQuery);
+          }).toList();
+
+    if (filteredEntries.isEmpty) {
+      return _PlaylistMessage(
+        icon: CupertinoIcons.search,
+        message: '未找到匹配的播放记录',
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1238,10 +1340,10 @@ class _PlaylistHistoryList extends StatelessWidget {
           Expanded(
             child: ListView.separated(
               padding: EdgeInsets.zero,
-              itemCount: entries.length,
+              itemCount: filteredEntries.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                final entry = entries[index];
+                final entry = filteredEntries[index];
                 return _PlaybackHistoryTile(entry: entry, isMac: isMac, isDark: isDark);
               },
             ),
@@ -1396,162 +1498,6 @@ class _PlaylistMessage extends StatelessWidget {
                     : Theme.of(context).textTheme.headlineSmall)
                 ?.copyWith(color: color),
             textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class SearchView extends StatefulWidget {
-  const SearchView({super.key});
-
-  @override
-  State<SearchView> createState() => _SearchViewState();
-}
-
-class _SearchViewState extends State<SearchView> {
-  final TextEditingController _controller = TextEditingController();
-  Timer? _debounce;
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onQueryChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      final query = value.trim();
-      if (!mounted) return;
-      if (query.isEmpty) {
-        context.read<MusicLibraryBloc>().add(const LoadAllTracks());
-      } else {
-        context.read<MusicLibraryBloc>().add(SearchTracksEvent(query));
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
-    final isDark = isMac
-        ? MacosTheme.of(context).brightness == Brightness.dark
-        : Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final placeholderColor = textColor.withOpacity(0.4);
-
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        children: [
-          if (isMac)
-            MacosSearchField(
-              controller: _controller,
-              placeholder: '搜索歌曲、艺术家或专辑...',
-              placeholderStyle: MacosTheme.of(context).typography.body.copyWith(
-                    color: placeholderColor,
-                  ),
-              style: MacosTheme.of(context).typography.body.copyWith(
-                    color: textColor,
-                  ),
-              onChanged: _onQueryChanged,
-              decoration: const BoxDecoration(),
-            )
-          else
-            TextField(
-              controller: _controller,
-              onChanged: _onQueryChanged,
-              style: TextStyle(color: textColor, fontSize: 16),
-              decoration: InputDecoration(
-                hintText: '搜索歌曲、艺术家或专辑...',
-                hintStyle: TextStyle(color: placeholderColor),
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: BlocBuilder<MusicLibraryBloc, MusicLibraryState>(
-              builder: (context, state) {
-                if (state is MusicLibraryLoading || state is MusicLibraryScanning) {
-                  return const Center(child: ProgressCircle());
-                }
-
-                if (state is MusicLibraryError) {
-                  return Center(
-                    child: Text(
-                      state.message,
-                      style: TextStyle(color: textColor),
-                    ),
-                  );
-                }
-
-                if (state is MusicLibraryLoaded) {
-                  final query = _controller.text.trim();
-                  if (query.isEmpty) {
-                    return _SearchPlaceholder(isDark: isDark);
-                  }
-
-                  if (state.tracks.isEmpty) {
-                    return Center(
-                      child: Text(
-                        '未找到匹配的歌曲',
-                        style: TextStyle(color: textColor, fontSize: 16),
-                      ),
-                    );
-                  }
-
-                  return isMac
-                      ? MacOSMusicLibraryView(
-                          tracks: state.tracks,
-                          artists: state.artists,
-                          albums: state.albums,
-                          searchQuery: state.searchQuery,
-                        )
-                      : MaterialMusicLibraryView(
-                          tracks: state.tracks,
-                          artists: state.artists,
-                          albums: state.albums,
-                          searchQuery: state.searchQuery,
-                        );
-                }
-
-                return _SearchPlaceholder(isDark: isDark);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchPlaceholder extends StatelessWidget {
-  const _SearchPlaceholder({required this.isDark});
-
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isDark ? Colors.white : Colors.black;
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            CupertinoIcons.search,
-            size: 60,
-            color: color.withOpacity(0.55),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '输入关键词开始搜索',
-            style: TextStyle(color: color, fontSize: 16),
           ),
         ],
       ),

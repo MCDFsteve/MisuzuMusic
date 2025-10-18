@@ -288,13 +288,14 @@ class DatabaseHelper {
         );
       }
 
-      final ftsQuery = trimmed
+      final tokens = trimmed
           .split(RegExp(r'\s+'))
           .where((token) => token.isNotEmpty)
-          .map((token) => '$token*')
-          .join(' ');
+          .map((token) => token.trim())
+          .toList();
 
-      if (ftsQuery.isNotEmpty) {
+      if (tokens.isNotEmpty) {
+        final ftsQuery = tokens.map((token) => '$token*').join(' ');
         final ftsResults = await db.rawQuery('''
           SELECT tracks.* FROM tracks
           JOIN tracks_fts ON tracks.rowid = tracks_fts.rowid
@@ -307,17 +308,15 @@ class DatabaseHelper {
         }
       }
 
-      final escaped = trimmed.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
-      final likeQuery = '%$escaped%';
-
+      final likeArg = trimmed;
       return await db.rawQuery('''
-        SELECT * FROM tracks
-        WHERE title LIKE ? ESCAPE '\\'
-           OR artist LIKE ? ESCAPE '\\'
-           OR album LIKE ? ESCAPE '\\'
-           OR genre LIKE ? ESCAPE '\\'
+        SELECT DISTINCT * FROM tracks
+        WHERE title LIKE '%' || ? || '%'
+           OR artist LIKE '%' || ? || '%'
+           OR album LIKE '%' || ? || '%'
+           OR genre LIKE '%' || ? || '%'
         ORDER BY title COLLATE NOCASE
-      ''', [likeQuery, likeQuery, likeQuery, likeQuery]);
+      ''', [likeArg, likeArg, likeArg, likeArg]);
     } catch (e) {
       throw app_exceptions.DatabaseException('Search failed: ${e.toString()}');
     }
