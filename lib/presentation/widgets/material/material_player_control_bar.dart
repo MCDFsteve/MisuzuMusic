@@ -5,11 +5,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../blocs/player/player_bloc.dart';
 import '../common/artwork_thumbnail.dart';
-import '../../pages/lyrics/lyrics_page.dart';
 import '../../../domain/entities/music_entities.dart';
 
 class MaterialPlayerControlBar extends StatelessWidget {
-  const MaterialPlayerControlBar({super.key});
+  const MaterialPlayerControlBar({
+    super.key,
+    this.onArtworkTap,
+    this.isLyricsActive = false,
+  });
+
+  final VoidCallback? onArtworkTap;
+  final bool isLyricsActive;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +61,8 @@ class MaterialPlayerControlBar extends StatelessWidget {
           // 当前播放歌曲信息
           _LyricsArtworkButton(
             artworkPath: artworkPath,
-            currentTrack: currentTrack,
+            onTap: currentTrack != null && onArtworkTap != null ? onArtworkTap : null,
+            isLyricsActive: isLyricsActive,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -354,11 +361,13 @@ class _MaterialHoverIconButton extends StatefulWidget {
 class _LyricsArtworkButton extends StatelessWidget {
   const _LyricsArtworkButton({
     required this.artworkPath,
-    required this.currentTrack,
+    required this.onTap,
+    required this.isLyricsActive,
   });
 
   final String? artworkPath;
-  final Track? currentTrack;
+  final VoidCallback? onTap;
+  final bool isLyricsActive;
 
   @override
   Widget build(BuildContext context) {
@@ -375,20 +384,17 @@ class _LyricsArtworkButton extends StatelessWidget {
       ),
     );
 
-    if (currentTrack == null) {
+    if (onTap == null) {
       return artwork;
     }
 
     return Tooltip(
-      message: '查看歌词',
+      message: isLyricsActive ? '收起歌词' : '查看歌词',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () {
-            Navigator.of(context, rootNavigator: true)
-                .push(LyricsPage.route(context, currentTrack!));
-          },
+          onTap: onTap,
           child: artwork,
         ),
       ),

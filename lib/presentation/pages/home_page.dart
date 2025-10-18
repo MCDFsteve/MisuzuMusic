@@ -32,6 +32,7 @@ import '../widgets/common/track_list_tile.dart';
 import '../widgets/common/hover_glow_overlay.dart';
 import '../../domain/entities/music_entities.dart';
 import 'settings/settings_view.dart';
+import 'lyrics/lyrics_overlay.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -88,6 +89,8 @@ class _HomePageContentState extends State<HomePageContent> {
   String _searchQuery = '';
   String _activeSearchQuery = '';
   Timer? _searchDebounce;
+  bool _lyricsVisible = false;
+  Track? _lyricsActiveTrack;
 
   @override
   void dispose() {
@@ -112,9 +115,30 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Widget _buildMacOSLayout() {
-    return BlocBuilder<PlayerBloc, PlayerBlocState>(
+    return BlocConsumer<PlayerBloc, PlayerBlocState>(
+      listener: (context, playerState) {
+        if (!_lyricsVisible) {
+          return;
+        }
+        final track = _playerTrack(playerState);
+        if (track == null) {
+          if (_lyricsVisible && mounted) {
+            setState(() {
+              _lyricsVisible = false;
+              _lyricsActiveTrack = null;
+            });
+          }
+        } else if (_lyricsActiveTrack == null || _lyricsActiveTrack!.id != track.id) {
+          if (mounted) {
+            setState(() {
+              _lyricsActiveTrack = track;
+            });
+          }
+        }
+      },
       builder: (context, playerState) {
         final artworkPath = _currentArtworkPath(playerState);
+        final currentTrack = _playerTrack(playerState);
         const headerHeight = 76.0;
         final sectionLabel = _currentSectionLabel(_selectedIndex);
         final statsLabel = _composeHeaderStatsLabel(
@@ -155,33 +179,53 @@ class _HomePageContentState extends State<HomePageContent> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                      _MacOSNavigationPane(
-                        width: _navigationWidth,
-                        collapsed: _navigationWidth <= 112,
-                        selectedIndex: _selectedIndex,
-                        onSelect: _handleNavigationChange,
-                        onResize: (width) {
-                          setState(() {
-                            _navigationWidth = width.clamp(_navMinWidth, _navMaxWidth);
-                          });
-                        },
-                      ),
+                          _MacOSNavigationPane(
+                            width: _navigationWidth,
+                            collapsed: _navigationWidth <= 112,
+                            selectedIndex: _selectedIndex,
+                            onSelect: _handleNavigationChange,
+                            onResize: (width) {
+                              setState(() {
+                                _navigationWidth = width.clamp(_navMinWidth, _navMaxWidth);
+                              });
+                            },
+                            enabled: !_lyricsVisible,
+                          ),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _MacOSGlassHeader(
-                                  height: headerHeight,
-                                  sectionLabel: sectionLabel,
-                                  statsLabel: statsLabel,
-                                  searchQuery: _searchQuery,
-                                  onSearchChanged: _onSearchQueryChanged,
-                                  onSelectMusicFolder: _selectMusicFolder,
-                                ),
+                                if (!_lyricsVisible)
+                                  _MacOSGlassHeader(
+                                    height: headerHeight,
+                                    sectionLabel: sectionLabel,
+                                    statsLabel: statsLabel,
+                                    searchQuery: _searchQuery,
+                                    onSearchChanged: _onSearchQueryChanged,
+                                    onSelectMusicFolder: _selectMusicFolder,
+                                  ),
                                 Expanded(
-                                  child: _buildMainContent(),
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 280),
+                                    switchInCurve: Curves.easeOut,
+                                    switchOutCurve: Curves.easeIn,
+                                    child: _lyricsVisible
+                                        ? KeyedSubtree(
+                                            key: const ValueKey('lyrics_overlay_mac'),
+                                            child: _buildLyricsOverlay(isMac: true),
+                                          )
+                                        : KeyedSubtree(
+                                            key: const ValueKey('mac_main_content'),
+                                            child: _buildMainContent(),
+                                          ),
+                                  ),
                                 ),
-                                const MacOSPlayerControlBar(),
+                                MacOSPlayerControlBar(
+                                  onArtworkTap: currentTrack == null
+                                      ? null
+                                      : () => _toggleLyrics(playerState),
+                                  isLyricsActive: _lyricsVisible,
+                                ),
                               ],
                             ),
                           ),
@@ -199,55 +243,102 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Widget _buildMaterialLayout() {
-    return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: _handleNavigationChange,
-            extended: true,
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.library_music_outlined),
-                selectedIcon: Icon(Icons.library_music),
-                label: Text('音乐库'),
+    return BlocConsumer<PlayerBloc, PlayerBlocState>(
+      listener: (context, playerState) {
+        if (!_lyricsVisible) {
+          return;
+        }
+        final track = _playerTrack(playerState);
+        if (track == null) {
+          if (mounted) {
+            setState(() {
+              _lyricsVisible = false;
+              _lyricsActiveTrack = null;
+            });
+          }
+        } else if (_lyricsActiveTrack == null || _lyricsActiveTrack!.id != track.id) {
+          if (mounted) {
+            setState(() {
+              _lyricsActiveTrack = track;
+            });
+          }
+        }
+      },
+      builder: (context, playerState) {
+        final track = _playerTrack(playerState);
+
+        return Scaffold(
+          body: Row(
+            children: [
+              IgnorePointer(
+                ignoring: _lyricsVisible,
+                child: NavigationRail(
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: _handleNavigationChange,
+                  extended: true,
+                  destinations: const [
+                    NavigationRailDestination(
+                      icon: Icon(Icons.library_music_outlined),
+                      selectedIcon: Icon(Icons.library_music),
+                      label: Text('音乐库'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.playlist_play_outlined),
+                      selectedIcon: Icon(Icons.playlist_play),
+                      label: Text('播放列表'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.settings_outlined),
+                      selectedIcon: Icon(Icons.settings),
+                      label: Text('设置'),
+                    ),
+                  ],
+                ),
               ),
-              NavigationRailDestination(
-                icon: Icon(Icons.playlist_play_outlined),
-                selectedIcon: Icon(Icons.playlist_play),
-                label: Text('播放列表'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
-                label: Text('设置'),
+              const VerticalDivider(thickness: 1, width: 1),
+              Expanded(
+                child: Column(
+                  children: [
+                    if (!_lyricsVisible) _buildMaterialToolbar(),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 280),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: _lyricsVisible
+                            ? KeyedSubtree(
+                                key: const ValueKey('lyrics_overlay_material'),
+                                child: _buildLyricsOverlay(isMac: false),
+                              )
+                            : KeyedSubtree(
+                                key: const ValueKey('material_main_content'),
+                                child: _buildMainContent(),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const VerticalDivider(thickness: 1, width: 1),
-          Expanded(
-            child: Column(
-              children: [
-                _buildMaterialToolbar(),
-                Expanded(child: _buildMainContent()),
-              ],
+          bottomNavigationBar: Container(
+            height: 80,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).dividerColor,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: MaterialPlayerControlBar(
+              onArtworkTap: track == null ? null : () => _toggleLyrics(playerState),
+              isLyricsActive: _lyricsVisible,
             ),
           ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        height: 80,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).dividerColor,
-              width: 1,
-            ),
-          ),
-        ),
-        child: const MaterialPlayerControlBar(),
-      ),
+        );
+      },
     );
   }
 
@@ -377,16 +468,22 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
-  String? _currentArtworkPath(PlayerBlocState state) {
-    String? path;
+  Track? _playerTrack(PlayerBlocState state) {
     if (state is PlayerPlaying) {
-      path = state.track.artworkPath;
-    } else if (state is PlayerPaused) {
-      path = state.track.artworkPath;
-    } else if (state is PlayerLoading && state.track != null) {
-      path = state.track!.artworkPath;
+      return state.track;
     }
+    if (state is PlayerPaused) {
+      return state.track;
+    }
+    if (state is PlayerLoading && state.track != null) {
+      return state.track!;
+    }
+    return null;
+  }
 
+  String? _currentArtworkPath(PlayerBlocState state) {
+    final track = _playerTrack(state);
+    final path = track?.artworkPath;
     if (path == null || path.isEmpty) {
       return null;
     }
@@ -414,6 +511,43 @@ class _HomePageContentState extends State<HomePageContent> {
       return '加载失败';
     }
     return null;
+  }
+
+  void _toggleLyrics(PlayerBlocState state) {
+    final track = _playerTrack(state);
+    if (!_lyricsVisible) {
+      if (track == null) {
+        return;
+      }
+      setState(() {
+        _lyricsVisible = true;
+        _lyricsActiveTrack = track;
+      });
+      return;
+    }
+
+    setState(() {
+      _lyricsVisible = false;
+      _lyricsActiveTrack = null;
+    });
+  }
+
+  Widget _buildLyricsOverlay({required bool isMac}) {
+    final track = _lyricsActiveTrack;
+    if (track == null) {
+      return Center(
+        child: Text(
+          '暂无播放',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+      );
+    }
+
+    return LyricsOverlay(
+      key: ValueKey('${track.id}_${isMac ? 'mac' : 'material'}'),
+      initialTrack: track,
+      isMac: isMac,
+    );
   }
 
   Future<void> _selectMusicFolder() async {
@@ -709,6 +843,7 @@ class _MacOSNavigationPane extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelect,
     required this.onResize,
+    this.enabled = true,
   });
 
   final double width;
@@ -716,6 +851,7 @@ class _MacOSNavigationPane extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final ValueChanged<double> onResize;
+  final bool enabled;
 
   static const _items = <_NavigationItem>[
     _NavigationItem(
@@ -767,6 +903,7 @@ class _MacOSNavigationPane extends StatelessWidget {
                     active: active,
                     collapsed: collapsed,
                     textColor: textColor,
+                    enabled: enabled,
                     onTap: () => onSelect(index),
                   );
                 },
@@ -806,6 +943,7 @@ class _NavigationTile extends StatelessWidget {
     required this.collapsed,
     required this.textColor,
     required this.onTap,
+    this.enabled = true,
   });
 
   final _NavigationItem item;
@@ -813,16 +951,23 @@ class _NavigationTile extends StatelessWidget {
   final bool collapsed;
   final Color textColor;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final theme = MacosTheme.of(context);
     const activeBackground = Color(0xFF1b66ff);
     final Color inactiveColor = textColor.withOpacity(0.72);
+    final Color iconColor = active ? Colors.white : inactiveColor;
+    final Color effectiveIconColor = enabled ? iconColor : iconColor.withOpacity(0.45);
+    final Color labelColor = active ? Colors.white : textColor.withOpacity(0.82);
+    final Color effectiveLabelColor = enabled ? labelColor : labelColor.withOpacity(0.45);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
@@ -834,7 +979,7 @@ class _NavigationTile extends StatelessWidget {
                 child: MacosIcon(
                   item.icon,
                   size: 18,
-                  color: active ? Colors.white : inactiveColor,
+                  color: effectiveIconColor,
                 ),
               )
             : Row(
@@ -842,20 +987,21 @@ class _NavigationTile extends StatelessWidget {
                   MacosIcon(
                     item.icon,
                     size: 18,
-                    color: active ? Colors.white : inactiveColor,
+                    color: effectiveIconColor,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       item.label,
                       style: theme.typography.body.copyWith(
-                        color: active ? Colors.white : textColor.withOpacity(0.82),
+                        color: effectiveLabelColor,
                         fontWeight: active ? FontWeight.w600 : FontWeight.w500,
                       ),
                     ),
                   ),
                 ],
               ),
+        ),
       ),
     );
   }

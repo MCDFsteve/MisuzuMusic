@@ -10,7 +10,6 @@ import '../../blocs/player/player_bloc.dart';
 import 'macos_progress_bar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../pages/lyrics/lyrics_page.dart';
 import '../../../domain/entities/music_entities.dart';
 
 const double _muteThreshold = 0.005;
@@ -18,7 +17,14 @@ const double _defaultRestoreVolume = 0.6;
 double _lastNonMutedVolume = _defaultRestoreVolume;
 
 class MacOSPlayerControlBar extends StatelessWidget {
-  const MacOSPlayerControlBar({super.key});
+  const MacOSPlayerControlBar({
+    super.key,
+    this.onArtworkTap,
+    this.isLyricsActive = false,
+  });
+
+  final VoidCallback? onArtworkTap;
+  final bool isLyricsActive;
 
   @override
   Widget build(BuildContext context) {
@@ -106,9 +112,10 @@ class MacOSPlayerControlBar extends StatelessWidget {
                           artworkPath: artworkPath,
                           titleColor: iconColor,
                           subtitleColor: secondaryIconColor,
-                          onArtworkTap: currentTrack == null
-                              ? null
-                              : () => _openLyricsPage(context, currentTrack!),
+                          onArtworkTap: currentTrack != null && onArtworkTap != null
+                              ? onArtworkTap
+                              : null,
+                          isLyricsActive: isLyricsActive,
                         ),
                         const SizedBox(height: 4),
                         MacOSProgressBar(
@@ -343,10 +350,6 @@ class MacOSPlayerControlBar extends StatelessWidget {
     );
   }
 }
-
-  void _openLyricsPage(BuildContext context, Track track) {
-    Navigator.of(context, rootNavigator: true).push(LyricsPage.route(context, track));
-  }
 
 class _MacVolumeSlider extends StatefulWidget {
   const _MacVolumeSlider({
@@ -595,6 +598,7 @@ class _TrackInfoRow extends StatelessWidget {
     required this.titleColor,
     required this.subtitleColor,
     this.onArtworkTap,
+    this.isLyricsActive = false,
   });
 
   final String title;
@@ -603,11 +607,13 @@ class _TrackInfoRow extends StatelessWidget {
   final Color titleColor;
   final Color subtitleColor;
   final VoidCallback? onArtworkTap;
+  final bool isLyricsActive;
 
   @override
   Widget build(BuildContext context) {
     final theme = MacosTheme.of(context);
     final bool clickable = onArtworkTap != null;
+    final tooltip = isLyricsActive ? '收起歌词' : '查看歌词';
 
     Widget artwork = ArtworkThumbnail(
       artworkPath: artworkPath,
@@ -624,7 +630,7 @@ class _TrackInfoRow extends StatelessWidget {
 
     if (clickable) {
       artwork = MacosTooltip(
-        message: '查看歌词',
+        message: tooltip,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(

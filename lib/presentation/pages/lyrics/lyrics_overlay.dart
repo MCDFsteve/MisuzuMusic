@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:macos_ui/macos_ui.dart';
@@ -15,103 +14,55 @@ import '../../blocs/player/player_bloc.dart';
 import '../../widgets/common/adaptive_scrollbar.dart';
 import '../../widgets/common/artwork_thumbnail.dart';
 
-class LyricsPage extends StatefulWidget {
-  const LyricsPage({super.key, required this.track});
+class LyricsOverlay extends StatefulWidget {
+  const LyricsOverlay({
+    super.key,
+    required this.initialTrack,
+    required this.isMac,
+  });
 
-  final Track track;
-
-  static Route<void> route(BuildContext context, Track track) {
-    final playerBloc = context.read<PlayerBloc>();
-
-    return PageRouteBuilder<void>(
-      pageBuilder: (_, __, ___) => MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: playerBloc),
-          BlocProvider(
-            create: (_) => LyricsCubit(getLyrics: sl<GetLyrics>())
-              ..loadLyricsForTrack(track),
-          ),
-        ],
-        child: LyricsPage(track: track),
-      ),
-      transitionsBuilder: (_, animation, __, child) => FadeTransition(
-        opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-        child: child,
-      ),
-    );
-  }
+  final Track initialTrack;
+  final bool isMac;
 
   @override
-  State<LyricsPage> createState() => _LyricsPageState();
+  State<LyricsOverlay> createState() => _LyricsOverlayState();
 }
 
-class _LyricsPageState extends State<LyricsPage> {
+class _LyricsOverlayState extends State<LyricsOverlay> {
   late Track _currentTrack;
-  final ScrollController _lyricsScrollController = ScrollController();
+  late final ScrollController _lyricsScrollController;
+  late final LyricsCubit _lyricsCubit;
 
   @override
   void initState() {
     super.initState();
-    _currentTrack = widget.track;
+    _currentTrack = widget.initialTrack;
+    _lyricsScrollController = ScrollController();
+    _lyricsCubit = LyricsCubit(getLyrics: sl<GetLyrics>())
+      ..loadLyricsForTrack(_currentTrack);
+  }
+
+  @override
+  void didUpdateWidget(covariant LyricsOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTrack.id != oldWidget.initialTrack.id) {
+      _currentTrack = widget.initialTrack;
+      _lyricsCubit.loadLyricsForTrack(_currentTrack);
+      _resetScroll();
+    }
   }
 
   @override
   void dispose() {
     _lyricsScrollController.dispose();
+    _lyricsCubit.close();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final bool isMac = defaultTargetPlatform == TargetPlatform.macOS;
-
-    final child = BlocListener<PlayerBloc, PlayerBlocState>(
-      listener: (context, playerState) {
-        final nextTrack = _extractTrack(playerState);
-        if (nextTrack != null && nextTrack.id != _currentTrack.id) {
-          setState(() => _currentTrack = nextTrack);
-          context.read<LyricsCubit>().loadLyricsForTrack(nextTrack);
-        }
-      },
-      child: BlocListener<LyricsCubit, LyricsState>(
-        listener: (context, state) {
-          if (state is LyricsLoaded || state is LyricsEmpty) {
-            if (_lyricsScrollController.hasClients) {
-              _lyricsScrollController.jumpTo(0);
-            }
-          }
-        },
-        child: _LyricsLayout(
-          track: _currentTrack,
-          lyricsScrollController: _lyricsScrollController,
-          isMac: isMac,
-        ),
-      ),
-    );
-
-    if (isMac) {
-      return MacosWindow(
-        titleBar: const TitleBar(
-          title: Text('歌词'),
-        ),
-        child: MacosScaffold(
-          children: [
-            ContentArea(
-              builder: (context, _) {
-                return child;
-              },
-            ),
-          ],
-        ),
-      );
+  void _resetScroll() {
+    if (_lyricsScrollController.hasClients) {
+      _lyricsScrollController.jumpTo(0);
     }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('歌词'),
-      ),
-      body: child,
-    );
   }
 
   Track? _extractTrack(PlayerBlocState state) {
@@ -125,6 +76,38 @@ class _LyricsPageState extends State<LyricsPage> {
       return state.track;
     }
     return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isMac = widget.isMac;
+
+    return BlocProvider.value(
+      value: _lyricsCubit,
+      child: BlocListener<PlayerBloc, PlayerBlocState>(
+        listener: (context, playerState) {
+          final nextTrack = _extractTrack(playerState);
+          if (nextTrack != null && nextTrack.id != _currentTrack.id) {
+            if (!mounted) return;
+            setState(() => _currentTrack = nextTrack);
+            _lyricsCubit.loadLyricsForTrack(nextTrack);
+            _resetScroll();
+          }
+        },
+        child: BlocListener<LyricsCubit, LyricsState>(
+          listener: (context, state) {
+            if (state is LyricsLoaded || state is LyricsEmpty) {
+              _resetScroll();
+            }
+          },
+          child: _LyricsLayout(
+            track: _currentTrack,
+            lyricsScrollController: _lyricsScrollController,
+            isMac: isMac,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -146,9 +129,7 @@ class _LyricsLayout extends StatelessWidget {
         : const EdgeInsets.fromLTRB(20, 24, 20, 24);
 
     return Container(
-      color: isMac
-          ? MacosTheme.of(context).canvasColor
-          : Theme.of(context).colorScheme.surface,
+      color: Colors.transparent,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final double coverSize = _resolveCoverSize(constraints.maxWidth);
@@ -162,47 +143,28 @@ class _LyricsLayout extends StatelessWidget {
 
           return Padding(
             padding: contentPadding,
-            child: Column(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (isMac)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: MacosIconButton(
-                      icon: const MacosIcon(CupertinoIcons.back),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      backgroundColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      mouseCursor: SystemMouseCursors.click,
-                    ),
-                  ),
-                if (isMac) const SizedBox(height: 16),
                 Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 10,
-                        child: _CoverColumn(
-                          track: track,
-                          coverSize: coverSize,
-                          isMac: isMac,
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        margin: const EdgeInsets.symmetric(horizontal: 28),
-                        color: dividerColor.withOpacity(0.35),
-                      ),
-                      Expanded(
-                        flex: 13,
-                        child: _LyricsPanel(
-                          isDarkMode: isDarkMode,
-                          scrollController: lyricsScrollController,
-                          track: track,
-                        ),
-                      ),
-                    ],
+                  flex: 10,
+                  child: _CoverColumn(
+                    track: track,
+                    coverSize: coverSize,
+                    isMac: isMac,
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 28),
+                  color: dividerColor.withOpacity(0.35),
+                ),
+                Expanded(
+                  flex: 13,
+                  child: _LyricsPanel(
+                    isDarkMode: isDarkMode,
+                    scrollController: lyricsScrollController,
+                    track: track,
                   ),
                 ),
               ],
@@ -315,13 +277,9 @@ class _LyricsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final BorderRadius borderRadius = BorderRadius.circular(18);
-    final Color backgroundColor;
-
-    if (isDarkMode) {
-      backgroundColor = Colors.white.withOpacity(0.04);
-    } else {
-      backgroundColor = Colors.black.withOpacity(0.03);
-    }
+    final Color backgroundColor = isDarkMode
+        ? Colors.white.withOpacity(0.04)
+        : Colors.black.withOpacity(0.03);
 
     return Container(
       decoration: BoxDecoration(
@@ -341,17 +299,11 @@ class _LyricsPanel extends StatelessWidget {
           children: [
             Text(
               '歌词',
-              style: isDarkMode
-                  ? const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    )
-                  : const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
             ),
             const SizedBox(height: 12),
             Expanded(
@@ -383,9 +335,11 @@ class _LyricsPanel extends StatelessWidget {
     ScrollController controller,
     bool isDarkMode,
   ) {
-    final TextStyle baseStyle = isDarkMode
-        ? const TextStyle(fontSize: 18, height: 1.5, color: Colors.white)
-        : const TextStyle(fontSize: 18, height: 1.5, color: Colors.black87);
+    final TextStyle baseStyle = TextStyle(
+      fontSize: 18,
+      height: 1.5,
+      color: isDarkMode ? Colors.white : Colors.black87,
+    );
 
     if (state is LyricsLoading || state is LyricsInitial) {
       return ListView(
@@ -457,12 +411,15 @@ class _LyricsPanel extends StatelessWidget {
     required String subtitle,
     required bool isDarkMode,
   }) {
-    final TextStyle titleStyle = isDarkMode
-        ? const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)
-        : const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87);
-    final TextStyle subtitleStyle = isDarkMode
-        ? const TextStyle(fontSize: 14, color: Colors.white70)
-        : const TextStyle(fontSize: 14, color: Colors.black54);
+    final TextStyle titleStyle = TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: isDarkMode ? Colors.white : Colors.black87,
+    );
+    final TextStyle subtitleStyle = TextStyle(
+      fontSize: 14,
+      color: isDarkMode ? Colors.white70 : Colors.black54,
+    );
 
     return ListView(
       controller: controller,
