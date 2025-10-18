@@ -294,6 +294,21 @@ class DatabaseHelper {
           .map((token) => token.trim())
           .toList();
 
+      final List<Map<String, dynamic>> combinedResults = [];
+      final Set<String> seenKeys = <String>{};
+
+      String extractRowKey(Map<String, dynamic> row) {
+        final idValue = row['id'];
+        if (idValue != null) {
+          return idValue.toString();
+        }
+        final pathValue = row['file_path'];
+        if (pathValue != null) {
+          return pathValue.toString();
+        }
+        return row.hashCode.toString();
+      }
+
       if (tokens.isNotEmpty) {
         final ftsQuery = tokens.map((token) => '$token*').join(' ');
         final ftsResults = await db.rawQuery('''
@@ -303,20 +318,34 @@ class DatabaseHelper {
           ORDER BY tracks.title COLLATE NOCASE
         ''', [ftsQuery]);
 
-        if (ftsResults.isNotEmpty) {
-          return ftsResults;
+        for (final rawRow in ftsResults) {
+          final row = Map<String, dynamic>.from(rawRow);
+          final key = extractRowKey(row);
+          if (seenKeys.add(key)) {
+            combinedResults.add(row);
+          }
         }
       }
 
       final likeArg = trimmed;
-      return await db.rawQuery('''
-        SELECT DISTINCT * FROM tracks
+      final likeResults = await db.rawQuery('''
+        SELECT * FROM tracks
         WHERE title LIKE '%' || ? || '%'
            OR artist LIKE '%' || ? || '%'
            OR album LIKE '%' || ? || '%'
            OR genre LIKE '%' || ? || '%'
         ORDER BY title COLLATE NOCASE
       ''', [likeArg, likeArg, likeArg, likeArg]);
+
+      for (final rawRow in likeResults) {
+        final row = Map<String, dynamic>.from(rawRow);
+        final key = extractRowKey(row);
+        if (seenKeys.add(key)) {
+          combinedResults.add(row);
+        }
+      }
+
+      return combinedResults;
     } catch (e) {
       throw app_exceptions.DatabaseException('Search failed: ${e.toString()}');
     }
