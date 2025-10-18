@@ -1069,134 +1069,114 @@ class _LibrarySummaryView extends StatelessWidget {
         : Theme.of(context).brightness == Brightness.dark;
 
     final borderColor = isDark
-        ? Colors.white.withOpacity(0.14)
+        ? Colors.white.withOpacity(0.12)
         : Colors.black.withOpacity(0.08);
-    final overlayColor = isDark
-        ? Colors.black.withOpacity(0.7)
-        : Colors.white.withOpacity(0.82);
     final titleColor = isDark ? Colors.white : Colors.black;
     final subtitleColor = isDark
-        ? Colors.white.withOpacity(0.78)
-        : Colors.black.withOpacity(0.68);
+        ? Colors.white.withOpacity(0.72)
+        : Colors.black.withOpacity(0.64);
 
     final directory = File(track.filePath).parent.path;
     final folderName = p.basename(directory);
 
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        width: 240,
-        height: 240,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: borderColor, width: 0.6),
-          boxShadow: [
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withOpacity(0.42)
-                  : Colors.black.withOpacity(0.08),
-              blurRadius: 22,
-              offset: const Offset(0, 12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            width: 220,
+            height: 220,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: borderColor, width: 0.6),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withOpacity(0.42)
+                      : Colors.black.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned.fill(
-                child: hasArtwork &&
-                        track.artworkPath != null &&
-                        File(track.artworkPath!).existsSync()
-                    ? Image.file(
-                        File(track.artworkPath!),
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: isDark
-                                ? [const Color(0xFF3C3C3E), const Color(0xFF1C1C1E)]
-                                : [const Color(0xFFE9F1FF), const Color(0xFFFDFEFF)],
-                          ),
-                        ),
-                        child: Icon(
-                          CupertinoIcons.music_albums,
-                          size: 68,
-                          color: isDark ? Colors.white24 : Colors.black26,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: hasArtwork &&
+                      track.artworkPath != null &&
+                      File(track.artworkPath!).existsSync()
+                  ? Image.file(
+                      File(track.artworkPath!),
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: isDark
+                              ? [const Color(0xFF3C3C3E), const Color(0xFF1C1C1E)]
+                              : [const Color(0xFFE9F1FF), const Color(0xFFFDFEFF)],
                         ),
                       ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, overlayColor],
+                      child: Icon(
+                        CupertinoIcons.music_albums,
+                        size: 60,
+                        color: isDark ? Colors.white24 : Colors.black26,
+                      ),
                     ),
+            ),
+          ),
+          const SizedBox(width: 22),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '音乐库',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: titleColor,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                folderName,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: titleColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: 280,
+                child: Text(
+                  directory,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: subtitleColor,
                   ),
                 ),
               ),
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '音乐库',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: titleColor,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      folderName,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: titleColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      directory,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: subtitleColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$totalTracks 首歌曲 · 点击查看全部',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: subtitleColor,
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 8),
+              Text(
+                '$totalTracks 首歌曲 · 点击查看全部',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: subtitleColor,
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
