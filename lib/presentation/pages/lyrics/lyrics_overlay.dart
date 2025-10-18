@@ -388,25 +388,36 @@ class _LyricsPanel extends StatelessWidget {
       color: isDarkMode ? Colors.white70 : Colors.black54,
     );
 
-    return ListView(
-      controller: controller,
-      children: [
-        const SizedBox(height: 80),
-        Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title, style: titleStyle, textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: subtitleStyle,
-                textAlign: TextAlign.center,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double contentEstimate = 72;
+        final double verticalPadding = math.max(
+          0,
+          (constraints.maxHeight - contentEstimate) * 0.5,
+        );
+
+        return ListView(
+          controller: controller,
+          padding: EdgeInsets.only(top: verticalPadding, bottom: verticalPadding),
+          children: [
+            Align(
+              alignment: Alignment.topCenter,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: titleStyle, textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle,
+                    style: subtitleStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
