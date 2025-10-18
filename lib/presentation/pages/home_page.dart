@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -1122,38 +1124,76 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
           }
 
           if (!_showList) {
-            return Align(
-              alignment: Alignment.topLeft,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < summariesData.length; i++)
-                      Padding(
-                        padding: EdgeInsets.only(
-                          bottom: i == summariesData.length - 1 ? 0 : 24,
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final maxWidth = constraints.maxWidth.isFinite
+                    ? constraints.maxWidth
+                    : MediaQuery.of(context).size.width;
+                const double padding = 24;
+                const double spacing = 24;
+                const double preferredTileWidth = 540;
+                final double contentWidth =
+                    math.max(0, maxWidth - padding * 2);
+                final int columnCount = contentWidth > 0
+                    ? math.max(
+                        1,
+                        math.min(
+                          3,
+                          ((contentWidth + spacing) /
+                                  (preferredTileWidth + spacing))
+                              .floor(),
                         ),
-                        child: _LibrarySummaryView(
-                          directoryPath: summariesData[i].directoryPath,
-                          previewTrack: summariesData[i].previewTrack,
-                          totalTracks: summariesData[i].totalTracks,
-                          hasArtwork: summariesData[i].hasArtwork,
-                          onTap: () {
-                            setState(() {
-                              _showList = true;
-                              _activeDirectoryFilter =
-                                  summariesData[i].directoryPath.isEmpty
-                                      ? null
-                                      : summariesData[i].directoryPath;
-                            });
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+                      )
+                    : 1;
+                final double rawTileWidth = columnCount == 1
+                    ? contentWidth
+                    : (contentWidth - (columnCount - 1) * spacing) /
+                        columnCount;
+                final double tileWidth = columnCount == 1
+                    ? math.min(preferredTileWidth, contentWidth)
+                    : math.min(preferredTileWidth, rawTileWidth);
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(padding),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: math.max(0, contentWidth),
+                    ),
+                    child: Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        for (final summary in summariesData)
+                          SizedBox(
+                            width: columnCount == 1
+                                ? (contentWidth <= 0
+                                    ? preferredTileWidth
+                                    : math.min(
+                                        preferredTileWidth, contentWidth))
+                                : (tileWidth <= 0
+                                    ? preferredTileWidth
+                                    : tileWidth),
+                            child: _LibrarySummaryView(
+                              directoryPath: summary.directoryPath,
+                              previewTrack: summary.previewTrack,
+                              totalTracks: summary.totalTracks,
+                              hasArtwork: summary.hasArtwork,
+                              onTap: () {
+                                setState(() {
+                                  _showList = true;
+                                  _activeDirectoryFilter =
+                                      summary.directoryPath.isEmpty
+                                          ? null
+                                          : summary.directoryPath;
+                                });
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             );
           }
 
@@ -1178,35 +1218,34 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   searchQuery: state.searchQuery,
                 );
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_activeDirectoryFilter != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '当前音乐库: ${p.basename(_activeDirectoryFilter!)}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _showList = false;
-                            _activeDirectoryFilter = null;
-                          });
-                        },
-                        child: const Text('返回音乐库列表'),
-                      ),
-                    ],
+          if (_activeDirectoryFilter != null) {
+            return Shortcuts(
+              shortcuts: <LogicalKeySet, Intent>{
+                LogicalKeySet(LogicalKeyboardKey.escape):
+                    const _ExitLibraryOverviewIntent(),
+              },
+              child: Actions(
+                actions: {
+                  _ExitLibraryOverviewIntent:
+                      CallbackAction<_ExitLibraryOverviewIntent>(
+                    onInvoke: (intent) {
+                      setState(() {
+                        _showList = false;
+                        _activeDirectoryFilter = null;
+                      });
+                      return null;
+                    },
                   ),
+                },
+                child: Focus(
+                  autofocus: true,
+                  child: listWidget,
                 ),
-              Expanded(child: listWidget),
-            ],
-          );
+              ),
+            );
+          }
+
+          return listWidget;
         }
 
         return _PlaylistMessage(
@@ -1312,52 +1351,61 @@ class _LibrarySummaryView extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             card,
             const SizedBox(width: 22),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  folderName,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: titleColor,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: 280,
-                  child: Text(
-                    normalizedDirectory.isEmpty ? '所有目录' : normalizedDirectory,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: subtitleColor,
+            Expanded(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      folderName,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: titleColor,
+                        letterSpacing: -0.3,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    Text(
+                      normalizedDirectory.isEmpty
+                          ? '所有目录'
+                          : normalizedDirectory,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: subtitleColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$totalTracks 首歌曲 · 点击查看全部',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: subtitleColor,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '$totalTracks 首歌曲 · 点击查看全部',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: subtitleColor,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _ExitLibraryOverviewIntent extends Intent {
+  const _ExitLibraryOverviewIntent();
 }
 
 class _DirectorySummaryData {
