@@ -162,21 +162,25 @@ class PlaybackHistoryEntry extends Entity {
   const PlaybackHistoryEntry({
     required this.track,
     required this.playedAt,
+    this.playCount = 1,
   });
 
   final Track track;
   final DateTime playedAt;
+  final int playCount;
 
   @override
-  List<Object> get props => [track, playedAt];
+  List<Object> get props => [track, playedAt, playCount];
 
   PlaybackHistoryEntry copyWith({
     Track? track,
     DateTime? playedAt,
+    int? playCount,
   }) {
     return PlaybackHistoryEntry(
       track: track ?? this.track,
       playedAt: playedAt ?? this.playedAt,
+      playCount: playCount ?? this.playCount,
     );
   }
 }

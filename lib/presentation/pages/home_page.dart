@@ -1331,34 +1331,35 @@ class _PlaylistHistoryList extends StatelessWidget {
         return ListView.separated(
           controller: controller,
           padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: filteredEntries.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              thickness: 0.5,
-              color: dividerColor,
-              indent: isMac ? 88 : 80,
-            ),
-            itemBuilder: (context, index) {
+          itemCount: filteredEntries.length,
+          separatorBuilder: (context, index) => Divider(
+            height: 1,
+            thickness: 0.5,
+            color: dividerColor,
+            indent: isMac ? 88 : 80,
+          ),
+          itemBuilder: (context, index) {
               final entry = filteredEntries[index];
               final track = entry.track;
+              final playCount = entry.playCount;
               return TrackListTile(
                 index: index + 1,
                 leading: ArtworkThumbnail(
-                  artworkPath: track.artworkPath,
-                  size: 48,
-                  borderRadius: BorderRadius.circular(8),
-                  backgroundColor: artworkBackground,
-                  borderColor: dividerColor,
-                  placeholder: artworkPlaceholder,
-                ),
-                title: track.title,
-                artistAlbum: '${track.artist} • ${track.album}',
-                duration: _formatDuration(track.duration),
-                meta: _formatPlayedAt(entry.playedAt),
-                onTap: () => _playTrack(context, track),
-              );
-            },
-          );
+                artworkPath: track.artworkPath,
+                size: 48,
+                borderRadius: BorderRadius.circular(8),
+                backgroundColor: artworkBackground,
+                borderColor: dividerColor,
+                placeholder: artworkPlaceholder,
+              ),
+              title: track.title,
+              artistAlbum: '${track.artist} • ${track.album}',
+              duration: _formatDuration(track.duration),
+              meta: '${_formatPlayedAt(entry.playedAt)} │ ${playCount} 次播放',
+              onTap: () => _playTrack(context, track),
+            );
+          },
+        );
       },
     );
   }

@@ -62,6 +62,7 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
     return {
       'playedAt': entry.playedAt.toIso8601String(),
       'track': _trackToMap(entry.track),
+      'playCount': entry.playCount,
     };
   }
 
@@ -72,9 +73,11 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
     if (trackMap is! Map<String, dynamic>) {
       throw const FormatException('Invalid track payload');
     }
+    final playCount = (map['playCount'] as num?)?.toInt() ?? 1;
     return PlaybackHistoryEntry(
       track: _trackFromMap(trackMap),
       playedAt: playedAt,
+      playCount: playCount,
     );
   }
 
@@ -126,8 +129,25 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
   Future<void> recordPlay(Track track, DateTime playedAt) async {
     await _ensureInitialized();
     final history = List<PlaybackHistoryEntry>.from(_historySubject.value);
-    history.removeWhere((entry) => entry.track.id == track.id);
-    history.insert(0, PlaybackHistoryEntry(track: track, playedAt: playedAt));
+    final existingIndex = history.indexWhere((entry) => entry.track.id == track.id);
+
+    if (existingIndex != -1) {
+      final existing = history.removeAt(existingIndex);
+      final updated = existing.copyWith(
+        playedAt: playedAt,
+        playCount: existing.playCount + 1,
+      );
+      history.insert(0, updated);
+    } else {
+      history.insert(
+        0,
+        PlaybackHistoryEntry(
+          track: track,
+          playedAt: playedAt,
+          playCount: 1,
+        ),
+      );
+    }
     final limited = _sortAndLimit(history, _maxEntries);
     _historySubject.add(limited);
     await _persist(limited);

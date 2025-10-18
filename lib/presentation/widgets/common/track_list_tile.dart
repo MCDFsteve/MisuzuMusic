@@ -82,19 +82,24 @@ class TrackListTile extends StatelessWidget {
                           children: [
                             if (hasDuration)
                               Text(
-                                hasMeta ? '$duration ' : duration,
+                                duration,
                                 style: _metaStyle(context, isMac),
+                              ),
+                            if (hasDuration && hasMeta)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                child: Text(
+                                  '│',
+                                  style: _metaStyle(context, isMac),
+                                ),
                               ),
                             if (hasMeta)
                               Expanded(
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    meta!,
-                                    style: _metaStyle(context, isMac),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                child: Text(
+                                  meta!,
+                                  style: _metaStyle(context, isMac),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                           ],
