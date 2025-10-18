@@ -1768,7 +1768,7 @@ class _PlaylistHistoryList extends StatelessWidget {
               artistAlbum: '${track.artist} • ${track.album}',
               duration: _formatDuration(track.duration),
               meta: '${_formatPlayedAt(entry.playedAt)} | ${playCount} 次播放',
-              onTap: () => _playTrack(context, track),
+              onTap: () => _playTrack(context, track, fingerprint: entry.fingerprint),
             );
           },
         );
@@ -1795,8 +1795,8 @@ class _PlaylistHistoryList extends StatelessWidget {
     return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:$twoDigits';
   }
 
-  void _playTrack(BuildContext context, Track track) {
-    context.read<PlayerBloc>().add(PlayerPlayTrack(track));
+  void _playTrack(BuildContext context, Track track, {String? fingerprint}) {
+    context.read<PlayerBloc>().add(PlayerPlayTrack(track, fingerprint: fingerprint));
   }
 }
 

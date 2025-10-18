@@ -6,8 +6,8 @@ class PlayTrack {
 
   PlayTrack(this._audioPlayerService);
 
-  Future<void> call(Track track) async {
-    await _audioPlayerService.play(track);
+  Future<void> call(Track track, {String? fingerprint}) async {
+    await _audioPlayerService.play(track, fingerprint: fingerprint);
   }
 }
 

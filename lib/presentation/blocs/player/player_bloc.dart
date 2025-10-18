@@ -17,11 +17,12 @@ abstract class PlayerEvent extends Equatable {
 
 class PlayerPlayTrack extends PlayerEvent {
   final Track track;
+  final String? fingerprint;
 
-  const PlayerPlayTrack(this.track);
+  const PlayerPlayTrack(this.track, {this.fingerprint});
 
   @override
-  List<Object> get props => [track];
+  List<Object?> get props => [track, fingerprint];
 }
 
 class PlayerPause extends PlayerEvent {
@@ -389,7 +390,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
         queue: _audioPlayerService.queue,
         currentIndex: _audioPlayerService.currentIndex,
       ));
-      await _playTrack(event.track);
+      await _playTrack(event.track, fingerprint: event.fingerprint);
       print('🎵 PlayerBloc: 播放音轨完成');
     } catch (e) {
       print('❌ PlayerBloc: 播放音轨失败 - $e');

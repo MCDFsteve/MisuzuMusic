@@ -20,8 +20,8 @@ class PlaybackSession {
 // Audio player service interface
 abstract class AudioPlayerService {
   // Playback control
-  Future<void> play(Track track);
-  Future<void> loadTrack(Track track);
+  Future<void> play(Track track, {String? fingerprint});
+  Future<void> loadTrack(Track track, {String? fingerprint});
   Future<void> pause();
   Future<void> resume();
   Future<void> stop();

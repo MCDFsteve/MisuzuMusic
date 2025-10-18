@@ -199,9 +199,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   }
 
   @override
-  Future<void> play(Track track) async {
+  Future<void> play(Track track, {String? fingerprint}) async {
     try {
-      final playableTrack = await _resolvePlayableTrack(track);
+      final playableTrack = await _resolvePlayableTrack(track, fingerprint: fingerprint);
 
       print('🎵 AudioService: 开始播放 - ${playableTrack.title}');
       print('🎵 AudioService: 文件路径 - ${playableTrack.filePath}');
@@ -229,9 +229,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   }
 
   @override
-  Future<void> loadTrack(Track track) async {
+  Future<void> loadTrack(Track track, {String? fingerprint}) async {
     try {
-      final playableTrack = await _resolvePlayableTrack(track);
+      final playableTrack = await _resolvePlayableTrack(track, fingerprint: fingerprint);
 
       print('🎵 AudioService: 预加载音轨 - ${playableTrack.title}');
       _currentTrack = playableTrack;
@@ -547,7 +547,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _audioPlayer.dispose();
   }
 
-  Future<Track> _resolvePlayableTrack(Track track) async {
+  Future<Track> _resolvePlayableTrack(Track track, {String? fingerprint}) async {
     final originalFile = File(track.filePath);
     if (await originalFile.exists()) {
       return track;
@@ -567,6 +567,39 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       candidates.add(await _musicLibraryRepository.findMatchingTrack(track));
     } catch (e) {
       print('⚠️ AudioService: 查找匹配音轨失败 - $e');
+    }
+
+    for (final candidate in candidates) {
+      if (candidate == null) continue;
+      final file = File(candidate.filePath);
+      if (await file.exists()) {
+        if (fingerprint != null) {
+          final candidateFingerprint = await _computeFingerprint(candidate);
+          if (candidateFingerprint != null && candidateFingerprint == fingerprint) {
+            await _replaceTrackInQueue(track, candidate);
+            print('✅ AudioService: 使用指纹匹配音频路径 ${candidate.filePath}');
+            return candidate;
+          }
+        } else {
+          await _replaceTrackInQueue(track, candidate);
+          print('✅ AudioService: 使用新的音频路径 ${candidate.filePath}');
+          return candidate;
+        }
+      }
+    }
+
+    if (fingerprint != null) {
+      for (final candidate in candidates) {
+        if (candidate == null) continue;
+        final file = File(candidate.filePath);
+        if (!await file.exists()) continue;
+        final candidateFingerprint = await _computeFingerprint(candidate);
+        if (candidateFingerprint != null && candidateFingerprint == fingerprint) {
+          await _replaceTrackInQueue(track, candidate);
+          print('✅ AudioService: 使用指纹匹配音频路径 ${candidate.filePath}');
+          return candidate;
+        }
+      }
     }
 
     for (final candidate in candidates) {
