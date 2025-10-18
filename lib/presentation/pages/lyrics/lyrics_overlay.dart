@@ -276,55 +276,22 @@ class _LyricsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final BorderRadius borderRadius = BorderRadius.circular(18);
-    final Color backgroundColor = isDarkMode
-        ? Colors.white.withOpacity(0.04)
-        : Colors.black.withOpacity(0.03);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: borderRadius,
-        border: Border.all(
-          color: isDarkMode
-              ? Colors.white.withOpacity(0.08)
-              : Colors.black.withOpacity(0.06),
-          width: 0.8,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '歌词',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      child: BlocBuilder<LyricsCubit, LyricsState>(
+        builder: (context, state) {
+          return AdaptiveScrollbar(
+            isDarkMode: isDarkMode,
+            controller: scrollController,
+            margin: const EdgeInsets.only(right: 4),
+            builder: (controller) => _buildLyricsContent(
+              context,
+              state,
+              controller,
+              isDarkMode,
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: BlocBuilder<LyricsCubit, LyricsState>(
-                builder: (context, state) {
-                  return AdaptiveScrollbar(
-                    isDarkMode: isDarkMode,
-                    controller: scrollController,
-                    margin: const EdgeInsets.only(right: 4),
-                    builder: (controller) => _buildLyricsContent(
-                      context,
-                      state,
-                      controller,
-                      isDarkMode,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
