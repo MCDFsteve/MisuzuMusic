@@ -179,25 +179,36 @@ class _HomePageContentState extends State<HomePageContent> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _MacOSNavigationPane(
-                            width: _navigationWidth,
-                            collapsed: _navigationWidth <= 112,
-                            selectedIndex: _selectedIndex,
-                            onSelect: _handleNavigationChange,
-                            onResize: (width) {
-                              if (_lyricsVisible) return;
-                              setState(() {
-                                _navigationWidth = width.clamp(_navMinWidth, _navMaxWidth);
-                              });
-                            },
-                            enabled: !_lyricsVisible,
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _lyricsVisible ? () => _toggleLyrics(playerState) : null,
+                            child: AbsorbPointer(
+                              absorbing: _lyricsVisible,
+                              child: _MacOSNavigationPane(
+                                width: _navigationWidth,
+                                collapsed: _navigationWidth <= 112,
+                                selectedIndex: _selectedIndex,
+                                onSelect: _handleNavigationChange,
+                                onResize: (width) {
+                                  if (_lyricsVisible) return;
+                                  setState(() {
+                                    _navigationWidth =
+                                        width.clamp(_navMinWidth, _navMaxWidth);
+                                  });
+                                },
+                                enabled: !_lyricsVisible,
+                              ),
+                            ),
                           ),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                IgnorePointer(
-                                  ignoring: _lyricsVisible,
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: _lyricsVisible ? () => _toggleLyrics(playerState) : null,
+                                  child: AbsorbPointer(
+                                    absorbing: _lyricsVisible,
                                   child: AnimatedOpacity(
                                     duration: const Duration(milliseconds: 220),
                                     opacity: _lyricsVisible ? 0.6 : 1.0,
@@ -209,6 +220,7 @@ class _HomePageContentState extends State<HomePageContent> {
                                       onSearchChanged: _onSearchQueryChanged,
                                       onSelectMusicFolder: _selectMusicFolder,
                                     ),
+                                  ),
                                   ),
                                 ),
                                 Expanded(
@@ -277,41 +289,49 @@ class _HomePageContentState extends State<HomePageContent> {
         return Scaffold(
           body: Row(
             children: [
-              IgnorePointer(
-                ignoring: _lyricsVisible,
-                child: NavigationRail(
-                  selectedIndex: _selectedIndex,
-                  onDestinationSelected: _handleNavigationChange,
-                  extended: true,
-                  destinations: const [
-                    NavigationRailDestination(
-                      icon: Icon(Icons.library_music_outlined),
-                      selectedIcon: Icon(Icons.library_music),
-                      label: Text('音乐库'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.playlist_play_outlined),
-                      selectedIcon: Icon(Icons.playlist_play),
-                      label: Text('播放列表'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      selectedIcon: Icon(Icons.settings),
-                      label: Text('设置'),
-                    ),
-                  ],
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _lyricsVisible ? () => _toggleLyrics(playerState) : null,
+                child: AbsorbPointer(
+                  absorbing: _lyricsVisible,
+                  child: NavigationRail(
+                    selectedIndex: _selectedIndex,
+                    onDestinationSelected: _handleNavigationChange,
+                    extended: true,
+                    destinations: const [
+                      NavigationRailDestination(
+                        icon: Icon(Icons.library_music_outlined),
+                        selectedIcon: Icon(Icons.library_music),
+                        label: Text('音乐库'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.playlist_play_outlined),
+                        selectedIcon: Icon(Icons.playlist_play),
+                        label: Text('播放列表'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.settings_outlined),
+                        selectedIcon: Icon(Icons.settings),
+                        label: Text('设置'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const VerticalDivider(thickness: 1, width: 1),
               Expanded(
                 child: Column(
                   children: [
-                    IgnorePointer(
-                      ignoring: _lyricsVisible,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _lyricsVisible ? () => _toggleLyrics(playerState) : null,
+                      child: AbsorbPointer(
+                        absorbing: _lyricsVisible,
                       child: AnimatedOpacity(
                         duration: const Duration(milliseconds: 220),
                         opacity: _lyricsVisible ? 0.55 : 1.0,
                         child: _buildMaterialToolbar(),
+                      ),
                       ),
                     ),
                     Expanded(
