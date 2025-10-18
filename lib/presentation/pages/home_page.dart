@@ -185,6 +185,7 @@ class _HomePageContentState extends State<HomePageContent> {
                             selectedIndex: _selectedIndex,
                             onSelect: _handleNavigationChange,
                             onResize: (width) {
+                              if (_lyricsVisible) return;
                               setState(() {
                                 _navigationWidth = width.clamp(_navMinWidth, _navMaxWidth);
                               });
@@ -195,15 +196,21 @@ class _HomePageContentState extends State<HomePageContent> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                if (!_lyricsVisible)
-                                  _MacOSGlassHeader(
-                                    height: headerHeight,
-                                    sectionLabel: sectionLabel,
-                                    statsLabel: statsLabel,
-                                    searchQuery: _searchQuery,
-                                    onSearchChanged: _onSearchQueryChanged,
-                                    onSelectMusicFolder: _selectMusicFolder,
+                                IgnorePointer(
+                                  ignoring: _lyricsVisible,
+                                  child: AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 220),
+                                    opacity: _lyricsVisible ? 0.6 : 1.0,
+                                    child: _MacOSGlassHeader(
+                                      height: headerHeight,
+                                      sectionLabel: sectionLabel,
+                                      statsLabel: statsLabel,
+                                      searchQuery: _searchQuery,
+                                      onSearchChanged: _onSearchQueryChanged,
+                                      onSelectMusicFolder: _selectMusicFolder,
+                                    ),
                                   ),
+                                ),
                                 Expanded(
                                   child: AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 280),
@@ -299,7 +306,14 @@ class _HomePageContentState extends State<HomePageContent> {
               Expanded(
                 child: Column(
                   children: [
-                    if (!_lyricsVisible) _buildMaterialToolbar(),
+                    IgnorePointer(
+                      ignoring: _lyricsVisible,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 220),
+                        opacity: _lyricsVisible ? 0.55 : 1.0,
+                        child: _buildMaterialToolbar(),
+                      ),
+                    ),
                     Expanded(
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 280),
@@ -917,9 +931,13 @@ class _MacOSNavigationPane extends StatelessWidget {
           bottom: 0,
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
-            onHorizontalDragUpdate: (details) => onResize(width + details.delta.dx),
+            onHorizontalDragUpdate: enabled
+                ? (details) => onResize(width + details.delta.dx)
+                : null,
             child: MouseRegion(
-              cursor: SystemMouseCursors.resizeColumn,
+              cursor: enabled
+                  ? SystemMouseCursors.resizeColumn
+                  : SystemMouseCursors.basic,
               child: const SizedBox(width: 8),
             ),
           ),
