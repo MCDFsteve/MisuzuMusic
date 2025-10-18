@@ -149,38 +149,53 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
       return const SizedBox.shrink();
     }
 
-    return BlocListener<PlayerBloc, PlayerBlocState>(
-      listener: (context, state) {
-        final position = _positionFromState(state);
-        if (position != null) {
-          _updateActiveIndex(position);
-        }
-      },
-      child: ListView.builder(
-        controller: widget.controller,
-        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 4),
-        itemCount: widget.lines.length,
-        itemBuilder: (context, index) {
-          final line = widget.lines[index];
-          final isActive = index == _activeIndex;
-          final text = _lineText(line);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final behavior = ScrollConfiguration.of(context).copyWith(scrollbars: false);
+        final verticalPadding = constraints.maxHeight.isFinite
+            ? math.max(0.0, constraints.maxHeight * 0.35)
+            : 160.0;
 
-          return AnimatedDefaultTextStyle(
-            key: _itemKeys[index],
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            style: _inactiveTextStyle(isActive),
-            textAlign: TextAlign.center,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-              child: Text(
-                text.isEmpty ? ' ' : text,
-                textAlign: TextAlign.center,
+        return BlocListener<PlayerBloc, PlayerBlocState>(
+          listener: (context, state) {
+            final position = _positionFromState(state);
+            if (position != null) {
+              _updateActiveIndex(position);
+            }
+          },
+          child: ScrollConfiguration(
+            behavior: behavior,
+            child: ListView.builder(
+              controller: widget.controller,
+              padding: EdgeInsets.symmetric(
+                vertical: verticalPadding,
+                horizontal: 4,
               ),
+              itemCount: widget.lines.length,
+              itemBuilder: (context, index) {
+                final line = widget.lines[index];
+                final isActive = index == _activeIndex;
+                final text = _lineText(line);
+
+                return AnimatedDefaultTextStyle(
+                  key: _itemKeys[index],
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  style: _inactiveTextStyle(isActive),
+                  textAlign: TextAlign.center,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                    child: Text(
+                      text.isEmpty ? ' ' : text,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -12,7 +12,7 @@ import '../../../domain/usecases/lyrics_usecases.dart';
 import '../../blocs/lyrics/lyrics_cubit.dart';
 import '../../blocs/player/player_bloc.dart';
 import '../../widgets/common/artwork_thumbnail.dart';
-import '../../widgets/common/adaptive_scrollbar.dart';
+import '../../widgets/common/hover_glow_overlay.dart';
 import '../../widgets/common/lyrics_display.dart';
 
 class LyricsOverlay extends StatefulWidget {
@@ -221,22 +221,32 @@ class _CoverColumn extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          ArtworkThumbnail(
-            artworkPath: track.artworkPath,
-            size: coverSize,
-            borderRadius: BorderRadius.circular(20),
-            backgroundColor: isMac
-                ? MacosColors.controlBackgroundColor
-                : Theme.of(context).colorScheme.surfaceVariant,
-            borderColor: isMac
-                ? MacosTheme.of(context).dividerColor
-                : Theme.of(context).dividerColor,
-            placeholder: Icon(
-              CupertinoIcons.music_note,
-              color: isMac
-                  ? MacosColors.systemGrayColor
-                  : Theme.of(context).hintColor.withOpacity(0.6),
-              size: coverSize * 0.28,
+          HoverGlowOverlay(
+            isDarkMode: isMac
+                ? MacosTheme.of(context).brightness == Brightness.dark
+                : Theme.of(context).brightness == Brightness.dark,
+            borderRadius: BorderRadius.circular(24),
+            glowRadius: 1.05,
+            glowOpacity: 0.85,
+            blurSigma: 0,
+            cursor: SystemMouseCursors.basic,
+            child: ArtworkThumbnail(
+              artworkPath: track.artworkPath,
+              size: coverSize,
+              borderRadius: BorderRadius.circular(20),
+              backgroundColor: isMac
+                  ? MacosColors.controlBackgroundColor
+                  : Theme.of(context).colorScheme.surfaceVariant,
+              borderColor: isMac
+                  ? MacosTheme.of(context).dividerColor
+                  : Theme.of(context).dividerColor,
+              placeholder: Icon(
+                CupertinoIcons.music_note,
+                color: isMac
+                    ? MacosColors.systemGrayColor
+                    : Theme.of(context).hintColor.withOpacity(0.6),
+                size: coverSize * 0.28,
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -284,18 +294,23 @@ class _LyricsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-      child: BlocBuilder<LyricsCubit, LyricsState>(
-        builder: (context, state) {
-          return AdaptiveScrollbar(
-            isDarkMode: isDarkMode,
-            controller: scrollController,
-            margin: const EdgeInsets.only(right: 4),
-            builder: (controller) => _buildLyricsContent(
-              context,
-              state,
-              controller,
-              isDarkMode,
-            ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final behavior = ScrollConfiguration.of(context).copyWith(scrollbars: false);
+          final viewportHeight = constraints.maxHeight;
+          return BlocBuilder<LyricsCubit, LyricsState>(
+            builder: (context, state) {
+              return ScrollConfiguration(
+                behavior: behavior,
+                child: _buildLyricsContent(
+                  context,
+                  state,
+                  scrollController,
+                  isDarkMode,
+                  viewportHeight,
+                ),
+              );
+            },
           );
         },
       ),
@@ -307,6 +322,7 @@ class _LyricsPanel extends StatelessWidget {
     LyricsState state,
     ScrollController controller,
     bool isDarkMode,
+    double viewportHeight,
   ) {
     if (state is LyricsLoading || state is LyricsInitial) {
       return ListView(
@@ -330,6 +346,7 @@ class _LyricsPanel extends StatelessWidget {
         title: '歌词加载失败',
         subtitle: state.message,
         isDarkMode: isDarkMode,
+        viewportHeight: viewportHeight,
       );
     }
 
@@ -339,6 +356,7 @@ class _LyricsPanel extends StatelessWidget {
         title: '暂无歌词',
         subtitle: '暂未找到 ${track.title} 的歌词。',
         isDarkMode: isDarkMode,
+        viewportHeight: viewportHeight,
       );
     }
 
@@ -350,6 +368,7 @@ class _LyricsPanel extends StatelessWidget {
           title: '暂无歌词',
           subtitle: '暂未找到 ${track.title} 的歌词。',
           isDarkMode: isDarkMode,
+          viewportHeight: viewportHeight,
         );
       }
 
@@ -368,6 +387,7 @@ class _LyricsPanel extends StatelessWidget {
     required String title,
     required String subtitle,
     required bool isDarkMode,
+    required double viewportHeight,
   }) {
     final TextStyle titleStyle = TextStyle(
       fontSize: 18,
@@ -379,36 +399,31 @@ class _LyricsPanel extends StatelessWidget {
       color: isDarkMode ? Colors.white70 : Colors.black54,
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const double contentEstimate = 72;
-        final double verticalPadding = math.max(
-          0,
-          (constraints.maxHeight - contentEstimate) * 0.5,
-        );
+    const double estimate = 72;
+    final double padding = viewportHeight.isFinite
+        ? math.max(0, (viewportHeight - estimate) * 0.5)
+        : 160;
 
-        return ListView(
-          controller: controller,
-          padding: EdgeInsets.only(top: verticalPadding, bottom: verticalPadding),
-          children: [
-            Align(
-              alignment: Alignment.topCenter,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title, style: titleStyle, textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
-                  Text(
-                    subtitle,
-                    style: subtitleStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+    return ListView(
+      controller: controller,
+      padding: EdgeInsets.only(top: padding, bottom: padding),
+      children: [
+        Align(
+          alignment: Alignment.topCenter,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: titleStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: subtitleStyle,
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+      ],
     );
   }
 
