@@ -148,6 +148,56 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   }
 
   @override
+  Future<TrackModel?> findMatchingTrack({
+    required String title,
+    required String artist,
+    required String album,
+    required int durationMs,
+  }) async {
+    try {
+      final normalizedTitle = title.toLowerCase();
+      final normalizedArtist = artist.toLowerCase();
+      final normalizedAlbum = album.toLowerCase();
+
+      final primary = await _databaseHelper.rawQuery('''
+        SELECT * FROM tracks
+        WHERE lower(title) = ? AND lower(artist) = ? AND lower(album) = ?
+        ORDER BY ABS(duration_ms - ?)
+      ''', [
+        normalizedTitle,
+        normalizedArtist,
+        normalizedAlbum,
+        durationMs,
+      ]);
+
+      List<Map<String, Object?>> candidates = primary;
+
+      if (candidates.isEmpty) {
+        const toleranceMs = 2000;
+        candidates = await _databaseHelper.rawQuery('''
+          SELECT * FROM tracks
+          WHERE lower(title) = ?
+            AND ABS(duration_ms - ?) <= ?
+          ORDER BY ABS(duration_ms - ?)
+        ''', [
+          normalizedTitle,
+          durationMs,
+          toleranceMs,
+          durationMs,
+        ]);
+      }
+
+      if (candidates.isEmpty) {
+        return null;
+      }
+
+      return TrackModel.fromMap(candidates.first);
+    } catch (e) {
+      throw DatabaseException('Failed to find matching track: ${e.toString()}');
+    }
+  }
+
+  @override
   Future<List<ArtistModel>> getAllArtists() async {
     try {
       final maps = await _databaseHelper.rawQuery('''

@@ -9,6 +9,7 @@ import 'package:crypto/crypto.dart';
 
 import '../../domain/entities/music_entities.dart';
 import '../../domain/repositories/playback_history_repository.dart';
+import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../core/error/exceptions.dart';
 import '../../core/storage/binary_config_store.dart';
@@ -16,7 +17,11 @@ import '../../core/storage/storage_keys.dart';
 import '../../core/constants/app_constants.dart' show PlayMode, PlayerState;
 
 class AudioPlayerServiceImpl implements AudioPlayerService {
-  AudioPlayerServiceImpl(this._configStore, this._playbackHistoryRepository) {
+  AudioPlayerServiceImpl(
+    this._configStore,
+    this._playbackHistoryRepository,
+    this._musicLibraryRepository,
+  ) {
     _initializeStreams();
     _restoreVolume();
     _restorePlayMode();
@@ -24,6 +29,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
   final BinaryConfigStore _configStore;
   final PlaybackHistoryRepository _playbackHistoryRepository;
+  final MusicLibraryRepository _musicLibraryRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   // State streams
@@ -195,14 +201,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> play(Track track) async {
     try {
-      print('🎵 AudioService: 开始播放 - ${track.title}');
-      print('🎵 AudioService: 文件路径 - ${track.filePath}');
+      final playableTrack = await _resolvePlayableTrack(track);
 
-      _currentTrack = track;
-      await _audioPlayer.setFilePath(track.filePath);
+      print('🎵 AudioService: 开始播放 - ${playableTrack.title}');
+      print('🎵 AudioService: 文件路径 - ${playableTrack.filePath}');
+
+      _currentTrack = playableTrack;
+      await _audioPlayer.setFilePath(playableTrack.filePath);
       await _audioPlayer.play();
 
-      final index = _queue.indexWhere((item) => item.id == track.id);
+      final index = _queue.indexWhere((item) => _isSameTrack(item, playableTrack));
       if (index != -1) {
         _currentIndex = index;
       }
@@ -210,9 +218,12 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       await _persistPosition(Duration.zero);
 
       print('🎵 AudioService: 播放命令执行完成');
-      unawaited(_recordPlayback(track));
+      unawaited(_recordPlayback(playableTrack));
     } catch (e) {
       print('❌ AudioService: 播放失败 - $e');
+      if (e is AudioPlaybackException) {
+        rethrow;
+      }
       throw AudioPlaybackException('Failed to play track: ${e.toString()}');
     }
   }
@@ -220,11 +231,13 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> loadTrack(Track track) async {
     try {
-      print('🎵 AudioService: 预加载音轨 - ${track.title}');
-      _currentTrack = track;
-      await _audioPlayer.setFilePath(track.filePath);
+      final playableTrack = await _resolvePlayableTrack(track);
 
-      final index = _queue.indexWhere((item) => item.id == track.id);
+      print('🎵 AudioService: 预加载音轨 - ${playableTrack.title}');
+      _currentTrack = playableTrack;
+      await _audioPlayer.setFilePath(playableTrack.filePath);
+
+      final index = _queue.indexWhere((item) => _isSameTrack(item, playableTrack));
       if (index != -1) {
         _currentIndex = index;
       }
@@ -232,6 +245,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       await _persistPosition(Duration.zero);
     } catch (e) {
       print('❌ AudioService: 预加载音轨失败 - $e');
+      if (e is AudioPlaybackException) {
+        rethrow;
+      }
       throw AudioPlaybackException('Failed to load track: ${e.toString()}');
     }
   }
@@ -529,6 +545,68 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _positionSubject.close();
     await _durationSubject.close();
     await _audioPlayer.dispose();
+  }
+
+  Future<Track> _resolvePlayableTrack(Track track) async {
+    final originalFile = File(track.filePath);
+    if (await originalFile.exists()) {
+      return track;
+    }
+
+    print('⚠️ AudioService: 找不到原音频，尝试定位新的文件 -> ${track.filePath}');
+
+    final candidates = <Track?>[];
+
+    try {
+      candidates.add(await _musicLibraryRepository.getTrackById(track.id));
+    } catch (e) {
+      print('⚠️ AudioService: 通过 ID 查找音轨失败 - $e');
+    }
+
+    try {
+      candidates.add(await _musicLibraryRepository.findMatchingTrack(track));
+    } catch (e) {
+      print('⚠️ AudioService: 查找匹配音轨失败 - $e');
+    }
+
+    for (final candidate in candidates) {
+      if (candidate == null) continue;
+      final file = File(candidate.filePath);
+      if (await file.exists()) {
+        await _replaceTrackInQueue(track, candidate);
+        print('✅ AudioService: 使用新的音频路径 ${candidate.filePath}');
+        return candidate;
+      }
+    }
+
+    throw AudioPlaybackException('Audio file missing: ${track.filePath}');
+  }
+
+  Future<void> _replaceTrackInQueue(Track original, Track replacement) async {
+    bool changed = false;
+    for (int i = 0; i < _queue.length; i++) {
+      final candidate = _queue[i];
+      if (_isSameTrack(candidate, original)) {
+        _queue[i] = replacement;
+        if (_currentIndex == i) {
+          _currentTrack = replacement;
+        }
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await _persistQueueState();
+    }
+  }
+
+  bool _isSameTrack(Track a, Track b) {
+    if (a.id == b.id) return true;
+    if (a.filePath == b.filePath) return true;
+    if (a.title.toLowerCase() != b.title.toLowerCase()) return false;
+    if (a.artist.toLowerCase() != b.artist.toLowerCase()) return false;
+    if (a.album.toLowerCase() != b.album.toLowerCase()) return false;
+    return (a.duration - b.duration).inMilliseconds.abs() <= 2000;
   }
 
   Future<String?> _computeFingerprint(Track track) async {

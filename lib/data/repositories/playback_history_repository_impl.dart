@@ -143,6 +143,7 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
     if (existingIndex != -1) {
       final existing = history.removeAt(existingIndex);
       final updated = existing.copyWith(
+        track: track,
         playedAt: playedAt,
         playCount: existing.playCount + 1,
         fingerprint: existing.fingerprint ?? key,

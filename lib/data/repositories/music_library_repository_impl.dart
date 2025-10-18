@@ -106,6 +106,21 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   }
 
   @override
+  Future<Track?> findMatchingTrack(Track reference) async {
+    try {
+      final model = await _localDataSource.findMatchingTrack(
+        title: reference.title,
+        artist: reference.artist,
+        album: reference.album,
+        durationMs: reference.duration.inMilliseconds,
+      );
+      return model?.toEntity();
+    } catch (e) {
+      throw DatabaseException('Failed to find matching track: ${e.toString()}');
+    }
+  }
+
+  @override
   Future<List<Artist>> getAllArtists() async {
     try {
       final artistModels = await _localDataSource.getAllArtists();

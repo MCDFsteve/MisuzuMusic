@@ -11,6 +11,7 @@ abstract class MusicLibraryRepository {
   Future<void> addTrack(Track track);
   Future<void> updateTrack(Track track);
   Future<void> deleteTrack(String id);
+  Future<Track?> findMatchingTrack(Track reference);
 
   // Artist operations
   Future<List<Artist>> getAllArtists();

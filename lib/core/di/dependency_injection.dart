@@ -75,7 +75,11 @@ class DependencyInjection {
       // Services
       print('🎵 注册服务...');
       sl.registerLazySingleton<AudioPlayerService>(
-        () => AudioPlayerServiceImpl(sl(), sl()),
+        () => AudioPlayerServiceImpl(
+          sl<BinaryConfigStore>(),
+          sl<PlaybackHistoryRepository>(),
+          sl<MusicLibraryRepository>(),
+        ),
       );
 
       sl.registerLazySingleton<JapaneseProcessingService>(
