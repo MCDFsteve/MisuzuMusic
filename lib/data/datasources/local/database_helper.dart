@@ -278,13 +278,46 @@ class DatabaseHelper {
   // Full-text search
   Future<List<Map<String, dynamic>>> searchTracks(String query) async {
     try {
+      final trimmed = query.trim();
       final db = await database;
+
+      if (trimmed.isEmpty) {
+        return await db.query(
+          'tracks',
+          orderBy: 'title COLLATE NOCASE',
+        );
+      }
+
+      final ftsQuery = trimmed
+          .split(RegExp(r'\s+'))
+          .where((token) => token.isNotEmpty)
+          .map((token) => '$token*')
+          .join(' ');
+
+      if (ftsQuery.isNotEmpty) {
+        final ftsResults = await db.rawQuery('''
+          SELECT tracks.* FROM tracks
+          JOIN tracks_fts ON tracks.rowid = tracks_fts.rowid
+          WHERE tracks_fts MATCH ?
+          ORDER BY tracks.title COLLATE NOCASE
+        ''', [ftsQuery]);
+
+        if (ftsResults.isNotEmpty) {
+          return ftsResults;
+        }
+      }
+
+      final escaped = trimmed.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+      final likeQuery = '%$escaped%';
+
       return await db.rawQuery('''
-        SELECT tracks.* FROM tracks
-        JOIN tracks_fts ON tracks.rowid = tracks_fts.rowid
-        WHERE tracks_fts MATCH ?
-        ORDER BY rank
-      ''', [query]);
+        SELECT * FROM tracks
+        WHERE title LIKE ? ESCAPE '\\'
+           OR artist LIKE ? ESCAPE '\\'
+           OR album LIKE ? ESCAPE '\\'
+           OR genre LIKE ? ESCAPE '\\'
+        ORDER BY title COLLATE NOCASE
+      ''', [likeQuery, likeQuery, likeQuery, likeQuery]);
     } catch (e) {
       throw app_exceptions.DatabaseException('Search failed: ${e.toString()}');
     }
