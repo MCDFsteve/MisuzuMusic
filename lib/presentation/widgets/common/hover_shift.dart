@@ -6,8 +6,8 @@ class HoverShift extends StatefulWidget {
     super.key,
     required this.child,
     this.distance = 12,
-    this.duration = const Duration(milliseconds: 200),
-    this.curve = Curves.easeOut,
+    this.duration = const Duration(milliseconds: 120),
+    this.curve = Curves.easeOutCubic,
     this.enabled,
   });
 

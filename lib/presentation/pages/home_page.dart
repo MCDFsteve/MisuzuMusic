@@ -24,7 +24,9 @@ import '../widgets/macos/macos_music_library_view.dart';
 import '../widgets/material/material_player_control_bar.dart';
 import '../widgets/material/material_music_library_view.dart';
 import '../widgets/common/artwork_thumbnail.dart';
+import '../widgets/common/adaptive_scrollbar.dart';
 import '../widgets/common/library_search_field.dart';
+import '../widgets/common/track_list_tile.dart';
 import '../../domain/entities/music_entities.dart';
 import 'settings/settings_view.dart';
 
@@ -1282,9 +1284,22 @@ class _PlaylistHistoryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMac = defaultTargetPlatform == TargetPlatform.macOS;
-    final isDark = isMac
-        ? MacosTheme.of(context).brightness == Brightness.dark
-        : Theme.of(context).brightness == Brightness.dark;
+    final dividerColor = isMac
+        ? MacosTheme.of(context).dividerColor
+        : Theme.of(context).dividerColor;
+    final artworkBackground = isMac
+        ? MacosColors.controlBackgroundColor
+        : Theme.of(context).colorScheme.surfaceVariant;
+    final artworkPlaceholder = isMac
+        ? const MacosIcon(
+            CupertinoIcons.music_note,
+            color: MacosColors.systemGrayColor,
+            size: 20,
+          )
+        : Icon(
+            Icons.music_note,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          );
 
     final normalizedQuery = searchQuery.isEmpty ? null : searchQuery.toLowerCase();
     final filteredEntries = normalizedQuery == null
@@ -1306,151 +1321,52 @@ class _PlaylistHistoryList extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.topRight,
-            child: isMac
-                ? MacosTooltip(
-                    message: '清空播放记录',
-                    child: MacosIconButton(
-                      shape: BoxShape.circle,
-                      onPressed: () => context.read<PlaybackHistoryCubit>().clearHistory(),
-                      icon: MacosIcon(
-                        CupertinoIcons.trash,
-                        size: 16,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                      boxConstraints: const BoxConstraints.tightFor(width: 32, height: 32),
-                    ),
-                  )
-                : IconButton(
-                    icon: Icon(
-                      CupertinoIcons.trash,
-                      size: 18,
-                      color: isDark ? Colors.white.withOpacity(0.8) : Colors.black87,
-                    ),
-                    tooltip: '清空播放记录',
-                    onPressed: () => context.read<PlaybackHistoryCubit>().clearHistory(),
-                  ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              padding: EdgeInsets.zero,
-              itemCount: filteredEntries.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final entry = filteredEntries[index];
-                return _PlaybackHistoryTile(entry: entry, isMac: isMac, isDark: isDark);
-              },
+    final isScrollbarDark = isMac
+        ? MacosTheme.of(context).brightness == Brightness.dark
+        : Theme.of(context).brightness == Brightness.dark;
+
+    return AdaptiveScrollbar(
+      isDarkMode: isScrollbarDark,
+      builder: (controller) {
+        return ListView.separated(
+          controller: controller,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: filteredEntries.length,
+            separatorBuilder: (context, index) => Divider(
+              height: 1,
+              thickness: 0.5,
+              color: dividerColor,
+              indent: isMac ? 88 : 80,
             ),
-          ),
-        ],
-      ),
+            itemBuilder: (context, index) {
+              final entry = filteredEntries[index];
+              final track = entry.track;
+              return TrackListTile(
+                index: index + 1,
+                leading: ArtworkThumbnail(
+                  artworkPath: track.artworkPath,
+                  size: 48,
+                  borderRadius: BorderRadius.circular(8),
+                  backgroundColor: artworkBackground,
+                  borderColor: dividerColor,
+                  placeholder: artworkPlaceholder,
+                ),
+                title: track.title,
+                artistAlbum: '${track.artist} • ${track.album}',
+                duration: _formatDuration(track.duration),
+                meta: _formatPlayedAt(entry.playedAt),
+                onTap: () => _playTrack(context, track),
+              );
+            },
+          );
+      },
     );
   }
-}
 
-class _PlaybackHistoryTile extends StatelessWidget {
-  const _PlaybackHistoryTile({required this.entry, required this.isMac, required this.isDark});
-
-  final PlaybackHistoryEntry entry;
-  final bool isMac;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final titleStyle = isMac
-        ? MacosTheme.of(context).typography.body.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : Colors.black,
-            )
-        : Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : Colors.black,
-            );
-
-    final subtitleColor = isDark ? Colors.white.withOpacity(0.65) : Colors.black.withOpacity(0.65);
-    final subtitleStyle = isMac
-        ? MacosTheme.of(context).typography.caption1.copyWith(color: subtitleColor)
-        : Theme.of(context).textTheme.bodyMedium?.copyWith(color: subtitleColor);
-
-    final timeStyle = (isMac
-            ? MacosTheme.of(context).typography.caption1
-            : Theme.of(context).textTheme.bodySmall)
-        ?.copyWith(color: subtitleColor);
-
-    if (isMac) {
-      return MacosListTile(
-        mouseCursor: SystemMouseCursors.click,
-        leading: ArtworkThumbnail(
-          artworkPath: entry.track.artworkPath,
-          size: 48,
-          borderRadius: BorderRadius.circular(8),
-          backgroundColor: MacosColors.controlBackgroundColor,
-          borderColor: MacosTheme.of(context).dividerColor,
-          placeholder: const MacosIcon(
-            CupertinoIcons.music_note,
-            color: MacosColors.systemGrayColor,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          entry.track.title,
-          style: titleStyle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${entry.track.artist} • ${entry.track.album}',
-                style: subtitleStyle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _formatPlayedAt(entry.playedAt),
-                style: timeStyle,
-              ),
-            ],
-          ),
-        ),
-        onClick: () => _playTrack(context, entry.track),
-      );
-    }
-
-    return Material(
-      color: Colors.transparent,
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: ArtworkThumbnail(
-          artworkPath: entry.track.artworkPath,
-          size: 48,
-          borderRadius: BorderRadius.circular(8),
-          backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-          borderColor: Theme.of(context).dividerColor,
-          placeholder: Icon(
-            Icons.music_note,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        title: Text(entry.track.title, style: titleStyle),
-        subtitle: Text(
-          '${entry.track.artist} • ${entry.track.album}',
-          style: subtitleStyle,
-        ),
-        trailing: Text(_formatPlayedAt(entry.playedAt), style: timeStyle),
-        onTap: () => _playTrack(context, entry.track),
-      ),
-    );
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '${minutes}:${seconds.toString().padLeft(2, '0')}';
   }
 
   String _formatPlayedAt(DateTime dateTime) {
