@@ -157,3 +157,26 @@ class Playlist extends Entity {
     );
   }
 }
+
+class PlaybackHistoryEntry extends Entity {
+  const PlaybackHistoryEntry({
+    required this.track,
+    required this.playedAt,
+  });
+
+  final Track track;
+  final DateTime playedAt;
+
+  @override
+  List<Object> get props => [track, playedAt];
+
+  PlaybackHistoryEntry copyWith({
+    Track? track,
+    DateTime? playedAt,
+  }) {
+    return PlaybackHistoryEntry(
+      track: track ?? this.track,
+      playedAt: playedAt ?? this.playedAt,
+    );
+  }
+}

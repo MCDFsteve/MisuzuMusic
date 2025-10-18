@@ -6,18 +6,20 @@ import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/entities/music_entities.dart';
+import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/error/exceptions.dart';
 
 class AudioPlayerServiceImpl implements AudioPlayerService {
-  AudioPlayerServiceImpl(this._preferences) {
+  AudioPlayerServiceImpl(this._preferences, this._playbackHistoryRepository) {
     _initializeStreams();
     _restoreVolume();
     _restorePlayMode();
   }
 
   final SharedPreferences _preferences;
+  final PlaybackHistoryRepository _playbackHistoryRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   // State streams
@@ -203,6 +205,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       await _persistPosition(Duration.zero);
 
       print('🎵 AudioService: 播放命令执行完成');
+      unawaited(_recordPlayback(track));
     } catch (e) {
       print('❌ AudioService: 播放失败 - $e');
       throw AudioPlaybackException('Failed to play track: ${e.toString()}');
@@ -225,6 +228,14 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     } catch (e) {
       print('❌ AudioService: 预加载音轨失败 - $e');
       throw AudioPlaybackException('Failed to load track: ${e.toString()}');
+    }
+  }
+
+  Future<void> _recordPlayback(Track track) async {
+    try {
+      await _playbackHistoryRepository.recordPlay(track, DateTime.now());
+    } catch (e) {
+      print('⚠️ AudioService: 记录播放历史失败 - $e');
     }
   }
 

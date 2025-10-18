@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -7,17 +9,23 @@ import 'package:flutter/foundation.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/di/dependency_injection.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../domain/usecases/music_usecases.dart';
 import '../../domain/usecases/player_usecases.dart';
+import '../../domain/repositories/playback_history_repository.dart';
 import '../blocs/music_library/music_library_bloc.dart';
 import '../blocs/player/player_bloc.dart';
+import '../blocs/playback_history/playback_history_cubit.dart';
+import '../blocs/playback_history/playback_history_state.dart';
 import '../widgets/macos/macos_player_control_bar.dart';
 import '../widgets/macos/macos_music_library_view.dart';
 import '../widgets/material/material_player_control_bar.dart';
 import '../widgets/material/material_music_library_view.dart';
+import '../widgets/common/artwork_thumbnail.dart';
+import '../../domain/entities/music_entities.dart';
 import 'settings/settings_view.dart';
 
 class HomePage extends StatelessWidget {
@@ -48,6 +56,9 @@ class HomePage extends StatelessWidget {
             skipToPrevious: sl<SkipToPrevious>(),
             audioPlayerService: sl<AudioPlayerService>(),
           )..add(const PlayerRestoreLastSession()),
+        ),
+        BlocProvider(
+          create: (context) => PlaybackHistoryCubit(sl<PlaybackHistoryRepository>()),
         ),
       ],
       child: const HomePageContent(),
@@ -841,11 +852,57 @@ class _BlurredArtworkBackground extends StatelessWidget {
 }
 
 // 音乐库视图
-class MusicLibraryView extends StatelessWidget {
+class MusicLibraryView extends StatefulWidget {
   const MusicLibraryView({super.key});
 
   @override
+  State<MusicLibraryView> createState() => _MusicLibraryViewState();
+}
+
+class _MusicLibraryViewState extends State<MusicLibraryView> {
+  bool _showList = false;
+  final Random _random = Random();
+  Track? _summaryTrack;
+  bool _summaryHasArtwork = false;
+
+  void _selectSummaryTrack(List<Track> tracks) {
+    if (tracks.isEmpty) {
+      _summaryTrack = null;
+      _summaryHasArtwork = false;
+      return;
+    }
+
+    final withArtwork = tracks.where((track) {
+      final artworkPath = track.artworkPath;
+      if (artworkPath == null || artworkPath.isEmpty) {
+        return false;
+      }
+      try {
+        return File(artworkPath).existsSync();
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+
+    Track chosen;
+    bool hasArtwork;
+
+    if (withArtwork.isNotEmpty) {
+      chosen = withArtwork[_random.nextInt(withArtwork.length)];
+      hasArtwork = true;
+    } else {
+      chosen = tracks[_random.nextInt(tracks.length)];
+      hasArtwork = false;
+    }
+
+    _summaryTrack = chosen;
+    _summaryHasArtwork = hasArtwork;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+
     return BlocBuilder<MusicLibraryBloc, MusicLibraryState>(
       builder: (context, state) {
         if (state is MusicLibraryLoading || state is MusicLibraryScanning) {
@@ -859,50 +916,9 @@ class MusicLibraryView extends StatelessWidget {
               ],
             ),
           );
-        } else if (state is MusicLibraryLoaded) {
-          if (state.tracks.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  MacosIcon(
-                    CupertinoIcons.music_albums,
-                    size: 64,
-                    color: MacosColors.systemGrayColor,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '音乐库为空',
-                    style: MacosTheme.of(context).typography.title1.copyWith(
-                      color: MacosColors.systemGrayColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '点击工具栏的文件夹图标选择音乐文件夹',
-                    style: MacosTheme.of(context).typography.body.copyWith(
-                      color: MacosColors.systemGrayColor,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
+        }
 
-          return defaultTargetPlatform == TargetPlatform.macOS
-              ? MacOSMusicLibraryView(
-                  tracks: state.tracks,
-                  artists: state.artists,
-                  albums: state.albums,
-                  searchQuery: state.searchQuery,
-                )
-              : MaterialMusicLibraryView(
-                  tracks: state.tracks,
-                  artists: state.artists,
-                  albums: state.albums,
-                  searchQuery: state.searchQuery,
-                );
-        } else if (state is MusicLibraryError) {
+        if (state is MusicLibraryError) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -938,33 +954,247 @@ class MusicLibraryView extends StatelessWidget {
           );
         }
 
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              MacosIcon(
-                CupertinoIcons.music_albums,
-                size: 64,
-                color: MacosColors.systemGrayColor,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '音乐库为空',
-                style: MacosTheme.of(context).typography.title1.copyWith(
-                  color: MacosColors.systemGrayColor,
+        if (state is MusicLibraryLoaded) {
+          if (state.tracks.isEmpty) {
+            return _PlaylistMessage(
+              icon: CupertinoIcons.music_albums,
+              message: '音乐库为空',
+            );
+          }
+
+          _selectSummaryTrack(state.tracks);
+
+          final hasActiveSearch =
+              state.searchQuery != null && state.searchQuery!.trim().isNotEmpty;
+          if (hasActiveSearch && !_showList) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _showList = true);
+            });
+          }
+
+          if (!_showList) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: _LibrarySummaryView(
+                  track: _summaryTrack!,
+                  totalTracks: state.tracks.length,
+                  hasArtwork: _summaryHasArtwork,
+                  onTap: () => setState(() => _showList = true),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                '点击工具栏的文件夹图标选择音乐文件夹',
-                style: MacosTheme.of(context).typography.body.copyWith(
-                  color: MacosColors.systemGrayColor,
+            );
+          }
+
+          final listWidget = isMac
+              ? MacOSMusicLibraryView(
+                  tracks: state.tracks,
+                  artists: state.artists,
+                  albums: state.albums,
+                  searchQuery: state.searchQuery,
+                )
+              : MaterialMusicLibraryView(
+                  tracks: state.tracks,
+                  artists: state.artists,
+                  albums: state.albums,
+                  searchQuery: state.searchQuery,
+                );
+
+          final backButtonColor = isMac
+              ? (MacosTheme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black)
+              : Theme.of(context).colorScheme.onSurface;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: isMac
+                    ? PushButton(
+                        controlSize: ControlSize.regular,
+                        onPressed: () => setState(() => _showList = false),
+                        secondary: true,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            MacosIcon(CupertinoIcons.chevron_back, size: 14),
+                            SizedBox(width: 6),
+                            Text('返回音乐库'),
+                          ],
+                        ),
+                      )
+                    : TextButton.icon(
+                        onPressed: () => setState(() => _showList = false),
+                        icon: const Icon(CupertinoIcons.chevron_back),
+                        label: const Text('返回音乐库'),
+                        style: TextButton.styleFrom(foregroundColor: backButtonColor),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(child: listWidget),
+            ],
+          );
+        }
+
+        return _PlaylistMessage(
+          icon: CupertinoIcons.music_albums,
+          message: '音乐库为空',
+        );
+      },
+    );
+  }
+}
+
+class _LibrarySummaryView extends StatelessWidget {
+  const _LibrarySummaryView({
+    required this.track,
+    required this.totalTracks,
+    required this.hasArtwork,
+    required this.onTap,
+  });
+
+  final Track track;
+  final int totalTracks;
+  final bool hasArtwork;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+    final isDark = isMac
+        ? MacosTheme.of(context).brightness == Brightness.dark
+        : Theme.of(context).brightness == Brightness.dark;
+
+    final background = isDark
+        ? const Color(0xFF1C1C1E).withOpacity(0.38)
+        : Colors.white.withOpacity(0.75);
+    final borderColor = isDark
+        ? Colors.white.withOpacity(0.12)
+        : Colors.black.withOpacity(0.1);
+    final textColor = hasArtwork
+        ? Colors.white
+        : (isDark ? Colors.white : Colors.black87);
+    final subtitleColor = hasArtwork
+        ? Colors.white.withOpacity(0.8)
+        : (isDark ? Colors.white.withOpacity(0.75) : Colors.black54);
+
+    final directory = File(track.filePath).parent.path;
+    final folderName = p.basename(directory);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOut,
+        width: 280,
+        height: 280,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withOpacity(0.45)
+                  : Colors.black.withOpacity(0.12),
+              blurRadius: 26,
+              offset: const Offset(0, 14),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasArtwork && track.artworkPath != null && File(track.artworkPath!).existsSync())
+                ShaderMask(
+                  shaderCallback: (rect) => LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.25),
+                      Colors.black.withOpacity(0.55),
+                    ],
+                  ).createShader(rect),
+                  blendMode: BlendMode.darken,
+                  child: Image.file(
+                    File(track.artworkPath!),
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? [const Color(0xFF3C3C3E), const Color(0xFF1C1C1E)]
+                          : [const Color(0xFFE9F1FF), const Color(0xFFFDFEFF)],
+                    ),
+                  ),
+                  child: Icon(
+                    CupertinoIcons.music_albums,
+                    size: 80,
+                    color: isDark ? Colors.white24 : Colors.black26,
+                  ),
+                ),
+              Container(
+                decoration: BoxDecoration(
+                  color: background,
+                  border: Border.all(color: borderColor, width: 0.6),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      '音乐库',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      folderName,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      directory,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: subtitleColor,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '$totalTracks 首歌曲 · 点击查看全部',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: subtitleColor,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -975,20 +1205,81 @@ class PlaylistView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return BlocBuilder<PlaybackHistoryCubit, PlaybackHistoryState>(
+      builder: (context, state) {
+        switch (state.status) {
+          case PlaybackHistoryStatus.loading:
+            return const Center(child: ProgressCircle());
+          case PlaybackHistoryStatus.error:
+            return _PlaylistMessage(
+              icon: CupertinoIcons.exclamationmark_triangle,
+              message: state.errorMessage ?? '播放列表加载失败',
+            );
+          case PlaybackHistoryStatus.empty:
+            return _PlaylistMessage(
+              icon: CupertinoIcons.music_note_list,
+              message: '暂无播放列表',
+            );
+          case PlaybackHistoryStatus.loaded:
+            return _PlaylistHistoryList(entries: state.entries);
+        }
+      },
+    );
+  }
+}
+
+class _PlaylistHistoryList extends StatelessWidget {
+  const _PlaylistHistoryList({required this.entries});
+
+  final List<PlaybackHistoryEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+    final isDark = isMac
+        ? MacosTheme.of(context).brightness == Brightness.dark
+        : Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          MacosIcon(
-            CupertinoIcons.music_note_list,
-            size: 64,
-            color: MacosColors.systemGrayColor,
+          Align(
+            alignment: Alignment.topRight,
+            child: isMac
+                ? MacosTooltip(
+                    message: '清空播放记录',
+                    child: MacosIconButton(
+                      shape: BoxShape.circle,
+                      onPressed: () => context.read<PlaybackHistoryCubit>().clearHistory(),
+                      icon: MacosIcon(
+                        CupertinoIcons.trash,
+                        size: 16,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                      boxConstraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                    ),
+                  )
+                : IconButton(
+                    icon: Icon(
+                      CupertinoIcons.trash,
+                      size: 18,
+                      color: isDark ? Colors.white.withOpacity(0.8) : Colors.black87,
+                    ),
+                    tooltip: '清空播放记录',
+                    onPressed: () => context.read<PlaybackHistoryCubit>().clearHistory(),
+                  ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            '暂无播放列表',
-            style: MacosTheme.of(context).typography.title1.copyWith(
-              color: MacosColors.systemGrayColor,
+          Expanded(
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              itemCount: entries.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                return _PlaybackHistoryTile(entry: entry, isMac: isMac, isDark: isDark);
+              },
             ),
           ),
         ],
@@ -997,32 +1288,306 @@ class PlaylistView extends StatelessWidget {
   }
 }
 
-class SearchView extends StatelessWidget {
-  const SearchView({super.key});
+class _PlaybackHistoryTile extends StatelessWidget {
+  const _PlaybackHistoryTile({required this.entry, required this.isMac, required this.isDark});
+
+  final PlaybackHistoryEntry entry;
+  final bool isMac;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle = isMac
+        ? MacosTheme.of(context).typography.body.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black,
+            )
+        : Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black,
+            );
+
+    final subtitleColor = isDark ? Colors.white.withOpacity(0.65) : Colors.black.withOpacity(0.65);
+    final subtitleStyle = isMac
+        ? MacosTheme.of(context).typography.caption1.copyWith(color: subtitleColor)
+        : Theme.of(context).textTheme.bodyMedium?.copyWith(color: subtitleColor);
+
+    final timeStyle = (isMac
+            ? MacosTheme.of(context).typography.caption1
+            : Theme.of(context).textTheme.bodySmall)
+        ?.copyWith(color: subtitleColor);
+
+    if (isMac) {
+      return MacosListTile(
+        mouseCursor: SystemMouseCursors.click,
+        leading: ArtworkThumbnail(
+          artworkPath: entry.track.artworkPath,
+          size: 48,
+          borderRadius: BorderRadius.circular(8),
+          backgroundColor: MacosColors.controlBackgroundColor,
+          borderColor: MacosTheme.of(context).dividerColor,
+          placeholder: const MacosIcon(
+            CupertinoIcons.music_note,
+            color: MacosColors.systemGrayColor,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          entry.track.title,
+          style: titleStyle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${entry.track.artist} • ${entry.track.album}',
+                style: subtitleStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _formatPlayedAt(entry.playedAt),
+                style: timeStyle,
+              ),
+            ],
+          ),
+        ),
+        onClick: () => _playTrack(context, entry.track),
+      );
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: ArtworkThumbnail(
+          artworkPath: entry.track.artworkPath,
+          size: 48,
+          borderRadius: BorderRadius.circular(8),
+          backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+          borderColor: Theme.of(context).dividerColor,
+          placeholder: Icon(
+            Icons.music_note,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        title: Text(entry.track.title, style: titleStyle),
+        subtitle: Text(
+          '${entry.track.artist} • ${entry.track.album}',
+          style: subtitleStyle,
+        ),
+        trailing: Text(_formatPlayedAt(entry.playedAt), style: timeStyle),
+        onTap: () => _playTrack(context, entry.track),
+      ),
+    );
+  }
+
+  String _formatPlayedAt(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    final now = DateTime.now();
+    final difference = now.difference(local);
+
+    if (difference.inMinutes < 1) return '刚刚';
+    if (difference.inMinutes < 60) return '${difference.inMinutes} 分钟前';
+    if (difference.inHours < 24) return '${difference.inHours} 小时前';
+
+    final twoDigits = local.minute.toString().padLeft(2, '0');
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:$twoDigits';
+  }
+
+  void _playTrack(BuildContext context, Track track) {
+    context.read<PlayerBloc>().add(PlayerPlayTrack(track));
+  }
+}
+
+class _PlaylistMessage extends StatelessWidget {
+  const _PlaylistMessage({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+    final isDark = isMac
+        ? MacosTheme.of(context).brightness == Brightness.dark
+        : Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? Colors.white : Colors.black;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 64, color: color.withOpacity(0.6)),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: (isMac
+                    ? MacosTheme.of(context).typography.title1
+                    : Theme.of(context).textTheme.headlineSmall)
+                ?.copyWith(color: color),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SearchView extends StatefulWidget {
+  const SearchView({super.key});
+
+  @override
+  State<SearchView> createState() => _SearchViewState();
+}
+
+class _SearchViewState extends State<SearchView> {
+  final TextEditingController _controller = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      final query = value.trim();
+      if (!mounted) return;
+      if (query.isEmpty) {
+        context.read<MusicLibraryBloc>().add(const LoadAllTracks());
+      } else {
+        context.read<MusicLibraryBloc>().add(SearchTracksEvent(query));
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+    final isDark = isMac
+        ? MacosTheme.of(context).brightness == Brightness.dark
+        : Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final placeholderColor = textColor.withOpacity(0.4);
+
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         children: [
-          MacosSearchField(
-            placeholder: '搜索歌曲、艺术家或专辑...',
-            results: const [],
-            onResultSelected: (result) {
-              // TODO: 实现搜索结果选择
-            },
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: Center(
-              child: Text(
-                '输入关键词开始搜索',
-                style: MacosTheme.of(context).typography.body.copyWith(
-                  color: MacosColors.systemGrayColor,
+          if (isMac)
+            MacosSearchField(
+              controller: _controller,
+              placeholder: '搜索歌曲、艺术家或专辑...',
+              placeholderStyle: MacosTheme.of(context).typography.body.copyWith(
+                    color: placeholderColor,
+                  ),
+              style: MacosTheme.of(context).typography.body.copyWith(
+                    color: textColor,
+                  ),
+              onChanged: _onQueryChanged,
+              decoration: const BoxDecoration(),
+            )
+          else
+            TextField(
+              controller: _controller,
+              onChanged: _onQueryChanged,
+              style: TextStyle(color: textColor, fontSize: 16),
+              decoration: InputDecoration(
+                hintText: '搜索歌曲、艺术家或专辑...',
+                hintStyle: TextStyle(color: placeholderColor),
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: BlocBuilder<MusicLibraryBloc, MusicLibraryState>(
+              builder: (context, state) {
+                if (state is MusicLibraryLoading || state is MusicLibraryScanning) {
+                  return const Center(child: ProgressCircle());
+                }
+
+                if (state is MusicLibraryError) {
+                  return Center(
+                    child: Text(
+                      state.message,
+                      style: TextStyle(color: textColor),
+                    ),
+                  );
+                }
+
+                if (state is MusicLibraryLoaded) {
+                  final query = _controller.text.trim();
+                  if (query.isEmpty) {
+                    return _SearchPlaceholder(isDark: isDark);
+                  }
+
+                  if (state.tracks.isEmpty) {
+                    return Center(
+                      child: Text(
+                        '未找到匹配的歌曲',
+                        style: TextStyle(color: textColor, fontSize: 16),
+                      ),
+                    );
+                  }
+
+                  return isMac
+                      ? MacOSMusicLibraryView(
+                          tracks: state.tracks,
+                          artists: state.artists,
+                          albums: state.albums,
+                          searchQuery: state.searchQuery,
+                        )
+                      : MaterialMusicLibraryView(
+                          tracks: state.tracks,
+                          artists: state.artists,
+                          albums: state.albums,
+                          searchQuery: state.searchQuery,
+                        );
+                }
+
+                return _SearchPlaceholder(isDark: isDark);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchPlaceholder extends StatelessWidget {
+  const _SearchPlaceholder({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDark ? Colors.white : Colors.black;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            CupertinoIcons.search,
+            size: 60,
+            color: color.withOpacity(0.55),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '输入关键词开始搜索',
+            style: TextStyle(color: color, fontSize: 16),
           ),
         ],
       ),

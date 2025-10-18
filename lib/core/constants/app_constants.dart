@@ -31,6 +31,7 @@ class AppConstants {
   static const String settingsPlaybackQueue = 'playback_queue';
   static const String settingsPlaybackIndex = 'playback_index';
   static const String settingsPlaybackPosition = 'playback_position_ms';
+  static const String settingsPlaybackHistory = 'playback_history_v1';
 
   // Japanese Text Processing
   static const String mecabDictPath = 'assets/mecab_dict';

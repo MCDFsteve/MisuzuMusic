@@ -10,10 +10,12 @@ import '../../data/datasources/local/lyrics_local_datasource.dart';
 import '../../data/datasources/local/lyrics_local_datasource_impl.dart';
 import '../../data/repositories/music_library_repository_impl.dart';
 import '../../data/repositories/lyrics_repository_impl.dart';
+import '../../data/repositories/playback_history_repository_impl.dart';
 import '../../data/services/audio_player_service_impl.dart';
 import '../../data/services/japanese_processing_service_impl.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/lyrics_repository.dart';
+import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../domain/services/japanese_processing_service.dart';
 import '../../domain/usecases/music_usecases.dart';
@@ -47,18 +49,6 @@ class DependencyInjection {
         () => LyricsLocalDataSourceImpl(sl(), sl()),
       );
 
-      // Services
-      print('🎵 注册服务...');
-      sl.registerLazySingleton<AudioPlayerService>(
-        () => AudioPlayerServiceImpl(sl()),
-      );
-
-      sl.registerLazySingleton<JapaneseProcessingService>(
-        () => JapaneseProcessingServiceImpl(),
-      );
-
-      sl.registerLazySingleton(() => ThemeController(sl()));
-
       // Repositories
       print('📚 注册仓库...');
       sl.registerLazySingleton<MusicLibraryRepository>(
@@ -73,6 +63,22 @@ class DependencyInjection {
           japaneseProcessingService: sl(),
         ),
       );
+
+      sl.registerLazySingleton<PlaybackHistoryRepository>(
+        () => PlaybackHistoryRepositoryImpl(sl()),
+      );
+
+      // Services
+      print('🎵 注册服务...');
+      sl.registerLazySingleton<AudioPlayerService>(
+        () => AudioPlayerServiceImpl(sl(), sl()),
+      );
+
+      sl.registerLazySingleton<JapaneseProcessingService>(
+        () => JapaneseProcessingServiceImpl(),
+      );
+
+      sl.registerLazySingleton(() => ThemeController(sl()));
 
       // Use cases
       print('⚙️ 注册用例...');
