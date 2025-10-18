@@ -27,11 +27,29 @@ class HoverGlowOverlay extends StatefulWidget {
   State<HoverGlowOverlay> createState() => _HoverGlowOverlayState();
 }
 
-class _HoverGlowOverlayState extends State<HoverGlowOverlay> {
+class _HoverGlowOverlayState extends State<HoverGlowOverlay>
+    with SingleTickerProviderStateMixin {
   final GlobalKey _containerKey = GlobalKey();
   Alignment _glowAlignment = Alignment.center;
   bool _hovering = false;
   Size _lastSize = Size.zero;
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+      value: 0.0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   void _updateAlignment(Offset localPosition) {
     final renderBox = _containerKey.currentContext?.findRenderObject() as RenderBox?;
@@ -52,28 +70,10 @@ class _HoverGlowOverlayState extends State<HoverGlowOverlay> {
     });
   }
 
-  void _handleEnter(PointerEnterEvent event) {
-    _updateAlignment(event.localPosition);
-    setState(() {
-      _hovering = true;
-    });
-  }
-
-  void _handleHover(PointerHoverEvent event) {
-    _updateAlignment(event.localPosition);
-  }
-
-  void _handleExit(PointerExitEvent event) {
-    setState(() {
-      _hovering = false;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final glowBaseColor = widget.isDarkMode
-        ? Colors.white.withOpacity(0.18)
-        : Colors.white.withOpacity(0.35);
+    final baseOpacity = widget.isDarkMode ? 0.28 : 0.6;
+    final glowColor = Colors.white;
 
     final cursor = widget.cursor ?? SystemMouseCursors.basic;
     final blurSigma = widget.blurSigma;
@@ -84,23 +84,20 @@ class _HoverGlowOverlayState extends State<HoverGlowOverlay> {
         widget.child,
         Positioned.fill(
           child: IgnorePointer(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              opacity: _hovering ? widget.glowOpacity : 0,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: _glowAlignment,
-                    radius: widget.glowRadius,
-                    colors: [
-                      glowBaseColor,
-                      Colors.transparent,
-                    ],
-                    stops: const [0, 1],
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                final progress = _controller.value * widget.glowOpacity;
+                return CustomPaint(
+                  painter: _GlowPainter(
+                    alignment: _glowAlignment,
+                    color: glowColor,
+                    baseOpacity: baseOpacity,
+                    progress: progress,
+                    radiusFactor: widget.glowRadius,
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ),
@@ -124,10 +121,76 @@ class _HoverGlowOverlayState extends State<HoverGlowOverlay> {
 
     return MouseRegion(
       cursor: cursor,
-      onEnter: _handleEnter,
-      onHover: _handleHover,
-      onExit: _handleExit,
+      onEnter: (event) {
+        _updateAlignment(event.localPosition);
+        setState(() {
+          _hovering = true;
+        });
+        _controller.forward();
+      },
+      onHover: (event) {
+        _updateAlignment(event.localPosition);
+      },
+      onExit: (event) {
+        setState(() {
+          _hovering = false;
+        });
+        _controller.reverse();
+      },
       child: layeredChild,
     );
+  }
+}
+
+class _GlowPainter extends CustomPainter {
+  const _GlowPainter({
+    required this.alignment,
+    required this.color,
+    required this.baseOpacity,
+    required this.progress,
+    required this.radiusFactor,
+  });
+
+  final Alignment alignment;
+  final Color color;
+  final double baseOpacity;
+  final double progress;
+  final double radiusFactor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) {
+      return;
+    }
+
+    final center = Offset(
+      (alignment.x + 1) / 2 * size.width,
+      (alignment.y + 1) / 2 * size.height,
+    );
+
+    final radius = size.shortestSide * radiusFactor;
+    final paint = Paint()
+      ..shader = ui.Gradient.radial(
+        center,
+        radius,
+        [
+          color.withOpacity(baseOpacity * progress),
+          color.withOpacity((baseOpacity * 0.2) * progress),
+          Colors.transparent,
+        ],
+        [0.0, 0.55, 1.0],
+      )
+      ..blendMode = BlendMode.plus;
+
+    canvas.drawRect(Offset.zero & size, paint);
+  }
+
+  @override
+  bool shouldRepaint(_GlowPainter oldDelegate) {
+    return alignment != oldDelegate.alignment ||
+        color != oldDelegate.color ||
+        baseOpacity != oldDelegate.baseOpacity ||
+        progress != oldDelegate.progress ||
+        radiusFactor != oldDelegate.radiusFactor;
   }
 }
