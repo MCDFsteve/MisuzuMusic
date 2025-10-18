@@ -72,7 +72,7 @@ class _HoverGlowOverlayState extends State<HoverGlowOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final baseOpacity = widget.isDarkMode ? 0.28 : 0.6;
+    final baseOpacity = widget.isDarkMode ? 0.22 : 0.4;
     final glowColor = Colors.white;
 
     final cursor = widget.cursor ?? SystemMouseCursors.basic;
