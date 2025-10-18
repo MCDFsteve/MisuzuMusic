@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -117,15 +118,24 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     );
   }
 
-  TextStyle _inactiveTextStyle(bool isActive) {
-    final baseColor = widget.isDarkMode ? Colors.white70 : Colors.black54;
+  TextStyle _lineTextStyle(bool isActive) {
+    final Color activeColor = widget.isDarkMode ? Colors.white : Colors.black87;
+    final Color inactiveColor = widget.isDarkMode ? Colors.white60 : Colors.black45;
+
+    if (isActive) {
+      return TextStyle(
+        fontSize: 26,
+        fontWeight: FontWeight.w700,
+        color: activeColor,
+        height: 1.6,
+      );
+    }
+
     return TextStyle(
-      fontSize: isActive ? 22 : 15,
-      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-      color: isActive
-          ? (widget.isDarkMode ? Colors.white : Colors.black87)
-          : baseColor,
-      height: 1.6,
+      fontSize: 16,
+      fontWeight: FontWeight.w400,
+      color: inactiveColor,
+      height: 1.55,
     );
   }
 
@@ -153,8 +163,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
       builder: (context, constraints) {
         final behavior = ScrollConfiguration.of(context).copyWith(scrollbars: false);
         final verticalPadding = constraints.maxHeight.isFinite
-            ? math.max(0.0, constraints.maxHeight * 0.35)
-            : 160.0;
+            ? math.max(0.0, constraints.maxHeight * 0.25)
+            : 132.0;
 
         return BlocListener<PlayerBloc, PlayerBlocState>(
           listener: (context, state) {
@@ -163,39 +173,114 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
               _updateActiveIndex(position);
             }
           },
-          child: ScrollConfiguration(
-            behavior: behavior,
-            child: ListView.builder(
-              controller: widget.controller,
-              padding: EdgeInsets.symmetric(
-                vertical: verticalPadding,
-                horizontal: 4,
-              ),
-              itemCount: widget.lines.length,
-              itemBuilder: (context, index) {
-                final line = widget.lines[index];
-                final isActive = index == _activeIndex;
-                final text = _lineText(line);
-
-                return AnimatedDefaultTextStyle(
-                  key: _itemKeys[index],
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  style: _inactiveTextStyle(isActive),
-                  textAlign: TextAlign.center,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                    child: Text(
-                      text.isEmpty ? ' ' : text,
-                      textAlign: TextAlign.center,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ScrollConfiguration(
+                  behavior: behavior,
+                  child: ListView.builder(
+                    controller: widget.controller,
+                    padding: EdgeInsets.symmetric(
+                      vertical: verticalPadding,
+                      horizontal: 4,
                     ),
+                    itemCount: widget.lines.length,
+                    itemBuilder: (context, index) {
+                      final line = widget.lines[index];
+                      final isActive = index == _activeIndex;
+                      final text = _lineText(line);
+
+                      return AnimatedDefaultTextStyle(
+                        key: _itemKeys[index],
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        style: _lineTextStyle(isActive),
+                        textAlign: TextAlign.center,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                          child: Text(
+                            text.isEmpty ? ' ' : text,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _LyricsEdgeBlur(
+                  isTop: true,
+                  isDarkMode: widget.isDarkMode,
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _LyricsEdgeBlur(
+                  isTop: false,
+                  isDarkMode: widget.isDarkMode,
+                ),
+              ),
+            ],
           ),
         );
       },
+    );
+  }
+}
+
+class _LyricsEdgeBlur extends StatelessWidget {
+  const _LyricsEdgeBlur({
+    required this.isTop,
+    required this.isDarkMode,
+  });
+
+  final bool isTop;
+  final bool isDarkMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final Alignment begin = isTop ? Alignment.topCenter : Alignment.bottomCenter;
+    final Alignment end = isTop ? Alignment.bottomCenter : Alignment.topCenter;
+    final double height = 140;
+
+    return IgnorePointer(
+      child: Align(
+        alignment: isTop ? Alignment.topCenter : Alignment.bottomCenter,
+        child: ClipRect(
+          child: SizedBox(
+            height: height,
+            width: double.infinity,
+            child: ShaderMask(
+              shaderCallback: (rect) => LinearGradient(
+                begin: begin,
+                end: end,
+                colors: const [
+                  Colors.white,
+                  Colors.white,
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.45, 1.0],
+              ).createShader(rect),
+              blendMode: BlendMode.dstIn,
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(
+                  sigmaX: isDarkMode ? 18 : 20,
+                  sigmaY: isDarkMode ? 18 : 20,
+                ),
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(color: Colors.transparent),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
