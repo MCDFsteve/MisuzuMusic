@@ -281,23 +281,26 @@ class _HomePageContentState extends State<HomePageContent> {
                                           ),
                                         ),
                                       ),
-                                      if (_lyricsVisible)
-                                        Positioned.fill(
-                                          child: AnimatedSwitcher(
-                                            duration:
-                                                const Duration(milliseconds: 280),
-                                            switchInCurve: Curves.easeOut,
-                                            switchOutCurve: Curves.easeIn,
-                                            child: KeyedSubtree(
-                                              key: const ValueKey(
-                                                'lyrics_overlay_mac',
-                                              ),
-                                              child: _buildLyricsOverlay(
-                                                isMac: true,
-                                              ),
-                                            ),
+                                      Positioned.fill(
+                                        child: AnimatedSwitcher(
+                                          duration:
+                                              const Duration(milliseconds: 280),
+                                          switchInCurve: Curves.easeOut,
+                                          switchOutCurve: Curves.easeIn,
+                                          transitionBuilder:
+                                              (child, animation) => FadeTransition(
+                                            opacity: animation,
+                                            child: child,
                                           ),
+                                          child: _lyricsVisible
+                                              ? _buildLyricsOverlay(isMac: true)
+                                              : const SizedBox.shrink(
+                                                  key: ValueKey(
+                                                    'lyrics_overlay_mac_empty',
+                                                  ),
+                                                ),
                                         ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -433,22 +436,25 @@ class _HomePageContentState extends State<HomePageContent> {
                               ),
                             ),
                           ),
-                          if (_lyricsVisible)
-                            Positioned.fill(
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 280),
-                                switchInCurve: Curves.easeOut,
-                                switchOutCurve: Curves.easeIn,
-                                child: KeyedSubtree(
-                                  key: const ValueKey(
-                                    'lyrics_overlay_material',
-                                  ),
-                                  child: _buildLyricsOverlay(
-                                    isMac: false,
-                                  ),
-                                ),
+                          Positioned.fill(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 280),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              transitionBuilder:
+                                  (child, animation) => FadeTransition(
+                                opacity: animation,
+                                child: child,
                               ),
+                              child: _lyricsVisible
+                                  ? _buildLyricsOverlay(isMac: false)
+                                  : const SizedBox.shrink(
+                                      key: ValueKey(
+                                        'lyrics_overlay_material_empty',
+                                      ),
+                                    ),
                             ),
+                          ),
                         ],
                       ),
                     ),
@@ -2000,7 +2006,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
   List<_DirectorySummaryData> _buildLibrarySummariesData(
     MusicLibraryLoaded state,
   ) {
-    final summaries = <_DirectorySummaryData>[];
+    final localSummaries = <_DirectorySummaryData>[];
     final localTracks = state.tracks
         .where((track) => track.sourceType == TrackSourceType.local)
         .toList();
@@ -2033,7 +2039,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
           ? '全部歌曲'
           : p.basename(normalizedDirectory);
 
-      summaries.add(
+      localSummaries.add(
         _DirectorySummaryData(
           filterKey: normalizedDirectory,
           displayName: displayName,
@@ -2045,6 +2051,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       );
     }
 
+    final remoteSummaries = <_DirectorySummaryData>[];
     for (final source in state.webDavSources) {
       final remoteTracks = state.tracks
           .where(
@@ -2059,7 +2066,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
 
       final previewTrack = _findPreviewTrack(remoteTracks);
       final hasArtwork = previewTrack != null && _hasArtwork(previewTrack);
-      summaries.add(
+      remoteSummaries.add(
         _DirectorySummaryData(
           filterKey: 'webdav://${source.id}',
           displayName: source.name,
@@ -2083,6 +2090,17 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       totalTracks: state.tracks.length,
       hasArtwork: allHasArtwork,
     );
+
+    final filteredLocalSummaries =
+        localSummaries.length == 1 &&
+                localSummaries.first.totalTracks == allSummary.totalTracks
+            ? <_DirectorySummaryData>[]
+            : List<_DirectorySummaryData>.from(localSummaries);
+
+    final summaries = [
+      ...filteredLocalSummaries,
+      ...remoteSummaries,
+    ];
 
     summaries.sort((a, b) {
       if (a.isRemote != b.isRemote) {
