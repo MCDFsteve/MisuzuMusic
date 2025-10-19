@@ -163,8 +163,10 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
   final ScanWebDavDirectory _scanWebDavDirectory;
   final GetWebDavSources _getWebDavSources;
   final EnsureWebDavTrackMetadata _ensureWebDavTrackMetadata;
+  final GetWebDavPassword _getWebDavPassword;
 
   bool _webDavMetadataEnrichmentInProgress = false;
+  bool _webDavAutoSyncTriggered = false;
 
   MusicLibraryBloc({
     required GetAllTracks getAllTracks,
@@ -176,6 +178,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     required ScanWebDavDirectory scanWebDavDirectory,
     required GetWebDavSources getWebDavSources,
     required EnsureWebDavTrackMetadata ensureWebDavTrackMetadata,
+    required GetWebDavPassword getWebDavPassword,
   }) : _getAllTracks = getAllTracks,
        _searchTracks = searchTracks,
        _scanMusicDirectory = scanMusicDirectory,
@@ -185,6 +188,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
        _scanWebDavDirectory = scanWebDavDirectory,
        _getWebDavSources = getWebDavSources,
        _ensureWebDavTrackMetadata = ensureWebDavTrackMetadata,
+       _getWebDavPassword = getWebDavPassword,
        super(const MusicLibraryInitial()) {
     on<LoadAllTracks>(_onLoadAllTracks);
     on<SearchTracksEvent>(_onSearchTracks);
@@ -230,11 +234,39 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
         ),
       );
 
+      if (!_webDavAutoSyncTriggered) {
+        _webDavAutoSyncTriggered = true;
+        unawaited(_autoSyncWebDavSources(webDavSources));
+      }
+
       await _autoEnrichWebDavMetadata(tracks, emit);
     } catch (e) {
       print('❌ BLoC: 加载音轨失败: $e');
       emit(MusicLibraryError('加载音乐库失败: ${e.toString()}'));
     }
+  }
+
+  Future<void> _autoSyncWebDavSources(List<WebDavSource> sources) async {
+    if (sources.isEmpty) {
+      return;
+    }
+
+    for (final source in sources) {
+      final password = await _getWebDavPassword(source.id);
+      if (password == null || password.isEmpty) {
+        continue;
+      }
+      try {
+        await _scanWebDavDirectory(
+          source: source,
+          password: password,
+        );
+      } catch (e) {
+        print('⚠️ BLoC: 自动同步 WebDAV 源失败 -> $e');
+      }
+    }
+
+    add(const LoadAllTracks());
   }
 
   Future<void> _autoEnrichWebDavMetadata(

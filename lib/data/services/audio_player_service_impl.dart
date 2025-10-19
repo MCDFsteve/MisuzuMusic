@@ -220,6 +220,19 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       await _setAudioSource(playableTrack);
       await _audioPlayer.play();
 
+      if (playableTrack.sourceType == TrackSourceType.webdav &&
+          playableTrack.sourceId != null &&
+          playableTrack.remotePath != null) {
+        unawaited(
+          _musicLibraryRepository.uploadWebDavPlayLog(
+            sourceId: playableTrack.sourceId!,
+            remotePath: playableTrack.remotePath!,
+            trackId: playableTrack.id,
+            playedAt: DateTime.now(),
+          ),
+        );
+      }
+
       final index = _queue.indexWhere(
         (item) => _isSameTrack(item, playableTrack),
       );
@@ -760,7 +773,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     final headers = <String, String>{'User-Agent': 'MisuzuMusic/1.0'};
 
     if (track.httpHeaders != null) {
-      headers.addAll(track.httpHeaders!);
+      track.httpHeaders!.forEach((key, value) {
+        if (!key.startsWith('x-misuzu-')) {
+          headers[key] = value;
+        }
+      });
     }
 
     if (source.username != null && source.username!.isNotEmpty) {

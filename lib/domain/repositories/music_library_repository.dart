@@ -42,6 +42,12 @@ abstract class MusicLibraryRepository {
     Track track, {
     bool force = false,
   });
+  Future<void> uploadWebDavPlayLog({
+    required String sourceId,
+    required String remotePath,
+    required String trackId,
+    required DateTime playedAt,
+  });
   Future<void> refreshLibrary();
   Future<void> clearLibrary();
   Future<List<String>> getLibraryDirectories();

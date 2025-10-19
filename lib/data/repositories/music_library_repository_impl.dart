@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:crypto/crypto.dart';
@@ -19,6 +20,7 @@ import '../../domain/entities/webdav_entities.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../datasources/local/music_local_datasource.dart';
 import '../models/music_models.dart';
+import '../models/webdav_bundle.dart';
 import '../models/webdav_models.dart';
 import '../../core/constants/app_constants.dart';
 
@@ -42,6 +44,11 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     '.wv',
     '.mka',
   };
+  static const String _bundleRelativePath = '/.misuzu/library.bundle';
+  static const String _playlogDirRelative = '/.misuzu/playlogs';
+  static const int _playLogVersion = 1;
+  static const String _coverHeaderKey = 'x-misuzu-cover-file';
+  static const String _thumbnailHeaderKey = 'x-misuzu-thumbnail-file';
 
   MusicLibraryRepositoryImpl({
     required MusicLocalDataSource localDataSource,
@@ -367,6 +374,23 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     final client = await _createWebDavClient(normalizedSource, password);
 
     try {
+      final bundleBytes = await _downloadWebDavBundle(
+        client,
+        normalizedSource.rootPath,
+      );
+      if (bundleBytes != null) {
+        print('🌐 WebDAV: 使用二进制元数据包导入');
+        try {
+          await _importWebDavBundle(
+            bundleBytes,
+            normalizedSource,
+          );
+          return;
+        } catch (e) {
+          print('⚠️ WebDAV: 解析元数据包失败 -> $e, 回退到目录扫描');
+        }
+      }
+
       print(
         '🌐 WebDAV: 开始扫描 ${normalizedSource.baseUrl}${normalizedSource.rootPath}',
       );
@@ -535,6 +559,75 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
       print('🌐 WebDAV: 尝试补充元数据 -> $fullAudioPath');
 
+      WebDavBundleEntry? bundleEntry;
+      try {
+        final bundleBytes = await _downloadWebDavBundle(
+          client,
+          source.rootPath,
+        );
+        if (bundleBytes != null) {
+          final entries = WebDavBundleParser().parse(bundleBytes);
+          for (final candidate in entries) {
+            if (candidate.trackId == track.id) {
+              bundleEntry = candidate;
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        print('⚠️ WebDAV: 从元数据包查找音轨失败 -> $e');
+        bundleEntry = null;
+      }
+
+      if (bundleEntry != null) {
+        final metadata = bundleEntry.metadata;
+        final title = (metadata['title'] as String?)?.trim();
+        final artist = (metadata['artist'] as String?)?.trim();
+        final album = (metadata['album'] as String?)?.trim();
+        final durationMs = (metadata['duration_ms'] as num?)?.toInt() ?? 0;
+        final trackNumber = (metadata['track_number'] as num?)?.toInt();
+        final year = (metadata['year'] as num?)?.toInt();
+        final genre = metadata['genre'] as String?;
+
+        final artworkPath = await _cacheWebDavArtwork(
+          sourceId,
+          track.id,
+          bundleEntry.artwork,
+          previousArtworkPath: track.artworkPath,
+        );
+
+        final headers = <String, String>{
+          if (metadata['cover_file'] is String)
+            _coverHeaderKey: metadata['cover_file'] as String,
+          if (metadata['thumbnail_file'] is String)
+            _thumbnailHeaderKey: metadata['thumbnail_file'] as String,
+        };
+        if (track.httpHeaders != null) {
+          headers.addAll(track.httpHeaders!);
+        }
+
+        final updatedModel = TrackModel.fromEntity(track).copyWith(
+          title: title?.isNotEmpty == true
+              ? title!
+              : path.basenameWithoutExtension(bundleEntry.relativePath),
+          artist: artist?.isNotEmpty == true ? artist! : track.artist,
+          album: album?.isNotEmpty == true ? album! : track.album,
+          duration: Duration(milliseconds: durationMs),
+          trackNumber: trackNumber ?? track.trackNumber,
+          year: year ?? track.year,
+          genre: genre ?? track.genre,
+          artworkPath: artworkPath ?? track.artworkPath,
+          sourceType: TrackSourceType.webdav,
+          sourceId: sourceId,
+          remotePath: bundleEntry.relativePath,
+          httpHeaders: headers.isEmpty ? track.httpHeaders : headers,
+        );
+
+        await _localDataSource.updateTrack(updatedModel);
+        print('🌐 WebDAV: 元数据更新完成 (bundle) -> ${updatedModel.title}');
+        return updatedModel.toEntity();
+      }
+
       final metadataFullPath = _replaceExtension(fullAudioPath, '.json');
       final metadata = await _loadWebDavTrackMetadata(
         client,
@@ -542,7 +635,12 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       );
 
       final coverCandidates = <String>[];
-      if (metadata?.coverFileName != null) {
+      if (metadata?.thumbnailPath != null) {
+        coverCandidates.add(_normalizeRemotePath(metadata!.thumbnailPath!));
+      }
+      if (metadata?.coverPath != null) {
+        coverCandidates.add(_normalizeRemotePath(metadata!.coverPath!));
+      } else if (metadata?.coverFileName != null) {
         coverCandidates.add(
           _normalizeRemotePath(
             posix.join(
@@ -555,6 +653,14 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       coverCandidates.add(_replaceExtension(fullAudioPath, '.png'));
 
       String? artworkPath = track.artworkPath;
+      final headers = <String, String>{
+        if (metadata?.coverPath != null) _coverHeaderKey: metadata!.coverPath!,
+        if (metadata?.thumbnailPath != null)
+          _thumbnailHeaderKey: metadata!.thumbnailPath!,
+      };
+      if (track.httpHeaders != null) {
+        headers.addAll(track.httpHeaders!);
+      }
       for (final candidate in coverCandidates) {
         artworkPath = await _downloadWebDavArtwork(
           client: client,
@@ -579,6 +685,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         sourceType: TrackSourceType.webdav,
         sourceId: sourceId,
         remotePath: remotePath,
+        httpHeaders: headers.isEmpty ? track.httpHeaders : headers,
       );
 
       await _localDataSource.updateTrack(updatedModel);
@@ -587,6 +694,49 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     } catch (e) {
       print('⚠️ WebDAV: 自动补全元数据失败 -> $e');
       return track;
+    }
+  }
+
+  @override
+  Future<void> uploadWebDavPlayLog({
+    required String sourceId,
+    required String remotePath,
+    required String trackId,
+    required DateTime playedAt,
+  }) async {
+    if (trackId.isEmpty) {
+      print('⚠️ WebDAV: 播放日志未上传，缺少 trackId');
+      return;
+    }
+
+    final source = await getWebDavSourceById(sourceId);
+    final password = await getWebDavPassword(sourceId);
+    if (source == null || password == null) {
+      print('⚠️ WebDAV: 无法上传播放日志，缺少源配置或密码 ($sourceId)');
+      return;
+    }
+
+    try {
+      final client = await _createWebDavClient(source, password);
+      final timestampMs = playedAt.millisecondsSinceEpoch;
+      final logFileName =
+          'playlog_${timestampMs}_${_uuid.v4().replaceAll('-', '')}.bin';
+      final remoteDir = _combineRootAndRelative(
+        source.rootPath,
+        _playlogDirRelative,
+      );
+      final remoteFilePath = _normalizeRemotePath(
+        posix.join(remoteDir, logFileName),
+      );
+
+      final payload = _buildPlayLogPayload(timestampMs, trackId);
+      await client.write(remoteFilePath, payload);
+      final normalizedRemote = _normalizeRemotePath(remotePath);
+      print(
+        '🌐 WebDAV: 上传播放日志 -> $remoteFilePath (track: $normalizedRemote)',
+      );
+    } catch (e) {
+      print('⚠️ WebDAV: 上传播放日志失败 -> $e');
     }
   }
 
@@ -876,6 +1026,33 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     return filePath;
   }
 
+  Future<String?> _cacheWebDavArtwork(
+    String sourceId,
+    String trackId,
+    Uint8List? bytes, {
+    String? previousArtworkPath,
+  }) async {
+    if (bytes == null || bytes.isEmpty) {
+      return previousArtworkPath;
+    }
+
+    final cacheDir = await _artworkCacheDirectory();
+    final digest = sha1.convert(bytes).toString();
+    final fileName = 'webdav_${sourceId}_$digest.png';
+    final filePath = path.join(cacheDir.path, fileName);
+    final file = File(filePath);
+    await file.writeAsBytes(bytes, flush: true);
+
+    if (previousArtworkPath != null && previousArtworkPath != filePath) {
+      final previousFile = File(previousArtworkPath);
+      if (await previousFile.exists()) {
+        await previousFile.delete();
+      }
+    }
+
+    return filePath;
+  }
+
   Future<Directory> _artworkCacheDirectory() async {
     final supportDir = await getApplicationSupportDirectory();
     final cacheDir = Directory(
@@ -991,6 +1168,41 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     return '$normalizedRoot$normalizedRelative';
   }
 
+  Uint8List _buildPlayLogPayload(int timestampMs, String trackId) {
+    final trackIdBytes = utf8.encode(trackId);
+    final builder = BytesBuilder();
+    builder.add(utf8.encode('MMLG'));
+    builder.add(_encodeUint16(_playLogVersion));
+    builder.add(_encodeUint32(1));
+    builder.add(_encodeUint64(timestampMs));
+    builder.add(_encodeUint8(trackIdBytes.length));
+    builder.add(trackIdBytes);
+    return builder.toBytes();
+  }
+
+  Uint8List _encodeUint8(int value) => Uint8List.fromList([value & 0xFF]);
+
+  Uint8List _encodeUint16(int value) {
+    final bytes = Uint8List(2);
+    final data = ByteData.sublistView(bytes);
+    data.setUint16(0, value, Endian.little);
+    return bytes;
+  }
+
+  Uint8List _encodeUint32(int value) {
+    final bytes = Uint8List(4);
+    final data = ByteData.sublistView(bytes);
+    data.setUint32(0, value, Endian.little);
+    return bytes;
+  }
+
+  Uint8List _encodeUint64(int value) {
+    final bytes = Uint8List(8);
+    final data = ByteData.sublistView(bytes);
+    data.setUint64(0, value, Endian.little);
+    return bytes;
+  }
+
   Future<_WebDavTrackMetadata?> _loadWebDavTrackMetadata(
     webdav.Client client,
     String metadataPath,
@@ -1021,6 +1233,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         fingerprint: decoded['hash_sha1_first_10kb'] as String?,
         hasCover: decoded['has_cover'] == true,
         coverFileName: decoded['cover_file'] as String?,
+        coverPath: decoded['cover_file'] as String?,
+        thumbnailPath: decoded['thumbnail_file'] as String?,
       );
     } catch (e) {
       print('⚠️ WebDAV: 读取元数据失败 [$metadataPath] - $e');
@@ -1169,6 +1383,106 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     return client;
   }
 
+  Future<Uint8List?> _downloadWebDavBundle(
+    webdav.Client client,
+    String rootPath,
+  ) async {
+    final remotePath = _combineRootAndRelative(rootPath, _bundleRelativePath);
+    try {
+      final bytes = await client.read(remotePath);
+      if (bytes.isEmpty) {
+        return null;
+      }
+      return Uint8List.fromList(bytes);
+    } catch (e) {
+      print('⚠️ WebDAV: 获取元数据包失败 [$remotePath] -> $e');
+      return null;
+    }
+  }
+
+  Future<void> _importWebDavBundle(
+    Uint8List bundleBytes,
+    WebDavSource source,
+  ) async {
+    final parser = WebDavBundleParser();
+    final entries = parser.parse(bundleBytes);
+    final now = DateTime.now();
+
+    final existingTracks = await _localDataSource.getTracksByWebDavSource(
+      source.id,
+    );
+    final existingById = {
+      for (final track in existingTracks) track.id: track,
+    };
+    final seenIds = <String>{};
+
+    for (final entry in entries) {
+      final metadata = entry.metadata;
+      final title = (metadata['title'] as String?)?.trim();
+      final artist = (metadata['artist'] as String?)?.trim();
+      final album = (metadata['album'] as String?)?.trim();
+      final durationMs = (metadata['duration_ms'] as num?)?.toInt() ?? 0;
+      final trackNumber = (metadata['track_number'] as num?)?.toInt();
+      final year = (metadata['year'] as num?)?.toInt();
+      final genre = metadata['genre'] as String?;
+
+      final existing = existingById[entry.trackId];
+      final artworkPath = await _cacheWebDavArtwork(
+        source.id,
+        entry.trackId,
+        entry.artwork,
+        previousArtworkPath: existing?.artworkPath,
+      );
+
+      final headers = <String, String>{
+        if (existing?.httpHeaders != null) ...existing!.httpHeaders!,
+        if (metadata['cover_file'] is String)
+          _coverHeaderKey: metadata['cover_file'] as String,
+        if (metadata['thumbnail_file'] is String)
+          _thumbnailHeaderKey: metadata['thumbnail_file'] as String,
+      };
+
+      final trackModel = TrackModel(
+        id: entry.trackId,
+        title: title?.isNotEmpty == true
+            ? title!
+            : path.basenameWithoutExtension(entry.relativePath),
+        artist: artist?.isNotEmpty == true ? artist! : 'Unknown Artist',
+        album: album?.isNotEmpty == true ? album! : 'Unknown Album',
+        filePath: _buildWebDavFilePath(source.id, entry.relativePath),
+        duration: Duration(milliseconds: durationMs),
+        dateAdded: existing?.dateAdded ?? now,
+        artworkPath: artworkPath,
+        trackNumber: trackNumber,
+        year: year,
+        genre: genre,
+        sourceType: TrackSourceType.webdav,
+        sourceId: source.id,
+        remotePath: entry.relativePath,
+        httpHeaders: headers.isEmpty ? existing?.httpHeaders : headers,
+      );
+
+      if (existing == null) {
+        await _localDataSource.insertTrack(trackModel);
+      } else {
+        await _localDataSource.updateTrack(trackModel);
+      }
+
+      seenIds.add(trackModel.id);
+    }
+
+    final removedIds = existingTracks
+        .where((track) => !seenIds.contains(track.id))
+        .map((track) => track.id)
+        .toList();
+    if (removedIds.isNotEmpty) {
+      await _localDataSource.deleteTracksByIds(removedIds);
+      print('🌐 WebDAV: 已移除 ${removedIds.length} 首已删除的曲目');
+    }
+
+    print('🌐 WebDAV: 从元数据包导入 ${entries.length} 首歌曲');
+  }
+
   Future<List<_RemoteAudioFile>> _collectRemoteAudioFiles(
     webdav.Client client,
     String rootPath,
@@ -1299,6 +1613,8 @@ class _WebDavTrackMetadata {
     this.fingerprint,
     this.hasCover = false,
     this.coverFileName,
+    this.coverPath,
+    this.thumbnailPath,
   });
 
   final String? title;
@@ -1313,4 +1629,6 @@ class _WebDavTrackMetadata {
   final String? fingerprint;
   final bool hasCover;
   final String? coverFileName;
+  final String? coverPath;
+  final String? thumbnailPath;
 }
