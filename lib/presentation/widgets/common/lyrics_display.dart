@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../blocs/player/player_bloc.dart';
 import '../../../domain/entities/lyrics_entities.dart';
+import 'furigana_text.dart';
 
 class LyricsDisplay extends StatefulWidget {
   const LyricsDisplay({
@@ -244,7 +245,10 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         );
         final double sharpDistance = math.max(0.0, halfViewport - blurBand);
         final double blurMaxDistance = halfViewport;
-        final double edgeSpacer = math.max(0.0, halfViewport - placeholderHeight * 0.5);
+        final double edgeSpacer = math.max(
+          0.0,
+          halfViewport - placeholderHeight * 0.5,
+        );
 
         return BlocListener<PlayerBloc, PlayerBlocState>(
           listener: (context, state) {
@@ -280,6 +284,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                   return _LyricsLineImageTile(
                     key: _itemKeys[lineIndex],
                     text: text,
+                    annotatedTexts: line.annotatedTexts,
                     isActive: isActive,
                     linePadding: _linePadding,
                     animationDuration: _animationDuration,
@@ -305,6 +310,7 @@ class _LyricsLineImageTile extends StatefulWidget {
   const _LyricsLineImageTile({
     super.key,
     required this.text,
+    required this.annotatedTexts,
     required this.isActive,
     required this.linePadding,
     required this.animationDuration,
@@ -318,6 +324,7 @@ class _LyricsLineImageTile extends StatefulWidget {
   });
 
   final String text;
+  final List<AnnotatedText> annotatedTexts;
   final bool isActive;
   final EdgeInsets linePadding;
   final Duration animationDuration;
@@ -382,7 +389,8 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
     if (scrollable == null) {
       return;
     }
-    final RenderObject? scrollRenderObject = scrollable.context.findRenderObject();
+    final RenderObject? scrollRenderObject = scrollable.context
+        .findRenderObject();
     if (scrollRenderObject is! RenderBox || !scrollRenderObject.hasSize) {
       return;
     }
@@ -423,31 +431,58 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
   Widget build(BuildContext context) {
     final double factor = _blurFactor.clamp(0.0, 1.0);
     final double sigma = math.pow(factor, 1.35).toDouble() * _maxSigma;
-    final TextStyle targetStyle =
-        widget.isActive ? widget.activeStyle : widget.inactiveStyle;
+    final TextStyle targetStyle = widget.isActive
+        ? widget.activeStyle
+        : widget.inactiveStyle;
     final String displayText = widget.text.isEmpty ? ' ' : widget.text;
     final double fontSize = targetStyle.fontSize ?? 16.0;
     final double lineHeight = targetStyle.height ?? 1.6;
 
-    Widget content = Text(
-      displayText,
-      textAlign: TextAlign.center,
-      softWrap: true,
-      maxLines: 4,
-      strutStyle: StrutStyle(
-        fontSize: fontSize,
-        height: lineHeight,
-        forceStrutHeight: true,
-        leading: 0,
-      ),
-    );
+    Widget content;
+
+    if (widget.annotatedTexts.isNotEmpty) {
+      final double annotationFontSize = math.max(10.0, fontSize * 0.6);
+      final TextStyle annotationStyle = targetStyle.copyWith(
+        fontSize: annotationFontSize,
+        fontWeight: FontWeight.w500,
+        height: 1.0,
+        color:
+            targetStyle.color?.withOpacity(widget.isActive ? 0.9 : 0.7) ??
+            targetStyle.color,
+      );
+
+      content = FuriganaText(
+        segments: widget.annotatedTexts,
+        baseStyle: targetStyle,
+        annotationStyle: annotationStyle,
+        textAlign: TextAlign.center,
+        maxLines: 4,
+        softWrap: true,
+        strutStyle: StrutStyle(
+          fontSize: fontSize,
+          height: lineHeight,
+          forceStrutHeight: true,
+          leading: 0,
+        ),
+      );
+    } else {
+      content = Text(
+        displayText,
+        textAlign: TextAlign.center,
+        softWrap: true,
+        maxLines: 4,
+        strutStyle: StrutStyle(
+          fontSize: fontSize,
+          height: lineHeight,
+          forceStrutHeight: true,
+          leading: 0,
+        ),
+      );
+    }
 
     if (sigma >= 0.01) {
       content = ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(
-          sigmaX: sigma,
-          sigmaY: sigma,
-        ),
+        imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
         child: content,
       );
     }
@@ -460,10 +495,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
         curve: Curves.easeInOut,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: widget.maxWidth),
-          child: Align(
-            alignment: Alignment.center,
-            child: content,
-          ),
+          child: Align(alignment: Alignment.center, child: content),
         ),
       ),
     );

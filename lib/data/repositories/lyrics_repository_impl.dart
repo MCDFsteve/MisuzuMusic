@@ -184,6 +184,11 @@ class LyricsRepositoryImpl implements LyricsRepository {
       final processedLines = <LyricsLine>[];
 
       for (final line in lyrics.lines) {
+        if (line.annotatedTexts.isNotEmpty) {
+          processedLines.add(line);
+          continue;
+        }
+
         if (_japaneseProcessingService.containsJapanese(line.originalText)) {
           final annotatedTexts = await _japaneseProcessingService.annotateText(
             line.originalText,
@@ -196,7 +201,6 @@ class LyricsRepositoryImpl implements LyricsRepository {
             ),
           );
         } else {
-          // Non-Japanese text, create a single annotation
           processedLines.add(
             LyricsLine(
               timestamp: line.timestamp,
@@ -237,20 +241,21 @@ class LyricsRepositoryImpl implements LyricsRepository {
         final minutes = int.parse(match.group(1)!);
         final seconds = int.parse(match.group(2)!);
         final centiseconds = int.parse(match.group(3)!);
-        final text = match.group(4)!.trim();
+        final rawText = match.group(4)!.trim();
 
-        if (text.isNotEmpty) {
+        if (rawText.isNotEmpty) {
           final timestamp = Duration(
             minutes: minutes,
             seconds: seconds,
             milliseconds: centiseconds * 10,
           );
+          final parsed = _parseAnnotatedLine(rawText);
 
           lines.add(
             LyricsLine(
               timestamp: timestamp,
-              originalText: text,
-              annotatedTexts: [], // Will be populated by processing
+              originalText: parsed.text,
+              annotatedTexts: parsed.segments,
             ),
           );
         }
@@ -265,13 +270,14 @@ class LyricsRepositoryImpl implements LyricsRepository {
     final textLines = content.split('\n');
 
     for (int i = 0; i < textLines.length; i++) {
-      final text = textLines[i].trim();
-      if (text.isNotEmpty) {
+      final rawText = textLines[i].trim();
+      if (rawText.isNotEmpty) {
+        final parsed = _parseAnnotatedLine(rawText);
         lines.add(
           LyricsLine(
             timestamp: Duration(seconds: i * 5), // Default 5 seconds per line
-            originalText: text,
-            annotatedTexts: [], // Will be populated by processing
+            originalText: parsed.text,
+            annotatedTexts: parsed.segments,
           ),
         );
       }
@@ -279,4 +285,127 @@ class LyricsRepositoryImpl implements LyricsRepository {
 
     return lines;
   }
+
+  _ParsedAnnotatedLine _parseAnnotatedLine(String rawText) {
+    final segments = <AnnotatedText>[];
+    final pattern = RegExp(r'([^\[\]]+)\[([^\[\]]+)\]');
+    int currentIndex = 0;
+
+    for (final match in pattern.allMatches(rawText)) {
+      final start = match.start;
+      final end = match.end;
+
+      if (start > currentIndex) {
+        final plainSegment = rawText.substring(currentIndex, start);
+        if (plainSegment.isNotEmpty) {
+          segments.add(
+            AnnotatedText(
+              original: plainSegment,
+              annotation: plainSegment,
+              type: TextType.other,
+            ),
+          );
+        }
+      }
+
+      final baseRaw = match.group(1)!.trim();
+      final ruby = match.group(2)!.trim();
+
+      if (baseRaw.isNotEmpty) {
+        final split = _separatePrefix(baseRaw, ruby);
+
+        if (split.prefix.isNotEmpty) {
+          segments.add(
+            AnnotatedText(
+              original: split.prefix,
+              annotation: split.prefix,
+              type: TextType.other,
+            ),
+          );
+        }
+
+        if (split.core.isNotEmpty) {
+          segments.add(
+            AnnotatedText(
+              original: split.core,
+              annotation: ruby,
+              type: TextType.kanji,
+            ),
+          );
+        }
+      }
+
+      currentIndex = end;
+    }
+
+    if (currentIndex < rawText.length) {
+      final tail = rawText.substring(currentIndex);
+      if (tail.isNotEmpty) {
+        segments.add(
+          AnnotatedText(original: tail, annotation: tail, type: TextType.other),
+        );
+      }
+    }
+
+    if (segments.isEmpty) {
+      segments.add(
+        AnnotatedText(
+          original: rawText,
+          annotation: rawText,
+          type: TextType.other,
+        ),
+      );
+    }
+
+    final buffer = StringBuffer();
+    for (final segment in segments) {
+      buffer.write(segment.original);
+    }
+
+    return _ParsedAnnotatedLine(text: buffer.toString(), segments: segments);
+  }
+}
+
+class _ParsedAnnotatedLine {
+  const _ParsedAnnotatedLine({required this.text, required this.segments});
+
+  final String text;
+  final List<AnnotatedText> segments;
+}
+
+class _BaseSplitResult {
+  const _BaseSplitResult({required this.prefix, required this.core});
+
+  final String prefix;
+  final String core;
+}
+
+_BaseSplitResult _separatePrefix(String base, String ruby) {
+  if (base.isEmpty) {
+    return const _BaseSplitResult(prefix: '', core: '');
+  }
+
+  final kanjiRegex = RegExp(r'[\u4E00-\u9FFF\u3400-\u4DBF々〆ヶ]');
+  int firstKanjiIndex = -1;
+
+  for (int i = 0; i < base.length; i++) {
+    final char = base[i];
+    if (kanjiRegex.hasMatch(char)) {
+      firstKanjiIndex = i;
+      break;
+    }
+  }
+
+  if (firstKanjiIndex <= 0) {
+    return _BaseSplitResult(prefix: '', core: base);
+  }
+
+  final prefix = base.substring(0, firstKanjiIndex);
+  final core = base.substring(firstKanjiIndex);
+
+  if (ruby.startsWith(prefix)) {
+    return _BaseSplitResult(prefix: '', core: base);
+  }
+
+  return _BaseSplitResult(prefix: prefix, core: core);
 }
