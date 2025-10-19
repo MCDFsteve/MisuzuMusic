@@ -15,7 +15,7 @@ class FuriganaText extends StatelessWidget {
     this.maxLines,
     this.softWrap = true,
     this.strutStyle,
-    this.annotationSpacing = 0.0,
+    this.annotationSpacing = 1.0,
   });
 
   final List<AnnotatedText> segments;
@@ -34,7 +34,7 @@ class FuriganaText extends StatelessWidget {
     final TextStyle effectiveAnnotationStyle =
         annotationStyle ??
         effectiveBaseStyle.copyWith(
-          fontSize: (effectiveBaseStyle.fontSize ?? 16.0) * 0.4,
+          fontSize: math.max(6.0, (effectiveBaseStyle.fontSize ?? 16.0) * 0.35),
           fontWeight: FontWeight.w500,
           height: 1.0,
         );
@@ -50,36 +50,28 @@ class FuriganaText extends StatelessWidget {
       );
     }
 
-    final List<InlineSpan> spans = <InlineSpan>[];
+    final StringBuffer buffer = StringBuffer();
+    final List<_AnnotatedSegment> annotatedSegments = [];
+
     for (final AnnotatedText segment in segments) {
-      if (segment.original.isEmpty) {
-        continue;
-      }
+      if (segment.original.isEmpty) continue;
+      final int start = buffer.length;
+      buffer.write(segment.original);
 
-      final bool renderAnnotation = _shouldRenderAnnotation(segment);
-      if (!renderAnnotation) {
-        spans.add(TextSpan(text: segment.original));
-        continue;
-      }
-
-      spans.add(
-        WidgetSpan(
-          alignment: PlaceholderAlignment.baseline,
-          baseline: TextBaseline.ideographic,
-          child: _RubySegment(
-            baseText: segment.original,
-            rubyText: segment.annotation.trim(),
-            baseStyle: effectiveBaseStyle,
-            annotationStyle: effectiveAnnotationStyle,
-            spacing: annotationSpacing,
+      if (_shouldRenderAnnotation(segment)) {
+        annotatedSegments.add(
+          _AnnotatedSegment(
+            start: start,
+            end: start + segment.original.length,
+            annotation: segment.annotation.trim(),
           ),
-        ),
-      );
+        );
+      }
     }
 
-    if (spans.isEmpty) {
+    if (annotatedSegments.isEmpty) {
       return Text(
-        segments.map((e) => e.original).join(),
+        buffer.toString(),
         style: effectiveBaseStyle,
         textAlign: textAlign,
         maxLines: maxLines,
@@ -88,102 +80,266 @@ class FuriganaText extends StatelessWidget {
       );
     }
 
-    return RichText(
+    return _FuriganaParagraph(
+      text: buffer.toString(),
+      annotatedSegments: annotatedSegments,
+      baseStyle: effectiveBaseStyle,
+      annotationStyle: effectiveAnnotationStyle,
       textAlign: textAlign,
       softWrap: softWrap,
       maxLines: maxLines,
-      overflow: TextOverflow.visible,
       strutStyle: strutStyle,
-      text: TextSpan(style: effectiveBaseStyle, children: spans),
+      spacing: annotationSpacing,
     );
   }
 
   bool _shouldRenderAnnotation(AnnotatedText segment) {
     final String annotation = segment.annotation.trim();
-    if (annotation.isEmpty) {
-      return false;
-    }
     final String original = segment.original.trim();
-    if (original.isEmpty) {
-      return false;
-    }
-    if (annotation == original) {
-      return false;
-    }
-    if (segment.type == TextType.other) {
-      return false;
-    }
+    if (annotation.isEmpty || original.isEmpty) return false;
+    if (annotation == original) return false;
+    if (segment.type == TextType.other) return false;
     return true;
   }
 }
 
-class _RubySegment extends StatelessWidget {
-  const _RubySegment({
-    required this.baseText,
-    required this.rubyText,
+class _FuriganaParagraph extends LeafRenderObjectWidget {
+  const _FuriganaParagraph({
+    required this.text,
+    required this.annotatedSegments,
     required this.baseStyle,
     required this.annotationStyle,
+    required this.textAlign,
+    required this.softWrap,
+    required this.maxLines,
+    required this.strutStyle,
     required this.spacing,
   });
 
-  final String baseText;
-  final String rubyText;
+  final String text;
+  final List<_AnnotatedSegment> annotatedSegments;
   final TextStyle baseStyle;
   final TextStyle annotationStyle;
+  final TextAlign textAlign;
+  final bool softWrap;
+  final int? maxLines;
+  final StrutStyle? strutStyle;
   final double spacing;
 
   @override
-  Widget build(BuildContext context) {
-    final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
-
-    final basePainter = TextPainter(
-      text: TextSpan(text: baseText, style: baseStyle),
-      textDirection: textDirection,
-      maxLines: 1,
-    )..layout();
-
-    final annotationPainter = TextPainter(
-      text: TextSpan(text: rubyText, style: annotationStyle),
-      textDirection: textDirection,
-      maxLines: 1,
-    )..layout();
-
-    final double width = math.max(basePainter.width, annotationPainter.width);
-    final double baseHeight = basePainter.height;
-    final double lift = (annotationStyle.fontSize ?? 10.0) * 0.35 + spacing;
-
-    return SizedBox(
-      width: width,
-      height: baseHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
-        children: [
-          SizedBox(
-            width: width,
-            child: Text(
-              baseText,
-              style: baseStyle,
-              textAlign: TextAlign.center,
-              softWrap: false,
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: baseHeight + lift,
-            child: SizedBox(
-              width: width,
-              child: Text(
-                rubyText,
-                style: annotationStyle,
-                textAlign: TextAlign.center,
-                softWrap: false,
-              ),
-            ),
-          ),
-        ],
-      ),
+  RenderObject createRenderObject(BuildContext context) {
+    return _FuriganaParagraphRenderBox(
+      text: text,
+      annotatedSegments: annotatedSegments,
+      baseStyle: baseStyle,
+      annotationStyle: annotationStyle,
+      textAlign: textAlign,
+      softWrap: softWrap,
+      maxLines: maxLines,
+      strutStyle: strutStyle,
+      spacing: spacing,
+      textDirection: Directionality.of(context),
     );
   }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _FuriganaParagraphRenderBox renderObject,
+  ) {
+    renderObject
+      ..text = text
+      ..annotatedSegments = annotatedSegments
+      ..baseStyle = baseStyle
+      ..annotationStyle = annotationStyle
+      ..textAlign = textAlign
+      ..softWrap = softWrap
+      ..maxLines = maxLines
+      ..strutStyle = strutStyle
+      ..spacing = spacing
+      ..textDirection = Directionality.of(context);
+  }
+}
+
+class _FuriganaParagraphRenderBox extends RenderBox {
+  _FuriganaParagraphRenderBox({
+    required String text,
+    required List<_AnnotatedSegment> annotatedSegments,
+    required TextStyle baseStyle,
+    required TextStyle annotationStyle,
+    required TextAlign textAlign,
+    required bool softWrap,
+    required int? maxLines,
+    required StrutStyle? strutStyle,
+    required double spacing,
+    required TextDirection textDirection,
+  }) : _text = text,
+       _annotatedSegments = annotatedSegments,
+       _baseStyle = baseStyle,
+       _annotationStyle = annotationStyle,
+       _textAlign = textAlign,
+       _softWrap = softWrap,
+       _maxLines = maxLines,
+       _strutStyle = strutStyle,
+       _spacing = spacing,
+       _textDirection = textDirection;
+
+  String _text;
+  List<_AnnotatedSegment> _annotatedSegments;
+  TextStyle _baseStyle;
+  TextStyle _annotationStyle;
+  TextAlign _textAlign;
+  bool _softWrap;
+  int? _maxLines;
+  StrutStyle? _strutStyle;
+  double _spacing;
+  TextDirection _textDirection;
+
+  final TextPainter _basePainter = TextPainter();
+  final TextPainter _rubyPainter = TextPainter();
+
+  set text(String value) {
+    if (_text == value) return;
+    _text = value;
+    markNeedsLayout();
+  }
+
+  set annotatedSegments(List<_AnnotatedSegment> value) {
+    _annotatedSegments = value;
+    markNeedsLayout();
+  }
+
+  set baseStyle(TextStyle value) {
+    if (_baseStyle == value) return;
+    _baseStyle = value;
+    markNeedsLayout();
+  }
+
+  set annotationStyle(TextStyle value) {
+    if (_annotationStyle == value) return;
+    _annotationStyle = value;
+    markNeedsLayout();
+  }
+
+  set textAlign(TextAlign value) {
+    if (_textAlign == value) return;
+    _textAlign = value;
+    markNeedsLayout();
+  }
+
+  set softWrap(bool value) {
+    if (_softWrap == value) return;
+    _softWrap = value;
+    markNeedsLayout();
+  }
+
+  set maxLines(int? value) {
+    if (_maxLines == value) return;
+    _maxLines = value;
+    markNeedsLayout();
+  }
+
+  set strutStyle(StrutStyle? value) {
+    if (_strutStyle == value) return;
+    _strutStyle = value;
+    markNeedsLayout();
+  }
+
+  set spacing(double value) {
+    if (_spacing == value) return;
+    _spacing = value;
+    markNeedsPaint();
+  }
+
+  set textDirection(TextDirection value) {
+    if (_textDirection == value) return;
+    _textDirection = value;
+    markNeedsLayout();
+  }
+
+  void _layoutBasePainter(double maxWidth) {
+    final int? effectiveMaxLines = _softWrap ? _maxLines : (_maxLines ?? 1);
+    _basePainter
+      ..text = TextSpan(text: _text, style: _baseStyle)
+      ..textAlign = _textAlign
+      ..textDirection = _textDirection
+      ..strutStyle = _strutStyle
+      ..maxLines = effectiveMaxLines
+      ..ellipsis = _softWrap ? null : ''
+      ..layout(minWidth: 0, maxWidth: maxWidth);
+  }
+
+  @override
+  void performLayout() {
+    final double maxWidth = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : double.infinity;
+    _layoutBasePainter(maxWidth);
+    size = constraints.constrain(_basePainter.size);
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final double maxWidth = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : double.infinity;
+    _layoutBasePainter(maxWidth);
+    return constraints.constrain(_basePainter.size);
+  }
+
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) {
+    return _basePainter.computeDistanceToActualBaseline(baseline);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final Canvas canvas = context.canvas;
+
+    final double maxWidth = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : double.infinity;
+    _layoutBasePainter(maxWidth);
+    _basePainter.paint(canvas, offset);
+
+    for (final segment in _annotatedSegments) {
+      if (segment.start >= segment.end) continue;
+      final boxes = _basePainter.getBoxesForSelection(
+        TextSelection(baseOffset: segment.start, extentOffset: segment.end),
+      );
+      if (boxes.isEmpty) continue;
+
+      final TextBox box = boxes.first;
+      _rubyPainter
+        ..text = TextSpan(text: segment.annotation, style: _annotationStyle)
+        ..textDirection = _textDirection
+        ..textAlign = TextAlign.center
+        ..layout();
+
+      final double rubyWidth = _rubyPainter.width;
+      final double rubyX = offset.dx + (box.left + box.right - rubyWidth) / 2;
+      final double rubyY = offset.dy + box.top - _rubyPainter.height - _spacing;
+
+      _rubyPainter.paint(canvas, Offset(rubyX, rubyY));
+    }
+  }
+
+  @override
+  void detach() {
+    _basePainter.dispose();
+    _rubyPainter.dispose();
+    super.detach();
+  }
+}
+
+class _AnnotatedSegment {
+  const _AnnotatedSegment({
+    required this.start,
+    required this.end,
+    required this.annotation,
+  });
+
+  final int start;
+  final int end;
+  final String annotation;
 }

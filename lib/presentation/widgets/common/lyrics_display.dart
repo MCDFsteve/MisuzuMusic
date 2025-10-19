@@ -464,7 +464,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
           forceStrutHeight: true,
           leading: 0,
         ),
-        annotationSpacing: -1.0,
+        annotationSpacing: 1.0,
       );
     } else {
       content = Text(
