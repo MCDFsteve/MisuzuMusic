@@ -237,12 +237,12 @@ class LyricsRepositoryImpl implements LyricsRepository {
 
     for (final lrcLine in lrcLines) {
       final match = RegExp(
-        r'\[(\d{2}):(\d{2})\.(\d{2})\](.*)',
+        r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)',
       ).firstMatch(lrcLine.trim());
       if (match != null) {
         final minutes = int.parse(match.group(1)!);
         final seconds = int.parse(match.group(2)!);
-        final centiseconds = int.parse(match.group(3)!);
+        final fraction = match.group(3)!;
         final rawText = match.group(4)!.trim();
         final translationSplit = _extractTranslation(rawText);
         final baseText = translationSplit.text;
@@ -251,7 +251,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
           final timestamp = Duration(
             minutes: minutes,
             seconds: seconds,
-            milliseconds: centiseconds * 10,
+            milliseconds: fraction.length == 3
+                ? int.parse(fraction)
+                : int.parse(fraction) * 10,
           );
           final parsed = _parseAnnotatedLine(baseText);
 

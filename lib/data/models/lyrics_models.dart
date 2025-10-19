@@ -68,7 +68,7 @@ class LyricsModel extends Lyrics {
       final minutes = timestamp.inMinutes.toString().padLeft(2, '0');
       final seconds = (timestamp.inSeconds % 60).toString().padLeft(2, '0');
       final milliseconds =
-          ((timestamp.inMilliseconds % 1000) / 10).round().toString().padLeft(2, '0');
+          (timestamp.inMilliseconds % 1000).toString().padLeft(3, '0');
       final translation = line.translatedText?.trim();
       final suffix = (translation != null && translation.isNotEmpty)
           ? ' <${translation.replaceAll('\n', ' ')}>'
@@ -94,18 +94,22 @@ class LyricsModel extends Lyrics {
     final lrcLines = content.split('\n');
 
     for (final lrcLine in lrcLines) {
-      final match = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2})\](.*)').firstMatch(lrcLine.trim());
+      final match = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)')
+          .firstMatch(lrcLine.trim());
       if (match != null) {
         final minutes = int.parse(match.group(1)!);
         final seconds = int.parse(match.group(2)!);
-        final centiseconds = int.parse(match.group(3)!);
+        final fraction = match.group(3)!;
+        final milliseconds = fraction.length == 3
+            ? int.parse(fraction)
+            : int.parse(fraction) * 10;
         final raw = match.group(4)!.trim();
         final split = _extractTranslation(raw);
 
         final timestamp = Duration(
           minutes: minutes,
           seconds: seconds,
-          milliseconds: centiseconds * 10,
+          milliseconds: milliseconds,
         );
 
         lines.add(
