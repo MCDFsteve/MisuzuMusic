@@ -539,8 +539,10 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
       final TextStyle translationStyle = targetStyle.copyWith(
         height: compressedLineHeight,
       );
-      final Widget translationWidget = DefaultTextStyle.merge(
+      final Widget translationWidget = AnimatedDefaultTextStyle(
         style: translationStyle,
+        duration: widget.animationDuration,
+        curve: Curves.easeInOut,
         child: Text(
           translated.trim(),
           textAlign: TextAlign.center,
