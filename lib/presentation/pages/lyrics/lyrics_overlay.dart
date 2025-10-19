@@ -42,6 +42,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _lyricsCubit = LyricsCubit(
       findLyricsFile: sl<FindLyricsFile>(),
       loadLyricsFromFile: sl<LoadLyricsFromFile>(),
+      fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
     )..loadLyricsForTrack(_currentTrack);
   }
 

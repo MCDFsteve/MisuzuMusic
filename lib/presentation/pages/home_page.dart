@@ -55,6 +55,8 @@ class HomePage extends StatelessWidget {
             getWebDavSources: sl<GetWebDavSources>(),
             ensureWebDavTrackMetadata: sl<EnsureWebDavTrackMetadata>(),
             getWebDavPassword: sl<GetWebDavPassword>(),
+            removeLibraryDirectory: sl<RemoveLibraryDirectory>(),
+            deleteWebDavSource: sl<DeleteWebDavSource>(),
           )..add(const LoadAllTracks()),
         ),
         BlocProvider(
@@ -1212,7 +1214,6 @@ class _WebDavConnectionDialog extends StatefulWidget {
 }
 
 class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
-  final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -1221,6 +1222,8 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
   bool _ignoreTls = false;
   bool _testing = false;
   String? _error;
+  String? _urlError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -1233,67 +1236,142 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+    if (isMac) {
+      return MacosAlertDialog(
+        appIcon: const MacosIcon(CupertinoIcons.cloud),
+        title: const Text('连接到 WebDAV'),
+        message: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _MacosField(
+                label: '服务器地址',
+                placeholder: 'https://example.com/webdav',
+                controller: _urlController,
+                errorText: _urlError,
+                enabled: !_testing,
+              ),
+              const SizedBox(height: 12),
+              _MacosField(
+                label: '用户名 (可选)',
+                controller: _usernameController,
+                enabled: !_testing,
+              ),
+              const SizedBox(height: 12),
+              _MacosField(
+                label: '密码',
+                controller: _passwordController,
+                errorText: _passwordError,
+                obscureText: true,
+                enabled: !_testing,
+              ),
+              const SizedBox(height: 12),
+              _MacosField(
+                label: '自定义名称 (可选)',
+                controller: _displayNameController,
+                enabled: !_testing,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  MacosCheckbox(
+                    value: _ignoreTls,
+                    onChanged: _testing
+                        ? null
+                        : (value) =>
+                            setState(() => _ignoreTls = value ?? false),
+                  ),
+                  const SizedBox(width: 8),
+                  const Flexible(child: Text('忽略 TLS 证书校验')),
+                ],
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  style: MacosTheme.of(context)
+                      .typography
+                      .body
+                      .copyWith(color: MacosColors.systemRedColor),
+                ),
+              ],
+            ],
+          ),
+        ),
+        primaryButton: PushButton(
+          controlSize: ControlSize.large,
+          onPressed: _testing ? null : _onConnect,
+          child: _testing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: ProgressCircle(),
+                )
+              : const Text('连接'),
+        ),
+        secondaryButton: PushButton(
+          controlSize: ControlSize.large,
+          onPressed: _testing ? null : () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+      );
+    }
+
     return AlertDialog(
       title: const Text('连接到 WebDAV'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: _urlController,
-              decoration: const InputDecoration(
-                labelText: '服务器地址',
-                hintText: 'https://example.com/webdav',
-              ),
-              validator: (value) {
-                final trimmed = value?.trim() ?? '';
-                if (trimmed.isEmpty) {
-                  return '请输入服务器地址';
-                }
-                if (!trimmed.startsWith('http://') &&
-                    !trimmed.startsWith('https://')) {
-                  return '地址必须以 http:// 或 https:// 开头';
-                }
-                return null;
-              },
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _urlController,
+            decoration: InputDecoration(
+              labelText: '服务器地址',
+              hintText: 'https://example.com/webdav',
+              errorText: _urlError,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _usernameController,
-              decoration: const InputDecoration(labelText: '用户名 (可选)'),
+            enabled: !_testing,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _usernameController,
+            decoration:
+                const InputDecoration(labelText: '用户名 (可选)'),
+            enabled: !_testing,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _passwordController,
+            decoration: InputDecoration(
+              labelText: '密码',
+              errorText: _passwordError,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: '密码'),
-              obscureText: true,
-              validator: (value) {
-                if ((value ?? '').isEmpty) {
-                  return '请输入密码';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _displayNameController,
-              decoration: const InputDecoration(labelText: '自定义名称 (可选)'),
-            ),
-            const SizedBox(height: 12),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _ignoreTls,
-              onChanged: (value) => setState(() => _ignoreTls = value ?? false),
-              title: const Text('忽略 TLS 证书校验'),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 8),
-              Text(_error!, style: const TextStyle(color: Colors.red)),
-            ],
+            obscureText: true,
+            enabled: !_testing,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _displayNameController,
+            decoration:
+                const InputDecoration(labelText: '自定义名称 (可选)'),
+            enabled: !_testing,
+          ),
+          const SizedBox(height: 12),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _ignoreTls,
+            onChanged: (value) =>
+                setState(() => _ignoreTls = value ?? false),
+            title: const Text('忽略 TLS 证书校验'),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: const TextStyle(color: Colors.red)),
           ],
-        ),
+        ],
       ),
       actions: [
         TextButton(
@@ -1315,21 +1393,42 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
   }
 
   Future<void> _onConnect() async {
-    if (!_formKey.currentState!.validate()) {
+    final rawUrl = _urlController.text.trim();
+    String? urlError;
+    if (rawUrl.isEmpty) {
+      urlError = '请输入服务器地址';
+    } else if (!rawUrl.startsWith('http://') &&
+        !rawUrl.startsWith('https://')) {
+      urlError = '地址必须以 http:// 或 https:// 开头';
+    }
+
+    final password = _passwordController.text;
+    String? passwordError;
+    if (password.isEmpty) {
+      passwordError = '请输入密码';
+    }
+
+    if (urlError != null || passwordError != null) {
+      setState(() {
+        _urlError = urlError;
+        _passwordError = passwordError;
+        _error = null;
+      });
       return;
     }
 
     setState(() {
       _testing = true;
       _error = null;
+      _urlError = null;
+      _passwordError = null;
     });
 
-    final rawUrl = _urlController.text.trim();
     final baseUrl = rawUrl.endsWith('/')
         ? rawUrl.substring(0, rawUrl.length - 1)
         : rawUrl;
     final username = _usernameController.text.trim();
-    final password = _passwordController.text;
+    final passwordValue = password;
     final displayName = _displayNameController.text.trim();
 
     final tempSource = WebDavSource(
@@ -1342,14 +1441,14 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
     );
 
     try {
-      await widget.testConnection(source: tempSource, password: password);
+      await widget.testConnection(source: tempSource, password: passwordValue);
 
       if (!mounted) return;
       Navigator.of(context).pop(
         _WebDavConnectionFormResult(
           baseUrl: baseUrl,
           username: username.isEmpty ? null : username,
-          password: password,
+          password: passwordValue,
           ignoreTls: _ignoreTls,
           displayName: displayName.isEmpty ? null : displayName,
         ),
@@ -1362,6 +1461,51 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
         setState(() => _testing = false);
       }
     }
+  }
+}
+
+class _MacosField extends StatelessWidget {
+  const _MacosField({
+    required this.label,
+    required this.controller,
+    this.placeholder,
+    this.errorText,
+    this.obscureText = false,
+    this.enabled = true,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String? placeholder;
+  final String? errorText;
+  final bool obscureText;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final typography = MacosTheme.of(context).typography;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: typography.body),
+        const SizedBox(height: 6),
+        MacosTextField(
+          controller: controller,
+          placeholder: placeholder,
+          obscureText: obscureText,
+          enabled: enabled,
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            errorText!,
+            style: typography.caption1.copyWith(
+              color: MacosColors.systemRedColor,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }
 
@@ -1926,6 +2070,70 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     return summaries;
   }
 
+  Future<void> _confirmRemoveSummary(_DirectorySummaryData summary) async {
+    if (summary.isAll) {
+      return;
+    }
+
+    final isRemote = summary.isRemote;
+    final title = isRemote ? '移除 WebDAV 音乐库' : '移除音乐文件夹';
+    final name = summary.displayName;
+    final message = isRemote
+        ? '确定要移除 "$name" 吗？移除后将不再同步该 WebDAV 源的歌曲。'
+        : '确定要移除 "$name" 目录吗？这将从音乐库中移除该目录中的所有歌曲。';
+
+    bool? confirmed;
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      confirmed = await showMacosAlertDialog<bool>(
+        context: context,
+        builder: (context) => MacosAlertDialog(
+          appIcon: const MacosIcon(CupertinoIcons.exclamationmark_triangle),
+          title: Text(title),
+          message: Text(message),
+          primaryButton: PushButton(
+            controlSize: ControlSize.large,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('移除'),
+          ),
+          secondaryButton: PushButton(
+            controlSize: ControlSize.large,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+        ),
+      );
+    } else {
+      confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('移除'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final bloc = context.read<MusicLibraryBloc>();
+    if (isRemote && summary.webDavSource != null) {
+      bloc.add(RemoveWebDavSourceEvent(summary.webDavSource!));
+    } else if (summary.directoryPath != null) {
+      bloc.add(RemoveLibraryDirectoryEvent(summary.directoryPath!));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMac = defaultTargetPlatform == TargetPlatform.macOS;
@@ -2096,6 +2304,9 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                                           : summary.filterKey;
                                     });
                                   },
+                                  onRemove: summary.isAll
+                                      ? null
+                                      : () => _confirmRemoveSummary(summary),
                                 ),
                               ),
                           ],
@@ -2183,6 +2394,7 @@ class _LibrarySummaryView extends StatelessWidget {
     required this.totalTracks,
     required this.hasArtwork,
     required this.onTap,
+    this.onRemove,
   });
 
   final String filterKey;
@@ -2193,6 +2405,7 @@ class _LibrarySummaryView extends StatelessWidget {
   final int totalTracks;
   final bool hasArtwork;
   final VoidCallback onTap;
+  final VoidCallback? onRemove;
 
   bool get _isRemote => webDavSource != null;
 
@@ -2277,6 +2490,12 @@ class _LibrarySummaryView extends StatelessWidget {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
+        onSecondaryTapDown: onRemove == null
+            ? null
+            : (details) => _showContextMenu(context, details.globalPosition),
+        onLongPressStart: onRemove == null
+            ? null
+            : (details) => _showContextMenu(context, details.globalPosition),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -2320,6 +2539,31 @@ class _LibrarySummaryView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showContextMenu(BuildContext context, Offset position) async {
+    if (onRemove == null) {
+      return;
+    }
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final result = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        overlay.size.width - position.dx,
+        overlay.size.height - position.dy,
+      ),
+      items: const [
+        PopupMenuItem(
+          value: 'remove',
+          child: Text('移除音乐库'),
+        ),
+      ],
+    );
+    if (result == 'remove') {
+      onRemove?.call();
+    }
   }
 }
 

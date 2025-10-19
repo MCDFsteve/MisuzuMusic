@@ -13,19 +13,27 @@ class LyricsCubit extends Cubit<LyricsState> {
   LyricsCubit({
     required FindLyricsFile findLyricsFile,
     required LoadLyricsFromFile loadLyricsFromFile,
-  }) : _findLyricsFile = findLyricsFile,
-       _loadLyricsFromFile = loadLyricsFromFile,
-       super(const LyricsInitial());
+    required FetchOnlineLyrics fetchOnlineLyrics,
+  })  : _findLyricsFile = findLyricsFile,
+        _loadLyricsFromFile = loadLyricsFromFile,
+        _fetchOnlineLyrics = fetchOnlineLyrics,
+        super(const LyricsInitial());
 
   final FindLyricsFile _findLyricsFile;
   final LoadLyricsFromFile _loadLyricsFromFile;
+  final FetchOnlineLyrics _fetchOnlineLyrics;
 
   Future<void> loadLyricsForTrack(Track track) async {
     emit(const LyricsLoading());
     try {
       final lyricsFromFile = await _loadLyricsFromAssociatedFile(track);
       if (lyricsFromFile == null || lyricsFromFile.lines.isEmpty) {
-        emit(const LyricsEmpty());
+        final onlineLyrics = await _loadLyricsFromOnline(track);
+        if (onlineLyrics == null || onlineLyrics.lines.isEmpty) {
+          emit(const LyricsEmpty());
+          return;
+        }
+        emit(LyricsLoaded(onlineLyrics));
         return;
       }
 
@@ -92,6 +100,30 @@ class LyricsCubit extends Cubit<LyricsState> {
       return lyricsPath;
     } catch (_) {
       print('🎼 LyricsCubit: 查找歌词过程中发生异常，已忽略');
+      return null;
+    }
+  }
+
+  Future<Lyrics?> _loadLyricsFromOnline(Track track) async {
+    final title = track.title.trim();
+    if (title.isEmpty) {
+      return null;
+    }
+
+    try {
+      final lyrics = await _fetchOnlineLyrics(
+        trackId: track.id,
+        title: title,
+        artist: track.artist.trim().isEmpty ? null : track.artist,
+      );
+      if (lyrics != null) {
+        print('🎼 LyricsCubit: 在线歌词获取成功');
+      } else {
+        print('🎼 LyricsCubit: 在线歌词未匹配到结果');
+      }
+      return lyrics;
+    } catch (e) {
+      print('🎼 LyricsCubit: 在线歌词获取失败 -> $e');
       return null;
     }
   }

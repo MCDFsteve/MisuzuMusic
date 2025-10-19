@@ -38,6 +38,7 @@ abstract class MusicLibraryRepository {
     required WebDavSource source,
     required String password,
   });
+  Future<void> removeLibraryDirectory(String directoryPath);
   Future<Track?> ensureWebDavTrackMetadata(
     Track track, {
     bool force = false,

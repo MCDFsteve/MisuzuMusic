@@ -40,3 +40,21 @@ class FindLyricsFile {
     return await _repository.findLyricsFile(audioFilePath);
   }
 }
+
+class FetchOnlineLyrics {
+  final LyricsRepository _repository;
+
+  FetchOnlineLyrics(this._repository);
+
+  Future<Lyrics?> call({
+    required String trackId,
+    required String title,
+    String? artist,
+  }) async {
+    return await _repository.fetchOnlineLyrics(
+      trackId: trackId,
+      title: title,
+      artist: artist,
+    );
+  }
+}

@@ -10,6 +10,7 @@ import '../../data/repositories/lyrics_repository_impl.dart';
 import '../../data/repositories/playback_history_repository_impl.dart';
 import '../../data/services/audio_player_service_impl.dart';
 import '../../data/services/japanese_processing_service_impl.dart';
+import '../../data/datasources/remote/netease_api_client.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/lyrics_repository.dart';
 import '../../domain/repositories/playback_history_repository.dart';
@@ -54,6 +55,8 @@ class DependencyInjection {
 
       // Repositories
       print('📚 注册仓库...');
+      sl.registerLazySingleton<NeteaseApiClient>(() => NeteaseApiClient());
+
       sl.registerLazySingleton<MusicLibraryRepository>(
         () => MusicLibraryRepositoryImpl(
           localDataSource: sl(),
@@ -65,6 +68,7 @@ class DependencyInjection {
         () => LyricsRepositoryImpl(
           localDataSource: sl(),
           japaneseProcessingService: sl(),
+          neteaseApiClient: sl(),
         ),
       );
 
@@ -97,6 +101,7 @@ class DependencyInjection {
       sl.registerLazySingleton(() => GetAllArtists(sl()));
       sl.registerLazySingleton(() => GetAllAlbums(sl()));
       sl.registerLazySingleton(() => GetLibraryDirectories(sl()));
+      sl.registerLazySingleton(() => RemoveLibraryDirectory(sl()));
       sl.registerLazySingleton(() => GetWebDavSources(sl()));
       sl.registerLazySingleton(() => GetWebDavSourceById(sl()));
       sl.registerLazySingleton(() => SaveWebDavSource(sl()));
@@ -119,6 +124,7 @@ class DependencyInjection {
       sl.registerLazySingleton(() => LoadLyricsFromFile(sl()));
       sl.registerLazySingleton(() => SaveLyrics(sl()));
       sl.registerLazySingleton(() => FindLyricsFile(sl()));
+      sl.registerLazySingleton(() => FetchOnlineLyrics(sl()));
 
       // Initialize services
       print('🚀 初始化服务...');

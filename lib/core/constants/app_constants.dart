@@ -21,6 +21,7 @@ class AppConstants {
   // Cache
   static const String artworkCacheDir = 'artwork_cache';
   static const String lyricsCacheDir = 'lyrics_cache';
+  static const String neteaseApiBaseUrl = 'http://43.128.47.234:3000';
 
   // Settings Keys
   static const String settingsVolume = 'volume';

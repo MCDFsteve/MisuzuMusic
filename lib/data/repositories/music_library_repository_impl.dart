@@ -519,6 +519,45 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   }
 
   @override
+  Future<void> removeLibraryDirectory(String directoryPath) async {
+    final normalizedDirectory = path.normalize(directoryPath);
+    try {
+      await _configStore.init();
+      final raw =
+          _configStore.getValue<dynamic>(StorageKeys.libraryDirectories);
+      final directories = <String>[
+        if (raw is List)
+          ...raw.whereType<String>().map((dir) => path.normalize(dir.trim())),
+      ];
+
+      final before = directories.length;
+      directories.removeWhere((dir) => dir == normalizedDirectory);
+      if (directories.length != before) {
+        directories.sort(
+          (a, b) => a.toLowerCase().compareTo(b.toLowerCase()),
+        );
+        await _configStore.setValue(StorageKeys.libraryDirectories, directories);
+      }
+
+      final allTracks = await _localDataSource.getAllTracks();
+      final idsToRemove = allTracks
+          .where(
+            (track) =>
+                track.sourceType == TrackSourceType.local &&
+                _isTrackWithinDirectory(track.filePath, normalizedDirectory),
+          )
+          .map((track) => track.id)
+          .toList();
+
+      if (idsToRemove.isNotEmpty) {
+        await _localDataSource.deleteTracksByIds(idsToRemove);
+      }
+    } catch (e) {
+      throw FileSystemException('Failed to remove directory: ${e.toString()}');
+    }
+  }
+
+  @override
   Future<Track?> ensureWebDavTrackMetadata(
     Track track, {
     bool force = false,
@@ -547,7 +586,6 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       final source = await getWebDavSourceById(sourceId);
       final password = await getWebDavPassword(sourceId);
       if (source == null || password == null) {
-        print('⚠️ WebDAV: 缺少源配置或密码 -> $sourceId');
         return track;
       }
 
@@ -1166,6 +1204,15 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       return normalizedRoot;
     }
     return '$normalizedRoot$normalizedRelative';
+  }
+
+  bool _isTrackWithinDirectory(String filePath, String directoryPath) {
+    final normalizedTrack = path.normalize(filePath);
+    final normalizedDirectory = path.normalize(directoryPath);
+    if (normalizedTrack == normalizedDirectory) {
+      return true;
+    }
+    return path.isWithin(normalizedDirectory, normalizedTrack);
   }
 
   Uint8List _buildPlayLogPayload(int timestampMs, String trackId) {

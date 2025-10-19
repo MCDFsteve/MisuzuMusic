@@ -148,6 +148,8 @@ class LyricsModel extends Lyrics {
     return lines;
   }
 
+  static List<LyricsLine> parseLrc(String content) => _parseLrcContent(content);
+
   static _TranslationSplit _extractTranslation(String raw) {
     final match = RegExp(r'<([^<>]+)>\s*$', multiLine: false).firstMatch(raw);
     if (match == null) {

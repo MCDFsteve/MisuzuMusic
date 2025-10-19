@@ -7,17 +7,21 @@ import '../../domain/entities/lyrics_entities.dart';
 import '../../domain/repositories/lyrics_repository.dart';
 import '../../domain/services/japanese_processing_service.dart';
 import '../datasources/local/lyrics_local_datasource.dart';
+import '../datasources/remote/netease_api_client.dart';
 import '../models/lyrics_models.dart';
 
 class LyricsRepositoryImpl implements LyricsRepository {
   final LyricsLocalDataSource _localDataSource;
   final JapaneseProcessingService _japaneseProcessingService;
+  final NeteaseApiClient _neteaseApiClient;
 
   LyricsRepositoryImpl({
     required LyricsLocalDataSource localDataSource,
     required JapaneseProcessingService japaneseProcessingService,
-  }) : _localDataSource = localDataSource,
-       _japaneseProcessingService = japaneseProcessingService;
+    required NeteaseApiClient neteaseApiClient,
+  })  : _localDataSource = localDataSource,
+        _japaneseProcessingService = japaneseProcessingService,
+        _neteaseApiClient = neteaseApiClient;
 
   @override
   Future<Lyrics?> getLyricsByTrackId(String trackId) async {
@@ -217,6 +221,50 @@ class LyricsRepositoryImpl implements LyricsRepository {
       throw DatabaseException(
         'Failed to check lyrics existence: ${e.toString()}',
       );
+    }
+  }
+
+  @override
+  Future<Lyrics?> fetchOnlineLyrics({
+    required String trackId,
+    required String title,
+    String? artist,
+  }) async {
+    final trimmedTitle = title.trim();
+    if (trimmedTitle.isEmpty) {
+      return null;
+    }
+
+    try {
+      final songId = await _neteaseApiClient.searchSongId(
+        title: trimmedTitle,
+        artist: artist?.trim(),
+      );
+      if (songId == null) {
+        return null;
+      }
+
+      final lyricContent = await _neteaseApiClient.fetchLyricsBySongId(songId);
+      if (lyricContent == null || lyricContent.trim().isEmpty) {
+        return null;
+      }
+
+      final lines = LyricsModel.parseLrc(lyricContent);
+      if (lines.isEmpty) {
+        return null;
+      }
+
+      final lyrics = Lyrics(
+        trackId: trackId,
+        lines: lines,
+        format: LyricsFormat.lrc,
+      );
+
+      await saveLyrics(lyrics);
+      return await getLyricsByTrackId(trackId);
+    } catch (e) {
+      print('⚠️ LyricsRepository: 在线歌词获取失败 -> $e');
+      return null;
     }
   }
 

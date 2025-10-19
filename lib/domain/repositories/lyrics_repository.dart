@@ -19,4 +19,11 @@ abstract class LyricsRepository {
 
   // Check if lyrics exist for a track
   Future<bool> hasLyrics(String trackId);
+
+  // Fetch lyrics from remote provider when local file is missing
+  Future<Lyrics?> fetchOnlineLyrics({
+    required String trackId,
+    required String title,
+    String? artist,
+  });
 }
