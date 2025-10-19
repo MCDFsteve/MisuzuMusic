@@ -33,7 +33,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   );
   static const double _listSidePadding = 4.0;
   static const Duration _animationDuration = Duration(milliseconds: 240);
-  static const double _maxBlurLines = 3.0;
+  static const double _maxBlurLines = 4.0;
 
   int _activeIndex = -1;
   late List<GlobalKey> _itemKeys;
@@ -249,6 +249,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         );
         final double sharpDistance = math.max(0.0, halfViewport - blurBand);
         final double blurMaxDistance = halfViewport;
+        final double edgeSpacer = math.max(0.0, halfViewport - placeholderHeight * 0.5);
 
         return BlocListener<PlayerBloc, PlayerBlocState>(
           listener: (context, state) {
@@ -270,14 +271,19 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                   vertical: verticalPadding,
                   horizontal: _listSidePadding,
                 ),
-                itemCount: widget.lines.length,
+                itemCount: widget.lines.length + 2,
                 itemBuilder: (context, index) {
-                  final LyricsLine line = widget.lines[index];
-                  final bool isActive = index == _activeIndex;
+                  if (index == 0 || index == widget.lines.length + 1) {
+                    return SizedBox(height: edgeSpacer);
+                  }
+
+                  final int lineIndex = index - 1;
+                  final LyricsLine line = widget.lines[lineIndex];
+                  final bool isActive = lineIndex == _activeIndex;
                   final String text = _lineText(line);
 
                   return _LyricsLineImageTile(
-                    key: _itemKeys[index],
+                    key: _itemKeys[lineIndex],
                     text: text,
                     isActive: isActive,
                     linePadding: _linePadding,
@@ -333,7 +339,7 @@ class _LyricsLineImageTile extends StatefulWidget {
 }
 
 class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
-  static const double _maxSigma = 28.0;
+  static const double _maxSigma = 18.0;
 
   double _blurFactor = 0.0;
 
