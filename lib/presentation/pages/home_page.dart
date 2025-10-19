@@ -120,15 +120,37 @@ class _HomePageContentState extends State<HomePageContent> {
         if (!_lyricsVisible) {
           return;
         }
-        final track = _playerTrack(playerState);
-        if (track == null) {
-          if (_lyricsVisible && mounted) {
+
+        if (playerState is PlayerInitial ||
+            playerState is PlayerError) {
+          if (mounted) {
             setState(() {
               _lyricsVisible = false;
               _lyricsActiveTrack = null;
             });
           }
-        } else if (_lyricsActiveTrack == null || _lyricsActiveTrack!.id != track.id) {
+          return;
+        }
+
+        if (playerState is PlayerStopped) {
+          final hasQueuedTracks = playerState.queue.isNotEmpty;
+          if (!hasQueuedTracks) {
+            if (mounted) {
+              setState(() {
+                _lyricsVisible = false;
+                _lyricsActiveTrack = null;
+              });
+            }
+          }
+          return;
+        }
+
+        final track = _playerTrack(playerState);
+        if (track == null) {
+          return;
+        }
+
+        if (_lyricsActiveTrack == null || _lyricsActiveTrack!.id != track.id) {
           if (mounted) {
             setState(() {
               _lyricsActiveTrack = track;
@@ -267,15 +289,37 @@ class _HomePageContentState extends State<HomePageContent> {
         if (!_lyricsVisible) {
           return;
         }
-        final track = _playerTrack(playerState);
-        if (track == null) {
+
+        if (playerState is PlayerInitial ||
+            playerState is PlayerError) {
           if (mounted) {
             setState(() {
               _lyricsVisible = false;
               _lyricsActiveTrack = null;
             });
           }
-        } else if (_lyricsActiveTrack == null || _lyricsActiveTrack!.id != track.id) {
+          return;
+        }
+
+        if (playerState is PlayerStopped) {
+          final hasQueuedTracks = playerState.queue.isNotEmpty;
+          if (!hasQueuedTracks) {
+            if (mounted) {
+              setState(() {
+                _lyricsVisible = false;
+                _lyricsActiveTrack = null;
+              });
+            }
+          }
+          return;
+        }
+
+        final track = _playerTrack(playerState);
+        if (track == null) {
+          return;
+        }
+
+        if (_lyricsActiveTrack == null || _lyricsActiveTrack!.id != track.id) {
           if (mounted) {
             setState(() {
               _lyricsActiveTrack = track;
