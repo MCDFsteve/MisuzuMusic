@@ -100,7 +100,11 @@ class LyricsRepositoryImpl implements LyricsRepository {
       for (final file in candidateFiles) {
         final filename = path.basenameWithoutExtension(file.path);
         final normalizedName = _normalizeFilename(filename);
-        if (normalizedTargets.contains(normalizedName)) {
+        final variants = <String>{
+          normalizedName,
+          _withoutSpaces(normalizedName),
+        };
+        if (variants.any(normalizedTargets.contains)) {
           return file.path;
         }
       }
@@ -116,9 +120,10 @@ class LyricsRepositoryImpl implements LyricsRepository {
     final normalizedFull = _normalizeFilename(baseName);
     if (normalizedFull.isNotEmpty) {
       candidates.add(normalizedFull);
+      candidates.add(_withoutSpaces(normalizedFull));
     }
 
-    final separators = [' - ', '-', ' – ', ' — ', ' _ ', '_'];
+    final separators = [' - ', '-', ' – ', ' — ', ' _ ', '_', ':', '：'];
     for (final separator in separators) {
       if (baseName.contains(separator)) {
         final parts = baseName.split(separator);
@@ -126,6 +131,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
           final normalizedPart = _normalizeFilename(part);
           if (normalizedPart.length >= 2) {
             candidates.add(normalizedPart);
+            candidates.add(_withoutSpaces(normalizedPart));
           }
         }
       }
@@ -135,8 +141,43 @@ class LyricsRepositoryImpl implements LyricsRepository {
   }
 
   String _normalizeFilename(String input) {
-    return input.trim().replaceAll(RegExp(r'[\s_\-–—]+'), ' ').toLowerCase();
+    final primary = input.toLowerCase().trim();
+
+    final buffer = StringBuffer();
+    for (final rune in primary.runes) {
+      final char = String.fromCharCode(rune);
+      if (_isFilenameWordChar(char)) {
+        buffer.write(char);
+      } else {
+        buffer.write(' ');
+      }
+    }
+
+    final result = buffer.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+    return result.replaceAll(RegExp(r'\s+'), ' ');
   }
+
+  bool _isFilenameWordChar(String char) {
+    if (char.isEmpty) return false;
+    final code = char.codeUnitAt(0);
+    final isAsciiLower = code >= 97 && code <= 122;
+    final isDigit = code >= 48 && code <= 57;
+    final isCjkUnified =
+        (code >= 0x4E00 && code <= 0x9FFF) ||
+        (code >= 0x3400 && code <= 0x4DBF);
+    final isHiragana = code >= 0x3040 && code <= 0x309F;
+    final isKatakana = code >= 0x30A0 && code <= 0x30FF;
+    final isCommonKanji = char == '々' || char == '〆' || char == '〤';
+
+    return isAsciiLower ||
+        isDigit ||
+        isCjkUnified ||
+        isHiragana ||
+        isKatakana ||
+        isCommonKanji;
+  }
+
+  String _withoutSpaces(String input) => input.replaceAll(' ', '');
 
   @override
   Future<Lyrics?> loadLyricsFromFile(String filePath, String trackId) async {
@@ -375,7 +416,10 @@ class LyricsRepositoryImpl implements LyricsRepository {
   }
 
   _TranslationSplit _extractTranslation(String rawText) {
-    final match = RegExp(r'<([^<>]+)>\s*$', multiLine: false).firstMatch(rawText);
+    final match = RegExp(
+      r'<([^<>]+)>\s*$',
+      multiLine: false,
+    ).firstMatch(rawText);
     if (match == null) {
       return _TranslationSplit(text: rawText.trimRight(), translation: null);
     }
