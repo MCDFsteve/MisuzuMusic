@@ -160,7 +160,7 @@ class _LyricsLayout extends StatelessWidget {
                 ),
                 Container(
                   width: 1,
-                  margin: const EdgeInsets.symmetric(horizontal: 28),
+                  margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 50),
                   color: dividerColor.withOpacity(0.35),
                 ),
                 Expanded(
