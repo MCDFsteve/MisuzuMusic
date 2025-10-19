@@ -138,7 +138,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     }
   }
 
-  void _scrollToIndex(int index) {
+  void _scrollToIndex(int index, {int attempt = 0}) {
     if (!widget.controller.hasClients) {
       return;
     }
@@ -147,16 +147,56 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     }
 
     final BuildContext? targetContext = _itemKeys[index].currentContext;
-    if (targetContext == null) {
+    if (targetContext != null) {
+      Scrollable.ensureVisible(
+        targetContext,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutQuad,
+      );
       return;
     }
 
-    Scrollable.ensureVisible(
-      targetContext,
-      alignment: 0.5,
-      duration: const Duration(milliseconds: 360),
-      curve: Curves.easeOutQuad,
+    final ScrollPosition position = widget.controller.position;
+    if (!position.hasPixels) {
+      if (attempt > 6) {
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _scrollToIndex(index, attempt: attempt + 1);
+      });
+      return;
+    }
+
+    final double placeholderHeight =
+        _approxLineHeight(context) + _linePadding.vertical;
+    final double viewportHeight = position.viewportDimension;
+    final double edgeSpacer = math.max(
+      0.0,
+      viewportHeight * 0.5 - placeholderHeight * 0.5,
     );
+
+    final double roughCenterOffset =
+        edgeSpacer + placeholderHeight * index;
+    final double targetOffset = roughCenterOffset -
+        math.max(0.0, viewportHeight * 0.5 - placeholderHeight * 0.5);
+    final double clampedOffset = targetOffset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+
+    if ((position.pixels - clampedOffset).abs() > 1.0) {
+      position.jumpTo(clampedOffset);
+    }
+
+    if (attempt > 6) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollToIndex(index, attempt: attempt + 1);
+    });
   }
 
   TextStyle _baseRenderStyle(BuildContext context) {
