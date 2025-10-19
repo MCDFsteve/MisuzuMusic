@@ -475,12 +475,18 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
   Widget build(BuildContext context) {
     final double factor = _blurFactor.clamp(0.0, 1.0);
     final double sigma = math.pow(factor, 1.35).toDouble() * _maxSigma;
+    const double _lineHeightCompressionFactor = 0.75;
+    const double _itemSpacingPadding = 4.0;
     final TextStyle targetStyle = widget.isActive
         ? widget.activeStyle
         : widget.inactiveStyle;
     final String displayText = widget.text.isEmpty ? ' ' : widget.text;
     final double fontSize = targetStyle.fontSize ?? 16.0;
-    final double lineHeight = targetStyle.height ?? 1.6;
+    final double baseLineHeight = targetStyle.height ?? 1.6;
+    final double compressedLineHeight = math.max(
+      0.9,
+      baseLineHeight * _lineHeightCompressionFactor,
+    );
 
     Widget originalContent;
 
@@ -505,7 +511,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
         softWrap: true,
         strutStyle: StrutStyle(
           fontSize: fontSize,
-          height: lineHeight,
+          height: compressedLineHeight,
           forceStrutHeight: true,
           leading: 0,
         ),
@@ -519,7 +525,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
         maxLines: 4,
         strutStyle: StrutStyle(
           fontSize: fontSize,
-          height: lineHeight,
+          height: compressedLineHeight,
           forceStrutHeight: true,
           leading: 0,
         ),
@@ -530,16 +536,22 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
 
     final String? translated = widget.translatedText;
     if (translated != null && translated.trim().isNotEmpty) {
-      final Widget translationWidget = Text(
-        translated.trim(),
-        textAlign: TextAlign.center,
-        softWrap: true,
-        maxLines: 4,
-        strutStyle: StrutStyle(
-          fontSize: fontSize,
-          height: lineHeight,
-          forceStrutHeight: true,
-          leading: 0,
+      final TextStyle translationStyle = targetStyle.copyWith(
+        height: compressedLineHeight,
+      );
+      final Widget translationWidget = DefaultTextStyle.merge(
+        style: translationStyle,
+        child: Text(
+          translated.trim(),
+          textAlign: TextAlign.center,
+          softWrap: true,
+          maxLines: 4,
+          strutStyle: StrutStyle(
+            fontSize: fontSize,
+            height: compressedLineHeight,
+            forceStrutHeight: true,
+            leading: 0,
+          ),
         ),
       );
 
@@ -561,7 +573,8 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
     }
 
     return Padding(
-      padding: widget.linePadding,
+      padding: widget.linePadding +
+          const EdgeInsets.symmetric(vertical: _itemSpacingPadding),
       child: AnimatedDefaultTextStyle(
         style: targetStyle,
         duration: widget.animationDuration,
