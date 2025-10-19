@@ -455,7 +455,6 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
 
       content = FuriganaText(
         segments: widget.annotatedTexts,
-        baseStyle: targetStyle,
         annotationStyle: annotationStyle,
         textAlign: TextAlign.center,
         maxLines: 4,
