@@ -28,7 +28,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   static const double _activeFontSize = 26.0;
   static const double _inactiveFontSize = 16.0;
   static const EdgeInsets _linePadding = EdgeInsets.symmetric(
-    vertical: 6,
+    vertical: 0,
     horizontal: 12,
   );
   static const double _listSidePadding = 4.0;
@@ -152,7 +152,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
     Scrollable.ensureVisible(
       targetContext,
-      alignment: 0.45,
+      alignment: 0.5,
       duration: const Duration(milliseconds: 360),
       curve: Curves.easeOutQuad,
     );
@@ -259,34 +259,39 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
           },
           child: ScrollConfiguration(
             behavior: behavior,
-            child: ListView.builder(
-              controller: widget.controller,
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.symmetric(
-                vertical: verticalPadding,
-                horizontal: _listSidePadding,
-              ),
-              itemCount: widget.lines.length,
-              itemBuilder: (context, index) {
-                final LyricsLine line = widget.lines[index];
-                final bool isActive = index == _activeIndex;
-                final String text = _lineText(line);
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              removeBottom: true,
+              child: ListView.builder(
+                controller: widget.controller,
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.symmetric(
+                  vertical: verticalPadding,
+                  horizontal: _listSidePadding,
+                ),
+                itemCount: widget.lines.length,
+                itemBuilder: (context, index) {
+                  final LyricsLine line = widget.lines[index];
+                  final bool isActive = index == _activeIndex;
+                  final String text = _lineText(line);
 
-                return _LyricsLineImageTile(
-                  key: _itemKeys[index],
-                  text: text,
-                  isActive: isActive,
-                  linePadding: _linePadding,
-                  animationDuration: _animationDuration,
-                  scrollOffsetListenable: _scrollOffsetNotifier,
-                  viewportHeight: viewportHeight,
-                  sharpDistance: sharpDistance,
-                  blurMaxDistance: blurMaxDistance,
-                  activeStyle: _activeTextStyle(context),
-                  inactiveStyle: _inactiveTextStyle(context),
-                  maxWidth: lineMaxWidth,
-                );
-              },
+                  return _LyricsLineImageTile(
+                    key: _itemKeys[index],
+                    text: text,
+                    isActive: isActive,
+                    linePadding: _linePadding,
+                    animationDuration: _animationDuration,
+                    scrollOffsetListenable: _scrollOffsetNotifier,
+                    viewportHeight: viewportHeight,
+                    sharpDistance: sharpDistance,
+                    blurMaxDistance: blurMaxDistance,
+                    activeStyle: _activeTextStyle(context),
+                    inactiveStyle: _inactiveTextStyle(context),
+                    maxWidth: lineMaxWidth,
+                  );
+                },
+              ),
             ),
           ),
         );
@@ -420,10 +425,20 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
     final TextStyle targetStyle =
         widget.isActive ? widget.activeStyle : widget.inactiveStyle;
     final String displayText = widget.text.isEmpty ? ' ' : widget.text;
+    final double fontSize = targetStyle.fontSize ?? 16.0;
+    final double lineHeight = targetStyle.height ?? 1.6;
 
     Widget content = Text(
       displayText,
       textAlign: TextAlign.center,
+      softWrap: true,
+      maxLines: 4,
+      strutStyle: StrutStyle(
+        fontSize: fontSize,
+        height: lineHeight,
+        forceStrutHeight: true,
+        leading: 0,
+      ),
     );
 
     if (sigma >= 0.01) {

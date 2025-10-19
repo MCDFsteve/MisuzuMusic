@@ -130,9 +130,7 @@ class _LyricsLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final EdgeInsets contentPadding = isMac
-        ? const EdgeInsets.fromLTRB(32, 32, 32, 32)
-        : const EdgeInsets.fromLTRB(20, 24, 20, 24);
+    final EdgeInsets contentPadding = EdgeInsets.zero;
 
     return Container(
       color: Colors.transparent,
