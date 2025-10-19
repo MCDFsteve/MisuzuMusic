@@ -325,6 +325,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                     key: _itemKeys[lineIndex],
                     text: text,
                     annotatedTexts: line.annotatedTexts,
+                    translatedText: line.translatedText,
                     isActive: isActive,
                     linePadding: _linePadding,
                     animationDuration: _animationDuration,
@@ -351,6 +352,7 @@ class _LyricsLineImageTile extends StatefulWidget {
     super.key,
     required this.text,
     required this.annotatedTexts,
+    required this.translatedText,
     required this.isActive,
     required this.linePadding,
     required this.animationDuration,
@@ -365,6 +367,7 @@ class _LyricsLineImageTile extends StatefulWidget {
 
   final String text;
   final List<AnnotatedText> annotatedTexts;
+  final String? translatedText;
   final bool isActive;
   final EdgeInsets linePadding;
   final Duration animationDuration;
@@ -403,6 +406,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
 
     if (oldWidget.isActive != widget.isActive ||
         oldWidget.text != widget.text ||
+        oldWidget.translatedText != widget.translatedText ||
         oldWidget.viewportHeight != widget.viewportHeight ||
         oldWidget.sharpDistance != widget.sharpDistance ||
         oldWidget.blurMaxDistance != widget.blurMaxDistance) {
@@ -478,7 +482,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
     final double fontSize = targetStyle.fontSize ?? 16.0;
     final double lineHeight = targetStyle.height ?? 1.6;
 
-    Widget content;
+    Widget originalContent;
 
     if (widget.annotatedTexts.isNotEmpty) {
       final double annotationFontSize = math.max(8.0, fontSize * 0.4);
@@ -493,7 +497,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
 
       final double spacing = -math.max(2.0, annotationFontSize * 0.35);
 
-      content = FuriganaText(
+      originalContent = FuriganaText(
         segments: widget.annotatedTexts,
         annotationStyle: annotationStyle,
         textAlign: TextAlign.center,
@@ -508,7 +512,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
         annotationSpacing: spacing,
       );
     } else {
-      content = Text(
+      originalContent = Text(
         displayText,
         textAlign: TextAlign.center,
         softWrap: true,
@@ -522,10 +526,37 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
       );
     }
 
+    Widget composedContent = originalContent;
+
+    final String? translated = widget.translatedText;
+    if (translated != null && translated.trim().isNotEmpty) {
+      final Widget translationWidget = Text(
+        translated.trim(),
+        textAlign: TextAlign.center,
+        softWrap: true,
+        maxLines: 4,
+        strutStyle: StrutStyle(
+          fontSize: fontSize,
+          height: lineHeight,
+          forceStrutHeight: true,
+          leading: 0,
+        ),
+      );
+
+      composedContent = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          originalContent,
+          const SizedBox(height: 4),
+          translationWidget,
+        ],
+      );
+    }
+
     if (sigma >= 0.01) {
-      content = ImageFiltered(
+      composedContent = ImageFiltered(
         imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-        child: content,
+        child: composedContent,
       );
     }
 
@@ -537,7 +568,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
         curve: Curves.easeInOut,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: widget.maxWidth),
-          child: Align(alignment: Alignment.center, child: content),
+          child: Align(alignment: Alignment.center, child: composedContent),
         ),
       ),
     );

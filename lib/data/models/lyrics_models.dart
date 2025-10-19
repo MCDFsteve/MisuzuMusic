@@ -67,15 +67,26 @@ class LyricsModel extends Lyrics {
       final timestamp = line.timestamp;
       final minutes = timestamp.inMinutes.toString().padLeft(2, '0');
       final seconds = (timestamp.inSeconds % 60).toString().padLeft(2, '0');
-      final milliseconds = ((timestamp.inMilliseconds % 1000) / 10).round().toString().padLeft(2, '0');
+      final milliseconds =
+          ((timestamp.inMilliseconds % 1000) / 10).round().toString().padLeft(2, '0');
+      final translation = line.translatedText?.trim();
+      final suffix = (translation != null && translation.isNotEmpty)
+          ? ' <${translation.replaceAll('\n', ' ')}>'
+          : '';
 
-      buffer.writeln('[$minutes:$seconds.$milliseconds]${line.originalText}');
+      buffer.writeln('[$minutes:$seconds.$milliseconds]${line.originalText}$suffix');
     }
     return buffer.toString();
   }
 
   String _toTextContent() {
-    return lines.map((line) => line.originalText).join('\n');
+    return lines
+        .map(
+          (line) => line.translatedText == null || line.translatedText!.isEmpty
+              ? line.originalText
+              : '${line.originalText} <${line.translatedText}>',
+        )
+        .join('\n');
   }
 
   static List<LyricsLine> _parseLrcContent(String content) {
@@ -88,7 +99,8 @@ class LyricsModel extends Lyrics {
         final minutes = int.parse(match.group(1)!);
         final seconds = int.parse(match.group(2)!);
         final centiseconds = int.parse(match.group(3)!);
-        final text = match.group(4)!;
+        final raw = match.group(4)!.trim();
+        final split = _extractTranslation(raw);
 
         final timestamp = Duration(
           minutes: minutes,
@@ -96,11 +108,14 @@ class LyricsModel extends Lyrics {
           milliseconds: centiseconds * 10,
         );
 
-        lines.add(LyricsLine(
-          timestamp: timestamp,
-          originalText: text,
-          annotatedTexts: [], // Will be populated when processing Japanese text
-        ));
+        lines.add(
+          LyricsLine(
+            timestamp: timestamp,
+            originalText: split.text,
+            translatedText: split.translation,
+            annotatedTexts: [], // Will be populated when processing Japanese text
+          ),
+        );
       }
     }
 
@@ -112,17 +127,37 @@ class LyricsModel extends Lyrics {
     final textLines = content.split('\n');
 
     for (int i = 0; i < textLines.length; i++) {
-      final text = textLines[i].trim();
-      if (text.isNotEmpty) {
-        lines.add(LyricsLine(
-          timestamp: Duration(seconds: i * 5), // Default 5 seconds per line
-          originalText: text,
-          annotatedTexts: [], // Will be populated when processing Japanese text
-        ));
+      final raw = textLines[i].trim();
+      if (raw.isNotEmpty) {
+        final split = _extractTranslation(raw);
+        lines.add(
+          LyricsLine(
+            timestamp: Duration(seconds: i * 5), // Default 5 seconds per line
+            originalText: split.text,
+            translatedText: split.translation,
+            annotatedTexts: [], // Will be populated when processing Japanese text
+          ),
+        );
       }
     }
 
     return lines;
+  }
+
+  static _TranslationSplit _extractTranslation(String raw) {
+    final match = RegExp(r'<([^<>]+)>\s*$', multiLine: false).firstMatch(raw);
+    if (match == null) {
+      return _TranslationSplit(text: raw.trimRight(), translation: null);
+    }
+
+    final baseText = raw.substring(0, match.start).trimRight();
+    final translation = match.group(1)?.trim();
+    return _TranslationSplit(
+      text: baseText,
+      translation: (translation == null || translation.isEmpty)
+          ? null
+          : translation,
+    );
   }
 }
 
@@ -130,6 +165,7 @@ class LyricsLineModel extends LyricsLine {
   const LyricsLineModel({
     required super.timestamp,
     required super.originalText,
+    super.translatedText,
     required super.annotatedTexts,
   });
 
@@ -137,6 +173,7 @@ class LyricsLineModel extends LyricsLine {
     return LyricsLineModel(
       timestamp: line.timestamp,
       originalText: line.originalText,
+      translatedText: line.translatedText,
       annotatedTexts: line.annotatedTexts
           .map((text) => AnnotatedTextModel.fromEntity(text))
           .toList(),
@@ -147,6 +184,7 @@ class LyricsLineModel extends LyricsLine {
     return LyricsLine(
       timestamp: timestamp,
       originalText: originalText,
+      translatedText: translatedText,
       annotatedTexts: annotatedTexts
           .map((text) => (text as AnnotatedTextModel).toEntity())
           .toList(),
@@ -156,14 +194,23 @@ class LyricsLineModel extends LyricsLine {
   LyricsLineModel copyWith({
     Duration? timestamp,
     String? originalText,
+    String? translatedText,
     List<AnnotatedText>? annotatedTexts,
   }) {
     return LyricsLineModel(
       timestamp: timestamp ?? this.timestamp,
       originalText: originalText ?? this.originalText,
+      translatedText: translatedText ?? this.translatedText,
       annotatedTexts: annotatedTexts ?? this.annotatedTexts,
     );
   }
+}
+
+class _TranslationSplit {
+  const _TranslationSplit({required this.text, required this.translation});
+
+  final String text;
+  final String? translation;
 }
 
 class AnnotatedTextModel extends AnnotatedText {

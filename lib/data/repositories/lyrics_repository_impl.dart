@@ -197,6 +197,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
             LyricsLine(
               timestamp: line.timestamp,
               originalText: line.originalText,
+              translatedText: line.translatedText,
               annotatedTexts: annotatedTexts,
             ),
           );
@@ -205,6 +206,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
             LyricsLine(
               timestamp: line.timestamp,
               originalText: line.originalText,
+              translatedText: line.translatedText,
               annotatedTexts: [
                 AnnotatedText(
                   original: line.originalText,
@@ -242,19 +244,22 @@ class LyricsRepositoryImpl implements LyricsRepository {
         final seconds = int.parse(match.group(2)!);
         final centiseconds = int.parse(match.group(3)!);
         final rawText = match.group(4)!.trim();
+        final translationSplit = _extractTranslation(rawText);
+        final baseText = translationSplit.text;
 
-        if (rawText.isNotEmpty) {
+        if (baseText.isNotEmpty || translationSplit.translation != null) {
           final timestamp = Duration(
             minutes: minutes,
             seconds: seconds,
             milliseconds: centiseconds * 10,
           );
-          final parsed = _parseAnnotatedLine(rawText);
+          final parsed = _parseAnnotatedLine(baseText);
 
           lines.add(
             LyricsLine(
               timestamp: timestamp,
               originalText: parsed.text,
+              translatedText: translationSplit.translation,
               annotatedTexts: parsed.segments,
             ),
           );
@@ -272,11 +277,13 @@ class LyricsRepositoryImpl implements LyricsRepository {
     for (int i = 0; i < textLines.length; i++) {
       final rawText = textLines[i].trim();
       if (rawText.isNotEmpty) {
-        final parsed = _parseAnnotatedLine(rawText);
+        final translationSplit = _extractTranslation(rawText);
+        final parsed = _parseAnnotatedLine(translationSplit.text);
         lines.add(
           LyricsLine(
             timestamp: Duration(seconds: i * 5), // Default 5 seconds per line
             originalText: parsed.text,
+            translatedText: translationSplit.translation,
             annotatedTexts: parsed.segments,
           ),
         );
@@ -364,6 +371,23 @@ class LyricsRepositoryImpl implements LyricsRepository {
 
     return _ParsedAnnotatedLine(text: buffer.toString(), segments: segments);
   }
+
+  _TranslationSplit _extractTranslation(String rawText) {
+    final match = RegExp(r'<([^<>]+)>\s*$', multiLine: false).firstMatch(rawText);
+    if (match == null) {
+      return _TranslationSplit(text: rawText.trimRight(), translation: null);
+    }
+
+    final base = rawText.substring(0, match.start).trimRight();
+    final translation = match.group(1)?.trim();
+
+    return _TranslationSplit(
+      text: base,
+      translation: (translation == null || translation.isEmpty)
+          ? null
+          : translation,
+    );
+  }
 }
 
 class _ParsedAnnotatedLine {
@@ -371,6 +395,13 @@ class _ParsedAnnotatedLine {
 
   final String text;
   final List<AnnotatedText> segments;
+}
+
+class _TranslationSplit {
+  const _TranslationSplit({required this.text, required this.translation});
+
+  final String text;
+  final String? translation;
 }
 
 class _BaseSplitResult {

@@ -21,16 +21,23 @@ class AnnotatedText extends Equatable {
 class LyricsLine extends Equatable {
   final Duration timestamp;
   final String originalText;
+  final String? translatedText;
   final List<AnnotatedText> annotatedTexts;
 
   const LyricsLine({
     required this.timestamp,
     required this.originalText,
+    this.translatedText,
     required this.annotatedTexts,
   });
 
   @override
-  List<Object> get props => [timestamp, originalText, annotatedTexts];
+  List<Object?> get props => [
+        timestamp,
+        originalText,
+        translatedText,
+        annotatedTexts,
+      ];
 }
 
 // Complete lyrics for a track
