@@ -1,4 +1,5 @@
 import '../../../core/error/exceptions.dart';
+import '../../../domain/entities/music_entities.dart';
 import '../../models/music_models.dart';
 import 'database_helper.dart';
 import 'music_local_datasource.dart';
@@ -51,7 +52,9 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
       );
       return maps.map((map) => TrackModel.fromMap(map)).toList();
     } catch (e) {
-      throw DatabaseException('Failed to get tracks by artist: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to get tracks by artist: ${e.toString()}',
+      );
     }
   }
 
@@ -106,11 +109,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   @override
   Future<void> deleteTrack(String id) async {
     try {
-      await _databaseHelper.delete(
-        'tracks',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+      await _databaseHelper.delete('tracks', where: 'id = ?', whereArgs: [id]);
     } catch (e) {
       throw DatabaseException('Failed to delete track: ${e.toString()}');
     }
@@ -143,7 +142,9 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
       }
       return TrackModel.fromMap(maps.first);
     } catch (e) {
-      throw DatabaseException('Failed to get track by file path: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to get track by file path: ${e.toString()}',
+      );
     }
   }
 
@@ -159,32 +160,28 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
       final normalizedArtist = artist.toLowerCase();
       final normalizedAlbum = album.toLowerCase();
 
-      final primary = await _databaseHelper.rawQuery('''
+      final primary = await _databaseHelper.rawQuery(
+        '''
         SELECT * FROM tracks
         WHERE lower(title) = ? AND lower(artist) = ? AND lower(album) = ?
         ORDER BY ABS(duration_ms - ?)
-      ''', [
-        normalizedTitle,
-        normalizedArtist,
-        normalizedAlbum,
-        durationMs,
-      ]);
+      ''',
+        [normalizedTitle, normalizedArtist, normalizedAlbum, durationMs],
+      );
 
       List<Map<String, Object?>> candidates = primary;
 
       if (candidates.isEmpty) {
         const toleranceMs = 2000;
-        candidates = await _databaseHelper.rawQuery('''
+        candidates = await _databaseHelper.rawQuery(
+          '''
           SELECT * FROM tracks
           WHERE lower(title) = ?
             AND ABS(duration_ms - ?) <= ?
           ORDER BY ABS(duration_ms - ?)
-        ''', [
-          normalizedTitle,
-          durationMs,
-          toleranceMs,
-          durationMs,
-        ]);
+        ''',
+          [normalizedTitle, durationMs, toleranceMs, durationMs],
+        );
       }
 
       if (candidates.isEmpty) {
@@ -194,6 +191,36 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
       return TrackModel.fromMap(candidates.first);
     } catch (e) {
       throw DatabaseException('Failed to find matching track: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<List<TrackModel>> getTracksByWebDavSource(String sourceId) async {
+    try {
+      final maps = await _databaseHelper.query(
+        'tracks',
+        where: 'source_type = ? AND source_id = ?',
+        whereArgs: [TrackSourceType.webdav.name, sourceId],
+      );
+      return maps.map((map) => TrackModel.fromMap(map)).toList();
+    } catch (e) {
+      throw DatabaseException('Failed to get WebDAV tracks: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> deleteTracksByIds(List<String> ids) async {
+    if (ids.isEmpty) {
+      return;
+    }
+    try {
+      await _databaseHelper.batch((batch) {
+        for (final id in ids) {
+          batch.delete('tracks', where: 'id = ?', whereArgs: [id]);
+        }
+      });
+    } catch (e) {
+      throw DatabaseException('Failed to delete tracks: ${e.toString()}');
     }
   }
 
@@ -218,7 +245,8 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   @override
   Future<ArtistModel?> getArtistByName(String name) async {
     try {
-      final maps = await _databaseHelper.rawQuery('''
+      final maps = await _databaseHelper.rawQuery(
+        '''
         SELECT
           artist as name,
           COUNT(*) as track_count,
@@ -226,7 +254,9 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         FROM tracks
         WHERE artist = ?
         GROUP BY artist
-      ''', [name]);
+      ''',
+        [name],
+      );
 
       if (maps.isNotEmpty) {
         return ArtistModel.fromMap(maps.first);
@@ -259,9 +289,13 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   }
 
   @override
-  Future<AlbumModel?> getAlbumByTitleAndArtist(String title, String artist) async {
+  Future<AlbumModel?> getAlbumByTitleAndArtist(
+    String title,
+    String artist,
+  ) async {
     try {
-      final maps = await _databaseHelper.rawQuery('''
+      final maps = await _databaseHelper.rawQuery(
+        '''
         SELECT
           album as title,
           artist,
@@ -272,7 +306,9 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         FROM tracks
         WHERE album = ? AND artist = ?
         GROUP BY album, artist
-      ''', [title, artist]);
+      ''',
+        [title, artist],
+      );
 
       if (maps.isNotEmpty) {
         return AlbumModel.fromMap(maps.first);
@@ -286,7 +322,8 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   @override
   Future<List<AlbumModel>> getAlbumsByArtist(String artist) async {
     try {
-      final maps = await _databaseHelper.rawQuery('''
+      final maps = await _databaseHelper.rawQuery(
+        '''
         SELECT
           album as title,
           artist,
@@ -298,10 +335,14 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         WHERE artist = ?
         GROUP BY album, artist
         ORDER BY album
-      ''', [artist]);
+      ''',
+        [artist],
+      );
       return maps.map((map) => AlbumModel.fromMap(map)).toList();
     } catch (e) {
-      throw DatabaseException('Failed to get albums by artist: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to get albums by artist: ${e.toString()}',
+      );
     }
   }
 
@@ -416,7 +457,11 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   }
 
   @override
-  Future<void> addTrackToPlaylist(String playlistId, String trackId, int position) async {
+  Future<void> addTrackToPlaylist(
+    String playlistId,
+    String trackId,
+    int position,
+  ) async {
     try {
       await _databaseHelper.insert('playlist_tracks', {
         'playlist_id': playlistId,
@@ -424,12 +469,17 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         'position': position,
       });
     } catch (e) {
-      throw DatabaseException('Failed to add track to playlist: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to add track to playlist: ${e.toString()}',
+      );
     }
   }
 
   @override
-  Future<void> removeTrackFromPlaylist(String playlistId, String trackId) async {
+  Future<void> removeTrackFromPlaylist(
+    String playlistId,
+    String trackId,
+  ) async {
     try {
       await _databaseHelper.delete(
         'playlist_tracks',
@@ -437,19 +487,24 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         whereArgs: [playlistId, trackId],
       );
     } catch (e) {
-      throw DatabaseException('Failed to remove track from playlist: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to remove track from playlist: ${e.toString()}',
+      );
     }
   }
 
   @override
   Future<List<TrackModel>> getPlaylistTracks(String playlistId) async {
     try {
-      final maps = await _databaseHelper.rawQuery('''
+      final maps = await _databaseHelper.rawQuery(
+        '''
         SELECT t.* FROM tracks t
         INNER JOIN playlist_tracks pt ON t.id = pt.track_id
         WHERE pt.playlist_id = ?
         ORDER BY pt.position
-      ''', [playlistId]);
+      ''',
+        [playlistId],
+      );
 
       return maps.map((map) => TrackModel.fromMap(map)).toList();
     } catch (e) {
@@ -469,7 +524,9 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   @override
   Future<int> getTracksCount() async {
     try {
-      final result = await _databaseHelper.rawQuery('SELECT COUNT(*) as count FROM tracks');
+      final result = await _databaseHelper.rawQuery(
+        'SELECT COUNT(*) as count FROM tracks',
+      );
       return result.first['count'] as int;
     } catch (e) {
       throw DatabaseException('Failed to get tracks count: ${e.toString()}');
@@ -479,7 +536,9 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   @override
   Future<int> getArtistsCount() async {
     try {
-      final result = await _databaseHelper.rawQuery('SELECT COUNT(DISTINCT artist) as count FROM tracks');
+      final result = await _databaseHelper.rawQuery(
+        'SELECT COUNT(DISTINCT artist) as count FROM tracks',
+      );
       return result.first['count'] as int;
     } catch (e) {
       throw DatabaseException('Failed to get artists count: ${e.toString()}');
@@ -489,7 +548,9 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   @override
   Future<int> getAlbumsCount() async {
     try {
-      final result = await _databaseHelper.rawQuery('SELECT COUNT(DISTINCT album, artist) as count FROM tracks');
+      final result = await _databaseHelper.rawQuery(
+        'SELECT COUNT(DISTINCT album, artist) as count FROM tracks',
+      );
       return result.first['count'] as int;
     } catch (e) {
       throw DatabaseException('Failed to get albums count: ${e.toString()}');

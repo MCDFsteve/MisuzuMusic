@@ -19,6 +19,8 @@ abstract class MusicLocalDataSource {
     required String album,
     required int durationMs,
   });
+  Future<List<TrackModel>> getTracksByWebDavSource(String sourceId);
+  Future<void> deleteTracksByIds(List<String> ids);
 
   // Artist operations
   Future<List<ArtistModel>> getAllArtists();
@@ -35,7 +37,11 @@ abstract class MusicLocalDataSource {
   Future<void> insertPlaylist(PlaylistModel playlist);
   Future<void> updatePlaylist(PlaylistModel playlist);
   Future<void> deletePlaylist(String id);
-  Future<void> addTrackToPlaylist(String playlistId, String trackId, int position);
+  Future<void> addTrackToPlaylist(
+    String playlistId,
+    String trackId,
+    int position,
+  );
   Future<void> removeTrackFromPlaylist(String playlistId, String trackId);
   Future<List<TrackModel>> getPlaylistTracks(String playlistId);
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../domain/entities/music_entities.dart';
 
 class TrackModel extends Track {
@@ -13,6 +15,10 @@ class TrackModel extends Track {
     super.trackNumber,
     super.year,
     super.genre,
+    super.sourceType,
+    super.sourceId,
+    super.remotePath,
+    super.httpHeaders,
   });
 
   // Convert from domain entity
@@ -29,11 +35,36 @@ class TrackModel extends Track {
       trackNumber: track.trackNumber,
       year: track.year,
       genre: track.genre,
+      sourceType: track.sourceType,
+      sourceId: track.sourceId,
+      remotePath: track.remotePath,
+      httpHeaders: track.httpHeaders,
     );
   }
 
   // Convert from database map
   factory TrackModel.fromMap(Map<String, dynamic> map) {
+    final sourceTypeRaw =
+        (map['source_type'] as String?)?.toLowerCase() ?? 'local';
+    final sourceType = TrackSourceType.values.firstWhere(
+      (type) => type.name == sourceTypeRaw,
+      orElse: () => TrackSourceType.local,
+    );
+    final headersRaw = map['http_headers'] as String?;
+    Map<String, String>? headers;
+    if (headersRaw != null && headersRaw.isNotEmpty) {
+      try {
+        final decoded = json.decode(headersRaw);
+        if (decoded is Map) {
+          headers = decoded.map(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          );
+        }
+      } catch (_) {
+        headers = null;
+      }
+    }
+
     return TrackModel(
       id: map['id'] as String,
       title: map['title'] as String,
@@ -46,11 +77,20 @@ class TrackModel extends Track {
       trackNumber: map['track_number'] as int?,
       year: map['year'] as int?,
       genre: map['genre'] as String?,
+      sourceType: sourceType,
+      sourceId: map['source_id'] as String?,
+      remotePath: map['remote_path'] as String?,
+      httpHeaders: headers,
     );
   }
 
   // Convert to database map
   Map<String, dynamic> toMap() {
+    String? headersJson;
+    if (httpHeaders != null && httpHeaders!.isNotEmpty) {
+      headersJson = json.encode(httpHeaders);
+    }
+
     return {
       'id': id,
       'title': title,
@@ -63,6 +103,10 @@ class TrackModel extends Track {
       'track_number': trackNumber,
       'year': year,
       'genre': genre,
+      'source_type': sourceType.name,
+      'source_id': sourceId,
+      'remote_path': remotePath,
+      'http_headers': headersJson,
     };
   }
 
@@ -80,6 +124,10 @@ class TrackModel extends Track {
       trackNumber: trackNumber,
       year: year,
       genre: genre,
+      sourceType: sourceType,
+      sourceId: sourceId,
+      remotePath: remotePath,
+      httpHeaders: httpHeaders,
     );
   }
 
@@ -96,6 +144,10 @@ class TrackModel extends Track {
     int? trackNumber,
     int? year,
     String? genre,
+    TrackSourceType? sourceType,
+    String? sourceId,
+    String? remotePath,
+    Map<String, String>? httpHeaders,
   }) {
     return TrackModel(
       id: id ?? this.id,
@@ -109,6 +161,10 @@ class TrackModel extends Track {
       trackNumber: trackNumber ?? this.trackNumber,
       year: year ?? this.year,
       genre: genre ?? this.genre,
+      sourceType: sourceType ?? this.sourceType,
+      sourceId: sourceId ?? this.sourceId,
+      remotePath: remotePath ?? this.remotePath,
+      httpHeaders: httpHeaders ?? this.httpHeaders,
     );
   }
 }
@@ -145,11 +201,7 @@ class ArtistModel extends Artist {
   }
 
   Artist toEntity() {
-    return Artist(
-      name: name,
-      trackCount: trackCount,
-      artworkPath: artworkPath,
-    );
+    return Artist(name: name, trackCount: trackCount, artworkPath: artworkPath);
   }
 }
 

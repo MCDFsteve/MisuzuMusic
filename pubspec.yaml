@@ -67,6 +67,8 @@ dependencies:
   get_it: ^7.6.4
   window_manager: ^0.3.7
   crypto: ^3.0.3
+  webdav_client: ^1.1.11
+  http: ^1.2.1
 
 dev_dependencies:
   flutter_test:

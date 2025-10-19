@@ -10,4 +10,6 @@ class StorageKeys {
   static const playbackHistory = 'history.entries';
   static const lyricsSettings = 'lyrics.settings';
   static const libraryDirectories = 'library.directories';
+  static const webDavSources = 'library.webdav_sources';
+  static const webDavPasswords = 'library.webdav_passwords';
 }

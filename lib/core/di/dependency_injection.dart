@@ -93,9 +93,18 @@ class DependencyInjection {
       sl.registerLazySingleton(() => GetAllTracks(sl()));
       sl.registerLazySingleton(() => SearchTracks(sl()));
       sl.registerLazySingleton(() => ScanMusicDirectory(sl()));
+      sl.registerLazySingleton(() => ScanWebDavDirectory(sl()));
       sl.registerLazySingleton(() => GetAllArtists(sl()));
       sl.registerLazySingleton(() => GetAllAlbums(sl()));
       sl.registerLazySingleton(() => GetLibraryDirectories(sl()));
+      sl.registerLazySingleton(() => GetWebDavSources(sl()));
+      sl.registerLazySingleton(() => GetWebDavSourceById(sl()));
+      sl.registerLazySingleton(() => SaveWebDavSource(sl()));
+      sl.registerLazySingleton(() => DeleteWebDavSource(sl()));
+      sl.registerLazySingleton(() => GetWebDavPassword(sl()));
+      sl.registerLazySingleton(() => TestWebDavConnection(sl()));
+      sl.registerLazySingleton(() => ListWebDavDirectory(sl()));
+      sl.registerLazySingleton(() => EnsureWebDavTrackMetadata(sl()));
 
       sl.registerLazySingleton(() => PlayTrack(sl()));
       sl.registerLazySingleton(() => PausePlayer(sl()));

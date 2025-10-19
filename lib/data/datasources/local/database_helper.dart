@@ -9,7 +9,7 @@ class DatabaseHelper {
   DatabaseHelper(this._pathProvider);
 
   static const String _databaseName = 'misuzu_music.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   final StoragePathProvider _pathProvider;
   Database? _database;
@@ -31,7 +31,9 @@ class DatabaseHelper {
         onUpgrade: _onUpgrade,
       );
     } catch (e) {
-      throw app_exceptions.DatabaseException('Failed to initialize database: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Failed to initialize database: ${e.toString()}',
+      );
     }
   }
 
@@ -50,7 +52,11 @@ class DatabaseHelper {
           artwork_path TEXT,
           track_number INTEGER,
           year INTEGER,
-          genre TEXT
+          genre TEXT,
+          source_type TEXT NOT NULL DEFAULT 'local',
+          source_id TEXT,
+          remote_path TEXT,
+          http_headers TEXT
         )
       ''');
 
@@ -90,9 +96,15 @@ class DatabaseHelper {
       await db.execute('CREATE INDEX idx_tracks_artist ON tracks(artist)');
       await db.execute('CREATE INDEX idx_tracks_album ON tracks(album)');
       await db.execute('CREATE INDEX idx_tracks_title ON tracks(title)');
-      await db.execute('CREATE INDEX idx_tracks_date_added ON tracks(date_added)');
-      await db.execute('CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id)');
-      await db.execute('CREATE INDEX idx_playlist_tracks_position ON playlist_tracks(position)');
+      await db.execute(
+        'CREATE INDEX idx_tracks_date_added ON tracks(date_added)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_playlist_tracks_position ON playlist_tracks(position)',
+      );
 
       // Create full-text search virtual table for tracks
       await db.execute('''
@@ -129,21 +141,28 @@ class DatabaseHelper {
           VALUES (new.rowid, new.title, new.artist, new.album, new.genre);
         END
       ''');
-
     } catch (e) {
-      throw app_exceptions.DatabaseException('Failed to create database tables: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Failed to create database tables: ${e.toString()}',
+      );
     }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // Handle database upgrades here when version changes
     try {
-      // Example migration logic:
-      // if (oldVersion < 2) {
-      //   await db.execute('ALTER TABLE tracks ADD COLUMN new_column TEXT');
-      // }
+      if (oldVersion < 2) {
+        await db.execute(
+          "ALTER TABLE tracks ADD COLUMN source_type TEXT NOT NULL DEFAULT 'local'",
+        );
+        await db.execute('ALTER TABLE tracks ADD COLUMN source_id TEXT');
+        await db.execute('ALTER TABLE tracks ADD COLUMN remote_path TEXT');
+        await db.execute('ALTER TABLE tracks ADD COLUMN http_headers TEXT');
+      }
     } catch (e) {
-      throw app_exceptions.DatabaseException('Failed to upgrade database: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Failed to upgrade database: ${e.toString()}',
+      );
     }
   }
 
@@ -182,7 +201,11 @@ class DatabaseHelper {
   Future<int> insert(String table, Map<String, Object?> values) async {
     try {
       final db = await database;
-      return await db.insert(table, values, conflictAlgorithm: ConflictAlgorithm.replace);
+      return await db.insert(
+        table,
+        values,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     } catch (e) {
       throw app_exceptions.DatabaseException('Insert failed: ${e.toString()}');
     }
@@ -223,7 +246,9 @@ class DatabaseHelper {
       final db = await database;
       return await db.rawQuery(sql, arguments);
     } catch (e) {
-      throw app_exceptions.DatabaseException('Raw query failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Raw query failed: ${e.toString()}',
+      );
     }
   }
 
@@ -232,7 +257,9 @@ class DatabaseHelper {
       final db = await database;
       return await db.rawInsert(sql, arguments);
     } catch (e) {
-      throw app_exceptions.DatabaseException('Raw insert failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Raw insert failed: ${e.toString()}',
+      );
     }
   }
 
@@ -241,7 +268,9 @@ class DatabaseHelper {
       final db = await database;
       return await db.rawUpdate(sql, arguments);
     } catch (e) {
-      throw app_exceptions.DatabaseException('Raw update failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Raw update failed: ${e.toString()}',
+      );
     }
   }
 
@@ -250,7 +279,9 @@ class DatabaseHelper {
       final db = await database;
       return await db.rawDelete(sql, arguments);
     } catch (e) {
-      throw app_exceptions.DatabaseException('Raw delete failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Raw delete failed: ${e.toString()}',
+      );
     }
   }
 
@@ -260,7 +291,9 @@ class DatabaseHelper {
       final db = await database;
       return await db.transaction(action);
     } catch (e) {
-      throw app_exceptions.DatabaseException('Transaction failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Transaction failed: ${e.toString()}',
+      );
     }
   }
 
@@ -272,7 +305,9 @@ class DatabaseHelper {
       operations(batch);
       return await batch.commit();
     } catch (e) {
-      throw app_exceptions.DatabaseException('Batch operation failed: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Batch operation failed: ${e.toString()}',
+      );
     }
   }
 
@@ -283,10 +318,7 @@ class DatabaseHelper {
       final db = await database;
 
       if (trimmed.isEmpty) {
-        return await db.query(
-          'tracks',
-          orderBy: 'title COLLATE NOCASE',
-        );
+        return await db.query('tracks', orderBy: 'title COLLATE NOCASE');
       }
 
       final tokens = trimmed
@@ -319,12 +351,15 @@ class DatabaseHelper {
 
       if (ftsTokens.isNotEmpty) {
         final ftsQuery = ftsTokens.map((token) => '$token*').join(' ');
-        final ftsResults = await db.rawQuery('''
+        final ftsResults = await db.rawQuery(
+          '''
           SELECT tracks.* FROM tracks
           JOIN tracks_fts ON tracks.rowid = tracks_fts.rowid
           WHERE tracks_fts MATCH ?
           ORDER BY tracks.title COLLATE NOCASE
-        ''', [ftsQuery]);
+        ''',
+          [ftsQuery],
+        );
 
         for (final rawRow in ftsResults) {
           final row = Map<String, dynamic>.from(rawRow);
@@ -338,14 +373,17 @@ class DatabaseHelper {
       final likeTerms = <String>{trimmed, ...kanaVariants};
       for (final term in likeTerms) {
         if (term.isEmpty) continue;
-        final likeResults = await db.rawQuery('''
+        final likeResults = await db.rawQuery(
+          '''
           SELECT * FROM tracks
           WHERE title LIKE '%' || ? || '%'
              OR artist LIKE '%' || ? || '%'
              OR album LIKE '%' || ? || '%'
              OR genre LIKE '%' || ? || '%'
           ORDER BY title COLLATE NOCASE
-        ''', [term, term, term, term]);
+        ''',
+          [term, term, term, term],
+        );
 
         for (final rawRow in likeResults) {
           final row = Map<String, dynamic>.from(rawRow);
@@ -392,7 +430,9 @@ class DatabaseHelper {
 
       return pageCount * pageSize;
     } catch (e) {
-      throw app_exceptions.DatabaseException('Failed to get database size: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Failed to get database size: ${e.toString()}',
+      );
     }
   }
 
@@ -412,7 +452,9 @@ class DatabaseHelper {
       await databaseFactory.deleteDatabase(path);
       _database = null;
     } catch (e) {
-      throw app_exceptions.DatabaseException('Failed to delete database: ${e.toString()}');
+      throw app_exceptions.DatabaseException(
+        'Failed to delete database: ${e.toString()}',
+      );
     }
   }
 }

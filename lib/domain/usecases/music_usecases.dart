@@ -1,5 +1,6 @@
 import '../repositories/music_library_repository.dart';
 import '../entities/music_entities.dart';
+import '../entities/webdav_entities.dart';
 
 class GetAllTracks {
   final MusicLibraryRepository _repository;
@@ -61,5 +62,112 @@ class GetLibraryDirectories {
 
   Future<List<String>> call() async {
     return await _repository.getLibraryDirectories();
+  }
+}
+
+class ScanWebDavDirectory {
+  final MusicLibraryRepository _repository;
+
+  ScanWebDavDirectory(this._repository);
+
+  Future<void> call({
+    required WebDavSource source,
+    required String password,
+  }) async {
+    return await _repository.scanWebDavDirectory(
+      source: source,
+      password: password,
+    );
+  }
+}
+
+class GetWebDavSources {
+  final MusicLibraryRepository _repository;
+
+  GetWebDavSources(this._repository);
+
+  Future<List<WebDavSource>> call() async {
+    return await _repository.getWebDavSources();
+  }
+}
+
+class GetWebDavSourceById {
+  final MusicLibraryRepository _repository;
+
+  GetWebDavSourceById(this._repository);
+
+  Future<WebDavSource?> call(String id) async {
+    return await _repository.getWebDavSourceById(id);
+  }
+}
+
+class SaveWebDavSource {
+  final MusicLibraryRepository _repository;
+
+  SaveWebDavSource(this._repository);
+
+  Future<void> call(WebDavSource source, {String? password}) async {
+    await _repository.saveWebDavSource(source, password: password);
+  }
+}
+
+class DeleteWebDavSource {
+  final MusicLibraryRepository _repository;
+
+  DeleteWebDavSource(this._repository);
+
+  Future<void> call(String id) async {
+    await _repository.deleteWebDavSource(id);
+  }
+}
+
+class GetWebDavPassword {
+  final MusicLibraryRepository _repository;
+
+  GetWebDavPassword(this._repository);
+
+  Future<String?> call(String id) async {
+    return _repository.getWebDavPassword(id);
+  }
+}
+
+class TestWebDavConnection {
+  final MusicLibraryRepository _repository;
+
+  TestWebDavConnection(this._repository);
+
+  Future<void> call({
+    required WebDavSource source,
+    required String password,
+  }) async {
+    await _repository.testWebDavConnection(source: source, password: password);
+  }
+}
+
+class ListWebDavDirectory {
+  final MusicLibraryRepository _repository;
+
+  ListWebDavDirectory(this._repository);
+
+  Future<List<WebDavEntry>> call({
+    required WebDavSource source,
+    required String password,
+    required String path,
+  }) async {
+    return _repository.listWebDavDirectory(
+      source: source,
+      password: password,
+      path: path,
+    );
+  }
+}
+
+class EnsureWebDavTrackMetadata {
+  final MusicLibraryRepository _repository;
+
+  EnsureWebDavTrackMetadata(this._repository);
+
+  Future<Track?> call(Track track, {bool force = false}) async {
+    return _repository.ensureWebDavTrackMetadata(track, force: force);
   }
 }

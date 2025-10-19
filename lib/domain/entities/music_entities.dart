@@ -5,6 +5,8 @@ abstract class Entity extends Equatable {
   const Entity();
 }
 
+enum TrackSourceType { local, webdav }
+
 // Track entity - represents a music track
 class Track extends Entity {
   final String id;
@@ -18,6 +20,10 @@ class Track extends Entity {
   final int? trackNumber;
   final int? year;
   final String? genre;
+  final TrackSourceType sourceType;
+  final String? sourceId;
+  final String? remotePath;
+  final Map<String, String>? httpHeaders;
 
   const Track({
     required this.id,
@@ -31,22 +37,30 @@ class Track extends Entity {
     this.trackNumber,
     this.year,
     this.genre,
+    this.sourceType = TrackSourceType.local,
+    this.sourceId,
+    this.remotePath,
+    this.httpHeaders,
   });
 
   @override
   List<Object?> get props => [
-        id,
-        title,
-        artist,
-        album,
-        filePath,
-        duration,
-        dateAdded,
-        artworkPath,
-        trackNumber,
-        year,
-        genre,
-      ];
+    id,
+    title,
+    artist,
+    album,
+    filePath,
+    duration,
+    dateAdded,
+    artworkPath,
+    trackNumber,
+    year,
+    genre,
+    sourceType,
+    sourceId,
+    remotePath,
+    httpHeaders,
+  ];
 
   Track copyWith({
     String? id,
@@ -60,6 +74,10 @@ class Track extends Entity {
     int? trackNumber,
     int? year,
     String? genre,
+    TrackSourceType? sourceType,
+    String? sourceId,
+    String? remotePath,
+    Map<String, String>? httpHeaders,
   }) {
     return Track(
       id: id ?? this.id,
@@ -73,6 +91,10 @@ class Track extends Entity {
       trackNumber: trackNumber ?? this.trackNumber,
       year: year ?? this.year,
       genre: genre ?? this.genre,
+      sourceType: sourceType ?? this.sourceType,
+      sourceId: sourceId ?? this.sourceId,
+      remotePath: remotePath ?? this.remotePath,
+      httpHeaders: httpHeaders ?? this.httpHeaders,
     );
   }
 }
@@ -113,13 +135,13 @@ class Album extends Entity {
 
   @override
   List<Object?> get props => [
-        title,
-        artist,
-        trackCount,
-        year,
-        artworkPath,
-        totalDuration,
-      ];
+    title,
+    artist,
+    trackCount,
+    year,
+    artworkPath,
+    totalDuration,
+  ];
 }
 
 // Playlist entity

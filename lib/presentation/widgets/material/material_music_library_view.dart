@@ -88,17 +88,28 @@ class MaterialMusicLibraryView extends StatelessWidget {
                       print('🎵 Material点击歌曲: ${track.title}');
                       print('🎵 文件路径: ${track.filePath}');
                       print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
+                      final isRemoteTrack =
+                          track.sourceType == TrackSourceType.webdav ||
+                              track.filePath.startsWith('webdav://');
 
-                      final file = File(track.filePath);
-                      print('🎵 文件是否存在: ${file.existsSync()}');
-
-                      if (file.existsSync()) {
-                        context.read<PlayerBloc>().add(
-                          PlayerSetQueue(tracks, startIndex: index),
-                        );
-                      } else {
-                        print('❌ 文件不存在: ${track.filePath}');
+                      if (isRemoteTrack) {
+                        print('🎵 WebDAV 音轨，直接尝试远程播放');
                       }
+
+                      if (!isRemoteTrack) {
+                        final file = File(track.filePath);
+                        final exists = file.existsSync();
+                        print('🎵 文件是否存在: $exists');
+
+                        if (!exists) {
+                          print('❌ 文件不存在: ${track.filePath}');
+                          return;
+                        }
+                      }
+
+                      context.read<PlayerBloc>().add(
+                        PlayerSetQueue(tracks, startIndex: index),
+                      );
                     },
                   );
                 },

@@ -13,11 +13,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/di/dependency_injection.dart';
+import '../../domain/entities/webdav_entities.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../domain/usecases/music_usecases.dart';
 import '../../domain/usecases/player_usecases.dart';
 import '../../domain/repositories/playback_history_repository.dart';
 import '../blocs/music_library/music_library_bloc.dart';
+import 'package:uuid/uuid.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/playback_history/playback_history_cubit.dart';
 import '../blocs/playback_history/playback_history_state.dart';
@@ -49,6 +51,9 @@ class HomePage extends StatelessWidget {
             getAllArtists: sl<GetAllArtists>(),
             getAllAlbums: sl<GetAllAlbums>(),
             getLibraryDirectories: sl<GetLibraryDirectories>(),
+            scanWebDavDirectory: sl<ScanWebDavDirectory>(),
+            getWebDavSources: sl<GetWebDavSources>(),
+            ensureWebDavTrackMetadata: sl<EnsureWebDavTrackMetadata>(),
           )..add(const LoadAllTracks()),
         ),
         BlocProvider(
@@ -104,7 +109,11 @@ class _HomePageContentState extends State<HomePageContent> {
     return BlocListener<MusicLibraryBloc, MusicLibraryState>(
       listener: (context, state) {
         if (state is MusicLibraryScanComplete) {
-          _showScanCompleteDialog(context, state.tracksAdded);
+          _showScanCompleteDialog(
+            context,
+            state.tracksAdded,
+            webDavSource: state.webDavSource,
+          );
         } else if (state is MusicLibraryError) {
           _showErrorDialog(context, state.message);
         }
@@ -642,6 +651,93 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<void> _selectMusicFolder() async {
+    final choice = await _showSourceSelectionDialog();
+    switch (choice) {
+      case _LibrarySourceChoice.local:
+        await _selectLocalFolder();
+        break;
+      case _LibrarySourceChoice.webdav:
+        await _selectWebDavFolder();
+        break;
+      case null:
+        break;
+    }
+  }
+
+  Future<_LibrarySourceChoice?> _showSourceSelectionDialog() {
+    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+    if (isMac) {
+      return showMacosAlertDialog<_LibrarySourceChoice?>(
+        context: context,
+        builder: (context) {
+          return MacosAlertDialog(
+            appIcon: const MacosIcon(CupertinoIcons.music_note),
+            title: Text(
+              '选择音乐来源',
+              style: MacosTheme.of(context).typography.headline,
+            ),
+            message: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SourceOptionTile(
+                  icon: CupertinoIcons.folder,
+                  label: '本地文件夹',
+                  onTap: () =>
+                      Navigator.of(context).pop(_LibrarySourceChoice.local),
+                ),
+                const SizedBox(height: 12),
+                _SourceOptionTile(
+                  icon: CupertinoIcons.cloud,
+                  label: 'WebDAV',
+                  onTap: () =>
+                      Navigator.of(context).pop(_LibrarySourceChoice.webdav),
+                ),
+              ],
+            ),
+            primaryButton: PushButton(
+              controlSize: ControlSize.large,
+              child: const Text('取消'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          );
+        },
+      );
+    }
+
+    return showDialog<_LibrarySourceChoice?>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('选择音乐来源'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.folder_open),
+                title: const Text('本地文件夹'),
+                onTap: () =>
+                    Navigator.of(context).pop(_LibrarySourceChoice.local),
+              ),
+              ListTile(
+                leading: const Icon(Icons.cloud_outlined),
+                title: const Text('WebDAV'),
+                onTap: () =>
+                    Navigator.of(context).pop(_LibrarySourceChoice.webdav),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _selectLocalFolder() async {
     try {
       print('🎵 开始选择音乐文件夹...');
 
@@ -686,7 +782,105 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
-  void _showScanCompleteDialog(BuildContext context, int tracksAdded) {
+  Future<void> _selectWebDavFolder() async {
+    final connection = await _showWebDavConnectionDialog();
+    if (connection == null) {
+      debugPrint('🌐 WebDAV: 用户取消连接配置');
+      return;
+    }
+    debugPrint(
+      '🌐 WebDAV: 连接成功，开始列举目录 (${connection.baseUrl})',
+    );
+
+    final selectedPath = await _showWebDavDirectoryPicker(connection);
+    if (selectedPath == null) {
+      debugPrint('🌐 WebDAV: 用户取消目录选择');
+      return;
+    }
+    debugPrint('🌐 WebDAV: 选定远程目录 -> $selectedPath');
+
+    final displayName = connection.displayName?.trim();
+    final friendlyName = displayName != null && displayName.isNotEmpty
+        ? displayName
+        : _friendlyNameFromPath(selectedPath);
+
+    final source = WebDavSource(
+      id: const Uuid().v4(),
+      name: friendlyName,
+      baseUrl: connection.baseUrl,
+      rootPath: selectedPath,
+      username: connection.username?.isEmpty ?? true
+          ? null
+          : connection.username,
+      ignoreTls: connection.ignoreTls,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    if (!mounted) return;
+    debugPrint('🌐 WebDAV: 提交扫描任务');
+    context.read<MusicLibraryBloc>().add(
+      ScanWebDavDirectoryEvent(source: source, password: connection.password),
+    );
+  }
+
+  String _friendlyNameFromPath(String path) {
+    final normalized = path.trim().isEmpty ? '/' : path;
+    if (normalized == '/') {
+      return 'WebDAV 音乐库';
+    }
+    final segments = normalized
+        .split('/')
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    if (segments.isEmpty) {
+      return 'WebDAV 音乐库';
+    }
+    return segments.last;
+  }
+
+  Future<_WebDavConnectionFormResult?> _showWebDavConnectionDialog() {
+    return showDialog<_WebDavConnectionFormResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) =>
+          _WebDavConnectionDialog(testConnection: sl<TestWebDavConnection>()),
+    );
+  }
+
+  Future<String?> _showWebDavDirectoryPicker(
+    _WebDavConnectionFormResult connection,
+  ) {
+    final baseSource = WebDavSource(
+      id: 'preview',
+      name: connection.displayName ?? 'WebDAV',
+      baseUrl: connection.baseUrl,
+      rootPath: '/',
+      username: connection.username?.isEmpty ?? true
+          ? null
+          : connection.username,
+      ignoreTls: connection.ignoreTls,
+    );
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _WebDavDirectoryPickerDialog(
+        listDirectory: sl<ListWebDavDirectory>(),
+        source: baseSource,
+        password: connection.password,
+      ),
+    );
+  }
+
+  void _showScanCompleteDialog(
+    BuildContext context,
+    int tracksAdded, {
+    WebDavSource? webDavSource,
+  }) {
+    final message = webDavSource == null
+        ? '添加了 $tracksAdded 首新歌曲'
+        : '添加了 $tracksAdded 首新歌曲\n来源: ${webDavSource.name}';
     if (defaultTargetPlatform == TargetPlatform.macOS) {
       showMacosAlertDialog(
         context: context,
@@ -701,7 +895,7 @@ class _HomePageContentState extends State<HomePageContent> {
             style: MacosTheme.of(context).typography.headline,
           ),
           message: Text(
-            '添加了 $tracksAdded 首新歌曲',
+            message,
             textAlign: TextAlign.center,
             style: MacosTheme.of(context).typography.body,
           ),
@@ -717,7 +911,7 @@ class _HomePageContentState extends State<HomePageContent> {
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('✅ 扫描完成！添加了 $tracksAdded 首新歌曲'),
+          content: Text('✅ 扫描完成！$message'),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
         ),
@@ -912,11 +1106,7 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
   @override
   Widget build(BuildContext context) {
     final Color targetColor = _hovering ? widget.hoverColor : widget.baseColor;
-    final double scale = _pressing
-        ? 0.95
-        : (_hovering
-            ? 1.05
-            : 1.0);
+    final double scale = _pressing ? 0.95 : (_hovering ? 1.05 : 1.0);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -948,6 +1138,379 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+enum _LibrarySourceChoice { local, webdav }
+
+class _SourceOptionTile extends StatelessWidget {
+  const _SourceOptionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MacosTheme.maybeOf(context);
+    final color = theme?.typography.body.color ?? Colors.black87;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MacosIcon(icon, size: 20, color: color),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: theme?.typography.body ?? const TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WebDavConnectionFormResult {
+  const _WebDavConnectionFormResult({
+    required this.baseUrl,
+    this.username,
+    required this.password,
+    required this.ignoreTls,
+    this.displayName,
+  });
+
+  final String baseUrl;
+  final String? username;
+  final String password;
+  final bool ignoreTls;
+  final String? displayName;
+}
+
+class _WebDavConnectionDialog extends StatefulWidget {
+  const _WebDavConnectionDialog({required this.testConnection});
+
+  final TestWebDavConnection testConnection;
+
+  @override
+  State<_WebDavConnectionDialog> createState() =>
+      _WebDavConnectionDialogState();
+}
+
+class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _urlController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _displayNameController = TextEditingController();
+
+  bool _ignoreTls = false;
+  bool _testing = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _displayNameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('连接到 WebDAV'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _urlController,
+              decoration: const InputDecoration(
+                labelText: '服务器地址',
+                hintText: 'https://example.com/webdav',
+              ),
+              validator: (value) {
+                final trimmed = value?.trim() ?? '';
+                if (trimmed.isEmpty) {
+                  return '请输入服务器地址';
+                }
+                if (!trimmed.startsWith('http://') &&
+                    !trimmed.startsWith('https://')) {
+                  return '地址必须以 http:// 或 https:// 开头';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _usernameController,
+              decoration: const InputDecoration(labelText: '用户名 (可选)'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _passwordController,
+              decoration: const InputDecoration(labelText: '密码'),
+              obscureText: true,
+              validator: (value) {
+                if ((value ?? '').isEmpty) {
+                  return '请输入密码';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _displayNameController,
+              decoration: const InputDecoration(labelText: '自定义名称 (可选)'),
+            ),
+            const SizedBox(height: 12),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _ignoreTls,
+              onChanged: (value) => setState(() => _ignoreTls = value ?? false),
+              title: const Text('忽略 TLS 证书校验'),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: const TextStyle(color: Colors.red)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _testing ? null : () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        ElevatedButton(
+          onPressed: _testing ? null : _onConnect,
+          child: _testing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('连接'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _onConnect() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _testing = true;
+      _error = null;
+    });
+
+    final rawUrl = _urlController.text.trim();
+    final baseUrl = rawUrl.endsWith('/')
+        ? rawUrl.substring(0, rawUrl.length - 1)
+        : rawUrl;
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+    final displayName = _displayNameController.text.trim();
+
+    final tempSource = WebDavSource(
+      id: 'preview',
+      name: displayName.isEmpty ? 'WebDAV' : displayName,
+      baseUrl: baseUrl,
+      rootPath: '/',
+      username: username.isEmpty ? null : username,
+      ignoreTls: _ignoreTls,
+    );
+
+    try {
+      await widget.testConnection(source: tempSource, password: password);
+
+      if (!mounted) return;
+      Navigator.of(context).pop(
+        _WebDavConnectionFormResult(
+          baseUrl: baseUrl,
+          username: username.isEmpty ? null : username,
+          password: password,
+          ignoreTls: _ignoreTls,
+          displayName: displayName.isEmpty ? null : displayName,
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ WebDAV: 连接测试失败 -> $e');
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _testing = false);
+      }
+    }
+  }
+}
+
+class _WebDavDirectoryPickerDialog extends StatefulWidget {
+  const _WebDavDirectoryPickerDialog({
+    required this.listDirectory,
+    required this.source,
+    required this.password,
+  });
+
+  final ListWebDavDirectory listDirectory;
+  final WebDavSource source;
+  final String password;
+
+  @override
+  State<_WebDavDirectoryPickerDialog> createState() =>
+      _WebDavDirectoryPickerDialogState();
+}
+
+class _WebDavDirectoryPickerDialogState
+    extends State<_WebDavDirectoryPickerDialog> {
+  late String _currentPath;
+  bool _loading = true;
+  String? _error;
+  List<WebDavEntry> _entries = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPath = widget.source.rootPath;
+    _load(_currentPath);
+  }
+
+  Future<void> _load(String path) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _currentPath = path;
+    });
+    try {
+      final entries = await widget.listDirectory(
+        source: widget.source,
+        password: widget.password,
+        path: path,
+      );
+      if (mounted) {
+        setState(() => _entries = entries);
+      }
+    } catch (e) {
+      debugPrint('❌ WebDAV: 目录读取失败 ($path) -> $e');
+      if (mounted) {
+        setState(() => _error = e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  String _parentPath(String path) {
+    final normalized = _normalize(path);
+    if (normalized == '/') {
+      return '/';
+    }
+    final segments = normalized
+        .split('/')
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    if (segments.length <= 1) {
+      return '/';
+    }
+    segments.removeLast();
+    return '/${segments.join('/')}';
+  }
+
+  String _normalize(String path) {
+    var normalized = path.trim();
+    if (normalized.isEmpty) return '/';
+    if (!normalized.startsWith('/')) normalized = '/$normalized';
+    if (normalized.length > 1 && normalized.endsWith('/')) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    return normalized;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('选择 WebDAV 文件夹'),
+      content: SizedBox(
+        width: 420,
+        height: 360,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('当前路径: $_currentPath', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount:
+                          _entries.length + (_currentPath == '/' ? 0 : 1),
+                      itemBuilder: (context, index) {
+                        if (_currentPath != '/' && index == 0) {
+                          return ListTile(
+                            leading: const Icon(Icons.arrow_upward),
+                            title: const Text('..'),
+                            onTap: () => _load(_parentPath(_currentPath)),
+                          );
+                        }
+                        final entryIndex = _currentPath == '/'
+                            ? index
+                            : index - 1;
+                        final entry = _entries[entryIndex];
+                        return ListTile(
+                          leading: Icon(
+                            entry.isDirectory ? Icons.folder : Icons.audiotrack,
+                          ),
+                          title: Text(entry.name),
+                          onTap: entry.isDirectory
+                              ? () => _load(entry.path)
+                              : null,
+                          subtitle: Text(entry.path, maxLines: 1),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_currentPath),
+          child: const Text('选择此文件夹'),
+        ),
+      ],
     );
   }
 }
@@ -1196,7 +1759,7 @@ class MusicLibraryView extends StatefulWidget {
 
 class _MusicLibraryViewState extends State<MusicLibraryView> {
   bool _showList = false;
-  String? _activeDirectoryFilter;
+  String? _activeFilterKey;
 
   bool _hasArtwork(Track track) {
     final artworkPath = track.artworkPath;
@@ -1248,6 +1811,9 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
   }
 
   bool _isTrackInDirectory(Track track, String directoryPath) {
+    if (track.sourceType != TrackSourceType.local) {
+      return false;
+    }
     final normalizedDirectory = p.normalize(directoryPath);
     final trackPath = p.normalize(track.filePath);
     if (trackPath == normalizedDirectory) {
@@ -1260,13 +1826,17 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     MusicLibraryLoaded state,
   ) {
     final summaries = <_DirectorySummaryData>[];
+    final localTracks = state.tracks
+        .where((track) => track.sourceType == TrackSourceType.local)
+        .toList();
+
     final normalizedDirectories = <String>{
       ...state.libraryDirectories.map((dir) => p.normalize(dir)),
     };
 
     if (normalizedDirectories.isEmpty) {
       normalizedDirectories.addAll(
-        state.tracks.map(
+        localTracks.map(
           (track) => p.normalize(File(track.filePath).parent.path),
         ),
       );
@@ -1274,7 +1844,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
 
     for (final directory in normalizedDirectories) {
       final normalizedDirectory = directory;
-      final directoryTracks = state.tracks
+      final directoryTracks = localTracks
           .where((track) => _isTrackInDirectory(track, normalizedDirectory))
           .toList();
 
@@ -1284,12 +1854,44 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
 
       final previewTrack = _findPreviewTrack(directoryTracks);
       final hasArtwork = previewTrack != null && _hasArtwork(previewTrack);
+      final displayName = normalizedDirectory.isEmpty
+          ? '全部歌曲'
+          : p.basename(normalizedDirectory);
 
       summaries.add(
         _DirectorySummaryData(
+          filterKey: normalizedDirectory,
+          displayName: displayName,
           directoryPath: normalizedDirectory,
           previewTrack: previewTrack,
           totalTracks: directoryTracks.length,
+          hasArtwork: hasArtwork,
+        ),
+      );
+    }
+
+    for (final source in state.webDavSources) {
+      final remoteTracks = state.tracks
+          .where(
+            (track) =>
+                track.sourceType == TrackSourceType.webdav &&
+                track.sourceId == source.id,
+          )
+          .toList();
+      if (remoteTracks.isEmpty) {
+        continue;
+      }
+
+      final previewTrack = _findPreviewTrack(remoteTracks);
+      final hasArtwork = previewTrack != null && _hasArtwork(previewTrack);
+      summaries.add(
+        _DirectorySummaryData(
+          filterKey: 'webdav://${source.id}',
+          displayName: source.name,
+          directoryPath: source.rootPath,
+          webDavSource: source,
+          previewTrack: previewTrack,
+          totalTracks: remoteTracks.length,
           hasArtwork: hasArtwork,
         ),
       );
@@ -1299,23 +1901,25 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     final allHasArtwork =
         allPreviewTrack != null && _hasArtwork(allPreviewTrack);
     final allSummary = _DirectorySummaryData(
-      directoryPath: '',
+      filterKey: _DirectorySummaryData.allKey,
+      displayName: '全部歌曲',
+      directoryPath: null,
       previewTrack: allPreviewTrack,
       totalTracks: state.tracks.length,
       hasArtwork: allHasArtwork,
     );
 
+    summaries.sort((a, b) {
+      if (a.isRemote != b.isRemote) {
+        return a.isRemote ? 1 : -1;
+      }
+      return a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase());
+    });
+
     if (summaries.isEmpty) {
       summaries.add(allSummary);
     } else {
-      summaries.sort((a, b) => a.directoryPath.compareTo(b.directoryPath));
-      final bool isSingleDirectory = summaries.length == 1;
-      if (isSingleDirectory) {
-        return [allSummary];
-      }
-      if (!summaries.any((summary) => summary.directoryPath.isEmpty)) {
-        summaries.insert(0, allSummary);
-      }
+      summaries.insert(0, allSummary);
     }
 
     return summaries;
@@ -1382,15 +1986,15 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
           }
 
           final summariesData = _buildLibrarySummariesData(state);
-          final normalizedDirectories = summariesData
-              .map((summary) => summary.directoryPath)
+          final filterKeys = summariesData
+              .map((summary) => summary.filterKey)
               .toSet();
-          if (_activeDirectoryFilter != null &&
-              !normalizedDirectories.contains(_activeDirectoryFilter)) {
+          if (_activeFilterKey != null &&
+              !filterKeys.contains(_activeFilterKey)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               setState(() {
-                _activeDirectoryFilter = null;
+                _activeFilterKey = null;
                 _showList = false;
               });
             });
@@ -1403,11 +2007,11 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
               if (mounted) setState(() => _showList = true);
             });
           }
-          if (hasActiveSearch && _activeDirectoryFilter != null) {
+          if (hasActiveSearch && _activeFilterKey != null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               setState(() {
-                _activeDirectoryFilter = null;
+                _activeFilterKey = null;
               });
             });
           }
@@ -1476,17 +2080,19 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                                           ? preferredTileWidth
                                           : tileWidth),
                                 child: _LibrarySummaryView(
+                                  filterKey: summary.filterKey,
+                                  displayName: summary.displayName,
                                   directoryPath: summary.directoryPath,
+                                  webDavSource: summary.webDavSource,
                                   previewTrack: summary.previewTrack,
                                   totalTracks: summary.totalTracks,
                                   hasArtwork: summary.hasArtwork,
                                   onTap: () {
                                     setState(() {
                                       _showList = true;
-                                      _activeDirectoryFilter =
-                                          summary.directoryPath.isEmpty
+                                      _activeFilterKey = summary.isAll
                                           ? null
-                                          : summary.directoryPath;
+                                          : summary.filterKey;
                                     });
                                   },
                                 ),
@@ -1501,14 +2107,20 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
             );
           }
 
-          final filteredTracks = _activeDirectoryFilter == null
+          final filteredTracks = _activeFilterKey == null
               ? state.tracks
-              : state.tracks
-                    .where(
-                      (track) =>
-                          _isTrackInDirectory(track, _activeDirectoryFilter!),
-                    )
-                    .toList();
+              : state.tracks.where((track) {
+                  final key = _activeFilterKey!;
+                  if (_DirectorySummaryData.isAllKey(key)) {
+                    return true;
+                  }
+                  if (key.startsWith('webdav://')) {
+                    final sourceId = key.substring('webdav://'.length);
+                    return track.sourceType == TrackSourceType.webdav &&
+                        track.sourceId == sourceId;
+                  }
+                  return _isTrackInDirectory(track, key);
+                }).toList();
 
           final listWidget = isMac
               ? MacOSMusicLibraryView(
@@ -1524,7 +2136,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   searchQuery: state.searchQuery,
                 );
 
-          if (_activeDirectoryFilter != null) {
+          if (_activeFilterKey != null) {
             return Shortcuts(
               shortcuts: <LogicalKeySet, Intent>{
                 LogicalKeySet(LogicalKeyboardKey.escape):
@@ -1537,7 +2149,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                         onInvoke: (intent) {
                           setState(() {
                             _showList = false;
-                            _activeDirectoryFilter = null;
+                            _activeFilterKey = null;
                           });
                           return null;
                         },
@@ -1562,18 +2174,26 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
 
 class _LibrarySummaryView extends StatelessWidget {
   const _LibrarySummaryView({
+    required this.filterKey,
+    required this.displayName,
     required this.directoryPath,
+    required this.webDavSource,
     required this.previewTrack,
     required this.totalTracks,
     required this.hasArtwork,
     required this.onTap,
   });
 
-  final String directoryPath;
+  final String filterKey;
+  final String displayName;
+  final String? directoryPath;
+  final WebDavSource? webDavSource;
   final Track? previewTrack;
   final int totalTracks;
   final bool hasArtwork;
   final VoidCallback onTap;
+
+  bool get _isRemote => webDavSource != null;
 
   @override
   Widget build(BuildContext context) {
@@ -1590,12 +2210,15 @@ class _LibrarySummaryView extends StatelessWidget {
         ? Colors.white.withOpacity(0.72)
         : Colors.black.withOpacity(0.64);
 
-    final normalizedDirectory = directoryPath.isEmpty
-        ? ''
-        : p.normalize(directoryPath);
-    final folderName = normalizedDirectory.isEmpty
-        ? '全部歌曲'
-        : p.basename(normalizedDirectory);
+    final subtitle = _isRemote
+        ? '${webDavSource!.baseUrl}${webDavSource!.rootPath}'
+        : (directoryPath == null || directoryPath!.isEmpty
+            ? '所有目录'
+            : p.normalize(directoryPath!));
+
+    final iconData = _isRemote
+        ? CupertinoIcons.cloud
+        : CupertinoIcons.folder_solid;
 
     final card = HoverGlowOverlay(
       isDarkMode: isDark,
@@ -1622,11 +2245,13 @@ class _LibrarySummaryView extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child:
-              hasArtwork &&
+          child: hasArtwork &&
                   previewTrack?.artworkPath != null &&
                   File(previewTrack!.artworkPath!).existsSync()
-              ? Image.file(File(previewTrack!.artworkPath!), fit: BoxFit.cover)
+              ? Image.file(
+                  File(previewTrack!.artworkPath!),
+                  fit: BoxFit.cover,
+                )
               : Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -1638,7 +2263,7 @@ class _LibrarySummaryView extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    CupertinoIcons.music_albums,
+                    iconData,
                     size: 60,
                     color: isDark ? Colors.white24 : Colors.black26,
                   ),
@@ -1664,7 +2289,7 @@ class _LibrarySummaryView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      folderName,
+                      displayName,
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -1674,9 +2299,7 @@ class _LibrarySummaryView extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      normalizedDirectory.isEmpty
-                          ? '所有目录'
-                          : normalizedDirectory,
+                      subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: subtitleColor),
@@ -1705,16 +2328,28 @@ class _ExitLibraryOverviewIntent extends Intent {
 
 class _DirectorySummaryData {
   const _DirectorySummaryData({
-    required this.directoryPath,
+    required this.filterKey,
+    required this.displayName,
     required this.previewTrack,
     required this.totalTracks,
     required this.hasArtwork,
+    this.directoryPath,
+    this.webDavSource,
   });
 
-  final String directoryPath;
+  final String filterKey;
+  final String displayName;
   final Track? previewTrack;
   final int totalTracks;
   final bool hasArtwork;
+  final String? directoryPath;
+  final WebDavSource? webDavSource;
+
+  bool get isRemote => webDavSource != null;
+  bool get isAll => filterKey == allKey;
+
+  static const String allKey = '__all__';
+  static bool isAllKey(String key) => key == allKey;
 }
 
 // 其他视图占位符

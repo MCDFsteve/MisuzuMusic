@@ -8,6 +8,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:crypto/crypto.dart';
 
 import '../../domain/entities/music_entities.dart';
+import '../../domain/entities/webdav_entities.dart';
 import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/services/audio_player_service.dart';
@@ -66,7 +67,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
             state = PlayerState.loading;
             break;
           case ProcessingState.ready:
-            state = playerState.playing ? PlayerState.playing : PlayerState.paused;
+            state = playerState.playing
+                ? PlayerState.playing
+                : PlayerState.paused;
             break;
           case ProcessingState.completed:
             state = PlayerState.stopped;
@@ -189,8 +192,12 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       artist: json['artist'] as String,
       album: json['album'] as String,
       filePath: json['filePath'] as String,
-      duration: Duration(milliseconds: (json['durationMs'] as num?)?.toInt() ?? 0),
-      dateAdded: DateTime.tryParse(json['dateAdded'] as String? ?? '') ?? DateTime.now(),
+      duration: Duration(
+        milliseconds: (json['durationMs'] as num?)?.toInt() ?? 0,
+      ),
+      dateAdded:
+          DateTime.tryParse(json['dateAdded'] as String? ?? '') ??
+          DateTime.now(),
       artworkPath: json['artworkPath'] as String?,
       trackNumber: (json['trackNumber'] as num?)?.toInt(),
       year: (json['year'] as num?)?.toInt(),
@@ -201,16 +208,21 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> play(Track track, {String? fingerprint}) async {
     try {
-      final playableTrack = await _resolvePlayableTrack(track, fingerprint: fingerprint);
+      final playableTrack = await _resolvePlayableTrack(
+        track,
+        fingerprint: fingerprint,
+      );
 
       print('🎵 AudioService: 开始播放 - ${playableTrack.title}');
       print('🎵 AudioService: 文件路径 - ${playableTrack.filePath}');
 
       _currentTrack = playableTrack;
-      await _audioPlayer.setFilePath(playableTrack.filePath);
+      await _setAudioSource(playableTrack);
       await _audioPlayer.play();
 
-      final index = _queue.indexWhere((item) => _isSameTrack(item, playableTrack));
+      final index = _queue.indexWhere(
+        (item) => _isSameTrack(item, playableTrack),
+      );
       if (index != -1) {
         _currentIndex = index;
       }
@@ -231,13 +243,18 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> loadTrack(Track track, {String? fingerprint}) async {
     try {
-      final playableTrack = await _resolvePlayableTrack(track, fingerprint: fingerprint);
+      final playableTrack = await _resolvePlayableTrack(
+        track,
+        fingerprint: fingerprint,
+      );
 
       print('🎵 AudioService: 预加载音轨 - ${playableTrack.title}');
       _currentTrack = playableTrack;
-      await _audioPlayer.setFilePath(playableTrack.filePath);
+      await _setAudioSource(playableTrack);
 
-      final index = _queue.indexWhere((item) => _isSameTrack(item, playableTrack));
+      final index = _queue.indexWhere(
+        (item) => _isSameTrack(item, playableTrack),
+      );
       if (index != -1) {
         _currentIndex = index;
       }
@@ -470,7 +487,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   Future<PlaybackSession?> loadLastSession() async {
     try {
       await _configStore.init();
-      final queueJson = _configStore.getValue<String>(StorageKeys.playbackQueue);
+      final queueJson = _configStore.getValue<String>(
+        StorageKeys.playbackQueue,
+      );
       if (queueJson == null || queueJson.isEmpty) {
         return null;
       }
@@ -492,13 +511,14 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       }
 
       final savedIndex =
-          (_configStore.getValue<dynamic>(StorageKeys.playbackQueueIndex) as num?)
+          (_configStore.getValue<dynamic>(StorageKeys.playbackQueueIndex)
+                  as num?)
               ?.toInt() ??
           0;
       final positionMs =
           (_configStore.getValue<dynamic>(StorageKeys.playbackPosition) as num?)
-                  ?.toInt() ??
-              0;
+              ?.toInt() ??
+          0;
       final savedMode = _configStore.getValue<String>(StorageKeys.playMode);
       final playMode = savedMode != null
           ? () {
@@ -514,8 +534,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
           : _playMode;
 
       final rawVolume = _configStore.getValue<dynamic>(StorageKeys.volume);
-      final savedVolume =
-          (rawVolume is num ? rawVolume.toDouble() : _volume).clamp(0.0, 1.0);
+      final savedVolume = (rawVolume is num ? rawVolume.toDouble() : _volume)
+          .clamp(0.0, 1.0);
 
       final clampedIndex = queue.isEmpty
           ? 0
@@ -547,7 +567,28 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _audioPlayer.dispose();
   }
 
-  Future<Track> _resolvePlayableTrack(Track track, {String? fingerprint}) async {
+  Future<Track> _resolvePlayableTrack(
+    Track track, {
+    String? fingerprint,
+  }) async {
+    if (track.sourceType == TrackSourceType.webdav ||
+        track.filePath.startsWith('webdav://')) {
+      var normalized = track;
+      if (track.sourceType != TrackSourceType.webdav) {
+        normalized = track.copyWith(sourceType: TrackSourceType.webdav);
+        await _replaceTrackInQueue(track, normalized);
+      }
+
+      final enriched =
+          await _musicLibraryRepository.ensureWebDavTrackMetadata(normalized);
+      if (enriched != null) {
+        await _replaceTrackInQueue(normalized, enriched);
+        return enriched;
+      }
+
+      return normalized;
+    }
+
     final originalFile = File(track.filePath);
     if (await originalFile.exists()) {
       return track;
@@ -575,7 +616,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       if (await file.exists()) {
         if (fingerprint != null) {
           final candidateFingerprint = await _computeFingerprint(candidate);
-          if (candidateFingerprint != null && candidateFingerprint == fingerprint) {
+          if (candidateFingerprint != null &&
+              candidateFingerprint == fingerprint) {
             await _replaceTrackInQueue(track, candidate);
             print('✅ AudioService: 使用指纹匹配音频路径 ${candidate.filePath}');
             return candidate;
@@ -594,7 +636,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         final file = File(candidate.filePath);
         if (!await file.exists()) continue;
         final candidateFingerprint = await _computeFingerprint(candidate);
-        if (candidateFingerprint != null && candidateFingerprint == fingerprint) {
+        if (candidateFingerprint != null &&
+            candidateFingerprint == fingerprint) {
           await _replaceTrackInQueue(track, candidate);
           print('✅ AudioService: 使用指纹匹配音频路径 ${candidate.filePath}');
           return candidate;
@@ -635,6 +678,18 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
   bool _isSameTrack(Track a, Track b) {
     if (a.id == b.id) return true;
+    if (a.sourceType != b.sourceType) return false;
+    if (a.sourceType == TrackSourceType.webdav) {
+      if (a.sourceId != null &&
+          b.sourceId != null &&
+          a.sourceId == b.sourceId) {
+        if (a.remotePath != null &&
+            b.remotePath != null &&
+            a.remotePath == b.remotePath) {
+          return true;
+        }
+      }
+    }
     if (a.filePath == b.filePath) return true;
     if (a.title.toLowerCase() != b.title.toLowerCase()) return false;
     if (a.artist.toLowerCase() != b.artist.toLowerCase()) return false;
@@ -667,4 +722,97 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return null;
     }
   }
+
+  Future<void> _setAudioSource(Track track) async {
+    if (track.sourceType == TrackSourceType.webdav) {
+      final streamInfo = await _buildWebDavStreamInfo(track);
+      await _audioPlayer.setUrl(
+        streamInfo.url.toString(),
+        headers: streamInfo.headers,
+      );
+    } else {
+      await _audioPlayer.setFilePath(track.filePath);
+    }
+  }
+
+  Future<_WebDavStreamInfo> _buildWebDavStreamInfo(Track track) async {
+    final sourceId = track.sourceId;
+    if (sourceId == null) {
+      throw AudioPlaybackException(
+        'WebDAV source missing for track ${track.title}',
+      );
+    }
+
+    final source = await _musicLibraryRepository.getWebDavSourceById(sourceId);
+    if (source == null) {
+      throw AudioPlaybackException('WebDAV source not found: $sourceId');
+    }
+
+    final password = await _musicLibraryRepository.getWebDavPassword(sourceId);
+    if (password == null) {
+      throw AudioPlaybackException(
+        'WebDAV credentials missing for source $sourceId',
+      );
+    }
+
+    final uri = _buildWebDavUri(source, track.remotePath ?? '/');
+
+    final headers = <String, String>{'User-Agent': 'MisuzuMusic/1.0'};
+
+    if (track.httpHeaders != null) {
+      headers.addAll(track.httpHeaders!);
+    }
+
+    if (source.username != null && source.username!.isNotEmpty) {
+      final auth = base64.encode(utf8.encode('${source.username}:$password'));
+      headers['Authorization'] = 'Basic $auth';
+    }
+
+    return _WebDavStreamInfo(url: uri, headers: headers);
+  }
+
+  Uri _buildWebDavUri(WebDavSource source, String trackRemotePath) {
+    final baseUri = Uri.parse('${source.baseUrl}/');
+    final rootPath = _normalizeRemotePath(source.rootPath);
+    final relativePath = _normalizeRemotePath(trackRemotePath);
+
+    String combinedPath;
+    if (relativePath == '/') {
+      combinedPath = rootPath;
+    } else if (rootPath == '/') {
+      combinedPath = relativePath;
+    } else {
+      combinedPath = '$rootPath$relativePath';
+    }
+
+    final segments = baseUri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    segments.addAll(
+      combinedPath.split('/').where((segment) => segment.isNotEmpty).toList(),
+    );
+
+    return baseUri.replace(pathSegments: segments);
+  }
+
+  String _normalizeRemotePath(String remotePath) {
+    var normalized = remotePath.trim().replaceAll('\\', '/');
+    if (normalized.isEmpty) {
+      return '/';
+    }
+    if (!normalized.startsWith('/')) {
+      normalized = '/$normalized';
+    }
+    if (normalized.length > 1 && normalized.endsWith('/')) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    return normalized;
+  }
+}
+
+class _WebDavStreamInfo {
+  const _WebDavStreamInfo({required this.url, required this.headers});
+
+  final Uri url;
+  final Map<String, String> headers;
 }

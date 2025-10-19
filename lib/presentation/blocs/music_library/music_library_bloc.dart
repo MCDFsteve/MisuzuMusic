@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../domain/entities/music_entities.dart';
+import '../../../domain/entities/webdav_entities.dart';
 import '../../../domain/usecases/music_usecases.dart';
 
 // Events
@@ -33,6 +34,19 @@ class ScanDirectoryEvent extends MusicLibraryEvent {
 
   @override
   List<Object> get props => [directoryPath];
+}
+
+class ScanWebDavDirectoryEvent extends MusicLibraryEvent {
+  final WebDavSource source;
+  final String password;
+
+  const ScanWebDavDirectoryEvent({
+    required this.source,
+    required this.password,
+  });
+
+  @override
+  List<Object> get props => [source, password];
 }
 
 class LoadAllArtistsEvent extends MusicLibraryEvent {
@@ -74,23 +88,33 @@ class MusicLibraryLoaded extends MusicLibraryState {
   final List<Album> albums;
   final String? searchQuery;
   final List<String> libraryDirectories;
+  final List<WebDavSource> webDavSources;
 
   const MusicLibraryLoaded({
     required this.tracks,
     required this.artists,
     required this.albums,
     required this.libraryDirectories,
+    required this.webDavSources,
     this.searchQuery,
   });
 
   @override
-  List<Object?> get props => [tracks, artists, albums, libraryDirectories, searchQuery];
+  List<Object?> get props => [
+    tracks,
+    artists,
+    albums,
+    libraryDirectories,
+    webDavSources,
+    searchQuery,
+  ];
 
   MusicLibraryLoaded copyWith({
     List<Track>? tracks,
     List<Artist>? artists,
     List<Album>? albums,
     List<String>? libraryDirectories,
+    List<WebDavSource>? webDavSources,
     String? searchQuery,
   }) {
     return MusicLibraryLoaded(
@@ -98,6 +122,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
       artists: artists ?? this.artists,
       albums: albums ?? this.albums,
       libraryDirectories: libraryDirectories ?? this.libraryDirectories,
+      webDavSources: webDavSources ?? this.webDavSources,
       searchQuery: searchQuery ?? this.searchQuery,
     );
   }
@@ -106,14 +131,16 @@ class MusicLibraryLoaded extends MusicLibraryState {
 class MusicLibraryScanComplete extends MusicLibraryState {
   final int tracksAdded;
   final String directoryPath;
+  final WebDavSource? webDavSource;
 
   const MusicLibraryScanComplete({
     required this.tracksAdded,
     required this.directoryPath,
+    this.webDavSource,
   });
 
   @override
-  List<Object> get props => [tracksAdded, directoryPath];
+  List<Object?> get props => [tracksAdded, directoryPath, webDavSource];
 }
 
 class MusicLibraryError extends MusicLibraryState {
@@ -133,6 +160,11 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
   final GetAllArtists _getAllArtists;
   final GetAllAlbums _getAllAlbums;
   final GetLibraryDirectories _getLibraryDirectories;
+  final ScanWebDavDirectory _scanWebDavDirectory;
+  final GetWebDavSources _getWebDavSources;
+  final EnsureWebDavTrackMetadata _ensureWebDavTrackMetadata;
+
+  bool _webDavMetadataEnrichmentInProgress = false;
 
   MusicLibraryBloc({
     required GetAllTracks getAllTracks,
@@ -141,17 +173,23 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     required GetAllArtists getAllArtists,
     required GetAllAlbums getAllAlbums,
     required GetLibraryDirectories getLibraryDirectories,
-  })  : _getAllTracks = getAllTracks,
-        _searchTracks = searchTracks,
-        _scanMusicDirectory = scanMusicDirectory,
-        _getAllArtists = getAllArtists,
-        _getAllAlbums = getAllAlbums,
-        _getLibraryDirectories = getLibraryDirectories,
-        super(const MusicLibraryInitial()) {
-
+    required ScanWebDavDirectory scanWebDavDirectory,
+    required GetWebDavSources getWebDavSources,
+    required EnsureWebDavTrackMetadata ensureWebDavTrackMetadata,
+  }) : _getAllTracks = getAllTracks,
+       _searchTracks = searchTracks,
+       _scanMusicDirectory = scanMusicDirectory,
+       _getAllArtists = getAllArtists,
+       _getAllAlbums = getAllAlbums,
+       _getLibraryDirectories = getLibraryDirectories,
+       _scanWebDavDirectory = scanWebDavDirectory,
+       _getWebDavSources = getWebDavSources,
+       _ensureWebDavTrackMetadata = ensureWebDavTrackMetadata,
+       super(const MusicLibraryInitial()) {
     on<LoadAllTracks>(_onLoadAllTracks);
     on<SearchTracksEvent>(_onSearchTracks);
     on<ScanDirectoryEvent>(_onScanDirectory);
+    on<ScanWebDavDirectoryEvent>(_onScanWebDavDirectory);
     on<LoadAllArtistsEvent>(_onLoadAllArtists);
     on<LoadAllAlbumsEvent>(_onLoadAllAlbums);
   }
@@ -168,19 +206,135 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       final artists = await _getAllArtists();
       final albums = await _getAllAlbums();
       final directories = await _getLibraryDirectories();
+      final webDavSources = await _getWebDavSources();
 
-      print('🎵 BLoC: 加载完成 - ${tracks.length} 首歌曲, ${artists.length} 位艺术家, ${albums.length} 张专辑');
+      final visibleTracks = _filterVisibleTracks(tracks);
+      final hiddenCount = tracks.length - visibleTracks.length;
+      if (hiddenCount > 0) {
+        print(
+          '🌐 BLoC: 暂时隐藏 $hiddenCount 首 WebDAV 音轨，等待元数据加载',
+        );
+      }
 
-      emit(MusicLibraryLoaded(
-        tracks: tracks,
-        artists: artists,
-        albums: albums,
-        libraryDirectories: directories,
-      ));
+      print(
+        '🎵 BLoC: 加载完成 - ${visibleTracks.length} 首可用歌曲, 隐藏 $hiddenCount 首, ${artists.length} 位艺术家, ${albums.length} 张专辑',
+      );
+
+      emit(
+        MusicLibraryLoaded(
+          tracks: visibleTracks,
+          artists: artists,
+          albums: albums,
+          libraryDirectories: directories,
+          webDavSources: webDavSources,
+        ),
+      );
+
+      await _autoEnrichWebDavMetadata(tracks, emit);
     } catch (e) {
       print('❌ BLoC: 加载音轨失败: $e');
       emit(MusicLibraryError('加载音乐库失败: ${e.toString()}'));
     }
+  }
+
+  Future<void> _autoEnrichWebDavMetadata(
+    List<Track> tracks,
+    Emitter<MusicLibraryState> emit,
+  ) async {
+    if (_webDavMetadataEnrichmentInProgress) {
+      return;
+    }
+
+    final candidates = tracks.where(_needsWebDavMetadata).toList();
+    if (candidates.isEmpty) {
+      return;
+    }
+
+    _webDavMetadataEnrichmentInProgress = true;
+    try {
+      print(
+        '🌐 BLoC: 自动补全 WebDAV 元数据任务启动 - ${candidates.length} 首音轨',
+      );
+
+      var updated = false;
+      for (final track in candidates) {
+        final enriched =
+            await _ensureWebDavTrackMetadata(track, force: false);
+        final effective = enriched ?? track;
+        if (_hasMetadataChanged(track, effective)) {
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        print('🌐 BLoC: WebDAV 元数据发生更新，刷新音乐库');
+        final refreshedTracks = await _getAllTracks();
+        final refreshedArtists = await _getAllArtists();
+        final refreshedAlbums = await _getAllAlbums();
+        final directories = await _getLibraryDirectories();
+        final webDavSources = await _getWebDavSources();
+
+        final visibleTracks = _filterVisibleTracks(refreshedTracks);
+        final hiddenCount = refreshedTracks.length - visibleTracks.length;
+        if (hiddenCount > 0) {
+          print(
+            '🌐 BLoC: 补齐后仍有 $hiddenCount 首 WebDAV 音轨缺少元数据，继续等待',
+          );
+        }
+
+        emit(
+          MusicLibraryLoaded(
+            tracks: visibleTracks,
+            artists: refreshedArtists,
+            albums: refreshedAlbums,
+            libraryDirectories: directories,
+            webDavSources: webDavSources,
+          ),
+        );
+      } else {
+        print('🌐 BLoC: WebDAV 元数据无需更新');
+      }
+    } catch (e) {
+      print('⚠️ BLoC: 自动补全 WebDAV 元数据失败 - $e');
+    } finally {
+      _webDavMetadataEnrichmentInProgress = false;
+    }
+  }
+
+  bool _needsWebDavMetadata(Track track) {
+    final isWebDav =
+        track.sourceType == TrackSourceType.webdav ||
+        track.filePath.startsWith('webdav://');
+    if (!isWebDav) {
+      return false;
+    }
+
+    final hasDuration = track.duration > Duration.zero;
+    final hasArtist = track.artist.isNotEmpty &&
+        track.artist.toLowerCase() != 'unknown artist';
+    final hasAlbum = track.album.isNotEmpty &&
+        track.album.toLowerCase() != 'unknown album';
+    final hasArtwork = track.artworkPath != null && track.artworkPath!.isNotEmpty;
+
+    return !(hasDuration && hasArtist && hasAlbum && hasArtwork);
+  }
+
+  List<Track> _filterVisibleTracks(List<Track> tracks) {
+    return tracks.where((track) => !_needsWebDavMetadata(track)).toList();
+  }
+
+  bool _hasMetadataChanged(Track original, Track updated) {
+    if (original.title != updated.title) return true;
+    if (original.artist != updated.artist) return true;
+    if (original.album != updated.album) return true;
+    if (original.duration != updated.duration) return true;
+    if ((original.artworkPath ?? '') != (updated.artworkPath ?? '')) {
+      return true;
+    }
+    if ((original.genre ?? '') != (updated.genre ?? '')) return true;
+    if (original.trackNumber != updated.trackNumber) return true;
+    if (original.year != updated.year) return true;
+    return false;
   }
 
   Future<void> _onSearchTracks(
@@ -195,16 +349,28 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       final artists = await _getAllArtists();
       final albums = await _getAllAlbums();
       final directories = await _getLibraryDirectories();
+      final webDavSources = await _getWebDavSources();
+
+      final visibleTracks = _filterVisibleTracks(tracks);
+      final hiddenCount = tracks.length - visibleTracks.length;
+      if (hiddenCount > 0) {
+        print(
+          '🌐 BLoC: 搜索结果隐藏 $hiddenCount 首 WebDAV 音轨，等待元数据加载',
+        );
+      }
 
       print('🔍 BLoC: 搜索完成 - 找到 ${tracks.length} 首歌曲');
 
-      emit(MusicLibraryLoaded(
-        tracks: tracks,
-        artists: artists,
-        albums: albums,
-        libraryDirectories: directories,
-        searchQuery: event.query,
-      ));
+      emit(
+        MusicLibraryLoaded(
+          tracks: visibleTracks,
+          artists: artists,
+          albums: albums,
+          libraryDirectories: directories,
+          webDavSources: webDavSources,
+          searchQuery: event.query,
+        ),
+      );
     } catch (e) {
       print('❌ BLoC: 搜索失败: $e');
       emit(MusicLibraryError('搜索失败: ${e.toString()}'));
@@ -234,18 +400,70 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       print('📁 BLoC: 扫描完成 - 添加了 $tracksAdded 首新歌曲');
 
       // 发送扫描完成状态
-      emit(MusicLibraryScanComplete(
-        tracksAdded: tracksAdded,
-        directoryPath: event.directoryPath,
-      ));
+      emit(
+        MusicLibraryScanComplete(
+          tracksAdded: tracksAdded,
+          directoryPath: event.directoryPath,
+        ),
+      );
 
       // 然后加载所有数据
       await Future.delayed(const Duration(milliseconds: 500));
       add(const LoadAllTracks());
-
     } catch (e) {
       print('❌ BLoC: 扫描目录失败: $e');
       emit(MusicLibraryError('扫描目录失败: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onScanWebDavDirectory(
+    ScanWebDavDirectoryEvent event,
+    Emitter<MusicLibraryState> emit,
+  ) async {
+    try {
+      print('🌐 BLoC: 开始扫描 WebDAV 目录: ${event.source.rootPath}');
+      emit(MusicLibraryScanning(event.source.rootPath));
+
+      final tracksBefore = await _getAllTracks();
+      final beforeCount = tracksBefore.length;
+
+      await _scanWebDavDirectory(
+        source: event.source,
+        password: event.password,
+      );
+
+      final tracksAfter = await _getAllTracks();
+      final afterCount = tracksAfter.length;
+      final tracksAdded = afterCount - beforeCount;
+
+      print('🌐 BLoC: WebDAV 扫描完成 - 添加了 $tracksAdded 首新歌曲');
+
+      WebDavSource? updatedSource;
+      final sources = await _getWebDavSources();
+      try {
+        updatedSource = sources.firstWhere(
+          (item) =>
+              item.baseUrl == event.source.baseUrl &&
+              item.rootPath == event.source.rootPath &&
+              (item.username ?? '') == (event.source.username ?? ''),
+        );
+      } catch (_) {
+        updatedSource = null;
+      }
+
+      emit(
+        MusicLibraryScanComplete(
+          tracksAdded: tracksAdded,
+          directoryPath: event.source.rootPath,
+          webDavSource: updatedSource ?? event.source,
+        ),
+      );
+
+      await Future.delayed(const Duration(milliseconds: 500));
+      add(const LoadAllTracks());
+    } catch (e) {
+      print('❌ BLoC: 扫描 WebDAV 目录失败: $e');
+      emit(MusicLibraryError('扫描 WebDAV 目录失败: ${e.toString()}'));
     }
   }
 

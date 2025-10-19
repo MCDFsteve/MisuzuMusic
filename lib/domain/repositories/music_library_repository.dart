@@ -1,4 +1,5 @@
 import '../entities/music_entities.dart';
+import '../entities/webdav_entities.dart';
 
 // Repository interface for music library operations
 abstract class MusicLibraryRepository {
@@ -33,7 +34,29 @@ abstract class MusicLibraryRepository {
 
   // Library management
   Future<void> scanDirectory(String path);
+  Future<void> scanWebDavDirectory({
+    required WebDavSource source,
+    required String password,
+  });
+  Future<Track?> ensureWebDavTrackMetadata(
+    Track track, {
+    bool force = false,
+  });
   Future<void> refreshLibrary();
   Future<void> clearLibrary();
   Future<List<String>> getLibraryDirectories();
+  Future<List<WebDavSource>> getWebDavSources();
+  Future<WebDavSource?> getWebDavSourceById(String id);
+  Future<void> saveWebDavSource(WebDavSource source, {String? password});
+  Future<void> deleteWebDavSource(String id);
+  Future<String?> getWebDavPassword(String id);
+  Future<void> testWebDavConnection({
+    required WebDavSource source,
+    required String password,
+  });
+  Future<List<WebDavEntry>> listWebDavDirectory({
+    required WebDavSource source,
+    required String password,
+    required String path,
+  });
 }
