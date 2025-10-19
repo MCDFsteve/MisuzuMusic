@@ -371,6 +371,7 @@ class _LyricsPanel extends StatelessWidget {
       }
 
       return LyricsDisplay(
+        key: ValueKey(track.id),
         lines: lines,
         controller: controller,
         isDarkMode: isDarkMode,

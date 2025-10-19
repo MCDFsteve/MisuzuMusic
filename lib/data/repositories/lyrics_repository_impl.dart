@@ -81,19 +81,6 @@ class LyricsRepositoryImpl implements LyricsRepository {
         }
       }
 
-      // Try looking for similar filenames
-      await for (final entity in directory.list()) {
-        if (entity is File) {
-          final fileName = path.basenameWithoutExtension(entity.path);
-          final extension = path.extension(entity.path).toLowerCase();
-
-          if (lyricsExtensions.contains(extension) &&
-              _isSimilarFileName(fileName, baseName)) {
-            return entity.path;
-          }
-        }
-      }
-
       return null;
     } catch (e) {
       throw FileSystemException('Failed to find lyrics file: ${e.toString()}');
@@ -230,44 +217,4 @@ class LyricsRepositoryImpl implements LyricsRepository {
     return lines;
   }
 
-  bool _isSimilarFileName(String fileName1, String fileName2) {
-    // Simple similarity check - can be made more sophisticated
-    final normalized1 = fileName1.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
-    final normalized2 = fileName2.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
-
-    return normalized1.contains(normalized2) ||
-           normalized2.contains(normalized1) ||
-           _levenshteinDistance(normalized1, normalized2) <= 3;
-  }
-
-  int _levenshteinDistance(String s1, String s2) {
-    if (s1 == s2) return 0;
-    if (s1.isEmpty) return s2.length;
-    if (s2.isEmpty) return s1.length;
-
-    final matrix = List.generate(
-      s1.length + 1,
-      (i) => List.generate(s2.length + 1, (j) => 0),
-    );
-
-    for (int i = 0; i <= s1.length; i++) {
-      matrix[i][0] = i;
-    }
-    for (int j = 0; j <= s2.length; j++) {
-      matrix[0][j] = j;
-    }
-
-    for (int i = 1; i <= s1.length; i++) {
-      for (int j = 1; j <= s2.length; j++) {
-        final cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
-        matrix[i][j] = [
-          matrix[i - 1][j] + 1,      // deletion
-          matrix[i][j - 1] + 1,      // insertion
-          matrix[i - 1][j - 1] + cost, // substitution
-        ].reduce((a, b) => a < b ? a : b);
-      }
-    }
-
-    return matrix[s1.length][s2.length];
-  }
 }
