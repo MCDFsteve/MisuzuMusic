@@ -40,12 +40,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _currentTrack = widget.initialTrack;
     _lyricsScrollController = ScrollController();
     _lyricsCubit = LyricsCubit(
-      getLyrics: sl<GetLyrics>(),
       findLyricsFile: sl<FindLyricsFile>(),
       loadLyricsFromFile: sl<LoadLyricsFromFile>(),
-      saveLyrics: sl<SaveLyrics>(),
-    )
-      ..loadLyricsForTrack(_currentTrack);
+    )..loadLyricsForTrack(_currentTrack);
   }
 
   @override
@@ -160,7 +157,10 @@ class _LyricsLayout extends StatelessWidget {
                 ),
                 Container(
                   width: 1,
-                  margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 50),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 50,
+                  ),
                   color: dividerColor.withOpacity(0.35),
                 ),
                 Expanded(
@@ -202,17 +202,25 @@ class _CoverColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextStyle titleStyle = isMac
-        ? MacosTheme.of(context).typography.title1.copyWith(fontWeight: FontWeight.w600)
-        : Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600) ??
-            const TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
+        ? MacosTheme.of(
+            context,
+          ).typography.title1.copyWith(fontWeight: FontWeight.w600)
+        : Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ) ??
+              const TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
     final TextStyle subtitleStyle = isMac
         ? MacosTheme.of(context).typography.body.copyWith(
-              color: MacosTheme.of(context).typography.body.color?.withOpacity(0.75),
-            )
+            color: MacosTheme.of(
+              context,
+            ).typography.body.color?.withOpacity(0.75),
+          )
         : Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-            ) ??
-            const TextStyle(fontSize: 14, color: Colors.black54);
+                color: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.color?.withOpacity(0.7),
+              ) ??
+              const TextStyle(fontSize: 14, color: Colors.black54);
 
     return Center(
       child: Column(
@@ -294,7 +302,9 @@ class _LyricsPanel extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final behavior = ScrollConfiguration.of(context).copyWith(scrollbars: false);
+          final behavior = ScrollConfiguration.of(
+            context,
+          ).copyWith(scrollbars: false);
           final viewportHeight = constraints.maxHeight;
           return BlocBuilder<LyricsCubit, LyricsState>(
             builder: (context, state) {
@@ -414,16 +424,11 @@ class _LyricsPanel extends StatelessWidget {
             children: [
               Text(title, style: titleStyle, textAlign: TextAlign.center),
               const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: subtitleStyle,
-                textAlign: TextAlign.center,
-              ),
+              Text(subtitle, style: subtitleStyle, textAlign: TextAlign.center),
             ],
           ),
         ),
       ],
     );
   }
-
 }

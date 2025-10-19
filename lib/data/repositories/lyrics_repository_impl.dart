@@ -16,8 +16,8 @@ class LyricsRepositoryImpl implements LyricsRepository {
   LyricsRepositoryImpl({
     required LyricsLocalDataSource localDataSource,
     required JapaneseProcessingService japaneseProcessingService,
-  })  : _localDataSource = localDataSource,
-        _japaneseProcessingService = japaneseProcessingService;
+  }) : _localDataSource = localDataSource,
+       _japaneseProcessingService = japaneseProcessingService;
 
   @override
   Future<Lyrics?> getLyricsByTrackId(String trackId) async {
@@ -43,7 +43,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
       final processedLyrics = await _processJapaneseLyrics(lyrics);
       final lyricsModel = LyricsModel.fromEntity(processedLyrics);
 
-      final existingLyrics = await _localDataSource.getLyricsByTrackId(lyrics.trackId);
+      final existingLyrics = await _localDataSource.getLyricsByTrackId(
+        lyrics.trackId,
+      );
       if (existingLyrics != null) {
         await _localDataSource.updateLyrics(lyricsModel);
       } else {
@@ -73,6 +75,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
       // Common lyrics file extensions
       final lyricsExtensions = ['.lrc', '.txt'];
 
+      // Primary attempt: exact match with full base name
       for (final extension in lyricsExtensions) {
         final lyricsPath = path.join(directory.path, '$baseName$extension');
         final lyricsFile = File(lyricsPath);
@@ -81,10 +84,58 @@ class LyricsRepositoryImpl implements LyricsRepository {
         }
       }
 
+      // Secondary attempt: allow matching by title segment when filename is like
+      // "Artist - Title" but lyrics file only contains "Title".
+      final normalizedTargets = _buildNormalizedTitleCandidates(baseName);
+      final candidateFiles = directory
+          .listSync(followLinks: false)
+          .whereType<File>()
+          .where(
+            (file) => lyricsExtensions.any(
+              (ext) => file.path.toLowerCase().endsWith(ext),
+            ),
+          )
+          .toList();
+
+      for (final file in candidateFiles) {
+        final filename = path.basenameWithoutExtension(file.path);
+        final normalizedName = _normalizeFilename(filename);
+        if (normalizedTargets.contains(normalizedName)) {
+          return file.path;
+        }
+      }
+
       return null;
     } catch (e) {
       throw FileSystemException('Failed to find lyrics file: ${e.toString()}');
     }
+  }
+
+  Set<String> _buildNormalizedTitleCandidates(String baseName) {
+    final candidates = <String>{};
+    final normalizedFull = _normalizeFilename(baseName);
+    if (normalizedFull.isNotEmpty) {
+      candidates.add(normalizedFull);
+    }
+
+    final separators = [' - ', '-', ' – ', ' — ', ' _ ', '_'];
+    for (final separator in separators) {
+      if (baseName.contains(separator)) {
+        final parts = baseName.split(separator);
+        for (final part in parts) {
+          final normalizedPart = _normalizeFilename(part);
+          if (normalizedPart.length >= 2) {
+            candidates.add(normalizedPart);
+          }
+        }
+      }
+    }
+
+    return candidates;
+  }
+
+  String _normalizeFilename(String input) {
+    return input.trim().replaceAll(RegExp(r'[\s_\-–—]+'), ' ').toLowerCase();
   }
 
   @override
@@ -109,11 +160,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
         lines = _parseTextContent(content);
       }
 
-      final lyrics = Lyrics(
-        trackId: trackId,
-        lines: lines,
-        format: format,
-      );
+      final lyrics = Lyrics(trackId: trackId, lines: lines, format: format);
 
       return await _processJapaneseLyrics(lyrics);
     } catch (e) {
@@ -126,7 +173,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
     try {
       return await _localDataSource.hasLyrics(trackId);
     } catch (e) {
-      throw DatabaseException('Failed to check lyrics existence: ${e.toString()}');
+      throw DatabaseException(
+        'Failed to check lyrics existence: ${e.toString()}',
+      );
     }
   }
 
@@ -136,25 +185,31 @@ class LyricsRepositoryImpl implements LyricsRepository {
 
       for (final line in lyrics.lines) {
         if (_japaneseProcessingService.containsJapanese(line.originalText)) {
-          final annotatedTexts = await _japaneseProcessingService.annotateText(line.originalText);
-          processedLines.add(LyricsLine(
-            timestamp: line.timestamp,
-            originalText: line.originalText,
-            annotatedTexts: annotatedTexts,
-          ));
+          final annotatedTexts = await _japaneseProcessingService.annotateText(
+            line.originalText,
+          );
+          processedLines.add(
+            LyricsLine(
+              timestamp: line.timestamp,
+              originalText: line.originalText,
+              annotatedTexts: annotatedTexts,
+            ),
+          );
         } else {
           // Non-Japanese text, create a single annotation
-          processedLines.add(LyricsLine(
-            timestamp: line.timestamp,
-            originalText: line.originalText,
-            annotatedTexts: [
-              AnnotatedText(
-                original: line.originalText,
-                annotation: line.originalText,
-                type: TextType.other,
-              )
-            ],
-          ));
+          processedLines.add(
+            LyricsLine(
+              timestamp: line.timestamp,
+              originalText: line.originalText,
+              annotatedTexts: [
+                AnnotatedText(
+                  original: line.originalText,
+                  annotation: line.originalText,
+                  type: TextType.other,
+                ),
+              ],
+            ),
+          );
         }
       }
 
@@ -164,7 +219,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
         format: lyrics.format,
       );
     } catch (e) {
-      throw JapaneseProcessingException('Failed to process Japanese lyrics: ${e.toString()}');
+      throw JapaneseProcessingException(
+        'Failed to process Japanese lyrics: ${e.toString()}',
+      );
     }
   }
 
@@ -173,7 +230,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
     final lrcLines = content.split('\n');
 
     for (final lrcLine in lrcLines) {
-      final match = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2})\](.*)').firstMatch(lrcLine.trim());
+      final match = RegExp(
+        r'\[(\d{2}):(\d{2})\.(\d{2})\](.*)',
+      ).firstMatch(lrcLine.trim());
       if (match != null) {
         final minutes = int.parse(match.group(1)!);
         final seconds = int.parse(match.group(2)!);
@@ -187,11 +246,13 @@ class LyricsRepositoryImpl implements LyricsRepository {
             milliseconds: centiseconds * 10,
           );
 
-          lines.add(LyricsLine(
-            timestamp: timestamp,
-            originalText: text,
-            annotatedTexts: [], // Will be populated by processing
-          ));
+          lines.add(
+            LyricsLine(
+              timestamp: timestamp,
+              originalText: text,
+              annotatedTexts: [], // Will be populated by processing
+            ),
+          );
         }
       }
     }
@@ -206,15 +267,16 @@ class LyricsRepositoryImpl implements LyricsRepository {
     for (int i = 0; i < textLines.length; i++) {
       final text = textLines[i].trim();
       if (text.isNotEmpty) {
-        lines.add(LyricsLine(
-          timestamp: Duration(seconds: i * 5), // Default 5 seconds per line
-          originalText: text,
-          annotatedTexts: [], // Will be populated by processing
-        ));
+        lines.add(
+          LyricsLine(
+            timestamp: Duration(seconds: i * 5), // Default 5 seconds per line
+            originalText: text,
+            annotatedTexts: [], // Will be populated by processing
+          ),
+        );
       }
     }
 
     return lines;
   }
-
 }
