@@ -32,11 +32,20 @@ class MacOSPlayerControlBar extends StatelessWidget {
       builder: (context, state) {
         final isPlaying = state is PlayerPlaying;
         final isPaused = state is PlayerPaused;
-        final loadingState = state is PlayerLoading ? state as PlayerLoading : null;
-        final showLoadingIndicator = loadingState != null && loadingState.track == null;
-        final showPauseVisual = !(state is PlayerPaused || state is PlayerStopped || state is PlayerError || state is PlayerInitial);
+        final loadingState = state is PlayerLoading
+            ? state as PlayerLoading
+            : null;
+        final showLoadingIndicator =
+            loadingState != null && loadingState.track == null;
+        final showPauseVisual =
+            !(state is PlayerPaused ||
+                state is PlayerStopped ||
+                state is PlayerError ||
+                state is PlayerInitial);
         final canControl =
-            isPlaying || isPaused || (loadingState != null && loadingState.track != null);
+            isPlaying ||
+            isPaused ||
+            (loadingState != null && loadingState.track != null);
 
         String trackTitle = '暂无播放';
         String trackArtist = '选择音乐开始播放';
@@ -69,7 +78,9 @@ class MacOSPlayerControlBar extends StatelessWidget {
             ? Colors.white70
             : MacosColors.labelColor.withOpacity(0.72);
 
-        final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.32);
+        final frostedColor = theme.canvasColor.withOpacity(
+          isDarkMode ? 0.35 : 0.32,
+        );
 
         return ClipRect(
           child: BackdropFilter(
@@ -80,8 +91,14 @@ class MacOSPlayerControlBar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: frostedColor,
                 border: Border(
-                  top: BorderSide(color: theme.dividerColor.withOpacity(0.5), width: 0.5),
-                  bottom: BorderSide(color: theme.dividerColor.withOpacity(0.15), width: 0.5),
+                  top: BorderSide(
+                    color: theme.dividerColor.withOpacity(0.5),
+                    width: 0.5,
+                  ),
+                  bottom: BorderSide(
+                    color: theme.dividerColor.withOpacity(0.15),
+                    width: 0.5,
+                  ),
                 ),
               ),
               child: Row(
@@ -92,12 +109,12 @@ class MacOSPlayerControlBar extends StatelessWidget {
                     child: _buildPlaybackControls(
                       context: context,
                       isPlaying: isPlaying,
-                  isPaused: isPaused,
-                  showLoadingIndicator: showLoadingIndicator,
-                  showPauseVisual: showPauseVisual,
-                  iconColor: iconColor,
-                  secondaryIconColor: secondaryIconColor,
-                ),
+                      isPaused: isPaused,
+                      showLoadingIndicator: showLoadingIndicator,
+                      showPauseVisual: showPauseVisual,
+                      iconColor: iconColor,
+                      secondaryIconColor: secondaryIconColor,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -112,7 +129,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
                           artworkPath: artworkPath,
                           titleColor: iconColor,
                           subtitleColor: secondaryIconColor,
-                          onArtworkTap: currentTrack != null && onArtworkTap != null
+                          onArtworkTap:
+                              currentTrack != null && onArtworkTap != null
                               ? onArtworkTap
                               : null,
                           isLyricsActive: isLyricsActive,
@@ -170,11 +188,9 @@ class MacOSPlayerControlBar extends StatelessWidget {
             enabled: canControl,
             baseColor: secondaryIconColor,
             hoverColor: iconColor,
-            iconBuilder: (color) => MacosIcon(
-              CupertinoIcons.backward_fill,
-              color: color,
-              size: 22,
-            ),
+            dimWhenDisabled: false,
+            iconBuilder: (color) =>
+                MacosIcon(CupertinoIcons.backward_fill, color: color, size: 22),
             onPressed: canControl
                 ? () {
                     context.read<PlayerBloc>().add(const PlayerSkipPrevious());
@@ -214,10 +230,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
                   duration: const Duration(milliseconds: 180),
                   switchInCurve: Curves.easeOutBack,
                   switchOutCurve: Curves.easeIn,
-                  transitionBuilder: (child, animation) => ScaleTransition(
-                    scale: animation,
-                    child: child,
-                  ),
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
                   child: MacosIcon(
                     showPauseVisual
                         ? CupertinoIcons.pause_fill
@@ -247,11 +261,9 @@ class MacOSPlayerControlBar extends StatelessWidget {
             enabled: canControl,
             baseColor: secondaryIconColor,
             hoverColor: iconColor,
-            iconBuilder: (color) => MacosIcon(
-              CupertinoIcons.forward_fill,
-              color: color,
-              size: 22,
-            ),
+            dimWhenDisabled: false,
+            iconBuilder: (color) =>
+                MacosIcon(CupertinoIcons.forward_fill, color: color, size: 22),
             onPressed: canControl
                 ? () {
                     context.read<PlayerBloc>().add(const PlayerSkipNext());
@@ -268,11 +280,8 @@ class MacOSPlayerControlBar extends StatelessWidget {
             enabled: true,
             baseColor: secondaryIconColor,
             hoverColor: iconColor,
-            iconBuilder: (color) => MacosIcon(
-              _playModeIcon(context),
-              color: color,
-              size: 22,
-            ),
+            iconBuilder: (color) =>
+                MacosIcon(_playModeIcon(context), color: color, size: 22),
             onPressed: () => _cyclePlayMode(context),
           ),
         ),
@@ -341,10 +350,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         const SizedBox(width: 8),
         Padding(
           padding: const EdgeInsets.only(top: 2),
-          child: _MacVolumeSlider(
-            volume: volume,
-            color: iconColor,
-          ),
+          child: _MacVolumeSlider(volume: volume, color: iconColor),
         ),
       ],
     );
@@ -352,10 +358,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
 }
 
 class _MacVolumeSlider extends StatefulWidget {
-  const _MacVolumeSlider({
-    required this.volume,
-    required this.color,
-  });
+  const _MacVolumeSlider({required this.volume, required this.color});
 
   final double volume;
   final Color color;
@@ -494,7 +497,8 @@ class _MacVolumeSliderState extends State<_MacVolumeSlider> {
               math.min(knobCenter - knobRadius, trackWidth - knobDiameter),
             );
             final knobTop = (constraints.maxHeight - knobDiameter) / 2;
-            final isDarkMode = MacosTheme.of(context).brightness == Brightness.dark;
+            final isDarkMode =
+                MacosTheme.of(context).brightness == Brightness.dark;
             final showKnob = _hovering || _dragging;
 
             void handlePosition(Offset localPosition) {
@@ -509,7 +513,8 @@ class _MacVolumeSliderState extends State<_MacVolumeSlider> {
                 setState(() => _dragging = true);
                 handlePosition(details.localPosition);
               },
-              onHorizontalDragUpdate: (details) => handlePosition(details.localPosition),
+              onHorizontalDragUpdate: (details) =>
+                  handlePosition(details.localPosition),
               onHorizontalDragEnd: (_) => setState(() => _dragging = false),
               onHorizontalDragCancel: () => setState(() => _dragging = false),
               child: Stack(
@@ -688,6 +693,7 @@ class _MacHoverIconButton extends StatefulWidget {
     required this.enabled,
     required this.baseColor,
     required this.hoverColor,
+    this.dimWhenDisabled = true,
     this.tooltip,
   });
 
@@ -696,6 +702,7 @@ class _MacHoverIconButton extends StatefulWidget {
   final bool enabled;
   final Color baseColor;
   final Color hoverColor;
+  final bool dimWhenDisabled;
   final String? tooltip;
 
   @override
@@ -723,7 +730,9 @@ class _MacHoverIconButtonState extends State<_MacHoverIconButton> {
     final enabled = widget.enabled && widget.onPressed != null;
     final Color targetColor;
     if (!enabled) {
-      targetColor = widget.baseColor.withOpacity(0.45);
+      targetColor = widget.dimWhenDisabled
+          ? widget.baseColor.withOpacity(0.45)
+          : widget.baseColor;
     } else if (_hovering) {
       targetColor = widget.hoverColor;
     } else {
@@ -735,8 +744,8 @@ class _MacHoverIconButtonState extends State<_MacHoverIconButton> {
     final scale = !enabled
         ? 1.0
         : _pressing
-            ? pressScale
-            : (_hovering ? hoverScale : 1.0);
+        ? pressScale
+        : (_hovering ? hoverScale : 1.0);
 
     final child = AnimatedScale(
       scale: scale,
@@ -773,9 +782,6 @@ class _MacHoverIconButtonState extends State<_MacHoverIconButton> {
       return interactiveChild;
     }
 
-    return MacosTooltip(
-      message: widget.tooltip!,
-      child: interactiveChild,
-    );
+    return MacosTooltip(message: widget.tooltip!, child: interactiveChild);
   }
 }

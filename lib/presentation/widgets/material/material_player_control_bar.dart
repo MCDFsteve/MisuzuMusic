@@ -23,11 +23,20 @@ class MaterialPlayerControlBar extends StatelessWidget {
       builder: (context, state) {
         final isPlaying = state is PlayerPlaying;
         final isPaused = state is PlayerPaused;
-        final loadingState = state is PlayerLoading ? state as PlayerLoading : null;
-        final bool showPauseVisual = !(state is PlayerPaused || state is PlayerStopped || state is PlayerError || state is PlayerInitial);
-        final showLoadingIndicator = loadingState != null && loadingState.track == null;
+        final loadingState = state is PlayerLoading
+            ? state as PlayerLoading
+            : null;
+        final bool showPauseVisual =
+            !(state is PlayerPaused ||
+                state is PlayerStopped ||
+                state is PlayerError ||
+                state is PlayerInitial);
+        final showLoadingIndicator =
+            loadingState != null && loadingState.track == null;
         final canControl =
-            isPlaying || isPaused || (loadingState != null && loadingState.track != null);
+            isPlaying ||
+            isPaused ||
+            (loadingState != null && loadingState.track != null);
 
         String trackTitle = '暂无播放';
         String trackArtist = '选择音乐开始播放';
@@ -61,7 +70,9 @@ class MaterialPlayerControlBar extends StatelessWidget {
           // 当前播放歌曲信息
           _LyricsArtworkButton(
             artworkPath: artworkPath,
-            onTap: currentTrack != null && onArtworkTap != null ? onArtworkTap : null,
+            onTap: currentTrack != null && onArtworkTap != null
+                ? onArtworkTap
+                : null,
             isLyricsActive: isLyricsActive,
           ),
           const SizedBox(width: 12),
@@ -97,16 +108,14 @@ class MaterialPlayerControlBar extends StatelessWidget {
                   enabled: canControl,
                   baseColor: theme.colorScheme.onSurfaceVariant,
                   hoverColor: theme.colorScheme.onSurface,
-                  iconBuilder: (color) => Icon(
-                    Icons.skip_previous,
-                    color: color,
-                    size: 28,
-                  ),
+                  dimWhenDisabled: false,
+                  iconBuilder: (color) =>
+                      Icon(Icons.skip_previous, color: color, size: 28),
                   onPressed: canControl
                       ? () {
                           context.read<PlayerBloc>().add(
-                                const PlayerSkipPrevious(),
-                              );
+                            const PlayerSkipPrevious(),
+                          );
                         }
                       : null,
                 ),
@@ -139,10 +148,8 @@ class MaterialPlayerControlBar extends StatelessWidget {
                         duration: const Duration(milliseconds: 180),
                         switchInCurve: Curves.easeOutBack,
                         switchOutCurve: Curves.easeIn,
-                        transitionBuilder: (child, animation) => ScaleTransition(
-                          scale: animation,
-                          child: child,
-                        ),
+                        transitionBuilder: (child, animation) =>
+                            ScaleTransition(scale: animation, child: child),
                         child: Icon(
                           showPauseVisual ? Icons.pause : Icons.play_arrow,
                           key: ValueKey(showPauseVisual),
@@ -170,16 +177,14 @@ class MaterialPlayerControlBar extends StatelessWidget {
                   enabled: canControl,
                   baseColor: theme.colorScheme.onSurfaceVariant,
                   hoverColor: theme.colorScheme.onSurface,
-                  iconBuilder: (color) => Icon(
-                    Icons.skip_next,
-                    color: color,
-                    size: 28,
-                  ),
+                  dimWhenDisabled: false,
+                  iconBuilder: (color) =>
+                      Icon(Icons.skip_next, color: color, size: 28),
                   onPressed: canControl
                       ? () {
                           context.read<PlayerBloc>().add(
-                                const PlayerSkipNext(),
-                              );
+                            const PlayerSkipNext(),
+                          );
                         }
                       : null,
                 ),
@@ -197,8 +202,9 @@ class MaterialPlayerControlBar extends StatelessWidget {
                   builder: (context, constraints) {
                     final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
                     final trackWidth = constraints.maxWidth;
-                    final filledWidth =
-                        trackWidth.isFinite ? trackWidth * clampedProgress : 0.0;
+                    final filledWidth = trackWidth.isFinite
+                        ? trackWidth * clampedProgress
+                        : 0.0;
 
                     return GestureDetector(
                       behavior: HitTestBehavior.translucent,
@@ -283,7 +289,8 @@ class MaterialPlayerControlBar extends StatelessWidget {
                 ),
                 overlayShape: SliderComponentShape.noOverlay,
                 activeTrackColor: theme.colorScheme.primary,
-                inactiveTrackColor: theme.colorScheme.onSurfaceVariant.withOpacity(0.2),
+                inactiveTrackColor: theme.colorScheme.onSurfaceVariant
+                    .withOpacity(0.2),
                 thumbColor: theme.colorScheme.primary,
               ),
               child: Slider(
@@ -315,11 +322,11 @@ class MaterialPlayerControlBar extends StatelessWidget {
                   ),
                 ),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: Row(
-                    children: rowChildren,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 12.0,
                   ),
+                  child: Row(children: rowChildren),
                 ),
               ),
             ),
@@ -344,6 +351,7 @@ class _MaterialHoverIconButton extends StatefulWidget {
     required this.enabled,
     required this.baseColor,
     required this.hoverColor,
+    this.dimWhenDisabled = true,
     this.tooltip,
   });
 
@@ -352,10 +360,12 @@ class _MaterialHoverIconButton extends StatefulWidget {
   final bool enabled;
   final Color baseColor;
   final Color hoverColor;
+  final bool dimWhenDisabled;
   final String? tooltip;
 
   @override
-  State<_MaterialHoverIconButton> createState() => _MaterialHoverIconButtonState();
+  State<_MaterialHoverIconButton> createState() =>
+      _MaterialHoverIconButtonState();
 }
 
 class _LyricsArtworkButton extends StatelessWidget {
@@ -422,7 +432,9 @@ class _MaterialHoverIconButtonState extends State<_MaterialHoverIconButton> {
   Widget build(BuildContext context) {
     final Color targetColor;
     if (!_enabled) {
-      targetColor = widget.baseColor.withOpacity(0.45);
+      targetColor = widget.dimWhenDisabled
+          ? widget.baseColor.withOpacity(0.45)
+          : widget.baseColor;
     } else if (_hovering) {
       targetColor = widget.hoverColor;
     } else {
@@ -434,8 +446,8 @@ class _MaterialHoverIconButtonState extends State<_MaterialHoverIconButton> {
     final scale = !_enabled
         ? 1.0
         : _pressing
-            ? pressScale
-            : (_hovering ? hoverScale : 1.0);
+        ? pressScale
+        : (_hovering ? hoverScale : 1.0);
 
     final icon = AnimatedScale(
       scale: scale,

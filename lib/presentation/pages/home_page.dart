@@ -65,7 +65,8 @@ class HomePage extends StatelessWidget {
           )..add(const PlayerRestoreLastSession()),
         ),
         BlocProvider(
-          create: (context) => PlaybackHistoryCubit(sl<PlaybackHistoryRepository>()),
+          create: (context) =>
+              PlaybackHistoryCubit(sl<PlaybackHistoryRepository>()),
         ),
       ],
       child: const HomePageContent(),
@@ -121,8 +122,7 @@ class _HomePageContentState extends State<HomePageContent> {
           return;
         }
 
-        if (playerState is PlayerInitial ||
-            playerState is PlayerError) {
+        if (playerState is PlayerInitial || playerState is PlayerError) {
           if (mounted) {
             setState(() {
               _lyricsVisible = false;
@@ -181,19 +181,20 @@ class _HomePageContentState extends State<HomePageContent> {
                           duration: const Duration(milliseconds: 500),
                           switchInCurve: Curves.easeOut,
                           switchOutCurve: Curves.easeIn,
-                          transitionBuilder: (child, animation) => FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(opacity: animation, child: child),
                           child: artworkPath != null
                               ? _BlurredArtworkBackground(
                                   key: ValueKey<String>(artworkPath),
                                   artworkPath: artworkPath,
                                   isDarkMode:
-                                      MacosTheme.of(context).brightness == Brightness.dark,
+                                      MacosTheme.of(context).brightness ==
+                                      Brightness.dark,
                                 )
                               : Container(
-                                  key: const ValueKey<String>('default_background'),
+                                  key: const ValueKey<String>(
+                                    'default_background',
+                                  ),
                                   color: MacosTheme.of(context).canvasColor,
                                 ),
                         ),
@@ -203,7 +204,9 @@ class _HomePageContentState extends State<HomePageContent> {
                         children: [
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onTap: _lyricsVisible ? () => _toggleLyrics(playerState) : null,
+                            onTap: _lyricsVisible
+                                ? () => _toggleLyrics(playerState)
+                                : null,
                             child: AbsorbPointer(
                               absorbing: _lyricsVisible,
                               child: _MacOSNavigationPane(
@@ -214,8 +217,10 @@ class _HomePageContentState extends State<HomePageContent> {
                                 onResize: (width) {
                                   if (_lyricsVisible) return;
                                   setState(() {
-                                    _navigationWidth =
-                                        width.clamp(_navMinWidth, _navMaxWidth);
+                                    _navigationWidth = width.clamp(
+                                      _navMinWidth,
+                                      _navMaxWidth,
+                                    );
                                   });
                                 },
                                 enabled: !_lyricsVisible,
@@ -228,21 +233,25 @@ class _HomePageContentState extends State<HomePageContent> {
                               children: [
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
-                                  onTap: _lyricsVisible ? () => _toggleLyrics(playerState) : null,
+                                  onTap: _lyricsVisible
+                                      ? () => _toggleLyrics(playerState)
+                                      : null,
                                   child: AbsorbPointer(
                                     absorbing: _lyricsVisible,
-                                  child: AnimatedOpacity(
-                                    duration: const Duration(milliseconds: 220),
-                                    opacity: _lyricsVisible ? 0.6 : 1.0,
-                                    child: _MacOSGlassHeader(
-                                      height: headerHeight,
-                                      sectionLabel: sectionLabel,
-                                      statsLabel: statsLabel,
-                                      searchQuery: _searchQuery,
-                                      onSearchChanged: _onSearchQueryChanged,
-                                      onSelectMusicFolder: _selectMusicFolder,
+                                    child: AnimatedOpacity(
+                                      duration: const Duration(
+                                        milliseconds: 220,
+                                      ),
+                                      opacity: _lyricsVisible ? 0.6 : 1.0,
+                                      child: _MacOSGlassHeader(
+                                        height: headerHeight,
+                                        sectionLabel: sectionLabel,
+                                        statsLabel: statsLabel,
+                                        searchQuery: _searchQuery,
+                                        onSearchChanged: _onSearchQueryChanged,
+                                        onSelectMusicFolder: _selectMusicFolder,
+                                      ),
                                     ),
-                                  ),
                                   ),
                                 ),
                                 Expanded(
@@ -252,11 +261,17 @@ class _HomePageContentState extends State<HomePageContent> {
                                     switchOutCurve: Curves.easeIn,
                                     child: _lyricsVisible
                                         ? KeyedSubtree(
-                                            key: const ValueKey('lyrics_overlay_mac'),
-                                            child: _buildLyricsOverlay(isMac: true),
+                                            key: const ValueKey(
+                                              'lyrics_overlay_mac',
+                                            ),
+                                            child: _buildLyricsOverlay(
+                                              isMac: true,
+                                            ),
                                           )
                                         : KeyedSubtree(
-                                            key: const ValueKey('mac_main_content'),
+                                            key: const ValueKey(
+                                              'mac_main_content',
+                                            ),
                                             child: _buildMainContent(),
                                           ),
                                   ),
@@ -290,8 +305,7 @@ class _HomePageContentState extends State<HomePageContent> {
           return;
         }
 
-        if (playerState is PlayerInitial ||
-            playerState is PlayerError) {
+        if (playerState is PlayerInitial || playerState is PlayerError) {
           if (mounted) {
             setState(() {
               _lyricsVisible = false;
@@ -368,14 +382,16 @@ class _HomePageContentState extends State<HomePageContent> {
                   children: [
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: _lyricsVisible ? () => _toggleLyrics(playerState) : null,
+                      onTap: _lyricsVisible
+                          ? () => _toggleLyrics(playerState)
+                          : null,
                       child: AbsorbPointer(
                         absorbing: _lyricsVisible,
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 220),
-                        opacity: _lyricsVisible ? 0.55 : 1.0,
-                        child: _buildMaterialToolbar(),
-                      ),
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 220),
+                          opacity: _lyricsVisible ? 0.55 : 1.0,
+                          child: _buildMaterialToolbar(),
+                        ),
                       ),
                     ),
                     Expanded(
@@ -411,7 +427,9 @@ class _HomePageContentState extends State<HomePageContent> {
               ),
             ),
             child: MaterialPlayerControlBar(
-              onArtworkTap: track == null ? null : () => _toggleLyrics(playerState),
+              onArtworkTap: track == null
+                  ? null
+                  : () => _toggleLyrics(playerState),
               isLyricsActive: _lyricsVisible,
             ),
           ),
@@ -426,10 +444,7 @@ class _HomePageContentState extends State<HomePageContent> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
         ),
       ),
       child: Row(
@@ -517,7 +532,8 @@ class _HomePageContentState extends State<HomePageContent> {
       return;
     }
 
-    final bool shouldResetSearch = index != 0 &&
+    final bool shouldResetSearch =
+        index != 0 &&
         (_searchQuery.isNotEmpty || _activeSearchQuery.isNotEmpty);
 
     if (shouldResetSearch) {
@@ -614,10 +630,7 @@ class _HomePageContentState extends State<HomePageContent> {
     final track = _lyricsActiveTrack;
     if (track == null) {
       return Center(
-        child: Text(
-          '暂无播放',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        child: Text('暂无播放', style: Theme.of(context).textTheme.titleMedium),
       );
     }
 
@@ -654,9 +667,7 @@ class _HomePageContentState extends State<HomePageContent> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: Text('正在扫描文件夹: ${result.split('/').last}'),
-                    ),
+                    Expanded(child: Text('正在扫描文件夹: ${result.split('/').last}')),
                   ],
                 ),
                 duration: const Duration(seconds: 10),
@@ -680,8 +691,11 @@ class _HomePageContentState extends State<HomePageContent> {
       showMacosAlertDialog(
         context: context,
         builder: (_) => MacosAlertDialog(
-          appIcon: const MacosIcon(CupertinoIcons.check_mark_circled_solid,
-                                   color: CupertinoColors.systemGreen, size: 64),
+          appIcon: const MacosIcon(
+            CupertinoIcons.check_mark_circled_solid,
+            color: CupertinoColors.systemGreen,
+            size: 64,
+          ),
           title: Text(
             '扫描完成',
             style: MacosTheme.of(context).typography.headline,
@@ -716,8 +730,11 @@ class _HomePageContentState extends State<HomePageContent> {
       showMacosAlertDialog(
         context: context,
         builder: (_) => MacosAlertDialog(
-          appIcon: const MacosIcon(CupertinoIcons.exclamationmark_triangle_fill,
-                                   color: CupertinoColors.systemRed, size: 64),
+          appIcon: const MacosIcon(
+            CupertinoIcons.exclamationmark_triangle_fill,
+            color: CupertinoColors.systemRed,
+            size: 64,
+          ),
           title: Text(
             '发生错误',
             style: MacosTheme.of(context).typography.headline,
@@ -769,7 +786,9 @@ class _MacOSGlassHeader extends StatelessWidget {
     final isDarkMode = theme.brightness == Brightness.dark;
     final Color textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
 
-    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.36);
+    final frostedColor = theme.canvasColor.withOpacity(
+      isDarkMode ? 0.35 : 0.36,
+    );
 
     return ClipRect(
       child: BackdropFilter(
@@ -829,7 +848,10 @@ class _MacOSGlassHeader extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 220, maxWidth: 320),
+                  constraints: const BoxConstraints(
+                    minWidth: 220,
+                    maxWidth: 320,
+                  ),
                   child: LibrarySearchField(
                     query: searchQuery,
                     onQueryChanged: onSearchChanged,
@@ -902,11 +924,7 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
           final color = Color.lerp(baseColor, hoverTarget, _controller.value);
           return Transform.scale(
             scale: scale,
-            child: MacosIcon(
-              CupertinoIcons.folder,
-              size: 18,
-              color: color,
-            ),
+            child: MacosIcon(CupertinoIcons.folder, size: 18, color: color),
           );
         },
       ),
@@ -932,18 +950,9 @@ class _MacOSNavigationPane extends StatelessWidget {
   final bool enabled;
 
   static const _items = <_NavigationItem>[
-    _NavigationItem(
-      icon: CupertinoIcons.music_albums_fill,
-      label: '音乐库',
-    ),
-    _NavigationItem(
-      icon: CupertinoIcons.music_note_list,
-      label: '播放列表',
-    ),
-    _NavigationItem(
-      icon: CupertinoIcons.settings,
-      label: '设置',
-    ),
+    _NavigationItem(icon: CupertinoIcons.music_albums_fill, label: '音乐库'),
+    _NavigationItem(icon: CupertinoIcons.music_note_list, label: '播放列表'),
+    _NavigationItem(icon: CupertinoIcons.settings, label: '设置'),
   ];
 
   @override
@@ -951,7 +960,9 @@ class _MacOSNavigationPane extends StatelessWidget {
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
-    final frostedColor = theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.32);
+    final frostedColor = theme.canvasColor.withOpacity(
+      isDarkMode ? 0.35 : 0.32,
+    );
 
     return Stack(
       children: [
@@ -1041,48 +1052,52 @@ class _NavigationTile extends StatelessWidget {
     const activeBackground = Color(0xFF1b66ff);
     final Color inactiveColor = textColor.withOpacity(0.72);
     final Color iconColor = active ? Colors.white : inactiveColor;
-    final Color effectiveIconColor = enabled ? iconColor : iconColor.withOpacity(0.45);
-    final Color labelColor = active ? Colors.white : textColor.withOpacity(0.82);
-    final Color effectiveLabelColor = enabled ? labelColor : labelColor.withOpacity(0.45);
+    final Color effectiveIconColor = enabled
+        ? iconColor
+        : iconColor.withOpacity(0.45);
+    final Color labelColor = active
+        ? Colors.white
+        : textColor.withOpacity(0.82);
+    final Color effectiveLabelColor = enabled
+        ? labelColor
+        : labelColor.withOpacity(0.45);
 
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: active ? activeBackground : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: collapsed
-            ? Center(
-                child: MacosIcon(
-                  item.icon,
-                  size: 18,
-                  color: effectiveIconColor,
-                ),
-              )
-            : Row(
-                children: [
-                  MacosIcon(
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? activeBackground : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: collapsed
+              ? Center(
+                  child: MacosIcon(
                     item.icon,
                     size: 18,
                     color: effectiveIconColor,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      item.label,
-                      style: theme.typography.body.copyWith(
-                        color: effectiveLabelColor,
-                        fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                )
+              : Row(
+                  children: [
+                    MacosIcon(item.icon, size: 18, color: effectiveIconColor),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        item.label,
+                        style: theme.typography.body.copyWith(
+                          color: effectiveLabelColor,
+                          fontWeight: active
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
         ),
       ),
     );
@@ -1133,10 +1148,7 @@ class _BlurredArtworkBackground extends StatelessWidget {
                     : Colors.white.withOpacity(0.28),
                 isDarkMode ? BlendMode.darken : BlendMode.screen,
               ),
-              child: Image.file(
-                file,
-                fit: BoxFit.cover,
-              ),
+              child: Image.file(file, fit: BoxFit.cover),
             ),
           ),
           DecoratedBox(
@@ -1144,11 +1156,7 @@ class _BlurredArtworkBackground extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  overlayStrong,
-                  overlayMid,
-                  overlayWeak,
-                ],
+                colors: [overlayStrong, overlayMid, overlayWeak],
               ),
             ),
           ),
@@ -1229,7 +1237,8 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
   }
 
   List<_DirectorySummaryData> _buildLibrarySummariesData(
-      MusicLibraryLoaded state) {
+    MusicLibraryLoaded state,
+  ) {
     final summaries = <_DirectorySummaryData>[];
     final normalizedDirectories = <String>{
       ...state.libraryDirectories.map((dir) => p.normalize(dir)),
@@ -1237,8 +1246,9 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
 
     if (normalizedDirectories.isEmpty) {
       normalizedDirectories.addAll(
-        state.tracks
-            .map((track) => p.normalize(File(track.filePath).parent.path)),
+        state.tracks.map(
+          (track) => p.normalize(File(track.filePath).parent.path),
+        ),
       );
     }
 
@@ -1266,7 +1276,8 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     }
 
     final allPreviewTrack = _findPreviewTrack(state.tracks);
-    final allHasArtwork = allPreviewTrack != null && _hasArtwork(allPreviewTrack);
+    final allHasArtwork =
+        allPreviewTrack != null && _hasArtwork(allPreviewTrack);
     final allSummary = _DirectorySummaryData(
       directoryPath: '',
       previewTrack: allPreviewTrack,
@@ -1320,10 +1331,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   color: CupertinoColors.systemRed,
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  '加载失败',
-                  style: MacosTheme.of(context).typography.title1,
-                ),
+                Text('加载失败', style: MacosTheme.of(context).typography.title1),
                 const SizedBox(height: 8),
                 Text(
                   state.message,
@@ -1415,7 +1423,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                 final double rawTileWidth = columnCount == 1
                     ? contentWidth
                     : (contentWidth - (columnCount - 1) * spacing) /
-                        columnCount;
+                          columnCount;
                 final double tileWidth = columnCount == 1
                     ? math.min(preferredTileWidth, contentWidth)
                     : math.min(preferredTileWidth, rawTileWidth);
@@ -1439,12 +1447,14 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                               SizedBox(
                                 width: columnCount == 1
                                     ? (contentWidth <= 0
-                                        ? preferredTileWidth
-                                        : math.min(
-                                            preferredTileWidth, contentWidth))
+                                          ? preferredTileWidth
+                                          : math.min(
+                                              preferredTileWidth,
+                                              contentWidth,
+                                            ))
                                     : (tileWidth <= 0
-                                        ? preferredTileWidth
-                                        : tileWidth),
+                                          ? preferredTileWidth
+                                          : tileWidth),
                                 child: _LibrarySummaryView(
                                   directoryPath: summary.directoryPath,
                                   previewTrack: summary.previewTrack,
@@ -1455,8 +1465,8 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                                       _showList = true;
                                       _activeDirectoryFilter =
                                           summary.directoryPath.isEmpty
-                                              ? null
-                                              : summary.directoryPath;
+                                          ? null
+                                          : summary.directoryPath;
                                     });
                                   },
                                 ),
@@ -1474,9 +1484,11 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
           final filteredTracks = _activeDirectoryFilter == null
               ? state.tracks
               : state.tracks
-                  .where((track) =>
-                      _isTrackInDirectory(track, _activeDirectoryFilter!))
-                  .toList();
+                    .where(
+                      (track) =>
+                          _isTrackInDirectory(track, _activeDirectoryFilter!),
+                    )
+                    .toList();
 
           final listWidget = isMac
               ? MacOSMusicLibraryView(
@@ -1502,19 +1514,16 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                 actions: {
                   _ExitLibraryOverviewIntent:
                       CallbackAction<_ExitLibraryOverviewIntent>(
-                    onInvoke: (intent) {
-                      setState(() {
-                        _showList = false;
-                        _activeDirectoryFilter = null;
-                      });
-                      return null;
-                    },
-                  ),
+                        onInvoke: (intent) {
+                          setState(() {
+                            _showList = false;
+                            _activeDirectoryFilter = null;
+                          });
+                          return null;
+                        },
+                      ),
                 },
-                child: Focus(
-                  autofocus: true,
-                  child: listWidget,
-                ),
+                child: Focus(autofocus: true, child: listWidget),
               ),
             );
           }
@@ -1593,13 +1602,11 @@ class _LibrarySummaryView extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: hasArtwork &&
+          child:
+              hasArtwork &&
                   previewTrack?.artworkPath != null &&
                   File(previewTrack!.artworkPath!).existsSync()
-              ? Image.file(
-                  File(previewTrack!.artworkPath!),
-                  fit: BoxFit.cover,
-                )
+              ? Image.file(File(previewTrack!.artworkPath!), fit: BoxFit.cover)
               : Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -1652,20 +1659,14 @@ class _LibrarySummaryView extends StatelessWidget {
                           : normalizedDirectory,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: subtitleColor,
-                      ),
+                      style: TextStyle(fontSize: 12, color: subtitleColor),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '$totalTracks 首歌曲 · 点击查看全部',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: subtitleColor,
-                      ),
+                      style: TextStyle(fontSize: 12, color: subtitleColor),
                     ),
                   ],
                 ),
@@ -1698,10 +1699,7 @@ class _DirectorySummaryData {
 
 // 其他视图占位符
 class PlaylistView extends StatelessWidget {
-  const PlaylistView({
-    super.key,
-    required this.searchQuery,
-  });
+  const PlaylistView({super.key, required this.searchQuery});
 
   final String searchQuery;
 
@@ -1764,7 +1762,9 @@ class _PlaylistHistoryList extends StatelessWidget {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           );
 
-    final normalizedQuery = searchQuery.isEmpty ? null : searchQuery.toLowerCase();
+    final normalizedQuery = searchQuery.isEmpty
+        ? null
+        : searchQuery.toLowerCase();
     final filteredEntries = normalizedQuery == null
         ? entries
         : entries.where((entry) {
@@ -1819,7 +1819,8 @@ class _PlaylistHistoryList extends StatelessWidget {
               artistAlbum: '${track.artist} • ${track.album}',
               duration: _formatDuration(track.duration),
               meta: '${_formatPlayedAt(entry.playedAt)} | ${playCount} 次播放',
-              onTap: () => _playTrack(context, track, fingerprint: entry.fingerprint),
+              onTap: () =>
+                  _playTrack(context, track, fingerprint: entry.fingerprint),
             );
           },
         );
@@ -1847,7 +1848,9 @@ class _PlaylistHistoryList extends StatelessWidget {
   }
 
   void _playTrack(BuildContext context, Track track, {String? fingerprint}) {
-    context.read<PlayerBloc>().add(PlayerPlayTrack(track, fingerprint: fingerprint));
+    context.read<PlayerBloc>().add(
+      PlayerPlayTrack(track, fingerprint: fingerprint),
+    );
   }
 }
 
@@ -1873,10 +1876,11 @@ class _PlaylistMessage extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             message,
-            style: (isMac
-                    ? MacosTheme.of(context).typography.title1
-                    : Theme.of(context).textTheme.headlineSmall)
-                ?.copyWith(color: color),
+            style:
+                (isMac
+                        ? MacosTheme.of(context).typography.title1
+                        : Theme.of(context).textTheme.headlineSmall)
+                    ?.copyWith(color: color),
             textAlign: TextAlign.center,
           ),
         ],
