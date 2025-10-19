@@ -7,7 +7,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../blocs/player/player_bloc.dart';
 import '../../../domain/entities/lyrics_entities.dart';
-import 'lyrics_line_image_cache.dart';
 
 class LyricsDisplay extends StatefulWidget {
   const LyricsDisplay({
@@ -28,23 +27,17 @@ class LyricsDisplay extends StatefulWidget {
 class _LyricsDisplayState extends State<LyricsDisplay> {
   static const double _activeFontSize = 26.0;
   static const double _inactiveFontSize = 16.0;
-  static const double _pixelRatio = 2.0;
   static const EdgeInsets _linePadding = EdgeInsets.symmetric(
     vertical: 6,
     horizontal: 12,
   );
   static const double _listSidePadding = 4.0;
   static const Duration _animationDuration = Duration(milliseconds: 240);
-  static const double _sharpRegionFraction = 0.38;
-  static const double _fullBlurFraction = 0.96;
-
-  final LyricsLineImageCache _imageCache = LyricsLineImageCache.instance;
+  static const double _maxBlurLines = 3.0;
 
   int _activeIndex = -1;
   late List<GlobalKey> _itemKeys;
   late final ValueNotifier<double> _scrollOffsetNotifier;
-
-  double get _inactiveScale => _inactiveFontSize / _activeFontSize;
 
   @override
   void initState() {
@@ -177,6 +170,29 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     );
   }
 
+  TextStyle _activeTextStyle(BuildContext context) {
+    final TextStyle base = _baseRenderStyle(context);
+    final Color color = widget.isDarkMode ? Colors.white : Colors.black87;
+    return base.copyWith(
+      color: color,
+      fontWeight: FontWeight.w700,
+      height: 1.6,
+    );
+  }
+
+  TextStyle _inactiveTextStyle(BuildContext context) {
+    final TextStyle base = _baseRenderStyle(context);
+    final Color color = widget.isDarkMode ? Colors.white60 : Colors.black45;
+    return TextStyle(
+      fontSize: _inactiveFontSize,
+      fontWeight: FontWeight.w400,
+      height: 1.55,
+      color: color,
+      fontFamily: base.fontFamily,
+      letterSpacing: base.letterSpacing,
+    );
+  }
+
   double _computeLineMaxWidth(double maxWidth) {
     final double horizontal = _linePadding.horizontal + _listSidePadding * 2;
     if (!maxWidth.isFinite || maxWidth <= 0) {
@@ -223,19 +239,16 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         final double viewportHeight = constraints.maxHeight.isFinite
             ? math.max(constraints.maxHeight, 1.0)
             : 600.0;
-        final double verticalPadding = constraints.maxHeight.isFinite
-            ? math.max(0.0, constraints.maxHeight * 0.22)
-            : 120.0;
+        final double verticalPadding = 0;
         final double lineMaxWidth = _computeLineMaxWidth(constraints.maxWidth);
-        final LyricsImageRenderConfig renderConfig = LyricsImageRenderConfig(
-          maxWidth: lineMaxWidth,
-          pixelRatio: _pixelRatio,
-          style: _baseRenderStyle(context),
-        );
 
         final double halfViewport = viewportHeight / 2;
-        final double sharpDistance = halfViewport * _sharpRegionFraction;
-        final double blurMaxDistance = halfViewport * _fullBlurFraction;
+        final double blurBand = math.min(
+          halfViewport,
+          placeholderHeight * _maxBlurLines,
+        );
+        final double sharpDistance = math.max(0.0, halfViewport - blurBand);
+        final double blurMaxDistance = halfViewport;
 
         return BlocListener<PlayerBloc, PlayerBlocState>(
           listener: (context, state) {
@@ -263,17 +276,15 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                   key: _itemKeys[index],
                   text: text,
                   isActive: isActive,
-                  isDarkMode: widget.isDarkMode,
-                  cache: _imageCache,
-                  renderConfig: renderConfig,
-                  inactiveScale: _inactiveScale,
                   linePadding: _linePadding,
                   animationDuration: _animationDuration,
-                  placeholderHeight: placeholderHeight,
                   scrollOffsetListenable: _scrollOffsetNotifier,
                   viewportHeight: viewportHeight,
                   sharpDistance: sharpDistance,
                   blurMaxDistance: blurMaxDistance,
+                  activeStyle: _activeTextStyle(context),
+                  inactiveStyle: _inactiveTextStyle(context),
+                  maxWidth: lineMaxWidth,
                 );
               },
             ),
@@ -289,47 +300,41 @@ class _LyricsLineImageTile extends StatefulWidget {
     super.key,
     required this.text,
     required this.isActive,
-    required this.isDarkMode,
-    required this.cache,
-    required this.renderConfig,
-    required this.inactiveScale,
     required this.linePadding,
     required this.animationDuration,
-    required this.placeholderHeight,
     required this.scrollOffsetListenable,
     required this.viewportHeight,
     required this.sharpDistance,
     required this.blurMaxDistance,
+    required this.activeStyle,
+    required this.inactiveStyle,
+    required this.maxWidth,
   });
 
   final String text;
   final bool isActive;
-  final bool isDarkMode;
-  final LyricsLineImageCache cache;
-  final LyricsImageRenderConfig renderConfig;
-  final double inactiveScale;
   final EdgeInsets linePadding;
   final Duration animationDuration;
-  final double placeholderHeight;
   final ValueListenable<double> scrollOffsetListenable;
   final double viewportHeight;
   final double sharpDistance;
   final double blurMaxDistance;
+  final TextStyle activeStyle;
+  final TextStyle inactiveStyle;
+  final double maxWidth;
 
   @override
   State<_LyricsLineImageTile> createState() => _LyricsLineImageTileState();
 }
 
 class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
-  static const double _maxSigma = 16.0;
+  static const double _maxSigma = 28.0;
 
   double _blurFactor = 0.0;
-  late Future<_LyricsTileResources> _resourcesFuture;
 
   @override
   void initState() {
     super.initState();
-    _resourcesFuture = _loadResources(widget.text, widget.renderConfig);
     widget.scrollOffsetListenable.addListener(_handleScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());
   }
@@ -343,14 +348,11 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());
     }
 
-    if (oldWidget.text != widget.text ||
-        oldWidget.renderConfig.maxWidth != widget.renderConfig.maxWidth ||
-        oldWidget.renderConfig.pixelRatio != widget.renderConfig.pixelRatio ||
-        oldWidget.renderConfig.style != widget.renderConfig.style) {
-      _resourcesFuture = _loadResources(widget.text, widget.renderConfig);
-    }
-
-    if (oldWidget.isActive != widget.isActive) {
+    if (oldWidget.isActive != widget.isActive ||
+        oldWidget.text != widget.text ||
+        oldWidget.viewportHeight != widget.viewportHeight ||
+        oldWidget.sharpDistance != widget.sharpDistance ||
+        oldWidget.blurMaxDistance != widget.blurMaxDistance) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());
     }
   }
@@ -374,8 +376,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
     if (scrollable == null) {
       return;
     }
-    final RenderObject? scrollRenderObject = scrollable.context
-        .findRenderObject();
+    final RenderObject? scrollRenderObject = scrollable.context.findRenderObject();
     if (scrollRenderObject is! RenderBox || !scrollRenderObject.hasSize) {
       return;
     }
@@ -412,144 +413,43 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
     }
   }
 
-  Color _resolveBaseColor() {
-    final Color activeColor = widget.isDarkMode ? Colors.white : Colors.black87;
-    final Color inactiveColor = widget.isDarkMode
-        ? Colors.white60
-        : Colors.black45;
-    return widget.isActive ? activeColor : inactiveColor;
-  }
-
-  Future<_LyricsTileResources> _loadResources(
-    String text,
-    LyricsImageRenderConfig config,
-  ) async {
-    final RenderedLyricsLine data = await widget.cache.resolve(
-      text: text.isEmpty ? ' ' : text,
-      config: config,
-    );
-    final ui.FragmentProgram program = await _LyricsBlurProgram.instance();
-    return _LyricsTileResources(data: data, program: program);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_LyricsTileResources>(
-      future: _resourcesFuture,
-      builder: (context, snapshot) {
-        final double scale = widget.isActive ? 1.0 : widget.inactiveScale;
-        final double fallbackHeight = widget.placeholderHeight * scale;
+    final double factor = _blurFactor.clamp(0.0, 1.0);
+    final double sigma = math.pow(factor, 1.35).toDouble() * _maxSigma;
+    final TextStyle targetStyle =
+        widget.isActive ? widget.activeStyle : widget.inactiveStyle;
+    final String displayText = widget.text.isEmpty ? ' ' : widget.text;
 
-        Widget child;
-        if (!snapshot.hasData) {
-          child = SizedBox(height: fallbackHeight);
-        } else {
-          final _LyricsTileResources resources = snapshot.data!;
-          final RenderedLyricsLine data = resources.data;
-          final Color baseColor = _resolveBaseColor();
-          final double sigma = _blurFactor.clamp(0.0, 1.0) * _maxSigma;
-          final Size outputSize = Size(
-            data.logicalSize.width * scale,
-            data.logicalSize.height * scale,
-          );
-
-          final Color color = baseColor;
-          WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());
-
-          child = AnimatedContainer(
-            duration: widget.animationDuration,
-            curve: Curves.easeInOut,
-            width: outputSize.width,
-            height: outputSize.height,
-            child: CustomPaint(
-              size: outputSize,
-              painter: _LyricsImageShaderPainter(
-                program: resources.program,
-                image: data.image,
-                outputSize: outputSize,
-                sigma: sigma,
-                color: color,
-              ),
-            ),
-          );
-        }
-
-        return Padding(
-          padding: widget.linePadding,
-          child: SizedBox(
-            width: double.infinity,
-            child: Center(child: child),
-          ),
-        );
-      },
+    Widget content = Text(
+      displayText,
+      textAlign: TextAlign.center,
     );
-  }
-}
 
-class _LyricsTileResources {
-  const _LyricsTileResources({required this.data, required this.program});
-
-  final RenderedLyricsLine data;
-  final ui.FragmentProgram program;
-}
-
-class _LyricsBlurProgram {
-  const _LyricsBlurProgram._();
-
-  static ui.FragmentProgram? _cached;
-
-  static Future<ui.FragmentProgram> instance() async {
-    final ui.FragmentProgram? existing = _cached;
-    if (existing != null) {
-      return existing;
+    if (sigma >= 0.01) {
+      content = ImageFiltered(
+        imageFilter: ui.ImageFilter.blur(
+          sigmaX: sigma,
+          sigmaY: sigma,
+        ),
+        child: content,
+      );
     }
-    final ui.FragmentProgram program = await ui.FragmentProgram.fromAsset(
-      'shaders/lyrics_blur.frag',
+
+    return Padding(
+      padding: widget.linePadding,
+      child: AnimatedDefaultTextStyle(
+        style: targetStyle,
+        duration: widget.animationDuration,
+        curve: Curves.easeInOut,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: widget.maxWidth),
+          child: Align(
+            alignment: Alignment.center,
+            child: content,
+          ),
+        ),
+      ),
     );
-    _cached = program;
-    return program;
-  }
-}
-
-class _LyricsImageShaderPainter extends CustomPainter {
-  _LyricsImageShaderPainter({
-    required this.program,
-    required this.image,
-    required this.outputSize,
-    required this.sigma,
-    required this.color,
-  });
-
-  final ui.FragmentProgram program;
-  final ui.Image image;
-  final Size outputSize;
-  final double sigma;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final ui.FragmentShader shader = program.fragmentShader();
-    shader.setImageSampler(0, image);
-    shader.setFloat(0, size.width);
-    shader.setFloat(1, size.height);
-    shader.setFloat(2, image.width.toDouble());
-    shader.setFloat(3, image.height.toDouble());
-    shader.setFloat(4, sigma);
-    shader.setFloat(5, color.red / 255.0);
-    shader.setFloat(6, color.green / 255.0);
-    shader.setFloat(7, color.blue / 255.0);
-    shader.setFloat(8, color.alpha / 255.0);
-
-    final Paint paint = Paint()..shader = shader;
-    canvas.drawRect(Offset.zero & size, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LyricsImageShaderPainter oldDelegate) {
-    return identical(oldDelegate.program, program) == false ||
-        oldDelegate.image != image ||
-        oldDelegate.outputSize != outputSize ||
-        (oldDelegate.sigma - sigma).abs() > 0.01 ||
-        oldDelegate.color != color;
   }
 }

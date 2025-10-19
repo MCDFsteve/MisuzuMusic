@@ -293,7 +293,7 @@ class _LyricsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final behavior = ScrollConfiguration.of(context).copyWith(scrollbars: false);
