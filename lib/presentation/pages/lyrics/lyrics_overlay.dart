@@ -43,6 +43,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       findLyricsFile: sl<FindLyricsFile>(),
       loadLyricsFromFile: sl<LoadLyricsFromFile>(),
       fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
+      getLyrics: sl<GetLyrics>(),
     )..loadLyricsForTrack(_currentTrack);
   }
 
@@ -336,16 +337,7 @@ class _LyricsPanel extends StatelessWidget {
     if (state is LyricsLoading || state is LyricsInitial) {
       return ListView(
         controller: controller,
-        children: const [
-          SizedBox(height: 80),
-          Center(
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-        ],
+        children: const [SizedBox(height: 80)],
       );
     }
 

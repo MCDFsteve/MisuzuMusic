@@ -100,6 +100,7 @@ class _HomePageContentState extends State<HomePageContent> {
   Timer? _searchDebounce;
   bool _lyricsVisible = false;
   Track? _lyricsActiveTrack;
+  final MusicLibraryView _libraryView = const MusicLibraryView();
 
   @override
   void dispose() {
@@ -489,13 +490,13 @@ class _HomePageContentState extends State<HomePageContent> {
   Widget _buildMainContent() {
     switch (_selectedIndex) {
       case 0:
-        return const MusicLibraryView();
+        return _libraryView;
       case 1:
         return PlaylistView(searchQuery: _activeSearchQuery);
       case 2:
         return const SettingsView();
       default:
-        return const MusicLibraryView();
+        return _libraryView;
     }
   }
 
