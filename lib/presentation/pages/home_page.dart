@@ -268,25 +268,44 @@ class _HomePageContentState extends State<HomePageContent> {
                                   ),
                                 ),
                                 Expanded(
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 280),
-                                    switchInCurve: Curves.easeOut,
-                                    switchOutCurve: Curves.easeIn,
-                                    child: _lyricsVisible
-                                        ? KeyedSubtree(
-                                            key: const ValueKey(
-                                              'lyrics_overlay_mac',
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: IgnorePointer(
+                                          ignoring: _lyricsVisible,
+                                          child: AnimatedOpacity(
+                                            duration: const Duration(
+                                              milliseconds: 220,
                                             ),
-                                            child: _buildLyricsOverlay(
-                                              isMac: true,
+                                            opacity: _lyricsVisible ? 0.6 : 1.0,
+                                            child: KeyedSubtree(
+                                              key: const ValueKey(
+                                                'mac_main_content',
+                                              ),
+                                              child: _buildMainContent(),
                                             ),
-                                          )
-                                        : KeyedSubtree(
-                                            key: const ValueKey(
-                                              'mac_main_content',
-                                            ),
-                                            child: _buildMainContent(),
                                           ),
+                                        ),
+                                      ),
+                                      Positioned.fill(
+                                        child: AnimatedSwitcher(
+                                          duration:
+                                              const Duration(milliseconds: 280),
+                                          switchInCurve: Curves.easeOut,
+                                          switchOutCurve: Curves.easeIn,
+                                          child: _lyricsVisible
+                                              ? KeyedSubtree(
+                                                  key: const ValueKey(
+                                                    'lyrics_overlay_mac',
+                                                  ),
+                                                  child: _buildLyricsOverlay(
+                                                    isMac: true,
+                                                  ),
+                                                )
+                                              : const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 MacOSPlayerControlBar(
@@ -408,19 +427,41 @@ class _HomePageContentState extends State<HomePageContent> {
                       ),
                     ),
                     Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 280),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        child: _lyricsVisible
-                            ? KeyedSubtree(
-                                key: const ValueKey('lyrics_overlay_material'),
-                                child: _buildLyricsOverlay(isMac: false),
-                              )
-                            : KeyedSubtree(
-                                key: const ValueKey('material_main_content'),
-                                child: _buildMainContent(),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              ignoring: _lyricsVisible,
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 220),
+                                opacity: _lyricsVisible ? 0.6 : 1.0,
+                                child: KeyedSubtree(
+                                  key: const ValueKey(
+                                    'material_main_content',
+                                  ),
+                                  child: _buildMainContent(),
+                                ),
                               ),
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 280),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              child: _lyricsVisible
+                                  ? KeyedSubtree(
+                                      key: const ValueKey(
+                                        'lyrics_overlay_material',
+                                      ),
+                                      child: _buildLyricsOverlay(
+                                        isMac: false,
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
