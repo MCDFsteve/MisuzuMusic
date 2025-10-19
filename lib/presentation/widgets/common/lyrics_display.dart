@@ -441,7 +441,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
     Widget content;
 
     if (widget.annotatedTexts.isNotEmpty) {
-      final double annotationFontSize = math.max(10.0, fontSize * 0.6);
+      final double annotationFontSize = math.max(8.0, fontSize * 0.4);
       final TextStyle annotationStyle = targetStyle.copyWith(
         fontSize: annotationFontSize,
         fontWeight: FontWeight.w500,
@@ -464,6 +464,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
           forceStrutHeight: true,
           leading: 0,
         ),
+        annotationSpacing: -1.0,
       );
     } else {
       content = Text(

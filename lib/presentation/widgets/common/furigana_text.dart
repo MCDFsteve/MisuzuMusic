@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -13,7 +15,7 @@ class FuriganaText extends StatelessWidget {
     this.maxLines,
     this.softWrap = true,
     this.strutStyle,
-    this.annotationSpacing = 2.0,
+    this.annotationSpacing = 0.0,
   });
 
   final List<AnnotatedText> segments;
@@ -32,7 +34,7 @@ class FuriganaText extends StatelessWidget {
     final TextStyle effectiveAnnotationStyle =
         annotationStyle ??
         effectiveBaseStyle.copyWith(
-          fontSize: (effectiveBaseStyle.fontSize ?? 16.0) * 0.55,
+          fontSize: (effectiveBaseStyle.fontSize ?? 16.0) * 0.4,
           fontWeight: FontWeight.w500,
           height: 1.0,
         );
@@ -62,7 +64,8 @@ class FuriganaText extends StatelessWidget {
 
       spans.add(
         WidgetSpan(
-          alignment: PlaceholderAlignment.bottom,
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.ideographic,
           child: _RubySegment(
             baseText: segment.original,
             rubyText: segment.annotation.trim(),
@@ -131,22 +134,53 @@ class _RubySegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicWidth(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
+
+    final basePainter = TextPainter(
+      text: TextSpan(text: baseText, style: baseStyle),
+      textDirection: textDirection,
+      maxLines: 1,
+    )..layout();
+
+    final annotationPainter = TextPainter(
+      text: TextSpan(text: rubyText, style: annotationStyle),
+      textDirection: textDirection,
+      maxLines: 1,
+    )..layout();
+
+    final double width = math.max(basePainter.width, annotationPainter.width);
+    final double baseHeight = basePainter.height;
+    final double lift = (annotationStyle.fontSize ?? 10.0) * 0.35 + spacing;
+
+    return SizedBox(
+      width: width,
+      height: baseHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
         children: [
-          Text(
-            rubyText,
-            style: annotationStyle,
-            textAlign: TextAlign.center,
-            softWrap: false,
+          SizedBox(
+            width: width,
+            child: Text(
+              baseText,
+              style: baseStyle,
+              textAlign: TextAlign.center,
+              softWrap: false,
+            ),
           ),
-          SizedBox(height: spacing),
-          Text(
-            baseText,
-            style: baseStyle,
-            textAlign: TextAlign.center,
-            softWrap: false,
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: baseHeight + lift,
+            child: SizedBox(
+              width: width,
+              child: Text(
+                rubyText,
+                style: annotationStyle,
+                textAlign: TextAlign.center,
+                softWrap: false,
+              ),
+            ),
           ),
         ],
       ),
