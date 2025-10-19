@@ -451,6 +451,8 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
             targetStyle.color,
       );
 
+      final double spacing = -math.max(2.0, annotationFontSize * 0.35);
+
       content = FuriganaText(
         segments: widget.annotatedTexts,
         baseStyle: targetStyle,
@@ -464,7 +466,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
           forceStrutHeight: true,
           leading: 0,
         ),
-        annotationSpacing: 1.0,
+        annotationSpacing: spacing,
       );
     } else {
       content = Text(

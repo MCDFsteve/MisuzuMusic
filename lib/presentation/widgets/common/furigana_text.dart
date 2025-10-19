@@ -15,7 +15,7 @@ class FuriganaText extends StatelessWidget {
     this.maxLines,
     this.softWrap = true,
     this.strutStyle,
-    this.annotationSpacing = 1.0,
+    this.annotationSpacing = -2.0,
   });
 
   final List<AnnotatedText> segments;
