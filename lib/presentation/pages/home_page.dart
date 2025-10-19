@@ -860,12 +860,12 @@ class _MacOSGlassHeader extends StatelessWidget {
               ),
               MacosTooltip(
                 message: '选择音乐文件夹',
-                child: MacosIconButton(
-                  backgroundColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
-                  mouseCursor: SystemMouseCursors.click,
+                child: _HeaderIconButton(
+                  baseColor: textColor.withOpacity(0.72),
+                  hoverColor: textColor,
+                  size: 36,
+                  iconSize: 22,
                   onPressed: onSelectMusicFolder,
-                  icon: _HeaderIconButton(color: textColor),
                 ),
               ),
             ],
@@ -877,56 +877,76 @@ class _MacOSGlassHeader extends StatelessWidget {
 }
 
 class _HeaderIconButton extends StatefulWidget {
-  const _HeaderIconButton({required this.color});
+  const _HeaderIconButton({
+    required this.baseColor,
+    required this.hoverColor,
+    required this.onPressed,
+    this.size = 36,
+    this.iconSize = 22,
+  });
 
-  final Color color;
+  final Color baseColor;
+  final Color hoverColor;
+  final VoidCallback onPressed;
+  final double size;
+  final double iconSize;
 
   @override
   State<_HeaderIconButton> createState() => _HeaderIconButtonState();
 }
 
-class _HeaderIconButtonState extends State<_HeaderIconButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+class _HeaderIconButtonState extends State<_HeaderIconButton> {
+  bool _hovering = false;
+  bool _pressing = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 160),
-      lowerBound: 0.0,
-      upperBound: 1.0,
-    );
+  void _updateHovering(bool value) {
+    if (_hovering == value || !mounted) return;
+    setState(() => _hovering = value);
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void _updatePressing(bool value) {
+    if (_pressing == value || !mounted) return;
+    setState(() => _pressing = value);
   }
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = widget.color;
-    final isLightBase = baseColor.computeLuminance() > 0.5;
-    final hoverTarget = isLightBase
-        ? baseColor.withOpacity(0.9)
-        : Color.lerp(baseColor, MacosColors.controlAccentColor, 0.35)!;
+    final Color targetColor = _hovering ? widget.hoverColor : widget.baseColor;
+    final double scale = _pressing
+        ? 0.95
+        : (_hovering
+            ? 1.05
+            : 1.0);
 
     return MouseRegion(
-      onEnter: (_) => _controller.forward(),
-      onExit: (_) => _controller.reverse(),
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final scale = 1.0 + (_controller.value * 0.08);
-          final color = Color.lerp(baseColor, hoverTarget, _controller.value);
-          return Transform.scale(
-            scale: scale,
-            child: MacosIcon(CupertinoIcons.folder, size: 18, color: color),
-          );
-        },
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => _updateHovering(true),
+      onExit: (_) {
+        _updateHovering(false);
+        _updatePressing(false);
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _updatePressing(true),
+        onTapUp: (_) => _updatePressing(false),
+        onTapCancel: () => _updatePressing(false),
+        onTap: widget.onPressed,
+        child: AnimatedScale(
+          scale: scale,
+          duration: const Duration(milliseconds: 140),
+          curve: _pressing ? Curves.easeInOut : Curves.easeOutBack,
+          child: SizedBox(
+            width: widget.size,
+            height: widget.size,
+            child: Center(
+              child: MacosIcon(
+                CupertinoIcons.folder,
+                size: widget.iconSize,
+                color: targetColor,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
