@@ -816,7 +816,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     await _configStore.init();
     final raw = _configStore.getValue<dynamic>(StorageKeys.webDavSources);
     if (raw is List) {
-      return raw
+      final sources = raw
           .whereType<Map>()
           .map(
             (map) => WebDavSourceModel.fromMap(
@@ -824,7 +824,10 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
             ).toEntity(),
           )
           .toList();
+      await _cleanupOrphanWebDavTracks(sources);
+      return sources;
     }
+    await _cleanupOrphanWebDavTracks(const []);
     return const [];
   }
 
@@ -1213,6 +1216,27 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       return true;
     }
     return path.isWithin(normalizedDirectory, normalizedTrack);
+  }
+
+  Future<void> _cleanupOrphanWebDavTracks(List<WebDavSource> sources) async {
+    try {
+      final validIds = sources.map((source) => source.id).toSet();
+      final allTracks = await _localDataSource.getAllTracks();
+      final orphanIds = allTracks
+          .where(
+            (track) =>
+                track.sourceType == TrackSourceType.webdav &&
+                (track.sourceId == null ||
+                    !validIds.contains(track.sourceId!)),
+          )
+          .map((track) => track.id)
+          .toList();
+      if (orphanIds.isNotEmpty) {
+        await _localDataSource.deleteTracksByIds(orphanIds);
+      }
+    } catch (e) {
+      print('⚠️ WebDAV: 清理孤立音轨失败 -> $e');
+    }
   }
 
   Uint8List _buildPlayLogPayload(int timestampMs, String trackId) {

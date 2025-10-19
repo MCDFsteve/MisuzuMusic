@@ -271,40 +271,33 @@ class _HomePageContentState extends State<HomePageContent> {
                                   child: Stack(
                                     children: [
                                       Positioned.fill(
-                                        child: IgnorePointer(
-                                          ignoring: _lyricsVisible,
-                                          child: AnimatedOpacity(
-                                            duration: const Duration(
-                                              milliseconds: 220,
+                                        child: Offstage(
+                                          offstage: _lyricsVisible,
+                                          child: KeyedSubtree(
+                                            key: const ValueKey(
+                                              'mac_main_content',
                                             ),
-                                            opacity: _lyricsVisible ? 0.6 : 1.0,
-                                            child: KeyedSubtree(
-                                              key: const ValueKey(
-                                                'mac_main_content',
-                                              ),
-                                              child: _buildMainContent(),
-                                            ),
+                                            child: _buildMainContent(),
                                           ),
                                         ),
                                       ),
-                                      Positioned.fill(
-                                        child: AnimatedSwitcher(
-                                          duration:
-                                              const Duration(milliseconds: 280),
-                                          switchInCurve: Curves.easeOut,
-                                          switchOutCurve: Curves.easeIn,
-                                          child: _lyricsVisible
-                                              ? KeyedSubtree(
-                                                  key: const ValueKey(
-                                                    'lyrics_overlay_mac',
-                                                  ),
-                                                  child: _buildLyricsOverlay(
-                                                    isMac: true,
-                                                  ),
-                                                )
-                                              : const SizedBox.shrink(),
+                                      if (_lyricsVisible)
+                                        Positioned.fill(
+                                          child: AnimatedSwitcher(
+                                            duration:
+                                                const Duration(milliseconds: 280),
+                                            switchInCurve: Curves.easeOut,
+                                            switchOutCurve: Curves.easeIn,
+                                            child: KeyedSubtree(
+                                              key: const ValueKey(
+                                                'lyrics_overlay_mac',
+                                              ),
+                                              child: _buildLyricsOverlay(
+                                                isMac: true,
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -430,37 +423,32 @@ class _HomePageContentState extends State<HomePageContent> {
                       child: Stack(
                         children: [
                           Positioned.fill(
-                            child: IgnorePointer(
-                              ignoring: _lyricsVisible,
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 220),
-                                opacity: _lyricsVisible ? 0.6 : 1.0,
-                                child: KeyedSubtree(
-                                  key: const ValueKey(
-                                    'material_main_content',
-                                  ),
-                                  child: _buildMainContent(),
+                            child: Offstage(
+                              offstage: _lyricsVisible,
+                              child: KeyedSubtree(
+                                key: const ValueKey(
+                                  'material_main_content',
                                 ),
+                                child: _buildMainContent(),
                               ),
                             ),
                           ),
-                          Positioned.fill(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 280),
-                              switchInCurve: Curves.easeOut,
-                              switchOutCurve: Curves.easeIn,
-                              child: _lyricsVisible
-                                  ? KeyedSubtree(
-                                      key: const ValueKey(
-                                        'lyrics_overlay_material',
-                                      ),
-                                      child: _buildLyricsOverlay(
-                                        isMac: false,
-                                      ),
-                                    )
-                                  : const SizedBox.shrink(),
+                          if (_lyricsVisible)
+                            Positioned.fill(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 280),
+                                switchInCurve: Curves.easeOut,
+                                switchOutCurve: Curves.easeIn,
+                                child: KeyedSubtree(
+                                  key: const ValueKey(
+                                    'lyrics_overlay_material',
+                                  ),
+                                  child: _buildLyricsOverlay(
+                                    isMac: false,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
