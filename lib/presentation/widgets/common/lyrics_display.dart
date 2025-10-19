@@ -161,7 +161,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   TextStyle _baseRenderStyle(BuildContext context) {
     final TextStyle fallback =
         Theme.of(context).textTheme.titleMedium ?? const TextStyle();
-    return fallback.copyWith(
+    return TextStyle(
+      inherit: false,
       fontSize: _activeFontSize,
       fontWeight: FontWeight.w700,
       height: 1.6,
@@ -173,23 +174,17 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   TextStyle _activeTextStyle(BuildContext context) {
     final TextStyle base = _baseRenderStyle(context);
     final Color color = widget.isDarkMode ? Colors.white : Colors.black87;
-    return base.copyWith(
-      color: color,
-      fontWeight: FontWeight.w700,
-      height: 1.6,
-    );
+    return base.copyWith(color: color);
   }
 
   TextStyle _inactiveTextStyle(BuildContext context) {
     final TextStyle base = _baseRenderStyle(context);
     final Color color = widget.isDarkMode ? Colors.white60 : Colors.black45;
-    return TextStyle(
+    return base.copyWith(
       fontSize: _inactiveFontSize,
       fontWeight: FontWeight.w400,
       height: 1.55,
       color: color,
-      fontFamily: base.fontFamily,
-      letterSpacing: base.letterSpacing,
     );
   }
 
