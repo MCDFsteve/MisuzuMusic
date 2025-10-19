@@ -232,11 +232,11 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       print('🎵 BLoC: 开始加载所有音轨...');
       emit(const MusicLibraryLoading());
 
+      final webDavSources = await _getWebDavSources();
       final tracks = await _getAllTracks();
       final artists = await _getAllArtists();
       final albums = await _getAllAlbums();
       final directories = await _getLibraryDirectories();
-      final webDavSources = await _getWebDavSources();
 
       final visibleTracks = _filterVisibleTracks(tracks);
       final hiddenCount = tracks.length - visibleTracks.length;
