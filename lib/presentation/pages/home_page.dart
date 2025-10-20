@@ -937,7 +937,7 @@ class _MacOSGlassHeader extends StatelessWidget {
   final VoidCallback onSelectMusicFolder;
 
   Future<void> _handleDoubleTap() async {
-    if (!Platform.isMacOS) {
+    if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
       return;
     }
 

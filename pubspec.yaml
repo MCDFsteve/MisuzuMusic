@@ -54,10 +54,8 @@ dependencies:
   # Japanese Text Processing
 
   # Platform Specific UI
-  flutter_platform_widgets: ^5.0.0
   macos_ui: ^2.2.0
   macos_window_utils: ^1.5.0
-  fluent_ui: ^4.8.4
 
   # Utilities
   path: ^1.8.3
