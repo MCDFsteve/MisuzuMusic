@@ -494,17 +494,26 @@ class _TranslationToggleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color iconColor = isDarkMode ? Colors.white : Colors.black;
     final String tooltip = isEnabled ? (isActive ? '隐藏翻译' : '显示翻译') : '暂无可用翻译';
+    final String assetPath = !isEnabled
+        ? 'icons/tran2.png'
+        : (isActive ? 'icons/tran.png' : 'icons/tran2.png');
 
     return MacosTooltip(
       message: tooltip,
       child: _HoverGlyphButton(
         enabled: isEnabled,
         onPressed: onPressed,
-        baseColor: iconColor.withOpacity(isActive ? 1.0 : 0.82),
+        baseColor: iconColor.withOpacity(isActive ? 1.0 : 0.85),
         hoverColor: iconColor,
         disabledColor: iconColor.withOpacity(0.45),
-        iconBuilder: (color) =>
-            MacosIcon(CupertinoIcons.textbox, size: 30, color: color),
+        iconBuilder: (color) => Image.asset(
+          assetPath,
+          width:23,
+          height: 23,
+          color: color,
+          colorBlendMode: BlendMode.srcIn,
+          filterQuality: FilterQuality.high,
+        ),
       ),
     );
   }
@@ -551,9 +560,6 @@ class _HoverGlyphButtonState extends State<_HoverGlyphButton> {
     if (!_enabled) {
       return widget.disabledColor;
     }
-    if (_pressing) {
-      return widget.hoverColor;
-    }
     if (_hovering) {
       return widget.hoverColor;
     }
@@ -578,8 +584,10 @@ class _HoverGlyphButtonState extends State<_HoverGlyphButton> {
     final child = AnimatedScale(
       scale: _currentScale,
       duration: const Duration(milliseconds: 140),
-      curve: Curves.easeOut,
-      child: widget.iconBuilder(_currentColor),
+      curve: _pressing ? Curves.easeInOut : Curves.easeOutBack,
+      child: widget.iconBuilder(
+        _pressing && _enabled ? widget.hoverColor : _currentColor,
+      ),
     );
 
     final button = GestureDetector(
@@ -589,7 +597,7 @@ class _HoverGlyphButtonState extends State<_HoverGlyphButton> {
       onTapUp: _enabled ? (_) => _setPressing(false) : null,
       onTapCancel: _enabled ? () => _setPressing(false) : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
         child: SizedBox(width: 30, height: 30, child: Center(child: child)),
       ),
     );
