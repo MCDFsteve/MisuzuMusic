@@ -492,44 +492,28 @@ class _TranslationToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color baseColor = isDarkMode ? Colors.white : Colors.black87;
-    final double baseOpacity = isEnabled ? 1.0 : 0.4;
-    final Color background = isDarkMode
-        ? Colors.white.withOpacity((isActive ? 0.2 : 0.12) * baseOpacity)
-        : Colors.black.withOpacity((isActive ? 0.12 : 0.06) * baseOpacity);
-    final Color borderColor = isDarkMode
-        ? Colors.white.withOpacity((isActive ? 0.4 : 0.25) * baseOpacity)
-        : Colors.black.withOpacity((isActive ? 0.2 : 0.12) * baseOpacity);
-    final Color iconColor = baseColor.withOpacity(isEnabled ? 1.0 : 0.35);
+    final Color iconColor = isDarkMode ? Colors.white : Colors.black;
+    final String tooltip = isEnabled ? (isActive ? '隐藏翻译' : '显示翻译') : '暂无可用翻译';
 
-    return Tooltip(
-      message: isEnabled ? (isActive ? '隐藏翻译' : '显示翻译') : '暂无可用翻译',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onPressed,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: borderColor, width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(
-                    isEnabled
-                        ? (isDarkMode ? 0.3 : 0.1)
-                        : (isDarkMode ? 0.15 : 0.05),
-                  ),
-                  blurRadius: isActive ? 8 : 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(Icons.translate_rounded, size: 18, color: iconColor),
-          ),
+    return MacosTooltip(
+      message: tooltip,
+      child: MacosIconButton(
+        icon: MacosIcon(
+          CupertinoIcons.globe,
+          size: 16,
+          color: iconColor.withOpacity(isEnabled ? 1.0 : 0.35),
+        ),
+        onPressed: isEnabled ? onPressed : null,
+        alignment: Alignment.center,
+        backgroundColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        padding: const EdgeInsets.all(6),
+        semanticLabel: tooltip,
+        boxConstraints: const BoxConstraints(
+          minHeight: 24,
+          minWidth: 24,
+          maxHeight: 28,
+          maxWidth: 28,
         ),
       ),
     );
