@@ -19,6 +19,7 @@ import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../datasources/local/music_local_datasource.dart';
+import '../datasources/remote/netease_api_client.dart';
 import '../models/music_models.dart';
 import '../models/webdav_bundle.dart';
 import '../models/webdav_models.dart';
@@ -27,6 +28,7 @@ import '../../core/constants/app_constants.dart';
 class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   final MusicLocalDataSource _localDataSource;
   final BinaryConfigStore _configStore;
+  final NeteaseApiClient _neteaseApiClient;
   final Uuid _uuid = const Uuid();
   static const Set<String> _supportedAudioExtensions = {
     '.mp3',
@@ -53,8 +55,12 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   MusicLibraryRepositoryImpl({
     required MusicLocalDataSource localDataSource,
     required BinaryConfigStore configStore,
-  }) : _localDataSource = localDataSource,
-       _configStore = configStore;
+    required NeteaseApiClient neteaseApiClient,
+  })  : _localDataSource = localDataSource,
+        _configStore = configStore,
+        _neteaseApiClient = neteaseApiClient;
+
+  final Map<String, String?> _neteaseArtworkCache = {};
 
   @override
   Future<List<Track>> getAllTracks() async {
@@ -135,6 +141,33 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     } catch (e) {
       throw DatabaseException('Failed to delete track: ${e.toString()}');
     }
+  }
+
+  @override
+  Future<Track?> fetchArtworkForTrack(Track track) async {
+    if (track.sourceType != TrackSourceType.local) {
+      return null;
+    }
+    if ((track.artworkPath ?? '').isNotEmpty) {
+      return track;
+    }
+
+    final path = await _fetchArtworkFromNetease(
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      previousArtworkPath: track.artworkPath,
+    );
+
+    if (path == null || path.isEmpty) {
+      return null;
+    }
+
+    final updatedModel = TrackModel.fromEntity(track).copyWith(
+      artworkPath: path,
+    );
+    await _localDataSource.updateTrack(updatedModel);
+    return updatedModel.toEntity();
   }
 
   @override
@@ -997,10 +1030,19 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           ? metadata!.genres!.first
           : null;
 
-      final artworkPath = await _saveArtwork(
+      String? artworkPath = await _saveArtwork(
         metadata,
         previousArtworkPath: existingTrack?.artworkPath,
       );
+
+      if (artworkPath == null || artworkPath.isEmpty) {
+        artworkPath = await _fetchArtworkFromNetease(
+          title: title,
+          artist: artist,
+          album: album,
+          previousArtworkPath: existingTrack?.artworkPath,
+        );
+      }
 
       return TrackModel(
         id: existingTrack?.id ?? _uuid.v4(),
@@ -1065,6 +1107,109 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     }
 
     return filePath;
+  }
+
+  Future<String?> _saveArtworkBytes(
+    Uint8List bytes, {
+    String? previousArtworkPath,
+    String fileExtension = '.jpg',
+  }) async {
+    if (bytes.isEmpty) {
+      return previousArtworkPath;
+    }
+
+    final cacheDir = await _artworkCacheDirectory();
+    final filePath = path.join(cacheDir.path, '${_uuid.v4()}$fileExtension');
+    final file = File(filePath);
+    await file.writeAsBytes(bytes, flush: true);
+
+    if (previousArtworkPath != null && previousArtworkPath != filePath) {
+      final previousFile = File(previousArtworkPath);
+      if (await previousFile.exists()) {
+        await previousFile.delete();
+      }
+    }
+
+    return filePath;
+  }
+
+  Future<String?> _fetchArtworkFromNetease({
+    required String title,
+    required String artist,
+    required String album,
+    String? previousArtworkPath,
+  }) async {
+    final normalizedTitle = title.trim().toLowerCase();
+    if (normalizedTitle.isEmpty) {
+      return null;
+    }
+
+    final normalizedArtist = artist.trim().toLowerCase();
+    final key = '$normalizedTitle::$normalizedArtist';
+    if (_neteaseArtworkCache.containsKey(key)) {
+      return _neteaseArtworkCache[key];
+    }
+
+    try {
+      String? artistQuery = artist.trim();
+      if (artistQuery.isEmpty || artistQuery.toLowerCase() == 'unknown artist') {
+        artistQuery = null;
+      }
+
+      int? songId = await _neteaseApiClient.searchSongId(
+        title: title,
+        artist: artistQuery,
+      );
+
+      if (songId == null) {
+        songId = await _neteaseApiClient.searchSongId(title: title, artist: null);
+      }
+
+      if (songId == null) {
+        final trimmedAlbum = album.trim();
+        if (trimmedAlbum.isNotEmpty &&
+            trimmedAlbum.toLowerCase() != 'unknown album') {
+          songId = await _neteaseApiClient.searchSongId(
+            title: trimmedAlbum,
+            artist: artistQuery,
+          );
+        }
+      }
+
+      if (songId == null) {
+        _neteaseArtworkCache[key] = null;
+        return null;
+      }
+
+      final coverUrl = await _neteaseApiClient.fetchSongCoverUrl(songId);
+      if (coverUrl == null || coverUrl.isEmpty) {
+        _neteaseArtworkCache[key] = null;
+        return null;
+      }
+
+      final optimizedUrl = coverUrl.contains('?')
+          ? '$coverUrl&param=512y512'
+          : '$coverUrl?param=512y512';
+
+      final imageBytes = await _neteaseApiClient.downloadImage(optimizedUrl);
+      if (imageBytes == null || imageBytes.isEmpty) {
+        _neteaseArtworkCache[key] = null;
+        return null;
+      }
+
+      final savedPath = await _saveArtworkBytes(
+        imageBytes,
+        previousArtworkPath: previousArtworkPath,
+        fileExtension: '.jpg',
+      );
+
+      _neteaseArtworkCache[key] = savedPath;
+      return savedPath;
+    } catch (e) {
+      print('⚠️ MusicLibraryRepository: 网易云封面获取失败 -> $e');
+      _neteaseArtworkCache[key] = null;
+      return null;
+    }
   }
 
   Future<String?> _cacheWebDavArtwork(

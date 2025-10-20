@@ -27,27 +27,34 @@ class LyricsCubit extends Cubit<LyricsState> {
   final GetLyrics _getLyrics;
 
   Future<void> loadLyricsForTrack(Track track) async {
+    if (isClosed) return;
     emit(const LyricsLoading());
     try {
       final cached = await _getLyrics(track.id);
+      if (isClosed) return;
       if (cached != null && cached.lines.isNotEmpty) {
         emit(LyricsLoaded(cached));
         return;
       }
 
       final lyricsFromFile = await _loadLyricsFromAssociatedFile(track);
+      if (isClosed) return;
       if (lyricsFromFile == null || lyricsFromFile.lines.isEmpty) {
         final onlineLyrics = await _loadLyricsFromOnline(track);
+        if (isClosed) return;
         if (onlineLyrics == null || onlineLyrics.lines.isEmpty) {
           emit(const LyricsEmpty());
           return;
         }
+        if (isClosed) return;
         emit(LyricsLoaded(onlineLyrics));
         return;
       }
 
+      if (isClosed) return;
       emit(LyricsLoaded(lyricsFromFile));
     } catch (e) {
+      if (isClosed) return;
       emit(LyricsError(e.toString()));
     }
   }

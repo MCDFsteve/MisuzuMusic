@@ -59,6 +59,7 @@ class DependencyInjection {
         () => MusicLibraryRepositoryImpl(
           localDataSource: sl(),
           configStore: sl(),
+          neteaseApiClient: sl(),
         ),
       );
 

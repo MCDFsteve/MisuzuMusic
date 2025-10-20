@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -14,6 +16,51 @@ class NeteaseApiClient {
             );
 
   final Dio _dio;
+
+  Future<String?> fetchSongCoverUrl(int songId) async {
+    try {
+      final response = await _dio.get(
+        '/song/detail',
+        queryParameters: {'ids': songId},
+      );
+      final data = response.data;
+      if (data is! Map) {
+        return null;
+      }
+      final songs = data['songs'];
+      if (songs is! List || songs.isEmpty) {
+        return null;
+      }
+      final song = songs.first;
+      if (song is Map) {
+        final album = song['al'];
+        if (album is Map && album['picUrl'] is String) {
+          return (album['picUrl'] as String).trim();
+        }
+      }
+      return null;
+    } catch (e) {
+      print('⚠️ NeteaseApiClient: 获取歌曲封面失败 -> $e');
+      return null;
+    }
+  }
+
+  Future<Uint8List?> downloadImage(String url) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final data = response.data;
+      if (data == null || data.isEmpty) {
+        return null;
+      }
+      return Uint8List.fromList(data);
+    } catch (e) {
+      print('⚠️ NeteaseApiClient: 下载图片失败 -> $e');
+      return null;
+    }
+  }
 
   Future<int?> searchSongId({
     required String title,

@@ -604,7 +604,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
     final originalFile = File(track.filePath);
     if (await originalFile.exists()) {
-      return track;
+      return await _ensureLocalArtwork(track);
     }
 
     print('⚠️ AudioService: 找不到原音频，尝试定位新的文件 -> ${track.filePath}');
@@ -633,12 +633,12 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
               candidateFingerprint == fingerprint) {
             await _replaceTrackInQueue(track, candidate);
             print('✅ AudioService: 使用指纹匹配音频路径 ${candidate.filePath}');
-            return candidate;
+            return await _ensureLocalArtwork(candidate);
           }
         } else {
           await _replaceTrackInQueue(track, candidate);
           print('✅ AudioService: 使用新的音频路径 ${candidate.filePath}');
-          return candidate;
+          return await _ensureLocalArtwork(candidate);
         }
       }
     }
@@ -653,7 +653,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
             candidateFingerprint == fingerprint) {
           await _replaceTrackInQueue(track, candidate);
           print('✅ AudioService: 使用指纹匹配音频路径 ${candidate.filePath}');
-          return candidate;
+          return await _ensureLocalArtwork(candidate);
         }
       }
     }
@@ -664,7 +664,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       if (await file.exists()) {
         await _replaceTrackInQueue(track, candidate);
         print('✅ AudioService: 使用新的音频路径 ${candidate.filePath}');
-        return candidate;
+        return await _ensureLocalArtwork(candidate);
       }
     }
 
@@ -687,6 +687,26 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     if (changed) {
       await _persistQueueState();
     }
+  }
+
+  Future<Track> _ensureLocalArtwork(Track track) async {
+    if (track.sourceType != TrackSourceType.local) {
+      return track;
+    }
+    if ((track.artworkPath ?? '').isNotEmpty) {
+      return track;
+    }
+
+    try {
+      final updated = await _musicLibraryRepository.fetchArtworkForTrack(track);
+      if (updated != null && (updated.artworkPath ?? '').isNotEmpty) {
+        await _replaceTrackInQueue(track, updated);
+        return updated;
+      }
+    } catch (e) {
+      print('⚠️ AudioService: 获取网易云封面失败 -> $e');
+    }
+    return track;
   }
 
   bool _isSameTrack(Track a, Track b) {

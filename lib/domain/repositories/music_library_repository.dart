@@ -13,6 +13,7 @@ abstract class MusicLibraryRepository {
   Future<void> updateTrack(Track track);
   Future<void> deleteTrack(String id);
   Future<Track?> findMatchingTrack(Track reference);
+  Future<Track?> fetchArtworkForTrack(Track track);
 
   // Artist operations
   Future<List<Artist>> getAllArtists();
