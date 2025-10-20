@@ -10,4 +10,5 @@ abstract class PlaybackHistoryRepository {
   Stream<List<PlaybackHistoryEntry>> watchHistory({int? limit});
   Future<void> clearHistory();
   Future<void> updateTrackMetadata(Track track);
+  Stream<Track> watchTrackUpdates();
 }

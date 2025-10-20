@@ -16,6 +16,8 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
 
   final BinaryConfigStore _configStore;
   final BehaviorSubject<List<PlaybackHistoryEntry>> _historySubject;
+  final StreamController<Track> _trackUpdateController =
+      StreamController<Track>.broadcast();
   bool _initialized = false;
 
   Future<void> _ensureInitialized() async {
@@ -172,6 +174,7 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
     final limited = _sortAndLimit(history, _maxEntries);
     _historySubject.add(limited);
     await _persist(limited);
+    _emitTrackUpdate(track);
   }
 
   @override
@@ -220,5 +223,17 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
     final limited = _sortAndLimit(current, _maxEntries);
     _historySubject.add(limited);
     await _persist(limited);
+    _emitTrackUpdate(track);
+  }
+
+  @override
+  Stream<Track> watchTrackUpdates() => _trackUpdateController.stream;
+
+  void _emitTrackUpdate(Track track) {
+    try {
+      _trackUpdateController.add(track);
+    } catch (_) {
+      // ignore
+    }
   }
 }
