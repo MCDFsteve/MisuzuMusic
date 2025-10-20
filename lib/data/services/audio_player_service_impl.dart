@@ -592,8 +592,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         await _replaceTrackInQueue(track, normalized);
       }
 
-      final enriched =
-          await _musicLibraryRepository.ensureWebDavTrackMetadata(normalized);
+      final enriched = await _musicLibraryRepository.ensureWebDavTrackMetadata(
+        normalized,
+      );
       if (enriched != null) {
         await _replaceTrackInQueue(normalized, enriched);
         return enriched;
@@ -697,16 +698,22 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return track;
     }
 
+    unawaited(_fetchLocalArtworkAsync(track));
+    return track;
+  }
+
+  Future<void> _fetchLocalArtworkAsync(Track track) async {
     try {
       final updated = await _musicLibraryRepository.fetchArtworkForTrack(track);
       if (updated != null && (updated.artworkPath ?? '').isNotEmpty) {
         await _replaceTrackInQueue(track, updated);
-        return updated;
+        if (_currentTrack != null && _isSameTrack(_currentTrack!, track)) {
+          _currentTrack = updated;
+        }
       }
     } catch (e) {
       print('⚠️ AudioService: 获取网易云封面失败 -> $e');
     }
-    return track;
   }
 
   bool _isSameTrack(Track a, Track b) {

@@ -33,6 +33,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late Track _currentTrack;
   late final ScrollController _lyricsScrollController;
   late final LyricsCubit _lyricsCubit;
+  bool _showTranslation = true;
 
   @override
   void initState() {
@@ -68,6 +69,13 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (_lyricsScrollController.hasClients) {
       _lyricsScrollController.jumpTo(0);
     }
+  }
+
+  void _toggleTranslationVisibility() {
+    if (!mounted) return;
+    setState(() {
+      _showTranslation = !_showTranslation;
+    });
   }
 
   Track? _extractTrack(PlayerBlocState state) {
@@ -109,6 +117,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             track: _currentTrack,
             lyricsScrollController: _lyricsScrollController,
             isMac: isMac,
+            showTranslation: _showTranslation,
+            onToggleTranslation: _toggleTranslationVisibility,
           ),
         ),
       ),
@@ -121,11 +131,15 @@ class _LyricsLayout extends StatelessWidget {
     required this.track,
     required this.lyricsScrollController,
     required this.isMac,
+    required this.showTranslation,
+    required this.onToggleTranslation,
   });
 
   final Track track;
   final ScrollController lyricsScrollController;
   final bool isMac;
+  final bool showTranslation;
+  final VoidCallback onToggleTranslation;
 
   @override
   Widget build(BuildContext context) {
@@ -171,6 +185,8 @@ class _LyricsLayout extends StatelessWidget {
                     isDarkMode: isDarkMode,
                     scrollController: lyricsScrollController,
                     track: track,
+                    showTranslation: showTranslation,
+                    onToggleTranslation: onToggleTranslation,
                   ),
                 ),
               ],
@@ -292,11 +308,15 @@ class _LyricsPanel extends StatelessWidget {
     required this.isDarkMode,
     required this.scrollController,
     required this.track,
+    required this.showTranslation,
+    required this.onToggleTranslation,
   });
 
   final bool isDarkMode;
   final ScrollController scrollController;
   final Track track;
+  final bool showTranslation;
+  final VoidCallback onToggleTranslation;
 
   @override
   Widget build(BuildContext context) {
@@ -310,7 +330,7 @@ class _LyricsPanel extends StatelessWidget {
           final viewportHeight = constraints.maxHeight;
           return BlocBuilder<LyricsCubit, LyricsState>(
             builder: (context, state) {
-              return ScrollConfiguration(
+              final Widget content = ScrollConfiguration(
                 behavior: behavior,
                 child: _buildLyricsContent(
                   context,
@@ -318,7 +338,27 @@ class _LyricsPanel extends StatelessWidget {
                   scrollController,
                   isDarkMode,
                   viewportHeight,
+                  showTranslation,
                 ),
+              );
+
+              final bool canToggle =
+                  state is LyricsLoaded && _hasAnyTranslation(state.lyrics);
+
+              return Stack(
+                children: [
+                  Positioned.fill(child: content),
+                  Positioned(
+                    bottom: 20,
+                    right: 12,
+                    child: _TranslationToggleButton(
+                      isDarkMode: isDarkMode,
+                      isActive: showTranslation,
+                      isEnabled: canToggle,
+                      onPressed: canToggle ? onToggleTranslation : null,
+                    ),
+                  ),
+                ],
               );
             },
           );
@@ -333,6 +373,7 @@ class _LyricsPanel extends StatelessWidget {
     ScrollController controller,
     bool isDarkMode,
     double viewportHeight,
+    bool showTranslation,
   ) {
     if (state is LyricsLoading || state is LyricsInitial) {
       return _buildInfoMessage(
@@ -381,6 +422,7 @@ class _LyricsPanel extends StatelessWidget {
         lines: lines,
         controller: controller,
         isDarkMode: isDarkMode,
+        showTranslation: showTranslation,
       );
     }
 
@@ -425,6 +467,71 @@ class _LyricsPanel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  bool _hasAnyTranslation(Lyrics lyrics) {
+    return lyrics.lines.any(
+      (line) => (line.translatedText ?? '').trim().isNotEmpty,
+    );
+  }
+}
+
+class _TranslationToggleButton extends StatelessWidget {
+  const _TranslationToggleButton({
+    required this.isDarkMode,
+    required this.isActive,
+    required this.isEnabled,
+    required this.onPressed,
+  });
+
+  final bool isDarkMode;
+  final bool isActive;
+  final bool isEnabled;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color baseColor = isDarkMode ? Colors.white : Colors.black87;
+    final double baseOpacity = isEnabled ? 1.0 : 0.4;
+    final Color background = isDarkMode
+        ? Colors.white.withOpacity((isActive ? 0.2 : 0.12) * baseOpacity)
+        : Colors.black.withOpacity((isActive ? 0.12 : 0.06) * baseOpacity);
+    final Color borderColor = isDarkMode
+        ? Colors.white.withOpacity((isActive ? 0.4 : 0.25) * baseOpacity)
+        : Colors.black.withOpacity((isActive ? 0.2 : 0.12) * baseOpacity);
+    final Color iconColor = baseColor.withOpacity(isEnabled ? 1.0 : 0.35);
+
+    return Tooltip(
+      message: isEnabled ? (isActive ? '隐藏翻译' : '显示翻译') : '暂无可用翻译',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: borderColor, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(
+                    isEnabled
+                        ? (isDarkMode ? 0.3 : 0.1)
+                        : (isDarkMode ? 0.15 : 0.05),
+                  ),
+                  blurRadius: isActive ? 8 : 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(Icons.translate_rounded, size: 18, color: iconColor),
+          ),
+        ),
+      ),
     );
   }
 }

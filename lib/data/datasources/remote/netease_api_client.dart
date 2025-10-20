@@ -6,14 +6,15 @@ import '../../../core/constants/app_constants.dart';
 
 class NeteaseApiClient {
   NeteaseApiClient({Dio? dio, String? baseUrl})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                baseUrl: baseUrl ?? AppConstants.neteaseApiBaseUrl,
-                connectTimeout: const Duration(seconds: 10),
-                receiveTimeout: const Duration(seconds: 10),
-              ),
-            );
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              baseUrl: baseUrl ?? AppConstants.neteaseApiBaseUrl,
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 10),
+            ),
+          );
 
   final Dio _dio;
 
@@ -62,10 +63,7 @@ class NeteaseApiClient {
     }
   }
 
-  Future<int?> searchSongId({
-    required String title,
-    String? artist,
-  }) async {
+  Future<int?> searchSongId({required String title, String? artist}) async {
     final keywords = _buildKeywords(title: title, artist: artist);
     if (keywords.isEmpty) {
       return null;
@@ -74,10 +72,7 @@ class NeteaseApiClient {
     try {
       final response = await _dio.get(
         '/search',
-        queryParameters: {
-          'keywords': keywords,
-          'limit': 5,
-        },
+        queryParameters: {'keywords': keywords, 'limit': 5},
       );
       final data = response.data;
       if (data is! Map) {
@@ -102,25 +97,38 @@ class NeteaseApiClient {
     }
   }
 
-  Future<String?> fetchLyricsBySongId(int songId) async {
+  Future<NeteaseLyricResult?> fetchLyricsBySongId(int songId) async {
     try {
       final response = await _dio.get(
         '/lyric',
-        queryParameters: {'id': songId},
+        queryParameters: {'id': songId, 'lv': -1, 'tv': -1},
       );
       final data = response.data;
       if (data is! Map) {
         return null;
       }
-      final lrc = data['lrc'];
-      if (lrc is Map && lrc['lyric'] is String) {
-        return (lrc['lyric'] as String).trim();
+      final original = _extractLyricText(data['lrc']);
+      final translated = _extractLyricText(data['tlyric']);
+      if (original == null && translated == null) {
+        return null;
       }
-      return null;
+      return NeteaseLyricResult(original: original, translated: translated);
     } catch (e) {
       print('⚠️ NeteaseApiClient: 获取歌词失败 -> $e');
       return null;
     }
+  }
+
+  String? _extractLyricText(dynamic payload) {
+    if (payload is! Map) {
+      return null;
+    }
+    final lyric = payload['lyric'];
+    if (lyric is! String) {
+      return null;
+    }
+    final trimmed = lyric.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   String _buildKeywords({required String title, String? artist}) {
@@ -135,4 +143,14 @@ class NeteaseApiClient {
     }
     return keywords.join(' ');
   }
+}
+
+class NeteaseLyricResult {
+  const NeteaseLyricResult({this.original, this.translated});
+
+  final String? original;
+  final String? translated;
+
+  bool get hasOriginal => original != null && original!.isNotEmpty;
+  bool get hasTranslated => translated != null && translated!.isNotEmpty;
 }

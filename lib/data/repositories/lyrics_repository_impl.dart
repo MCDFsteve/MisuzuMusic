@@ -16,8 +16,8 @@ class LyricsRepositoryImpl implements LyricsRepository {
   LyricsRepositoryImpl({
     required LyricsLocalDataSource localDataSource,
     required NeteaseApiClient neteaseApiClient,
-  })  : _localDataSource = localDataSource,
-        _neteaseApiClient = neteaseApiClient;
+  }) : _localDataSource = localDataSource,
+       _neteaseApiClient = neteaseApiClient;
 
   @override
   Future<Lyrics?> getLyricsByTrackId(String trackId) async {
@@ -232,19 +232,24 @@ class LyricsRepositoryImpl implements LyricsRepository {
         return null;
       }
 
-      final lyricContent = await _neteaseApiClient.fetchLyricsBySongId(songId);
-      if (lyricContent == null || lyricContent.trim().isEmpty) {
+      final lyricResult = await _neteaseApiClient.fetchLyricsBySongId(songId);
+      if (lyricResult == null || !lyricResult.hasOriginal) {
         return null;
       }
 
-      final lines = LyricsModel.parseLrc(lyricContent);
-      if (lines.isEmpty) {
+      final String originalContent = lyricResult.original ?? '';
+      final List<LyricsLine> mergedLines = _mergeNeteaseLyrics(
+        originalContent,
+        lyricResult.translated,
+      );
+
+      if (mergedLines.isEmpty) {
         return null;
       }
 
       final lyrics = Lyrics(
         trackId: trackId,
-        lines: lines,
+        lines: mergedLines,
         format: LyricsFormat.lrc,
       );
 
@@ -254,6 +259,100 @@ class LyricsRepositoryImpl implements LyricsRepository {
       print('⚠️ LyricsRepository: 在线歌词获取失败 -> $e');
       return null;
     }
+  }
+
+  List<LyricsLine> _mergeNeteaseLyrics(
+    String originalContent,
+    String? translatedContent,
+  ) {
+    final List<LyricsLine> originalLines = _parseLrcContent(originalContent);
+    if (originalLines.isEmpty) {
+      return <LyricsLine>[];
+    }
+
+    if (translatedContent == null || translatedContent.trim().isEmpty) {
+      return originalLines;
+    }
+
+    final Map<Duration, String> translationMap = _parseTranslationMap(
+      translatedContent,
+    );
+    if (translationMap.isEmpty) {
+      return originalLines;
+    }
+
+    final List<LyricsLine> merged = <LyricsLine>[];
+    for (final line in originalLines) {
+      final String? cachedTranslation = line.translatedText;
+      final String? mappedTranslation = translationMap[line.timestamp];
+      final String? normalizedTranslation = _normalizeTranslation(
+        mappedTranslation ?? cachedTranslation,
+      );
+
+      if (identical(normalizedTranslation, cachedTranslation) ||
+          (normalizedTranslation == cachedTranslation)) {
+        merged.add(line);
+      } else {
+        merged.add(
+          LyricsLine(
+            timestamp: line.timestamp,
+            originalText: line.originalText,
+            translatedText: normalizedTranslation,
+            annotatedTexts: line.annotatedTexts,
+          ),
+        );
+      }
+    }
+
+    return merged;
+  }
+
+  Map<Duration, String> _parseTranslationMap(String content) {
+    final Map<Duration, String> result = {};
+    final List<String> lines = content.split('\n');
+    final RegExp pattern = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)');
+
+    for (final rawLine in lines) {
+      final String trimmed = rawLine.trim();
+      if (trimmed.isEmpty) {
+        continue;
+      }
+      final Match? match = pattern.firstMatch(trimmed);
+      if (match == null) {
+        continue;
+      }
+
+      final int minutes = int.parse(match.group(1)!);
+      final int seconds = int.parse(match.group(2)!);
+      final String fraction = match.group(3)!;
+      final int milliseconds = fraction.length == 3
+          ? int.parse(fraction)
+          : int.parse(fraction) * 10;
+      final String text = match.group(4)!.trim();
+      if (text.isEmpty) {
+        continue;
+      }
+
+      final Duration timestamp = Duration(
+        minutes: minutes,
+        seconds: seconds,
+        milliseconds: milliseconds,
+      );
+      result[timestamp] = text;
+    }
+
+    return result;
+  }
+
+  String? _normalizeTranslation(String? input) {
+    if (input == null) {
+      return null;
+    }
+    final String trimmed = input.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return trimmed.replaceAll('\r', '');
   }
 
   List<LyricsLine> _parseLrcContent(String content) {

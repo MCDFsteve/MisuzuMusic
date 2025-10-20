@@ -15,11 +15,11 @@ class LyricsCubit extends Cubit<LyricsState> {
     required LoadLyricsFromFile loadLyricsFromFile,
     required FetchOnlineLyrics fetchOnlineLyrics,
     required GetLyrics getLyrics,
-  })  : _findLyricsFile = findLyricsFile,
-        _loadLyricsFromFile = loadLyricsFromFile,
-        _fetchOnlineLyrics = fetchOnlineLyrics,
-        _getLyrics = getLyrics,
-        super(const LyricsInitial());
+  }) : _findLyricsFile = findLyricsFile,
+       _loadLyricsFromFile = loadLyricsFromFile,
+       _fetchOnlineLyrics = fetchOnlineLyrics,
+       _getLyrics = getLyrics,
+       super(const LyricsInitial());
 
   final FindLyricsFile _findLyricsFile;
   final LoadLyricsFromFile _loadLyricsFromFile;
@@ -33,7 +33,15 @@ class LyricsCubit extends Cubit<LyricsState> {
       final cached = await _getLyrics(track.id);
       if (isClosed) return;
       if (cached != null && cached.lines.isNotEmpty) {
-        emit(LyricsLoaded(cached));
+        Lyrics current = cached;
+        if (_needsTranslationUpgrade(current, track)) {
+          final Lyrics? upgraded = await _loadLyricsFromOnline(track);
+          if (isClosed) return;
+          if (upgraded != null && upgraded.lines.isNotEmpty) {
+            current = upgraded;
+          }
+        }
+        emit(LyricsLoaded(current));
         return;
       }
 
@@ -142,5 +150,22 @@ class LyricsCubit extends Cubit<LyricsState> {
       print('🎼 LyricsCubit: 在线歌词获取失败 -> $e');
       return null;
     }
+  }
+
+  bool _needsTranslationUpgrade(Lyrics lyrics, Track track) {
+    if (lyrics.format != LyricsFormat.lrc) {
+      return false;
+    }
+    final bool hasTranslation = lyrics.lines.any(
+      (line) => (line.translatedText ?? '').trim().isNotEmpty,
+    );
+    if (hasTranslation) {
+      return false;
+    }
+    // Avoid hammering the API when metadata is empty.
+    if (track.title.trim().isEmpty) {
+      return false;
+    }
+    return true;
   }
 }

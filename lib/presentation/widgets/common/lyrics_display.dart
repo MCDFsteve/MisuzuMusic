@@ -15,11 +15,13 @@ class LyricsDisplay extends StatefulWidget {
     required this.lines,
     required this.controller,
     required this.isDarkMode,
+    this.showTranslation = true,
   });
 
   final List<LyricsLine> lines;
   final ScrollController controller;
   final bool isDarkMode;
+  final bool showTranslation;
 
   @override
   State<LyricsDisplay> createState() => _LyricsDisplayState();
@@ -177,9 +179,9 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
       viewportHeight * 0.5 - placeholderHeight * 0.5,
     );
 
-    final double roughCenterOffset =
-        edgeSpacer + placeholderHeight * index;
-    final double targetOffset = roughCenterOffset -
+    final double roughCenterOffset = edgeSpacer + placeholderHeight * index;
+    final double targetOffset =
+        roughCenterOffset -
         math.max(0.0, viewportHeight * 0.5 - placeholderHeight * 0.5);
     final double clampedOffset = targetOffset.clamp(
       position.minScrollExtent,
@@ -325,7 +327,9 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                     key: _itemKeys[lineIndex],
                     text: text,
                     annotatedTexts: line.annotatedTexts,
-                    translatedText: line.translatedText,
+                    translatedText: widget.showTranslation
+                        ? line.translatedText
+                        : null,
                     isActive: isActive,
                     linePadding: _linePadding,
                     animationDuration: _animationDuration,
@@ -575,7 +579,8 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
     }
 
     return Padding(
-      padding: widget.linePadding +
+      padding:
+          widget.linePadding +
           const EdgeInsets.symmetric(vertical: _itemSpacingPadding),
       child: AnimatedDefaultTextStyle(
         style: targetStyle,
