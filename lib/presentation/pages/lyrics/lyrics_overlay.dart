@@ -335,9 +335,12 @@ class _LyricsPanel extends StatelessWidget {
     double viewportHeight,
   ) {
     if (state is LyricsLoading || state is LyricsInitial) {
-      return ListView(
-        controller: controller,
-        children: const [SizedBox(height: 80)],
+      return _buildInfoMessage(
+        controller,
+        title: '歌词获取中',
+        subtitle: '正在加载 ${track.title} 的歌词…',
+        isDarkMode: isDarkMode,
+        viewportHeight: viewportHeight,
       );
     }
 
