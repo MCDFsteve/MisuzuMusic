@@ -51,7 +51,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   @override
   void didUpdateWidget(covariant LyricsOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialTrack.id != oldWidget.initialTrack.id) {
+    if (widget.initialTrack != oldWidget.initialTrack) {
       _currentTrack = widget.initialTrack;
       _lyricsCubit.loadLyricsForTrack(_currentTrack);
       _resetScroll();
@@ -100,7 +100,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       child: BlocListener<PlayerBloc, PlayerBlocState>(
         listener: (context, playerState) {
           final nextTrack = _extractTrack(playerState);
-          if (nextTrack != null && nextTrack.id != _currentTrack.id) {
+          if (nextTrack != null && nextTrack != _currentTrack) {
             if (!mounted) return;
             setState(() => _currentTrack = nextTrack);
             _lyricsCubit.loadLyricsForTrack(nextTrack);

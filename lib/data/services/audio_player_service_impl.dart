@@ -709,11 +709,19 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         await _replaceTrackInQueue(track, updated);
         if (_currentTrack != null && _isSameTrack(_currentTrack!, track)) {
           _currentTrack = updated;
+          _emitPlayerStateSnapshot();
         }
       }
     } catch (e) {
       print('⚠️ AudioService: 获取网易云封面失败 -> $e');
     }
+  }
+
+  void _emitPlayerStateSnapshot() {
+    if (_playerStateSubject.isClosed) {
+      return;
+    }
+    _playerStateSubject.add(_playerStateSubject.value);
   }
 
   bool _isSameTrack(Track a, Track b) {

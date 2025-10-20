@@ -81,6 +81,13 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
           ? widget.controller.offset
           : 0;
     }
+    if (oldWidget.showTranslation != widget.showTranslation &&
+        _activeIndex >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _scrollToIndex(_activeIndex);
+      });
+    }
   }
 
   @override

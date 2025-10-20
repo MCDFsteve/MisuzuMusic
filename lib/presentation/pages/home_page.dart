@@ -163,7 +163,7 @@ class _HomePageContentState extends State<HomePageContent> {
           return;
         }
 
-        if (_lyricsActiveTrack == null || _lyricsActiveTrack!.id != track.id) {
+        if (_lyricsActiveTrack != track) {
           if (mounted) {
             setState(() {
               _lyricsActiveTrack = track;
@@ -361,7 +361,7 @@ class _HomePageContentState extends State<HomePageContent> {
           return;
         }
 
-        if (_lyricsActiveTrack == null || _lyricsActiveTrack!.id != track.id) {
+        if (_lyricsActiveTrack != track) {
           if (mounted) {
             setState(() {
               _lyricsActiveTrack = track;
