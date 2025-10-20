@@ -64,10 +64,8 @@ class DependencyInjection {
       );
 
       sl.registerLazySingleton<LyricsRepository>(
-        () => LyricsRepositoryImpl(
-          localDataSource: sl(),
-          neteaseApiClient: sl(),
-        ),
+        () =>
+            LyricsRepositoryImpl(localDataSource: sl(), neteaseApiClient: sl()),
       );
 
       sl.registerLazySingleton<PlaybackHistoryRepository>(
@@ -104,6 +102,7 @@ class DependencyInjection {
       sl.registerLazySingleton(() => TestWebDavConnection(sl()));
       sl.registerLazySingleton(() => ListWebDavDirectory(sl()));
       sl.registerLazySingleton(() => EnsureWebDavTrackMetadata(sl()));
+      sl.registerLazySingleton(() => WatchTrackUpdates(sl()));
 
       sl.registerLazySingleton(() => PlayTrack(sl()));
       sl.registerLazySingleton(() => PausePlayer(sl()));

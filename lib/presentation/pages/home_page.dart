@@ -57,6 +57,7 @@ class HomePage extends StatelessWidget {
             getWebDavPassword: sl<GetWebDavPassword>(),
             removeLibraryDirectory: sl<RemoveLibraryDirectory>(),
             deleteWebDavSource: sl<DeleteWebDavSource>(),
+            watchTrackUpdates: sl<WatchTrackUpdates>(),
           )..add(const LoadAllTracks()),
         ),
         BlocProvider(

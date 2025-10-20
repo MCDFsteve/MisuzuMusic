@@ -181,3 +181,11 @@ class EnsureWebDavTrackMetadata {
     return _repository.ensureWebDavTrackMetadata(track, force: force);
   }
 }
+
+class WatchTrackUpdates {
+  final MusicLibraryRepository _repository;
+
+  WatchTrackUpdates(this._repository);
+
+  Stream<Track> call() => _repository.watchTrackUpdates();
+}

@@ -14,6 +14,7 @@ abstract class MusicLibraryRepository {
   Future<void> deleteTrack(String id);
   Future<Track?> findMatchingTrack(Track reference);
   Future<Track?> fetchArtworkForTrack(Track track);
+  Stream<Track> watchTrackUpdates();
 
   // Artist operations
   Future<List<Artist>> getAllArtists();
@@ -40,10 +41,7 @@ abstract class MusicLibraryRepository {
     required String password,
   });
   Future<void> removeLibraryDirectory(String directoryPath);
-  Future<Track?> ensureWebDavTrackMetadata(
-    Track track, {
-    bool force = false,
-  });
+  Future<Track?> ensureWebDavTrackMetadata(Track track, {bool force = false});
   Future<void> uploadWebDavPlayLog({
     required String sourceId,
     required String remotePath,
