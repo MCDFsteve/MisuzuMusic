@@ -597,6 +597,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       );
       if (enriched != null) {
         await _replaceTrackInQueue(normalized, enriched);
+        unawaited(_playbackHistoryRepository.updateTrackMetadata(enriched));
         return enriched;
       }
 
@@ -711,6 +712,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
           _currentTrack = updated;
           _emitPlayerStateSnapshot();
         }
+        unawaited(_playbackHistoryRepository.updateTrackMetadata(updated));
       }
     } catch (e) {
       print('⚠️ AudioService: 获取网易云封面失败 -> $e');

@@ -283,15 +283,17 @@ class _HomePageContentState extends State<HomePageContent> {
                                       ),
                                       Positioned.fill(
                                         child: AnimatedSwitcher(
-                                          duration:
-                                              const Duration(milliseconds: 280),
+                                          duration: const Duration(
+                                            milliseconds: 280,
+                                          ),
                                           switchInCurve: Curves.easeOut,
                                           switchOutCurve: Curves.easeIn,
                                           transitionBuilder:
-                                              (child, animation) => FadeTransition(
-                                            opacity: animation,
-                                            child: child,
-                                          ),
+                                              (child, animation) =>
+                                                  FadeTransition(
+                                                    opacity: animation,
+                                                    child: child,
+                                                  ),
                                           child: _lyricsVisible
                                               ? _buildLyricsOverlay(isMac: true)
                                               : const SizedBox.shrink(
@@ -429,9 +431,7 @@ class _HomePageContentState extends State<HomePageContent> {
                             child: Offstage(
                               offstage: _lyricsVisible,
                               child: KeyedSubtree(
-                                key: const ValueKey(
-                                  'material_main_content',
-                                ),
+                                key: const ValueKey('material_main_content'),
                                 child: _buildMainContent(),
                               ),
                             ),
@@ -441,11 +441,11 @@ class _HomePageContentState extends State<HomePageContent> {
                               duration: const Duration(milliseconds: 280),
                               switchInCurve: Curves.easeOut,
                               switchOutCurve: Curves.easeIn,
-                              transitionBuilder:
-                                  (child, animation) => FadeTransition(
-                                opacity: animation,
-                                child: child,
-                              ),
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  ),
                               child: _lyricsVisible
                                   ? _buildLyricsOverlay(isMac: false)
                                   : const SizedBox.shrink(
@@ -682,8 +682,14 @@ class _HomePageContentState extends State<HomePageContent> {
       );
     }
 
+    final artworkSignature = track.artworkPath?.isNotEmpty == true
+        ? track.artworkPath
+        : 'no_artwork';
+
     return LyricsOverlay(
-      key: ValueKey('${track.id}_${isMac ? 'mac' : 'material'}'),
+      key: ValueKey(
+        '${track.id}_${artworkSignature}_${isMac ? 'mac' : 'material'}',
+      ),
       initialTrack: track,
       isMac: isMac,
     );
@@ -744,9 +750,7 @@ class _HomePageContentState extends State<HomePageContent> {
       debugPrint('🌐 WebDAV: 用户取消连接配置');
       return;
     }
-    debugPrint(
-      '🌐 WebDAV: 连接成功，开始列举目录 (${connection.baseUrl})',
-    );
+    debugPrint('🌐 WebDAV: 连接成功，开始列举目录 (${connection.baseUrl})');
 
     final selectedPath = await _showWebDavDirectoryPicker(connection);
     if (selectedPath == null) {
@@ -1098,7 +1102,6 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
   }
 }
 
-
 class _WebDavConnectionFormResult {
   const _WebDavConnectionFormResult({
     required this.baseUrl,
@@ -1194,7 +1197,7 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
                     onChanged: _testing
                         ? null
                         : (value) =>
-                            setState(() => _ignoreTls = value ?? false),
+                              setState(() => _ignoreTls = value ?? false),
                   ),
                   const SizedBox(width: 8),
                   const Flexible(child: Text('忽略 TLS 证书校验')),
@@ -1204,10 +1207,9 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
                 const SizedBox(height: 12),
                 Text(
                   _error!,
-                  style: MacosTheme.of(context)
-                      .typography
-                      .body
-                      .copyWith(color: MacosColors.systemRedColor),
+                  style: MacosTheme.of(
+                    context,
+                  ).typography.body.copyWith(color: MacosColors.systemRedColor),
                 ),
               ],
             ],
@@ -1217,11 +1219,7 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
           controlSize: ControlSize.large,
           onPressed: _testing ? null : _onConnect,
           child: _testing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: ProgressCircle(),
-                )
+              ? const SizedBox(width: 16, height: 16, child: ProgressCircle())
               : const Text('连接'),
         ),
         secondaryButton: PushButton(
@@ -1250,8 +1248,7 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _usernameController,
-            decoration:
-                const InputDecoration(labelText: '用户名 (可选)'),
+            decoration: const InputDecoration(labelText: '用户名 (可选)'),
             enabled: !_testing,
           ),
           const SizedBox(height: 12),
@@ -1267,16 +1264,14 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _displayNameController,
-            decoration:
-                const InputDecoration(labelText: '自定义名称 (可选)'),
+            decoration: const InputDecoration(labelText: '自定义名称 (可选)'),
             enabled: !_testing,
           ),
           const SizedBox(height: 12),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _ignoreTls,
-            onChanged: (value) =>
-                setState(() => _ignoreTls = value ?? false),
+            onChanged: (value) => setState(() => _ignoreTls = value ?? false),
             title: const Text('忽略 TLS 证书校验'),
           ),
           if (_error != null) ...[
@@ -1969,14 +1964,11 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
 
     final filteredLocalSummaries =
         localSummaries.length == 1 &&
-                localSummaries.first.totalTracks == allSummary.totalTracks
-            ? <_DirectorySummaryData>[]
-            : List<_DirectorySummaryData>.from(localSummaries);
+            localSummaries.first.totalTracks == allSummary.totalTracks
+        ? <_DirectorySummaryData>[]
+        : List<_DirectorySummaryData>.from(localSummaries);
 
-    final summaries = [
-      ...filteredLocalSummaries,
-      ...remoteSummaries,
-    ];
+    final summaries = [...filteredLocalSummaries, ...remoteSummaries];
 
     summaries.sort((a, b) {
       if (a.isRemote != b.isRemote) {
@@ -2351,8 +2343,8 @@ class _LibrarySummaryView extends StatelessWidget {
     final subtitle = _isRemote
         ? '${webDavSource!.baseUrl}${webDavSource!.rootPath}'
         : (directoryPath == null || directoryPath!.isEmpty
-            ? '所有目录'
-            : p.normalize(directoryPath!));
+              ? '所有目录'
+              : p.normalize(directoryPath!));
 
     final iconData = _isRemote
         ? CupertinoIcons.cloud
@@ -2383,13 +2375,11 @@ class _LibrarySummaryView extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: hasArtwork &&
+          child:
+              hasArtwork &&
                   previewTrack?.artworkPath != null &&
                   File(previewTrack!.artworkPath!).existsSync()
-              ? Image.file(
-                  File(previewTrack!.artworkPath!),
-                  fit: BoxFit.cover,
-                )
+              ? Image.file(File(previewTrack!.artworkPath!), fit: BoxFit.cover)
               : Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -2478,12 +2468,7 @@ class _LibrarySummaryView extends StatelessWidget {
         overlay.size.width - position.dx,
         overlay.size.height - position.dy,
       ),
-      items: const [
-        PopupMenuItem(
-          value: 'remove',
-          child: Text('移除音乐库'),
-        ),
-      ],
+      items: const [PopupMenuItem(value: 'remove', child: Text('移除音乐库'))],
     );
     if (result == 'remove') {
       onRemove?.call();
