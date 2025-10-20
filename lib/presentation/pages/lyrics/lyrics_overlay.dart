@@ -497,25 +497,111 @@ class _TranslationToggleButton extends StatelessWidget {
 
     return MacosTooltip(
       message: tooltip,
-      child: MacosIconButton(
-        icon: MacosIcon(
-          CupertinoIcons.globe,
-          size: 16,
-          color: iconColor.withOpacity(isEnabled ? 1.0 : 0.35),
-        ),
-        onPressed: isEnabled ? onPressed : null,
-        alignment: Alignment.center,
-        backgroundColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        padding: const EdgeInsets.all(6),
-        semanticLabel: tooltip,
-        boxConstraints: const BoxConstraints(
-          minHeight: 24,
-          minWidth: 24,
-          maxHeight: 28,
-          maxWidth: 28,
-        ),
+      child: _HoverGlyphButton(
+        enabled: isEnabled,
+        onPressed: onPressed,
+        baseColor: iconColor.withOpacity(isActive ? 1.0 : 0.82),
+        hoverColor: iconColor,
+        disabledColor: iconColor.withOpacity(0.45),
+        iconBuilder: (color) =>
+            MacosIcon(CupertinoIcons.textbox, size: 30, color: color),
       ),
+    );
+  }
+}
+
+class _HoverGlyphButton extends StatefulWidget {
+  const _HoverGlyphButton({
+    required this.enabled,
+    required this.onPressed,
+    required this.iconBuilder,
+    required this.baseColor,
+    required this.hoverColor,
+    required this.disabledColor,
+  });
+
+  final bool enabled;
+  final VoidCallback? onPressed;
+  final Widget Function(Color color) iconBuilder;
+  final Color baseColor;
+  final Color hoverColor;
+  final Color disabledColor;
+
+  @override
+  State<_HoverGlyphButton> createState() => _HoverGlyphButtonState();
+}
+
+class _HoverGlyphButtonState extends State<_HoverGlyphButton> {
+  bool _hovering = false;
+  bool _pressing = false;
+
+  bool get _enabled => widget.enabled && widget.onPressed != null;
+
+  void _setHovering(bool value) {
+    if (!_enabled || _hovering == value) return;
+    setState(() => _hovering = value);
+  }
+
+  void _setPressing(bool value) {
+    if (!_enabled || _pressing == value) return;
+    setState(() => _pressing = value);
+  }
+
+  Color get _currentColor {
+    if (!_enabled) {
+      return widget.disabledColor;
+    }
+    if (_pressing) {
+      return widget.hoverColor;
+    }
+    if (_hovering) {
+      return widget.hoverColor;
+    }
+    return widget.baseColor;
+  }
+
+  double get _currentScale {
+    if (!_enabled) {
+      return 1.0;
+    }
+    if (_pressing) {
+      return 0.95;
+    }
+    if (_hovering) {
+      return 1.05;
+    }
+    return 1.0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = AnimatedScale(
+      scale: _currentScale,
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOut,
+      child: widget.iconBuilder(_currentColor),
+    );
+
+    final button = GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: _enabled ? widget.onPressed : null,
+      onTapDown: _enabled ? (_) => _setPressing(true) : null,
+      onTapUp: _enabled ? (_) => _setPressing(false) : null,
+      onTapCancel: _enabled ? () => _setPressing(false) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
+        child: SizedBox(width: 30, height: 30, child: Center(child: child)),
+      ),
+    );
+
+    return MouseRegion(
+      cursor: _enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) => _setHovering(true),
+      onExit: (_) {
+        _setHovering(false);
+        _setPressing(false);
+      },
+      child: button,
     );
   }
 }
