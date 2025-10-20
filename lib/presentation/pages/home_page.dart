@@ -11,6 +11,7 @@ import 'package:macos_ui/macos_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as p;
+import 'package:window_manager/window_manager.dart';
 
 import '../../core/di/dependency_injection.dart';
 import '../../domain/entities/webdav_entities.dart';
@@ -935,6 +936,19 @@ class _MacOSGlassHeader extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSelectMusicFolder;
 
+  Future<void> _handleDoubleTap() async {
+    if (!Platform.isMacOS) {
+      return;
+    }
+
+    final bool isMaximized = await windowManager.isMaximized();
+    if (isMaximized) {
+      await windowManager.unmaximize();
+    } else {
+      await windowManager.maximize();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = MacosTheme.of(context);
@@ -945,7 +959,7 @@ class _MacOSGlassHeader extends StatelessWidget {
       isDarkMode ? 0.35 : 0.36,
     );
 
-    return ClipRect(
+    final headerContent = ClipRect(
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
         child: Container(
@@ -1027,6 +1041,12 @@ class _MacOSGlassHeader extends StatelessWidget {
           ),
         ),
       ),
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onDoubleTap: _handleDoubleTap,
+      child: headerContent,
     );
   }
 }

@@ -508,7 +508,7 @@ class _TranslationToggleButton extends StatelessWidget {
         disabledColor: iconColor.withOpacity(0.45),
         iconBuilder: (color) => Image.asset(
           assetPath,
-          width:23,
+          width: 23,
           height: 23,
           color: color,
           colorBlendMode: BlendMode.srcIn,
