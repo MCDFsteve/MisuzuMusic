@@ -9,13 +9,11 @@ import '../../data/repositories/music_library_repository_impl.dart';
 import '../../data/repositories/lyrics_repository_impl.dart';
 import '../../data/repositories/playback_history_repository_impl.dart';
 import '../../data/services/audio_player_service_impl.dart';
-import '../../data/services/japanese_processing_service_impl.dart';
 import '../../data/datasources/remote/netease_api_client.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/lyrics_repository.dart';
 import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/services/audio_player_service.dart';
-import '../../domain/services/japanese_processing_service.dart';
 import '../../domain/usecases/music_usecases.dart';
 import '../../domain/usecases/player_usecases.dart';
 import '../theme/theme_controller.dart';
@@ -67,7 +65,6 @@ class DependencyInjection {
       sl.registerLazySingleton<LyricsRepository>(
         () => LyricsRepositoryImpl(
           localDataSource: sl(),
-          japaneseProcessingService: sl(),
           neteaseApiClient: sl(),
         ),
       );
@@ -84,10 +81,6 @@ class DependencyInjection {
           sl<PlaybackHistoryRepository>(),
           sl<MusicLibraryRepository>(),
         ),
-      );
-
-      sl.registerLazySingleton<JapaneseProcessingService>(
-        () => JapaneseProcessingServiceImpl(),
       );
 
       sl.registerLazySingleton(() => ThemeController(sl()));
@@ -128,7 +121,6 @@ class DependencyInjection {
 
       // Initialize services
       print('🚀 初始化服务...');
-      await sl<JapaneseProcessingService>().initialize();
       await sl<ThemeController>().load();
 
       print('✅ 依赖注入初始化完成！');

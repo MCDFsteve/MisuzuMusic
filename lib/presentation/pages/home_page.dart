@@ -690,90 +690,7 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<void> _selectMusicFolder() async {
-    final choice = await _showSourceSelectionDialog();
-    switch (choice) {
-      case _LibrarySourceChoice.local:
-        await _selectLocalFolder();
-        break;
-      case _LibrarySourceChoice.webdav:
-        await _selectWebDavFolder();
-        break;
-      case null:
-        break;
-    }
-  }
-
-  Future<_LibrarySourceChoice?> _showSourceSelectionDialog() {
-    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
-    if (isMac) {
-      return showMacosAlertDialog<_LibrarySourceChoice?>(
-        context: context,
-        builder: (context) {
-          return MacosAlertDialog(
-            appIcon: const MacosIcon(CupertinoIcons.music_note),
-            title: Text(
-              '选择音乐来源',
-              style: MacosTheme.of(context).typography.headline,
-            ),
-            message: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _SourceOptionTile(
-                  icon: CupertinoIcons.folder,
-                  label: '本地文件夹',
-                  onTap: () =>
-                      Navigator.of(context).pop(_LibrarySourceChoice.local),
-                ),
-                const SizedBox(height: 12),
-                _SourceOptionTile(
-                  icon: CupertinoIcons.cloud,
-                  label: 'WebDAV',
-                  onTap: () =>
-                      Navigator.of(context).pop(_LibrarySourceChoice.webdav),
-                ),
-              ],
-            ),
-            primaryButton: PushButton(
-              controlSize: ControlSize.large,
-              child: const Text('取消'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          );
-        },
-      );
-    }
-
-    return showDialog<_LibrarySourceChoice?>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('选择音乐来源'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.folder_open),
-                title: const Text('本地文件夹'),
-                onTap: () =>
-                    Navigator.of(context).pop(_LibrarySourceChoice.local),
-              ),
-              ListTile(
-                leading: const Icon(Icons.cloud_outlined),
-                title: const Text('WebDAV'),
-                onTap: () =>
-                    Navigator.of(context).pop(_LibrarySourceChoice.webdav),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-          ],
-        );
-      },
-    );
+    await _selectLocalFolder();
   }
 
   Future<void> _selectLocalFolder() async {
@@ -1181,47 +1098,6 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
   }
 }
 
-enum _LibrarySourceChoice { local, webdav }
-
-class _SourceOptionTile extends StatelessWidget {
-  const _SourceOptionTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = MacosTheme.maybeOf(context);
-    final color = theme?.typography.body.color ?? Colors.black87;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MacosIcon(icon, size: 20, color: color),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: theme?.typography.body ?? const TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _WebDavConnectionFormResult {
   const _WebDavConnectionFormResult({

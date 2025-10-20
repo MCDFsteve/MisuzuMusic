@@ -43,7 +43,7 @@ dependencies:
 
   # File System
   path_provider: ^2.1.1
-  file_picker: ^6.2.0
+  file_picker: ^8.1.5
   permission_handler: ^11.0.1
 
   # Database and Storage
@@ -52,7 +52,6 @@ dependencies:
   hive_flutter: ^1.1.0
 
   # Japanese Text Processing
-  kana_kit: ^2.1.1
 
   # Platform Specific UI
   flutter_platform_widgets: ^5.0.0
