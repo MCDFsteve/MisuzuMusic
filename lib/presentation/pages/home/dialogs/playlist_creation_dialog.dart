@@ -24,12 +24,30 @@ Future<String?> showPlaylistEditDialog(
   required Playlist playlist,
 }) async {
   final playlistsCubit = context.read<PlaylistsCubit>();
+  await playlistsCubit.ensurePlaylistTracks(playlist.id, force: false);
+  final tracks = playlistsCubit.state.playlistTracks[playlist.id];
+
+  String? fallbackCoverPath;
+  if ((playlist.coverPath == null || playlist.coverPath!.trim().isEmpty) &&
+      tracks != null) {
+    for (final track in tracks) {
+      final artworkPath = track.artworkPath;
+      if (artworkPath != null && artworkPath.trim().isNotEmpty) {
+        fallbackCoverPath = artworkPath;
+        break;
+      }
+    }
+  }
+
   final result = await showPlaylistModalDialog<String?>(
     context: context,
     barrierDismissible: true,
     builder: (_) => BlocProvider.value(
       value: playlistsCubit,
-      child: _PlaylistCreationDialog(initialPlaylist: playlist),
+      child: _PlaylistCreationDialog(
+        initialPlaylist: playlist,
+        fallbackCoverPath: fallbackCoverPath,
+      ),
     ),
   );
   if (result != null &&
@@ -41,12 +59,17 @@ Future<String?> showPlaylistEditDialog(
 }
 
 class _PlaylistCreationDialog extends StatefulWidget {
-  const _PlaylistCreationDialog({this.initialTrack, this.initialPlaylist});
+  const _PlaylistCreationDialog({
+    this.initialTrack,
+    this.initialPlaylist,
+    this.fallbackCoverPath,
+  });
 
   static const String deleteSignal = '__delete_playlist__';
 
   final Track? initialTrack;
   final Playlist? initialPlaylist;
+  final String? fallbackCoverPath;
 
   bool get isEditing => initialPlaylist != null;
 
@@ -68,12 +91,17 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
     if (playlist != null) {
       _nameController.text = playlist.name;
       _descriptionController.text = playlist.description ?? '';
-      _coverPath = playlist.coverPath;
+      _coverPath =
+          (playlist.coverPath?.trim().isNotEmpty == true
+              ? playlist.coverPath
+              : widget.fallbackCoverPath) ??
+          widget.fallbackCoverPath;
     } else {
       final track = widget.initialTrack;
       if (track != null) {
         _nameController.text = '${track.artist} - ${track.album}';
       }
+      _coverPath ??= widget.fallbackCoverPath;
     }
   }
 
