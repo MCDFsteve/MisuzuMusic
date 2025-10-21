@@ -167,52 +167,52 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     }
 
     final BuildContext? targetContext = _itemKeys[index].currentContext;
-    if (targetContext != null) {
-      final RenderObject? renderObject = targetContext.findRenderObject();
-      if (renderObject is RenderBox && renderObject.hasSize) {
-        final ScrollableState? scrollable = Scrollable.of(targetContext);
-        if (scrollable != null) {
-          final ScrollPosition position = scrollable.position;
-          final RenderObject? scrollRenderObject = scrollable.context
-              .findRenderObject();
-          if (scrollRenderObject is RenderBox && scrollRenderObject.hasSize) {
-            final double delta = _computeCenterDelta(
-              renderObject,
-              scrollRenderObject,
-            );
-            if (delta.abs() <= 0.5) {
-              return;
-            }
-            final double targetOffset = (position.pixels + delta).clamp(
-              position.minScrollExtent,
-              position.maxScrollExtent,
-            );
-            widget.controller
-                .animateTo(
-                  targetOffset,
-                  duration: const Duration(milliseconds: 360),
-                  curve: Curves.easeOutQuad,
-                )
-                .then((_) => _verifyCentered(index, attempt + 1));
-            return;
-          }
-        }
-      }
-
-      Scrollable.ensureVisible(
-        targetContext,
-        alignment: 0.5,
-        duration: const Duration(milliseconds: 360),
-        curve: Curves.easeOutQuad,
-      ).then((_) => _verifyCentered(index, attempt + 1));
+    if (targetContext == null) {
+      _scrollWithEstimate(index, attempt + 1);
       return;
     }
 
-    _scheduleRetry(index, attempt);
+    final RenderObject? renderObject = targetContext.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      _scrollWithEstimate(index, attempt + 1);
+      return;
+    }
+
+    final ScrollPosition position = widget.controller.position;
+    if (!position.hasPixels || !position.hasContentDimensions) {
+      _scheduleRetry(index, attempt + 1);
+      return;
+    }
+
+    final RenderAbstractViewport? viewport = RenderAbstractViewport.of(
+      renderObject,
+    );
+    if (viewport == null) {
+      _scrollWithEstimate(index, attempt + 1);
+      return;
+    }
+
+    final double targetOffset = viewport
+        .getOffsetToReveal(renderObject, 0.5)
+        .offset
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
+
+    if ((targetOffset - position.pixels).abs() <= 0.5) {
+      _verifyCentered(index, attempt + 1);
+      return;
+    }
+
+    widget.controller
+        .animateTo(
+          targetOffset,
+          duration: const Duration(milliseconds: 360),
+          curve: Curves.easeOutQuad,
+        )
+        .then((_) => _verifyCentered(index, attempt + 1));
   }
 
   void _scheduleRetry(int index, int attempt) {
-    if (attempt > 6) {
+    if (attempt > 8) {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -222,7 +222,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   }
 
   void _verifyCentered(int index, int attempt) {
-    if (!mounted || attempt > 6) {
+    if (!mounted || attempt > 8) {
       return;
     }
     if (!widget.controller.hasClients) {
@@ -235,36 +235,35 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
     final BuildContext? targetContext = _itemKeys[index].currentContext;
     if (targetContext == null) {
-      _scheduleRetry(index, attempt + 1);
+      _scrollWithEstimate(index, attempt + 1);
       return;
     }
 
     final RenderObject? renderObject = targetContext.findRenderObject();
-    final ScrollableState? scrollable = Scrollable.of(targetContext);
-    if (renderObject is! RenderBox ||
-        !renderObject.hasSize ||
-        scrollable == null) {
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      _scrollWithEstimate(index, attempt + 1);
+      return;
+    }
+
+    final ScrollPosition position = widget.controller.position;
+    if (!position.hasPixels || !position.hasContentDimensions) {
       _scheduleRetry(index, attempt + 1);
       return;
     }
 
-    final RenderObject? scrollRenderObject = scrollable.context
-        .findRenderObject();
-    if (scrollRenderObject is! RenderBox || !scrollRenderObject.hasSize) {
-      _scheduleRetry(index, attempt + 1);
-      return;
-    }
-
-    final double delta = _computeCenterDelta(renderObject, scrollRenderObject);
-    if (delta.abs() <= 0.75) {
-      return;
-    }
-
-    final ScrollPosition position = scrollable.position;
-    final double targetOffset = (position.pixels + delta).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
+    final RenderAbstractViewport? viewport = RenderAbstractViewport.of(
+      renderObject,
     );
+    if (viewport == null) {
+      _scrollWithEstimate(index, attempt + 1);
+      return;
+    }
+
+    final double targetOffset = viewport
+        .getOffsetToReveal(renderObject, 0.5)
+        .offset
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
+
     if ((targetOffset - position.pixels).abs() <= 0.5) {
       return;
     }
@@ -278,14 +277,41 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         .then((_) => _verifyCentered(index, attempt + 1));
   }
 
-  double _computeCenterDelta(RenderBox itemBox, RenderBox viewportBox) {
-    final Offset topLeft = itemBox.localToGlobal(
-      Offset.zero,
-      ancestor: viewportBox,
+  void _scrollWithEstimate(int index, int attempt) {
+    if (!widget.controller.hasClients) {
+      _scheduleRetry(index, attempt);
+      return;
+    }
+
+    final ScrollPosition position = widget.controller.position;
+    if (!position.hasPixels || !position.hasContentDimensions) {
+      _scheduleRetry(index, attempt);
+      return;
+    }
+
+    final double viewportHeight = position.viewportDimension;
+    if (!viewportHeight.isFinite || viewportHeight <= 0) {
+      _scheduleRetry(index, attempt);
+      return;
+    }
+
+    final double lineExtent =
+        _approxLineHeight(context) + _linePadding.vertical;
+    final double roughOffset = (viewportHeight / 2) + lineExtent * index;
+    final double targetOffset =
+        roughOffset - (viewportHeight / 2) + lineExtent / 2;
+    final double clamped = targetOffset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
     );
-    final double itemCenter = topLeft.dy + itemBox.size.height / 2;
-    final double viewportCenter = viewportBox.size.height / 2;
-    return itemCenter - viewportCenter;
+
+    widget.controller
+        .animateTo(
+          clamped,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutQuad,
+        )
+        .then((_) => _verifyCentered(index, attempt + 1));
   }
 
   TextStyle _baseRenderStyle(BuildContext context) {
