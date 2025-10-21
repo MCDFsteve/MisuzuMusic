@@ -500,7 +500,7 @@ class _TranslationToggleButton extends StatelessWidget {
         ? 'icons/tran2.png'
         : (isActive ? 'icons/tran.png' : 'icons/tran2.png');
 
-    final double iconSize = 30;
+    final double iconSize = 25;
     final Color activeColor = iconColor;
     final Color inactiveColor = iconColor.withOpacity(0.82);
     final Color disabledColor = iconColor.withOpacity(0.42);

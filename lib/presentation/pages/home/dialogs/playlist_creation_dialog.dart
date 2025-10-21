@@ -98,8 +98,30 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
     final playlistsCubit = context.watch<PlaylistsCubit>();
     final state = playlistsCubit.state;
     final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
     final isEditing = widget.isEditing;
     final dialogTitle = isEditing ? '编辑歌单' : '新建歌单';
+
+    final labelColor = isDark
+        ? Colors.white.withOpacity(0.86)
+        : Colors.black.withOpacity(0.78);
+    final secondaryColor = isDark
+        ? Colors.white.withOpacity(0.62)
+        : Colors.black.withOpacity(0.6);
+    final fieldTextColor = isDark
+        ? Colors.white.withOpacity(0.92)
+        : Colors.black.withOpacity(0.88);
+    final hintColor = isDark
+        ? Colors.white.withOpacity(0.42)
+        : Colors.black.withOpacity(0.45);
+    final fieldFillColor = isDark
+        ? Colors.white.withOpacity(0.08)
+        : Colors.white.withOpacity(0.72);
+    final dividerColor = isDark
+        ? Colors.white.withOpacity(0.18)
+        : Colors.black.withOpacity(0.12);
 
     return _PlaylistModalScaffold(
       title: dialogTitle,
@@ -124,6 +146,7 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
+                        color: labelColor,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -137,10 +160,12 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
                         _coverPath!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: 11,
-                          color: theme.colorScheme.onSurface.withOpacity(0.62),
-                        ),
+                        style:
+                            theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: secondaryColor,
+                            ) ??
+                            TextStyle(fontSize: 11, color: secondaryColor),
                       ),
                     ],
                   ],
@@ -154,6 +179,12 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
             controller: _nameController,
             hintText: '请输入歌单名称',
             enabled: !state.isProcessing,
+            labelColor: labelColor,
+            textColor: fieldTextColor,
+            hintColor: hintColor,
+            fillColor: fieldFillColor,
+            borderColor: dividerColor,
+            isDarkOverride: isDark,
           ),
           const SizedBox(height: 12),
           _LabeledTextField(
@@ -162,6 +193,12 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
             hintText: '介绍一下这个歌单吧',
             maxLines: 3,
             enabled: !state.isProcessing,
+            labelColor: labelColor,
+            textColor: fieldTextColor,
+            hintColor: hintColor,
+            fillColor: fieldFillColor,
+            borderColor: dividerColor,
+            isDarkOverride: isDark,
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
@@ -275,6 +312,12 @@ class _LabeledTextField extends StatelessWidget {
     this.hintText,
     this.maxLines = 1,
     this.enabled = true,
+    this.labelColor,
+    this.textColor,
+    this.hintColor,
+    this.fillColor,
+    this.borderColor,
+    this.isDarkOverride,
   });
 
   final String label;
@@ -282,17 +325,46 @@ class _LabeledTextField extends StatelessWidget {
   final String? hintText;
   final int maxLines;
   final bool enabled;
+  final Color? labelColor;
+  final Color? textColor;
+  final Color? hintColor;
+  final Color? fillColor;
+  final Color? borderColor;
+  final bool? isDarkOverride;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = isDarkOverride ?? theme.brightness == Brightness.dark;
 
-    final borderColor = theme.colorScheme.outline.withOpacity(0.2);
+    final resolvedBorderColor =
+        borderColor ??
+        theme.colorScheme.outline.withOpacity(isDark ? 0.24 : 0.18);
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: borderColor, width: 0.8),
+      borderSide: BorderSide(color: resolvedBorderColor, width: 0.8),
     );
+
+    final resolvedLabelColor =
+        labelColor ??
+        (isDark
+            ? Colors.white.withOpacity(0.86)
+            : Colors.black.withOpacity(0.78));
+    final resolvedTextColor =
+        textColor ??
+        (isDark
+            ? Colors.white.withOpacity(0.92)
+            : Colors.black.withOpacity(0.88));
+    final resolvedHintColor =
+        hintColor ??
+        (isDark
+            ? Colors.white.withOpacity(0.42)
+            : Colors.black.withOpacity(0.45));
+    final resolvedFillColor =
+        fillColor ??
+        (isDark
+            ? Colors.white.withOpacity(0.08)
+            : Colors.white.withOpacity(0.7));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,6 +374,7 @@ class _LabeledTextField extends StatelessWidget {
           style: theme.textTheme.titleSmall?.copyWith(
             fontSize: 13,
             fontWeight: FontWeight.w600,
+            color: resolvedLabelColor,
           ),
         ),
         const SizedBox(height: 6),
@@ -311,15 +384,21 @@ class _LabeledTextField extends StatelessWidget {
           enabled: enabled,
           decoration: InputDecoration(
             hintText: hintText,
+            hintStyle:
+                theme.textTheme.bodySmall?.copyWith(
+                  color: resolvedHintColor,
+                  fontSize: 12,
+                ) ??
+                TextStyle(fontSize: 12, color: resolvedHintColor),
             filled: true,
-            fillColor: isDark
-                ? Colors.white.withOpacity(0.05)
-                : Colors.white.withOpacity(0.62),
+            fillColor: resolvedFillColor,
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(
               borderSide: BorderSide(
-                color: theme.colorScheme.primary.withOpacity(0.4),
+                color: theme.colorScheme.primary.withOpacity(
+                  isDark ? 0.52 : 0.45,
+                ),
               ),
             ),
             contentPadding: const EdgeInsets.symmetric(
@@ -327,7 +406,12 @@ class _LabeledTextField extends StatelessWidget {
               vertical: 10,
             ),
           ),
-          style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12.5),
+          style:
+              theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 12.5,
+                color: resolvedTextColor,
+              ) ??
+              TextStyle(fontSize: 12.5, color: resolvedTextColor),
         ),
       ],
     );
