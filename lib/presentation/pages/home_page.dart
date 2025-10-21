@@ -945,8 +945,8 @@ class _MacOSGlassHeader extends StatelessWidget {
                   baseColor: textColor.withOpacity(0.72),
                   hoverColor: textColor,
                   size: 36,
-                  iconSize: 20,
-                  icon: CupertinoIcons.square_stack_3d_up,
+                  iconSize: 22,
+                  icon: CupertinoIcons.add,
                   onPressed: onCreatePlaylist,
                 ),
               ),
@@ -2545,13 +2545,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                 },
               ),
             },
-            child: Focus(
-              autofocus: true,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                child: content,
-              ),
-            ),
+            child: Focus(autofocus: true, child: content),
           ),
         );
       },
