@@ -91,24 +91,12 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                 );
               }
 
-              String? artworkPath;
-              bool hasArtwork = false;
-
-              if (loadedTracks != null && loadedTracks.isNotEmpty) {
-                final preview = loadedTracks.firstWhere(
-                  (track) => _trackArtworkExists(track.artworkPath),
-                  orElse: () => loadedTracks.first,
-                );
-                if (_trackArtworkExists(preview.artworkPath)) {
-                  artworkPath = preview.artworkPath;
-                  hasArtwork = true;
-                }
-              }
-
-              if (!hasArtwork && _coverExists(playlist.coverPath)) {
-                artworkPath = playlist.coverPath;
-                hasArtwork = true;
-              }
+              final resolvedArtwork = _resolvePlaylistArtwork(
+                playlist,
+                loadedTracks,
+              );
+              final artworkPath = resolvedArtwork?.path;
+              final hasArtwork = resolvedArtwork?.hasArtwork ?? false;
 
               return CollectionSummaryCard(
                 title: playlist.name,
@@ -187,6 +175,49 @@ class _PlaylistsViewState extends State<PlaylistsView> {
       return false;
     }
   }
+
+  _ResolvedArtwork? _resolvePlaylistArtwork(
+    Playlist playlist,
+    List<Track>? tracks,
+  ) {
+    if (_coverExists(playlist.coverPath)) {
+      return _ResolvedArtwork(path: playlist.coverPath, hasArtwork: true);
+    }
+
+    if (tracks == null || tracks.isEmpty) {
+      return const _ResolvedArtwork(path: null, hasArtwork: false);
+    }
+
+    final Map<String, Track> trackByHash = {
+      for (final track in tracks) (track.contentHash ?? track.id): track,
+    };
+
+    for (final trackId in playlist.trackIds.reversed) {
+      final track = trackByHash[trackId];
+      if (track == null) {
+        continue;
+      }
+      final artworkPath = track.artworkPath;
+      if (_trackArtworkExists(artworkPath)) {
+        return _ResolvedArtwork(path: artworkPath, hasArtwork: true);
+      }
+    }
+
+    for (final track in tracks.reversed) {
+      if (_trackArtworkExists(track.artworkPath)) {
+        return _ResolvedArtwork(path: track.artworkPath, hasArtwork: true);
+      }
+    }
+
+    return const _ResolvedArtwork(path: null, hasArtwork: false);
+  }
+}
+
+class _ResolvedArtwork {
+  const _ResolvedArtwork({required this.path, required this.hasArtwork});
+
+  final String? path;
+  final bool hasArtwork;
 }
 
 class _PlaylistCoverPreview extends StatelessWidget {

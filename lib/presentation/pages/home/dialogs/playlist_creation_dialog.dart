@@ -29,13 +29,36 @@ Future<String?> showPlaylistEditDialog(
 
   String? fallbackCoverPath;
   if ((playlist.coverPath == null || playlist.coverPath!.trim().isEmpty) &&
-      tracks != null) {
-    for (final track in tracks) {
+      tracks != null &&
+      tracks.isNotEmpty) {
+    final Map<String, Track> trackByHash = {
+      for (final track in tracks) (track.contentHash ?? track.id): track,
+    };
+
+    for (final trackHash in playlist.trackIds.reversed) {
+      final track = trackByHash[trackHash];
+      if (track == null) {
+        continue;
+      }
       final artworkPath = track.artworkPath;
       if (artworkPath != null && artworkPath.trim().isNotEmpty) {
         fallbackCoverPath = artworkPath;
         break;
       }
+    }
+
+    if (fallbackCoverPath == null) {
+      for (final track in tracks.reversed) {
+        final artworkPath = track.artworkPath;
+        if (artworkPath != null && artworkPath.trim().isNotEmpty) {
+          fallbackCoverPath = artworkPath;
+          break;
+        }
+      }
+    }
+
+    if (fallbackCoverPath != null && fallbackCoverPath.trim().isEmpty) {
+      fallbackCoverPath = null;
     }
   }
 
@@ -91,11 +114,12 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
     if (playlist != null) {
       _nameController.text = playlist.name;
       _descriptionController.text = playlist.description ?? '';
-      _coverPath =
-          (playlist.coverPath?.trim().isNotEmpty == true
-              ? playlist.coverPath
-              : widget.fallbackCoverPath) ??
-          widget.fallbackCoverPath;
+      if (widget.fallbackCoverPath != null &&
+          widget.fallbackCoverPath!.trim().isNotEmpty) {
+        _coverPath = widget.fallbackCoverPath;
+      } else if (playlist.coverPath?.trim().isNotEmpty == true) {
+        _coverPath = playlist.coverPath;
+      }
     } else {
       final track = widget.initialTrack;
       if (track != null) {
