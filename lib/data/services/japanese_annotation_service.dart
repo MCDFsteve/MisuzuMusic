@@ -22,19 +22,23 @@ class JapaneseAnnotationService {
 
     final cached = _cache[text];
     if (cached != null) {
+      print('🈲 Annotation cache hit for "$text"');
       return cached;
     }
 
     if (!containsKanji(text)) {
+      print('🈳 Annotation skip (no kanji) for "$text"');
       final plain = _plainSegment(text);
       _cache[text] = plain;
       return plain;
     }
 
     try {
+      print('🈶 Annotation request for "$text"');
       final data = await JpTransliterate.transliterate(kanji: text);
       final hiragana = data.hiragana?.trim() ?? '';
       if (hiragana.isEmpty || hiragana == text.trim()) {
+        print('🈚 Annotation empty result for "$text"');
         final plain = _plainSegment(text);
         _cache[text] = plain;
         return plain;
@@ -47,6 +51,7 @@ class JapaneseAnnotationService {
           type: TextType.kanji,
         ),
       ];
+      print('🈴 Annotation success for "$text" -> "$hiragana"');
       _cache[text] = annotated;
       return annotated;
     } catch (e) {
@@ -58,6 +63,9 @@ class JapaneseAnnotationService {
   }
 
   static List<AnnotatedText> _plainSegment(String text) {
+    if (text.isNotEmpty) {
+      print('🈵 Annotation fallback plain for "$text"');
+    }
     return [
       AnnotatedText(
         original: text,
