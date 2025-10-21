@@ -169,29 +169,33 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     final BuildContext? targetContext = _itemKeys[index].currentContext;
     if (targetContext != null) {
       final RenderObject? renderObject = targetContext.findRenderObject();
-      final ScrollPosition position = widget.controller.position;
-
-      if (renderObject is RenderBox) {
-        final RenderAbstractViewport? viewport = RenderAbstractViewport.of(
-          renderObject,
-        );
-        if (viewport != null) {
-          final double targetOffset = viewport
-              .getOffsetToReveal(renderObject, 0.5)
-              .offset;
-          final double clampedOffset = targetOffset.clamp(
-            position.minScrollExtent,
-            position.maxScrollExtent,
-          );
-          if ((position.pixels - clampedOffset).abs() <= 0.5) {
+      if (renderObject is RenderBox && renderObject.hasSize) {
+        final ScrollableState? scrollable = Scrollable.of(targetContext);
+        if (scrollable != null) {
+          final ScrollPosition position = scrollable.position;
+          final RenderObject? scrollRenderObject = scrollable.context
+              .findRenderObject();
+          if (scrollRenderObject is RenderBox && scrollRenderObject.hasSize) {
+            final double delta = _computeCenterDelta(
+              renderObject,
+              scrollRenderObject,
+            );
+            if (delta.abs() <= 0.5) {
+              return;
+            }
+            final double targetOffset = (position.pixels + delta).clamp(
+              position.minScrollExtent,
+              position.maxScrollExtent,
+            );
+            widget.controller
+                .animateTo(
+                  targetOffset,
+                  duration: const Duration(milliseconds: 360),
+                  curve: Curves.easeOutQuad,
+                )
+                .then((_) => _verifyCentered(index, attempt + 1));
             return;
           }
-          widget.controller.animateTo(
-            clampedOffset,
-            duration: const Duration(milliseconds: 360),
-            curve: Curves.easeOutQuad,
-          );
-          return;
         }
       }
 
@@ -200,7 +204,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         alignment: 0.5,
         duration: const Duration(milliseconds: 360),
         curve: Curves.easeOutQuad,
-      );
+      ).then((_) => _verifyCentered(index, attempt + 1));
       return;
     }
 
@@ -215,6 +219,73 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
       if (!mounted) return;
       _scrollToIndex(index, attempt: attempt + 1);
     });
+  }
+
+  void _verifyCentered(int index, int attempt) {
+    if (!mounted || attempt > 6) {
+      return;
+    }
+    if (!widget.controller.hasClients) {
+      _scheduleRetry(index, attempt + 1);
+      return;
+    }
+    if (index < 0 || index >= _itemKeys.length) {
+      return;
+    }
+
+    final BuildContext? targetContext = _itemKeys[index].currentContext;
+    if (targetContext == null) {
+      _scheduleRetry(index, attempt + 1);
+      return;
+    }
+
+    final RenderObject? renderObject = targetContext.findRenderObject();
+    final ScrollableState? scrollable = Scrollable.of(targetContext);
+    if (renderObject is! RenderBox ||
+        !renderObject.hasSize ||
+        scrollable == null) {
+      _scheduleRetry(index, attempt + 1);
+      return;
+    }
+
+    final RenderObject? scrollRenderObject = scrollable.context
+        .findRenderObject();
+    if (scrollRenderObject is! RenderBox || !scrollRenderObject.hasSize) {
+      _scheduleRetry(index, attempt + 1);
+      return;
+    }
+
+    final double delta = _computeCenterDelta(renderObject, scrollRenderObject);
+    if (delta.abs() <= 0.75) {
+      return;
+    }
+
+    final ScrollPosition position = scrollable.position;
+    final double targetOffset = (position.pixels + delta).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((targetOffset - position.pixels).abs() <= 0.5) {
+      return;
+    }
+
+    widget.controller
+        .animateTo(
+          targetOffset,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutQuad,
+        )
+        .then((_) => _verifyCentered(index, attempt + 1));
+  }
+
+  double _computeCenterDelta(RenderBox itemBox, RenderBox viewportBox) {
+    final Offset topLeft = itemBox.localToGlobal(
+      Offset.zero,
+      ancestor: viewportBox,
+    );
+    final double itemCenter = topLeft.dy + itemBox.size.height / 2;
+    final double viewportCenter = viewportBox.size.height / 2;
+    return itemCenter - viewportCenter;
   }
 
   TextStyle _baseRenderStyle(BuildContext context) {
