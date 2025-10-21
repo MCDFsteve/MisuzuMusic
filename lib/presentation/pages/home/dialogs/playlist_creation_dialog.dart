@@ -351,6 +351,15 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
     if (playlist == null) {
       return;
     }
+    if (playlistsCubit.state.isProcessing) {
+      return;
+    }
+
+    final confirmed = await _confirmDeleteDialog(context, playlist.name);
+    if (confirmed != true) {
+      return;
+    }
+
     final success = await playlistsCubit.deletePlaylist(playlist.id);
     if (!mounted) return;
     if (!success) {
@@ -360,6 +369,100 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
       return;
     }
     Navigator.of(context).pop(_PlaylistCreationDialog.deleteSignal);
+  }
+
+  Future<bool?> _confirmDeleteDialog(
+    BuildContext context,
+    String playlistName,
+  ) {
+    final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
+
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withOpacity(0.08)
+                : Colors.black.withOpacity(0.06),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            CupertinoIcons.trash,
+            color: isDark
+                ? Colors.redAccent.shade100
+                : Colors.redAccent.shade200,
+            size: 26,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '确定删除 “$playlistName” 吗？',
+          textAlign: TextAlign.center,
+          style:
+              theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? Colors.white.withOpacity(0.92)
+                    : Colors.black.withOpacity(0.88),
+              ) ??
+              TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? Colors.white.withOpacity(0.92)
+                    : Colors.black.withOpacity(0.88),
+                fontSize: 16,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '该歌单将被永久移除，包含的歌曲不会删除。',
+          textAlign: TextAlign.center,
+          style:
+              theme.textTheme.bodySmall?.copyWith(
+                color: isDark
+                    ? Colors.white.withOpacity(0.68)
+                    : Colors.black.withOpacity(0.62),
+              ) ??
+              TextStyle(
+                color: isDark
+                    ? Colors.white.withOpacity(0.68)
+                    : Colors.black.withOpacity(0.62),
+                fontSize: 13,
+              ),
+        ),
+      ],
+    );
+
+    final actions = [
+      _SheetActionButton.secondary(
+        label: '取消',
+        onPressed: () => Navigator.of(context).pop(false),
+      ),
+      _SheetActionButton.primary(
+        label: '删除',
+        onPressed: () => Navigator.of(context).pop(true),
+      ),
+    ];
+
+    return showPlaylistModalDialog<bool?>(
+      context: context,
+      builder: (_) => _PlaylistModalScaffold(
+        title: '删除歌单',
+        body: body,
+        actions: actions,
+        maxWidth: 320,
+        contentSpacing: 20,
+        actionsSpacing: 18,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      ),
+    );
   }
 }
 
