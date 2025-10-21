@@ -19,22 +19,16 @@ class AppDelegate: FlutterAppDelegate {
   }()
 
   override func applicationDidFinishLaunching(_ notification: Notification) {
-    NSLog("🚀 AppDelegate applicationDidFinishLaunching")
     super.applicationDidFinishLaunching(notification)
 
-    NSLog("🧵 准备调度菜单本地化任务")
     DispatchQueue.main.async {
-      NSLog("🧵 主线程任务开始，当前线程=\(Thread.isMainThread)")
-
       guard
         let appDelegate = NSApp.delegate as? AppDelegate,
         let controller = appDelegate.mainFlutterWindow?.contentViewController as? FlutterViewController
       else {
-        NSLog("⚠️ AppDelegate mainFlutterWindow 或 controller 为 nil (通过 NSApp.delegate 获取)")
         return
       }
 
-      NSLog("🪝 AppDelegate 将创建 hotKeyChannel 并本地化菜单")
       appDelegate.hotKeyChannel = FlutterMethodChannel(
         name: "com.aimessoft.misuzumusic/hotkeys",
         binaryMessenger: controller.engine.binaryMessenger
@@ -43,7 +37,6 @@ class AppDelegate: FlutterAppDelegate {
       appDelegate.localizeMenuTitles()
 
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-        NSLog("⏱️ AppDelegate 再次执行 localizeMenuTitles")
         appDelegate.localizeMenuTitles()
       }
     }
@@ -58,10 +51,8 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   override func applicationDidBecomeActive(_ notification: Notification) {
-    NSLog("✨ AppDelegate applicationDidBecomeActive -> 再次本地化菜单")
     localizeMenuTitles()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-      NSLog("⏱️ AppDelegate applicationDidBecomeActive 延迟再次本地化菜单")
       self.localizeMenuTitles()
     }
   }
@@ -107,11 +98,8 @@ class AppDelegate: FlutterAppDelegate {
 
   private func localizeMenuTitles() {
     guard let mainMenu = NSApp.mainMenu else {
-      NSLog("⚠️ 未找到 NSApp.mainMenu")
       return
     }
-
-    debugLogMenu("设置前", menu: mainMenu)
 
     let appMenuTitle = localizedMenuString(forKey: "menu.app.title", fallback: "Misuzu 音乐")
 
@@ -229,7 +217,6 @@ class AppDelegate: FlutterAppDelegate {
       }
     }
 
-    debugLogMenu("设置后", menu: mainMenu)
   }
 
   private func localizedMenuString(forKey key: String, fallback: String) -> String {
@@ -237,16 +224,8 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   private func logMenuStructure(_ menu: NSMenu, indentation: String = "") {
-    for item in menu.items {
-      NSLog("🍱 菜单项:%@ title=%@ submenuTitle=%@", indentation, item.title, item.submenu?.title ?? "<nil>")
-      if let submenu = item.submenu {
-        logMenuStructure(submenu, indentation: indentation + "  ")
-      }
-    }
   }
 
   private func debugLogMenu(_ stage: String, menu: NSMenu) {
-    NSLog("🧭 菜单%@", stage)
-    logMenuStructure(menu)
   }
 }
