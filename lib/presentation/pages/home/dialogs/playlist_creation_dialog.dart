@@ -69,10 +69,10 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final width = constraints.maxWidth.clamp(320.0, 520.0);
+          final width = constraints.maxWidth.clamp(240.0, 340.0);
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: width),
@@ -84,38 +84,46 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
                   children: [
                     Text(
                       '新建歌单',
-                      style: theme.textTheme.titleLarge?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    const SizedBox(height: 14),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _DialogCoverPreview(coverPath: _coverPath),
+                        _DialogCoverPreview(coverPath: _coverPath, size: 80),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('封面', style: theme.textTheme.titleMedium),
-                              const SizedBox(height: 8),
-                              FilledButton.tonal(
+                              Text(
+                                '封面',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              _SheetActionButton.secondary(
+                                label: '选择图片',
                                 onPressed: state.isProcessing
                                     ? null
                                     : _pickCover,
-                                child: const Text('选择图片'),
                               ),
                               if (_coverPath != null) ...[
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 6),
                                 Text(
                                   _coverPath!,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 11,
                                     color: theme.colorScheme.onSurface
-                                        .withOpacity(0.7),
+                                        .withOpacity(0.62),
                                   ),
                                 ),
                               ],
@@ -124,19 +132,19 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                     _LabeledTextField(
                       label: '歌单名称',
                       controller: _nameController,
                       hintText: '请输入歌单名称',
                       enabled: !state.isProcessing,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _LabeledTextField(
                       label: '简介',
                       controller: _descriptionController,
                       hintText: '介绍一下这个歌单吧',
-                      maxLines: 4,
+                      maxLines: 3,
                       enabled: !state.isProcessing,
                     ),
                     if (_error != null) ...[
@@ -148,18 +156,19 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(
+                        _SheetActionButton.secondary(
+                          label: '取消',
                           onPressed: state.isProcessing
                               ? null
                               : () => Navigator.of(context).pop(),
-                          child: const Text('取消'),
                         ),
-                        const SizedBox(width: 12),
-                        FilledButton(
+                        const SizedBox(width: 10),
+                        _SheetActionButton.primary(
+                          label: '保存',
                           onPressed: state.isProcessing
                               ? null
                               : () async {
@@ -198,15 +207,7 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
                                     Navigator.of(context).pop(newId);
                                   }
                                 },
-                          child: state.isProcessing
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('保存'),
+                          isBusy: state.isProcessing,
                         ),
                       ],
                     ),
@@ -230,31 +231,31 @@ class _FrostedDialogSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseColor = isDark
-        ? const Color(0xFF1C1C1E).withOpacity(0.35)
-        : Colors.white.withOpacity(0.58);
+        ? const Color(0xFF1C1C1E).withOpacity(0.33)
+        : Colors.white.withOpacity(0.5);
     final borderColor = isDark
-        ? Colors.white.withOpacity(0.12)
-        : Colors.black.withOpacity(0.08);
+        ? Colors.white.withOpacity(0.1)
+        : Colors.black.withOpacity(0.07);
 
     final card = ClipRRect(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: baseColor,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: borderColor, width: 0.7),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor, width: 0.6),
             boxShadow: [
               BoxShadow(
-                color: isDark ? Colors.black.withOpacity(0.4) : Colors.black12,
-                blurRadius: 30,
-                offset: const Offset(0, 18),
+                color: isDark ? Colors.black.withOpacity(0.3) : Colors.black12,
+                blurRadius: 20,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
             child: child,
           ),
         ),
@@ -263,7 +264,7 @@ class _FrostedDialogSurface extends StatelessWidget {
 
     return HoverGlowOverlay(
       isDarkMode: isDark,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
       blurSigma: 0,
       child: card,
     );
@@ -290,19 +291,23 @@ class _LabeledTextField extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final borderColor = theme.colorScheme.outline.withOpacity(0.2);
     final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(
-        color: theme.colorScheme.outline.withOpacity(0.25),
-        width: 1,
-      ),
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: borderColor, width: 0.8),
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
+        Text(
+          label,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
         TextField(
           controller: controller,
           maxLines: maxLines,
@@ -312,19 +317,20 @@ class _LabeledTextField extends StatelessWidget {
             filled: true,
             fillColor: isDark
                 ? Colors.white.withOpacity(0.05)
-                : Colors.white.withOpacity(0.66),
+                : Colors.white.withOpacity(0.62),
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(
               borderSide: BorderSide(
-                color: theme.colorScheme.primary.withOpacity(0.45),
+                color: theme.colorScheme.primary.withOpacity(0.4),
               ),
             ),
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
+              horizontal: 12,
+              vertical: 10,
             ),
           ),
+          style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12.5),
         ),
       ],
     );
@@ -332,9 +338,10 @@ class _LabeledTextField extends StatelessWidget {
 }
 
 class _DialogCoverPreview extends StatelessWidget {
-  const _DialogCoverPreview({required this.coverPath});
+  const _DialogCoverPreview({required this.coverPath, this.size = 120});
 
   final String? coverPath;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -344,11 +351,13 @@ class _DialogCoverPreview extends StatelessWidget {
         ? Colors.white.withOpacity(0.1)
         : Colors.black.withOpacity(0.08);
 
+    final borderRadius = BorderRadius.circular(12);
+
     Widget placeholder = Container(
-      width: 120,
-      height: 120,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: borderRadius,
         color: isDark
             ? Colors.white.withOpacity(0.04)
             : Colors.white.withOpacity(0.6),
@@ -356,7 +365,7 @@ class _DialogCoverPreview extends StatelessWidget {
       ),
       child: Icon(
         CupertinoIcons.square_stack_3d_up,
-        size: 26,
+        size: size * 0.28,
         color: isDark
             ? Colors.white.withOpacity(0.6)
             : Colors.black.withOpacity(0.45),
@@ -373,8 +382,8 @@ class _DialogCoverPreview extends StatelessWidget {
         return placeholder;
       }
       return ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Image.file(file, width: 120, height: 120, fit: BoxFit.cover),
+        borderRadius: borderRadius,
+        child: Image.file(file, width: size, height: size, fit: BoxFit.cover),
       );
     } catch (_) {
       return placeholder;
