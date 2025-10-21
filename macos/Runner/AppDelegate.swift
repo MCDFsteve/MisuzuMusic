@@ -34,6 +34,8 @@ class AppDelegate: FlutterAppDelegate {
         binaryMessenger: controller.engine.binaryMessenger
       )
 
+      NSLog("✅ hotKeyChannel 初始化完成")
+
       appDelegate.localizeMenuTitles()
 
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -64,14 +66,17 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   @objc func handlePlayPause(_ sender: Any?) {
+    logMenuAction("播放/暂停")
     hotKeyChannel?.invokeMethod("togglePlayPause", arguments: nil)
   }
 
   @objc func handleNextTrack(_ sender: Any?) {
+    logMenuAction("下一曲")
     hotKeyChannel?.invokeMethod("mediaControl", arguments: "next")
   }
 
   @objc func handlePreviousTrack(_ sender: Any?) {
+    logMenuAction("上一曲")
     hotKeyChannel?.invokeMethod("mediaControl", arguments: "previous")
   }
 
@@ -88,7 +93,7 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   @objc func openSupportPage(_ sender: Any?) {
-    guard let url = URL(string: "https://github.com/aimess/misuzu-music") else {
+    guard let url = URL(string: "https://github.com/dfsteve/misuzumusic") else {
       return
     }
     NSWorkspace.shared.open(url)
@@ -223,9 +228,19 @@ class AppDelegate: FlutterAppDelegate {
     return menuLocalizationBundle.localizedString(forKey: key, value: fallback, table: nil)
   }
 
-  private func logMenuStructure(_ menu: NSMenu, indentation: String = "") {
-  }
+  private func logMenuAction(_ action: String) {
+    let status = hotKeyChannel == nil ? "未初始化" : "已就绪"
+    NSLog("🎯 菜单动作: %@, hotKeyChannel=%@", action, status)
+    guard hotKeyChannel == nil,
+      let controller = mainFlutterWindow?.contentViewController as? FlutterViewController
+    else {
+      return
+    }
 
-  private func debugLogMenu(_ stage: String, menu: NSMenu) {
+    hotKeyChannel = FlutterMethodChannel(
+      name: "com.aimessoft.misuzumusic/hotkeys",
+      binaryMessenger: controller.engine.binaryMessenger
+    )
+    NSLog("✅ hotKeyChannel 重新初始化完成")
   }
 }
