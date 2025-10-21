@@ -222,32 +222,41 @@ class _FrostedDialogSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = isDark
-        ? const Color(0xFF0F0F11).withOpacity(0.82)
-        : Colors.white.withOpacity(0.88);
+    final surfaceTint = isDark
+        ? const Color(0xFF1C1C23).withOpacity(0.56)
+        : Colors.white.withOpacity(0.52);
+    final overlayTint = isDark
+        ? const Color(0xFF0D0D11).withOpacity(0.42)
+        : const Color(0xFFFBFDFF).withOpacity(0.58);
     final borderColor = isDark
-        ? Colors.white.withOpacity(0.06)
-        : Colors.black.withOpacity(0.1);
+        ? Colors.white.withOpacity(0.08)
+        : Colors.black.withOpacity(0.07);
 
     final card = ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: baseColor,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: borderColor, width: 0.6),
+            border: Border.all(color: borderColor, width: 0.65),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [surfaceTint, overlayTint],
+            ),
             boxShadow: [
               BoxShadow(
-                color: isDark ? Colors.black.withOpacity(0.28) : Colors.black12,
-                blurRadius: 20,
-                offset: const Offset(0, 12),
+                color: isDark
+                    ? Colors.black.withOpacity(0.33)
+                    : Colors.black.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 14),
               ),
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             child: child,
           ),
         ),
@@ -258,8 +267,8 @@ class _FrostedDialogSurface extends StatelessWidget {
       isDarkMode: isDark,
       borderRadius: BorderRadius.circular(14),
       blurSigma: 0,
-      glowOpacity: 0.33,
-      glowRadius: 0.65,
+      glowOpacity: 0.22,
+      glowRadius: 0.58,
       child: card,
     );
   }
@@ -290,7 +299,9 @@ class _PlaylistModalScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
 
     final actionRowChildren = <Widget>[];
     for (var i = 0; i < actions.length; i++) {
@@ -299,6 +310,16 @@ class _PlaylistModalScaffold extends StatelessWidget {
       }
       actionRowChildren.add(actions[i]);
     }
+
+    final titleColor = isDark
+        ? Colors.white.withOpacity(0.95)
+        : Colors.black.withOpacity(0.88);
+    final bodyColor = isDark
+        ? Colors.white.withOpacity(0.86)
+        : Colors.black.withOpacity(0.78);
+    final captionColor = isDark
+        ? Colors.white.withOpacity(0.62)
+        : Colors.black.withOpacity(0.58);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -314,18 +335,52 @@ class _PlaylistModalScaffold extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
-                  ),
+                  style:
+                      theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        color: titleColor,
+                      ) ??
+                      TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        color: titleColor,
+                      ),
                 ),
                 SizedBox(height: contentSpacing),
-                body,
+                DefaultTextStyle.merge(
+                  style:
+                      theme.textTheme.bodyMedium?.copyWith(
+                        color: bodyColor,
+                        height: 1.4,
+                      ) ??
+                      TextStyle(color: bodyColor, height: 1.4, fontSize: 13),
+                  child: IconTheme(
+                    data: IconTheme.of(context).copyWith(color: bodyColor),
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 120),
+                      style:
+                          theme.textTheme.bodyMedium?.copyWith(
+                            color: bodyColor,
+                          ) ??
+                          TextStyle(color: bodyColor),
+                      child: body,
+                    ),
+                  ),
+                ),
                 SizedBox(height: actionsSpacing),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: actionRowChildren,
+                DefaultTextStyle.merge(
+                  style:
+                      theme.textTheme.bodySmall?.copyWith(
+                        color: captionColor,
+                      ) ??
+                      TextStyle(color: captionColor, fontSize: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: actionRowChildren,
+                  ),
                 ),
               ],
             ),

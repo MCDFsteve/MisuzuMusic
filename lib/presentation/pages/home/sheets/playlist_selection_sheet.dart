@@ -110,18 +110,32 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
 
   Widget _buildEmptyStateBody(BuildContext context) {
     final macTheme = MacosTheme.of(context);
+    final isDark = macTheme.brightness == Brightness.dark;
+    final primaryColor = isDark
+        ? Colors.white.withOpacity(0.86)
+        : Colors.black.withOpacity(0.82);
+    final secondaryColor = isDark
+        ? Colors.white.withOpacity(0.62)
+        : Colors.black.withOpacity(0.6);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           '当前没有歌单，可立即创建一个新的歌单。',
-          style: macTheme.typography.body.copyWith(fontSize: 12, height: 1.4),
+          style: macTheme.typography.body.copyWith(
+            fontSize: 12,
+            height: 1.4,
+            color: primaryColor,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
           '新建歌单后可以将这首歌添加进去。',
-          style: macTheme.typography.caption1.copyWith(fontSize: 11),
+          style: macTheme.typography.caption1.copyWith(
+            fontSize: 11,
+            color: secondaryColor,
+          ),
         ),
       ],
     );
