@@ -73,24 +73,9 @@ class _HomePageContentState extends State<HomePageContent> {
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space) {
-      final primaryFocus = FocusManager.instance.primaryFocus;
-      if (primaryFocus?.context?.widget is EditableText) {
-        return KeyEventResult.ignored;
-      }
-      _togglePlayPause();
-      return KeyEventResult.handled;
+      return KeyEventResult.ignored;
     }
     return KeyEventResult.ignored;
-  }
-
-  void _togglePlayPause() {
-    final playerBloc = context.read<PlayerBloc>();
-    final state = playerBloc.state;
-    if (state is PlayerPlaying) {
-      playerBloc.add(const PlayerPause());
-    } else if (state is PlayerPaused) {
-      playerBloc.add(const PlayerResume());
-    }
   }
 
   Future<void> _handleCreatePlaylistFromHeader() async {
@@ -407,6 +392,15 @@ class _HomePageContentState extends State<HomePageContent> {
     } else if (result != null && result.isNotEmpty) {
       await playlistsCubit.ensurePlaylistTracks(result, force: true);
     }
+  }
+
+  void navigateToSettingsFromMenu() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedIndex = 3;
+    });
   }
 
   void _onSearchQueryChanged(String value) {

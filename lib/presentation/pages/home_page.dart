@@ -14,6 +14,7 @@ import 'package:uuid/uuid.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/di/dependency_injection.dart';
+import '../../core/constants/app_constants.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/repositories/music_library_repository.dart';
@@ -104,11 +105,17 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _MediaControlShortcutScope extends StatelessWidget {
+class _MediaControlShortcutScope extends StatefulWidget {
   const _MediaControlShortcutScope({required this.child});
 
   final Widget child;
 
+  @override
+  State<_MediaControlShortcutScope> createState() => _MediaControlShortcutScopeState();
+}
+
+class _MediaControlShortcutScopeState extends State<_MediaControlShortcutScope> {
+  static const MethodChannel _hotKeyChannel = MethodChannel('com.aimessoft.misuzumusic/hotkeys');
   static final Map<LogicalKeySet, Intent> _shortcuts = <LogicalKeySet, Intent>{
     LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious): const _PreviousTrackIntent(),
     LogicalKeySet(LogicalKeyboardKey.mediaPlayPause): const _TogglePlayPauseIntent(),
@@ -119,27 +126,127 @@ class _MediaControlShortcutScope extends StatelessWidget {
   };
 
   @override
+  void initState() {
+    super.initState();
+    if (Platform.isMacOS) {
+      _hotKeyChannel.setMethodCallHandler(_handleMethodCall);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (Platform.isMacOS) {
+      _hotKeyChannel.setMethodCallHandler(null);
+    }
+    super.dispose();
+  }
+
+  Future<void> _handleMethodCall(MethodCall call) async {
+    if (!mounted) {
+      return;
+    }
+
+    switch (call.method) {
+      case 'togglePlayPause':
+        _dispatchToggle();
+        break;
+      case 'mediaControl':
+        final action = call.arguments as String?;
+        switch (action) {
+          case 'previous':
+            _dispatchPrevious();
+            break;
+          case 'next':
+            _dispatchNext();
+            break;
+          case 'volumeUp':
+            _adjustVolume(0.05);
+            break;
+          case 'volumeDown':
+            _adjustVolume(-0.05);
+            break;
+          case 'cyclePlayMode':
+            _cyclePlayMode();
+            break;
+        }
+        break;
+      case 'openSettings':
+        _openSettings();
+        break;
+    }
+  }
+
+  void _dispatchPrevious() {
+    context.read<PlayerBloc>().add(const PlayerSkipPrevious());
+  }
+
+  void _dispatchNext() {
+    context.read<PlayerBloc>().add(const PlayerSkipNext());
+  }
+
+  void _dispatchToggle() {
+    final bloc = context.read<PlayerBloc>();
+    final state = bloc.state;
+    if (state is PlayerPlaying) {
+      bloc.add(const PlayerPause());
+    } else if (state is PlayerPaused) {
+      bloc.add(const PlayerResume());
+    }
+  }
+
+  void _adjustVolume(double delta) {
+    final bloc = context.read<PlayerBloc>();
+    final state = bloc.state;
+
+    double currentVolume;
+    if (state is PlayerPlaying) {
+      currentVolume = state.volume;
+    } else if (state is PlayerPaused) {
+      currentVolume = state.volume;
+    } else if (state is PlayerLoading) {
+      currentVolume = state.volume;
+    } else if (state is PlayerStopped) {
+      currentVolume = state.volume;
+    } else {
+      currentVolume = sl<AudioPlayerService>().volume;
+    }
+
+    final nextVolume = (currentVolume + delta).clamp(0.0, 1.0).toDouble();
+    bloc.add(PlayerSetVolume(nextVolume));
+  }
+
+  void _cyclePlayMode() {
+    final bloc = context.read<PlayerBloc>();
+    final state = bloc.state;
+
+    PlayMode currentMode;
+    if (state is PlayerPlaying) {
+      currentMode = state.playMode;
+    } else if (state is PlayerPaused) {
+      currentMode = state.playMode;
+    } else if (state is PlayerLoading) {
+      currentMode = state.playMode;
+    } else if (state is PlayerStopped) {
+      currentMode = state.playMode;
+    } else {
+      currentMode = sl<AudioPlayerService>().playMode;
+    }
+
+    const modes = [PlayMode.repeatAll, PlayMode.repeatOne, PlayMode.shuffle];
+    final currentIndex = modes.indexOf(currentMode);
+    final nextMode = modes[(currentIndex + 1) % modes.length];
+    bloc.add(PlayerSetPlayMode(nextMode));
+  }
+
+  void _openSettings() {
+    final contentState = context.findAncestorStateOfType<_HomePageContentState>();
+    contentState?.navigateToSettingsFromMenu();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (!Platform.isMacOS) {
-      return child;
-    }
-
-    void dispatchPrevious() {
-      context.read<PlayerBloc>().add(const PlayerSkipPrevious());
-    }
-
-    void dispatchNext() {
-      context.read<PlayerBloc>().add(const PlayerSkipNext());
-    }
-
-    void dispatchToggle() {
-      final bloc = context.read<PlayerBloc>();
-      final state = bloc.state;
-      if (state is PlayerPlaying) {
-        bloc.add(const PlayerPause());
-      } else if (state is PlayerPaused) {
-        bloc.add(const PlayerResume());
-      }
+      return widget.child;
     }
 
     return Shortcuts(
@@ -148,19 +255,19 @@ class _MediaControlShortcutScope extends StatelessWidget {
         actions: <Type, Action<Intent>>{
           _PreviousTrackIntent: CallbackAction<_PreviousTrackIntent>(
             onInvoke: (_) {
-              dispatchPrevious();
+              _dispatchPrevious();
               return null;
             },
           ),
           _TogglePlayPauseIntent: CallbackAction<_TogglePlayPauseIntent>(
             onInvoke: (_) {
-              dispatchToggle();
+              _dispatchToggle();
               return null;
             },
           ),
           _NextTrackIntent: CallbackAction<_NextTrackIntent>(
             onInvoke: (_) {
-              dispatchNext();
+              _dispatchNext();
               return null;
             },
           ),
@@ -169,7 +276,7 @@ class _MediaControlShortcutScope extends StatelessWidget {
           autofocus: true,
           canRequestFocus: true,
           includeSemantics: false,
-          child: child,
+          child: widget.child,
         ),
       ),
     );
