@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = misuzu_music
+PRODUCT_NAME = Misuzu Music;
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.misuzu.misuzuMusic
+PRODUCT_BUNDLE_IDENTIFIER = com.aimessoft.misuzumusic;
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2025 com.misuzu. All rights reserved.

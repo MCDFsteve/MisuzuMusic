@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.misuzu" "\0"
-            VALUE "FileDescription", "misuzu_music" "\0"
+            VALUE "FileDescription", "Misuzu Music" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "misuzu_music" "\0"
+            VALUE "InternalName", "Misuzu Music" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.misuzu. All rights reserved." "\0"
-            VALUE "OriginalFilename", "misuzu_music.exe" "\0"
-            VALUE "ProductName", "misuzu_music" "\0"
+            VALUE "OriginalFilename", "MisuzuMusic.exe" "\0"
+            VALUE "ProductName", "Misuzu Music" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
