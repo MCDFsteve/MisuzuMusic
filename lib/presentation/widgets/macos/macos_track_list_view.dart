@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,21 +12,15 @@ import '../common/adaptive_scrollbar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../common/track_list_tile.dart';
 
-class MacOSMusicLibraryView extends StatelessWidget {
-  final List<Track> tracks;
-  final List<Artist> artists;
-  final List<Album> albums;
-  final String? searchQuery;
-  final ValueChanged<Track>? onAddToPlaylist;
-
-  const MacOSMusicLibraryView({
+class MacOSTrackListView extends StatelessWidget {
+  const MacOSTrackListView({
     super.key,
     required this.tracks,
-    required this.artists,
-    required this.albums,
-    this.searchQuery,
     this.onAddToPlaylist,
   });
+
+  final List<Track> tracks;
+  final ValueChanged<Track>? onAddToPlaylist;
 
   @override
   Widget build(BuildContext context) {
@@ -64,24 +59,15 @@ class MacOSMusicLibraryView extends StatelessWidget {
               artistAlbum: '${track.artist} • ${track.album}',
               duration: _formatDuration(track.duration),
               onTap: () {
-                print('🎵 macOS点击歌曲: ${track.title}');
-                print('🎵 文件路径: ${track.filePath}');
-                print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
                 final isRemoteTrack =
                     track.sourceType == TrackSourceType.webdav ||
                     track.filePath.startsWith('webdav://');
 
-                if (isRemoteTrack) {
-                  print('🎵 WebDAV 音轨，直接尝试远程播放');
-                }
-
-                if (!isRemoteTrack) {
+                if (!isRemoteTrack && !kIsWeb) {
                   final file = File(track.filePath);
                   final exists = file.existsSync();
-                  print('🎵 文件是否存在: $exists');
 
                   if (!exists) {
-                    print('❌ 文件不存在: ${track.filePath}');
                     return;
                   }
                 }
@@ -103,6 +89,6 @@ class MacOSMusicLibraryView extends StatelessWidget {
   String _formatDuration(Duration duration) {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
-    return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }
