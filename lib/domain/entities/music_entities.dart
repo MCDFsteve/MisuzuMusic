@@ -24,6 +24,7 @@ class Track extends Entity {
   final String? sourceId;
   final String? remotePath;
   final Map<String, String>? httpHeaders;
+  final String? contentHash;
 
   const Track({
     required this.id,
@@ -41,6 +42,7 @@ class Track extends Entity {
     this.sourceId,
     this.remotePath,
     this.httpHeaders,
+    this.contentHash,
   });
 
   @override
@@ -60,6 +62,7 @@ class Track extends Entity {
     sourceId,
     remotePath,
     httpHeaders,
+    contentHash,
   ];
 
   Track copyWith({
@@ -78,6 +81,7 @@ class Track extends Entity {
     String? sourceId,
     String? remotePath,
     Map<String, String>? httpHeaders,
+    String? contentHash,
   }) {
     return Track(
       id: id ?? this.id,
@@ -95,6 +99,7 @@ class Track extends Entity {
       sourceId: sourceId ?? this.sourceId,
       remotePath: remotePath ?? this.remotePath,
       httpHeaders: httpHeaders ?? this.httpHeaders,
+      contentHash: contentHash ?? this.contentHash,
     );
   }
 }

@@ -12,6 +12,7 @@ abstract class MusicLocalDataSource {
   Future<void> deleteTrack(String id);
   Future<void> insertTracks(List<TrackModel> tracks);
   Future<TrackModel?> getTrackByFilePath(String filePath);
+  Future<TrackModel?> getTrackByContentHash(String contentHash);
   Future<TrackModel?> findMatchingTrack({
     required String title,
     required String artist,
@@ -38,10 +39,10 @@ abstract class MusicLocalDataSource {
   Future<void> deletePlaylist(String id);
   Future<void> addTrackToPlaylist(
     String playlistId,
-    String trackId,
+    String trackHash,
     int position,
   );
-  Future<void> removeTrackFromPlaylist(String playlistId, String trackId);
+  Future<void> removeTrackFromPlaylist(String playlistId, String trackHash);
   Future<List<TrackModel>> getPlaylistTracks(String playlistId);
 
   // Library management

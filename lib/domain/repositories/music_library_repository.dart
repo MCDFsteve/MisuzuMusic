@@ -31,8 +31,8 @@ abstract class MusicLibraryRepository {
   Future<void> createPlaylist(Playlist playlist);
   Future<void> updatePlaylist(Playlist playlist);
   Future<void> deletePlaylist(String id);
-  Future<void> addTrackToPlaylist(String playlistId, String trackId);
-  Future<void> removeTrackFromPlaylist(String playlistId, String trackId);
+  Future<void> addTrackToPlaylist(String playlistId, String trackHash);
+  Future<void> removeTrackFromPlaylist(String playlistId, String trackHash);
   Future<List<Track>> getPlaylistTracks(String playlistId);
 
   // Library management

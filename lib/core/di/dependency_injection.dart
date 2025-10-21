@@ -20,6 +20,7 @@ import '../theme/theme_controller.dart';
 import '../../domain/usecases/lyrics_usecases.dart';
 import '../storage/storage_path_provider.dart';
 import '../storage/binary_config_store.dart';
+import '../../data/storage/playlist_file_storage.dart';
 
 final sl = GetIt.instance;
 
@@ -36,6 +37,7 @@ class DependencyInjection {
       await configStore.init();
       sl.registerSingleton(storagePathProvider);
       sl.registerSingleton(configStore);
+      sl.registerLazySingleton(() => PlaylistFileStorage(sl()));
 
       // Core
       print('🗄️ 初始化数据库...');
@@ -44,7 +46,7 @@ class DependencyInjection {
       // Data sources
       print('📊 注册数据源...');
       sl.registerLazySingleton<MusicLocalDataSource>(
-        () => MusicLocalDataSourceImpl(sl()),
+        () => MusicLocalDataSourceImpl(sl(), sl()),
       );
 
       sl.registerLazySingleton<LyricsLocalDataSource>(

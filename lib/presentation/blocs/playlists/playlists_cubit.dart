@@ -123,11 +123,12 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
         emit(state.copyWith(isProcessing: false));
         return false;
       }
-      if (playlist.trackIds.contains(track.id)) {
+      final trackHash = track.contentHash ?? track.id;
+      if (playlist.trackIds.contains(trackHash)) {
         emit(state.copyWith(isProcessing: false));
         return false;
       }
-      await _repository.addTrackToPlaylist(playlistId, track.id);
+      await _repository.addTrackToPlaylist(playlistId, trackHash);
       await loadPlaylists();
       await ensurePlaylistTracks(playlistId, force: true);
       emit(state.copyWith(isProcessing: false, clearError: true));
@@ -141,7 +142,8 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
   Future<void> removeTrackFromPlaylist(String playlistId, Track track) async {
     emit(state.copyWith(isProcessing: true, clearError: true));
     try {
-      await _repository.removeTrackFromPlaylist(playlistId, track.id);
+      final trackHash = track.contentHash ?? track.id;
+      await _repository.removeTrackFromPlaylist(playlistId, trackHash);
       await loadPlaylists();
       await ensurePlaylistTracks(playlistId, force: true);
       emit(state.copyWith(isProcessing: false, clearError: true));
