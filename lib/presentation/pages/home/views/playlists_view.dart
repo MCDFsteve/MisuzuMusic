@@ -1,9 +1,14 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
 class PlaylistsView extends StatefulWidget {
-  const PlaylistsView({super.key, this.onAddToPlaylist});
+  const PlaylistsView({
+    super.key,
+    this.onAddToPlaylist,
+    this.onDetailStateChanged,
+  });
 
   final ValueChanged<Track>? onAddToPlaylist;
+  final ValueChanged<bool>? onDetailStateChanged;
 
   @override
   State<PlaylistsView> createState() => _PlaylistsViewState();
@@ -12,6 +17,23 @@ class PlaylistsView extends StatefulWidget {
 class _PlaylistsViewState extends State<PlaylistsView> {
   bool _showList = false;
   String? _activePlaylistId;
+
+  bool get canNavigateBack => _showList;
+
+  void exitToOverview() {
+    if (!_showList) {
+      return;
+    }
+    setState(() {
+      _showList = false;
+      _activePlaylistId = null;
+    });
+    _notifyDetailState();
+  }
+
+  void _notifyDetailState() {
+    widget.onDetailStateChanged?.call(_showList);
+  }
 
   Future<void> _editPlaylist(Playlist playlist) async {
     final result = await showPlaylistEditDialog(context, playlist: playlist);
@@ -31,6 +53,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
       _activePlaylistId = id;
     });
     context.read<PlaylistsCubit>().ensurePlaylistTracks(id, force: true);
+    _notifyDetailState();
   }
 
   void _openPlaylist(Playlist playlist) {
@@ -42,6 +65,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
       _showList = false;
       _activePlaylistId = null;
     });
+    _notifyDetailState();
   }
 
   @override

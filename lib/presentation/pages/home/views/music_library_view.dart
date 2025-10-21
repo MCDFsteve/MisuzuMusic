@@ -1,9 +1,14 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
 class MusicLibraryView extends StatefulWidget {
-  const MusicLibraryView({super.key, this.onAddToPlaylist});
+  const MusicLibraryView({
+    super.key,
+    this.onAddToPlaylist,
+    this.onDetailStateChanged,
+  });
 
   final ValueChanged<Track>? onAddToPlaylist;
+  final ValueChanged<bool>? onDetailStateChanged;
 
   @override
   State<MusicLibraryView> createState() => _MusicLibraryViewState();
@@ -12,6 +17,33 @@ class MusicLibraryView extends StatefulWidget {
 class _MusicLibraryViewState extends State<MusicLibraryView> {
   bool _showList = false;
   String? _activeFilterKey;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _notifyDetailState();
+      }
+    });
+  }
+
+  bool get canNavigateBack => _showList;
+
+  void exitToOverview() {
+    if (!_showList) {
+      return;
+    }
+    setState(() {
+      _showList = false;
+      _activeFilterKey = null;
+    });
+    _notifyDetailState();
+  }
+
+  void _notifyDetailState() {
+    widget.onDetailStateChanged?.call(_showList);
+  }
 
   bool _hasArtwork(Track track) {
     final artworkPath = track.artworkPath;
@@ -320,6 +352,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                 _activeFilterKey = null;
                 _showList = false;
               });
+              _notifyDetailState();
             });
           }
 
@@ -327,7 +360,9 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
               state.searchQuery != null && state.searchQuery!.trim().isNotEmpty;
           if (hasActiveSearch && !_showList) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) setState(() => _showList = true);
+              if (!mounted) return;
+              setState(() => _showList = true);
+              _notifyDetailState();
             });
           }
           if (hasActiveSearch && _activeFilterKey != null) {
@@ -372,6 +407,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                           ? null
                           : summary.filterKey;
                     });
+                    _notifyDetailState();
                   },
                   onRemove: summary.isAll
                       ? null
@@ -419,6 +455,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                             _showList = false;
                             _activeFilterKey = null;
                           });
+                          _notifyDetailState();
                           return null;
                         },
                       ),

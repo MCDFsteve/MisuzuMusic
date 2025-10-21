@@ -9,6 +9,10 @@ class _MacOSGlassHeader extends StatelessWidget {
     required this.onSearchChanged,
     required this.onSelectMusicFolder,
     required this.onCreatePlaylist,
+    this.showBackButton = false,
+    this.canNavigateBack = false,
+    this.onNavigateBack,
+    this.backTooltip = '返回上一层',
   });
 
   final double height;
@@ -18,6 +22,10 @@ class _MacOSGlassHeader extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSelectMusicFolder;
   final VoidCallback onCreatePlaylist;
+  final bool showBackButton;
+  final bool canNavigateBack;
+  final VoidCallback? onNavigateBack;
+  final String backTooltip;
 
   Future<void> _handleDoubleTap() async {
     if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
@@ -110,6 +118,22 @@ class _MacOSGlassHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              if (showBackButton)
+                MacosTooltip(
+                  message: backTooltip,
+                  child: _HeaderIconButton(
+                    baseColor: canNavigateBack
+                        ? textColor.withOpacity(0.72)
+                        : textColor.withOpacity(0.24),
+                    hoverColor: textColor,
+                    icon: CupertinoIcons.left_chevron,
+                    onPressed: canNavigateBack ? onNavigateBack : null,
+                    size: 36,
+                    iconSize: 20,
+                    enabled: canNavigateBack,
+                  ),
+                ),
+              if (showBackButton) const SizedBox(width: 8),
               MacosTooltip(
                 message: '新建歌单',
                 child: _HeaderIconButton(
@@ -152,17 +176,19 @@ class _HeaderIconButton extends StatefulWidget {
     required this.baseColor,
     required this.hoverColor,
     required this.icon,
-    required this.onPressed,
+    this.onPressed,
     this.size = 36,
     this.iconSize = 22,
+    this.enabled = true,
   });
 
   final Color baseColor;
   final Color hoverColor;
   final IconData icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final double size;
   final double iconSize;
+  final bool enabled;
 
   @override
   State<_HeaderIconButton> createState() => _HeaderIconButtonState();
@@ -184,22 +210,31 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
 
   @override
   Widget build(BuildContext context) {
-    final Color targetColor = _hovering ? widget.hoverColor : widget.baseColor;
-    final double scale = _pressing ? 0.95 : (_hovering ? 1.05 : 1.0);
+    final bool isEnabled = widget.enabled && widget.onPressed != null;
+    final Color targetColor = !isEnabled
+        ? widget.baseColor
+        : (_hovering ? widget.hoverColor : widget.baseColor);
+    final double scale = !isEnabled
+        ? 1.0
+        : (_pressing ? 0.95 : (_hovering ? 1.05 : 1.0));
 
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => _updateHovering(true),
+      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (isEnabled) {
+          _updateHovering(true);
+        }
+      },
       onExit: (_) {
         _updateHovering(false);
         _updatePressing(false);
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _updatePressing(true),
-        onTapUp: (_) => _updatePressing(false),
-        onTapCancel: () => _updatePressing(false),
-        onTap: widget.onPressed,
+        onTapDown: isEnabled ? (_) => _updatePressing(true) : null,
+        onTapUp: isEnabled ? (_) => _updatePressing(false) : null,
+        onTapCancel: isEnabled ? () => _updatePressing(false) : null,
+        onTap: isEnabled ? widget.onPressed : null,
         child: AnimatedScale(
           scale: scale,
           duration: const Duration(milliseconds: 140),

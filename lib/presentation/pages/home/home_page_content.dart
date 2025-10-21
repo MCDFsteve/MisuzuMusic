@@ -21,6 +21,10 @@ class _HomePageContentState extends State<HomePageContent> {
   final FocusNode _shortcutFocusNode = FocusNode();
   final GlobalKey<_PlaylistsViewState> _playlistsViewKey =
       GlobalKey<_PlaylistsViewState>();
+  final GlobalKey<_MusicLibraryViewState> _musicLibraryViewKey =
+      GlobalKey<_MusicLibraryViewState>();
+  bool _musicLibraryCanNavigateBack = false;
+  bool _playlistsCanNavigateBack = false;
   late final VoidCallback _focusManagerListener;
 
   @override
@@ -160,6 +164,33 @@ class _HomePageContentState extends State<HomePageContent> {
         final statsLabel = _composeHeaderStatsLabel(
           context.watch<MusicLibraryBloc>().state,
         );
+        bool showBackButton = false;
+        bool canNavigateBack = false;
+        VoidCallback? onNavigateBack;
+        String backTooltip = '返回上一层';
+        final playlistsViewState = _playlistsViewKey.currentState;
+        final musicLibraryViewState = _musicLibraryViewKey.currentState;
+
+        switch (_selectedIndex) {
+          case 0:
+            showBackButton = true;
+            canNavigateBack = _musicLibraryCanNavigateBack;
+            backTooltip = '返回音乐库';
+            if (canNavigateBack) {
+              onNavigateBack = () => musicLibraryViewState?.exitToOverview();
+            }
+            break;
+          case 1:
+            showBackButton = true;
+            canNavigateBack = _playlistsCanNavigateBack;
+            backTooltip = '返回歌单列表';
+            if (canNavigateBack) {
+              onNavigateBack = () => playlistsViewState?.exitToOverview();
+            }
+            break;
+          default:
+            showBackButton = false;
+        }
 
         return MacosWindow(
           titleBar: null,
@@ -246,6 +277,10 @@ class _HomePageContentState extends State<HomePageContent> {
                                         onSelectMusicFolder: _selectMusicFolder,
                                         onCreatePlaylist:
                                             _handleCreatePlaylistFromHeader,
+                                        showBackButton: showBackButton,
+                                        canNavigateBack: canNavigateBack,
+                                        onNavigateBack: onNavigateBack,
+                                        backTooltip: backTooltip,
                                       ),
                                     ),
                                   ),
@@ -314,11 +349,28 @@ class _HomePageContentState extends State<HomePageContent> {
   Widget _buildMainContent() {
     switch (_selectedIndex) {
       case 0:
-        return MusicLibraryView(onAddToPlaylist: _handleAddTrackToPlaylist);
+        return MusicLibraryView(
+          key: _musicLibraryViewKey,
+          onAddToPlaylist: _handleAddTrackToPlaylist,
+          onDetailStateChanged: (value) {
+            if (_musicLibraryCanNavigateBack != value) {
+              setState(() {
+                _musicLibraryCanNavigateBack = value;
+              });
+            }
+          },
+        );
       case 1:
         return PlaylistsView(
           key: _playlistsViewKey,
           onAddToPlaylist: _handleAddTrackToPlaylist,
+          onDetailStateChanged: (value) {
+            if (_playlistsCanNavigateBack != value) {
+              setState(() {
+                _playlistsCanNavigateBack = value;
+              });
+            }
+          },
         );
       case 2:
         return PlaylistView(
