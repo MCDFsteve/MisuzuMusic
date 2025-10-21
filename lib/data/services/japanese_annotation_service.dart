@@ -66,7 +66,6 @@ class JapaneseAnnotationService {
       _sortedDictionaryKeys = wordMap.keys.toList()
         ..sort((a, b) => b.length.compareTo(a.length));
     } catch (e) {
-      print('⚠️ JapaneseAnnotationService: failed to load dictionary -> $e');
       _wordDictionary = const {};
       _sortedDictionaryKeys = const [];
     } finally {
