@@ -24,6 +24,7 @@ class Track extends Entity {
   final String? sourceId;
   final String? remotePath;
   final Map<String, String>? httpHeaders;
+  final String? contentHash;
 
   const Track({
     required this.id,
@@ -41,6 +42,7 @@ class Track extends Entity {
     this.sourceId,
     this.remotePath,
     this.httpHeaders,
+    this.contentHash,
   });
 
   @override
@@ -60,6 +62,7 @@ class Track extends Entity {
     sourceId,
     remotePath,
     httpHeaders,
+    contentHash,
   ];
 
   Track copyWith({
@@ -78,6 +81,7 @@ class Track extends Entity {
     String? sourceId,
     String? remotePath,
     Map<String, String>? httpHeaders,
+    String? contentHash,
   }) {
     return Track(
       id: id ?? this.id,
@@ -95,6 +99,7 @@ class Track extends Entity {
       sourceId: sourceId ?? this.sourceId,
       remotePath: remotePath ?? this.remotePath,
       httpHeaders: httpHeaders ?? this.httpHeaders,
+      contentHash: contentHash ?? this.contentHash,
     );
   }
 }
@@ -151,6 +156,8 @@ class Playlist extends Entity {
   final List<String> trackIds;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? description;
+  final String? coverPath;
 
   const Playlist({
     required this.id,
@@ -158,10 +165,20 @@ class Playlist extends Entity {
     required this.trackIds,
     required this.createdAt,
     required this.updatedAt,
+    this.description,
+    this.coverPath,
   });
 
   @override
-  List<Object> get props => [id, name, trackIds, createdAt, updatedAt];
+  List<Object?> get props => [
+    id,
+    name,
+    trackIds,
+    createdAt,
+    updatedAt,
+    description,
+    coverPath,
+  ];
 
   Playlist copyWith({
     String? id,
@@ -169,6 +186,8 @@ class Playlist extends Entity {
     List<String>? trackIds,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? description,
+    String? coverPath,
   }) {
     return Playlist(
       id: id ?? this.id,
@@ -176,6 +195,8 @@ class Playlist extends Entity {
       trackIds: trackIds ?? this.trackIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      description: description ?? this.description,
+      coverPath: coverPath ?? this.coverPath,
     );
   }
 }

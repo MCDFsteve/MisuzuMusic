@@ -16,6 +16,7 @@ class TrackListTile extends StatelessWidget {
     required this.onTap,
     this.hoverDistance,
     this.padding,
+    this.onSecondaryTap,
   });
 
   final int index;
@@ -27,12 +28,11 @@ class TrackListTile extends StatelessWidget {
   final VoidCallback onTap;
   final double? hoverDistance;
   final EdgeInsetsGeometry? padding;
-
-  bool get _isMac => defaultTargetPlatform == TargetPlatform.macOS;
+  final ValueChanged<Offset>? onSecondaryTap;
 
   @override
   Widget build(BuildContext context) {
-    final isMac = _isMac;
+    final isMac = MacosTheme.maybeOf(context) != null;
     final EdgeInsetsGeometry contentPadding =
         padding ?? const EdgeInsets.symmetric(horizontal: 20, vertical: 12);
     final double distance = hoverDistance ?? (isMac ? 16 : 12);
@@ -81,13 +81,12 @@ class TrackListTile extends StatelessWidget {
                         return Row(
                           children: [
                             if (hasDuration)
-                              Text(
-                                duration,
-                                style: _metaStyle(context, isMac),
-                              ),
+                              Text(duration, style: _metaStyle(context, isMac)),
                             if (hasDuration && hasMeta)
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
                                 child: Text(
                                   '|',
                                   style: _metaStyle(context, isMac),
@@ -115,14 +114,11 @@ class TrackListTile extends StatelessWidget {
       ),
     );
 
-    return Row(
+    final row = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: HoverShift(
-            distance: distance,
-            child: content,
-          ),
+          child: HoverShift(distance: distance, child: content),
         ),
         Padding(
           padding: EdgeInsets.only(right: isMac ? 24 : 20, left: 8),
@@ -130,14 +126,21 @@ class TrackListTile extends StatelessWidget {
             width: 32,
             child: Align(
               alignment: Alignment.centerRight,
-              child: Text(
-                index.toString(),
-                style: _indexStyle(context, isMac),
-              ),
+              child: Text(index.toString(), style: _indexStyle(context, isMac)),
             ),
           ),
         ),
       ],
+    );
+
+    if (onSecondaryTap == null) {
+      return row;
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTapUp: (details) => onSecondaryTap!(details.globalPosition),
+      child: row,
     );
   }
 
@@ -161,7 +164,9 @@ class TrackListTile extends StatelessWidget {
     if (isMac) {
       final macTheme = MacosTheme.of(context);
       final isDark = macTheme.brightness == Brightness.dark;
-      final color = isDark ? MacosColors.systemGrayColor : MacosColors.secondaryLabelColor;
+      final color = isDark
+          ? MacosColors.systemGrayColor
+          : MacosColors.secondaryLabelColor;
       return macTheme.typography.caption1.copyWith(color: color);
     }
     final theme = Theme.of(context);
@@ -178,7 +183,9 @@ class TrackListTile extends StatelessWidget {
     }
     final theme = Theme.of(context);
     final base = theme.textTheme.bodySmall ?? const TextStyle(fontSize: 12);
-    return base.copyWith(color: theme.colorScheme.onSurfaceVariant.withOpacity(0.85));
+    return base.copyWith(
+      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.85),
+    );
   }
 
   TextStyle _indexStyle(BuildContext context, bool isMac) {
@@ -190,6 +197,8 @@ class TrackListTile extends StatelessWidget {
     }
     final theme = Theme.of(context);
     final base = theme.textTheme.labelMedium ?? const TextStyle(fontSize: 12);
-    return base.copyWith(color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7));
+    return base.copyWith(
+      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+    );
   }
 }

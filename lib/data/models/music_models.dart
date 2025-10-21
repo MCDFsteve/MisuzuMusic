@@ -19,6 +19,7 @@ class TrackModel extends Track {
     super.sourceId,
     super.remotePath,
     super.httpHeaders,
+    super.contentHash,
   });
 
   // Convert from domain entity
@@ -39,6 +40,7 @@ class TrackModel extends Track {
       sourceId: track.sourceId,
       remotePath: track.remotePath,
       httpHeaders: track.httpHeaders,
+      contentHash: track.contentHash,
     );
   }
 
@@ -81,6 +83,7 @@ class TrackModel extends Track {
       sourceId: map['source_id'] as String?,
       remotePath: map['remote_path'] as String?,
       httpHeaders: headers,
+      contentHash: map['content_hash'] as String?,
     );
   }
 
@@ -107,6 +110,7 @@ class TrackModel extends Track {
       'source_id': sourceId,
       'remote_path': remotePath,
       'http_headers': headersJson,
+      'content_hash': contentHash,
     };
   }
 
@@ -128,6 +132,7 @@ class TrackModel extends Track {
       sourceId: sourceId,
       remotePath: remotePath,
       httpHeaders: httpHeaders,
+      contentHash: contentHash,
     );
   }
 
@@ -148,6 +153,7 @@ class TrackModel extends Track {
     String? sourceId,
     String? remotePath,
     Map<String, String>? httpHeaders,
+    String? contentHash,
   }) {
     return TrackModel(
       id: id ?? this.id,
@@ -165,6 +171,7 @@ class TrackModel extends Track {
       sourceId: sourceId ?? this.sourceId,
       remotePath: remotePath ?? this.remotePath,
       httpHeaders: httpHeaders ?? this.httpHeaders,
+      contentHash: contentHash ?? this.contentHash,
     );
   }
 }
@@ -267,6 +274,8 @@ class PlaylistModel extends Playlist {
     required super.trackIds,
     required super.createdAt,
     required super.updatedAt,
+    super.description,
+    super.coverPath,
   });
 
   factory PlaylistModel.fromEntity(Playlist playlist) {
@@ -276,6 +285,8 @@ class PlaylistModel extends Playlist {
       trackIds: playlist.trackIds,
       createdAt: playlist.createdAt,
       updatedAt: playlist.updatedAt,
+      description: playlist.description,
+      coverPath: playlist.coverPath,
     );
   }
 
@@ -283,9 +294,11 @@ class PlaylistModel extends Playlist {
     return PlaylistModel(
       id: map['id'] as String,
       name: map['name'] as String,
-      trackIds: [], // Will be populated separately from playlist_tracks table
+      trackIds: const [],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
+      description: map['description'] as String?,
+      coverPath: map['cover_path'] as String?,
     );
   }
 
@@ -295,6 +308,8 @@ class PlaylistModel extends Playlist {
       'name': name,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
+      'description': description,
+      'cover_path': coverPath,
     };
   }
 
@@ -305,6 +320,8 @@ class PlaylistModel extends Playlist {
       trackIds: trackIds,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      description: description,
+      coverPath: coverPath,
     );
   }
 
@@ -315,6 +332,8 @@ class PlaylistModel extends Playlist {
     List<String>? trackIds,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? description,
+    String? coverPath,
   }) {
     return PlaylistModel(
       id: id ?? this.id,
@@ -322,6 +341,8 @@ class PlaylistModel extends Playlist {
       trackIds: trackIds ?? this.trackIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      description: description ?? this.description,
+      coverPath: coverPath ?? this.coverPath,
     );
   }
 }

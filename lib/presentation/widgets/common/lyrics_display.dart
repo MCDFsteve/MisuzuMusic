@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../blocs/player/player_bloc.dart';
 import '../../../domain/entities/lyrics_entities.dart';
@@ -88,6 +89,15 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         _scrollToIndex(_activeIndex);
       });
     }
+
+    if (_activeIndex >= 0 &&
+        oldWidget.lines.length == widget.lines.length &&
+        oldWidget.lines[_activeIndex] != widget.lines[_activeIndex]) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _scrollToIndex(_activeIndex);
+      });
+    }
   }
 
   @override
@@ -149,6 +159,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
   void _scrollToIndex(int index, {int attempt = 0}) {
     if (!widget.controller.hasClients) {
+      _scheduleRetry(index, attempt);
       return;
     }
     if (index < 0 || index >= _itemKeys.length) {
@@ -156,56 +167,151 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     }
 
     final BuildContext? targetContext = _itemKeys[index].currentContext;
-    if (targetContext != null) {
-      Scrollable.ensureVisible(
-        targetContext,
-        alignment: 0.5,
-        duration: const Duration(milliseconds: 360),
-        curve: Curves.easeOutQuad,
-      );
+    if (targetContext == null) {
+      _scrollWithEstimate(index, attempt + 1);
+      return;
+    }
+
+    final RenderObject? renderObject = targetContext.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      _scrollWithEstimate(index, attempt + 1);
       return;
     }
 
     final ScrollPosition position = widget.controller.position;
-    if (!position.hasPixels) {
-      if (attempt > 6) {
-        return;
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _scrollToIndex(index, attempt: attempt + 1);
-      });
+    if (!position.hasPixels || !position.hasContentDimensions) {
+      _scheduleRetry(index, attempt + 1);
       return;
     }
 
-    final double placeholderHeight =
-        _approxLineHeight(context) + _linePadding.vertical;
-    final double viewportHeight = position.viewportDimension;
-    final double edgeSpacer = math.max(
-      0.0,
-      viewportHeight * 0.5 - placeholderHeight * 0.5,
+    final RenderAbstractViewport? viewport = RenderAbstractViewport.of(
+      renderObject,
     );
-
-    final double roughCenterOffset = edgeSpacer + placeholderHeight * index;
-    final double targetOffset =
-        roughCenterOffset -
-        math.max(0.0, viewportHeight * 0.5 - placeholderHeight * 0.5);
-    final double clampedOffset = targetOffset.clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-
-    if ((position.pixels - clampedOffset).abs() > 1.0) {
-      position.jumpTo(clampedOffset);
+    if (viewport == null) {
+      _scrollWithEstimate(index, attempt + 1);
+      return;
     }
 
-    if (attempt > 6) {
+    final double targetOffset = viewport
+        .getOffsetToReveal(renderObject, 0.5)
+        .offset
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
+
+    if ((targetOffset - position.pixels).abs() <= 0.5) {
+      _verifyCentered(index, attempt + 1);
+      return;
+    }
+
+    widget.controller
+        .animateTo(
+          targetOffset,
+          duration: const Duration(milliseconds: 360),
+          curve: Curves.easeOutQuad,
+        )
+        .then((_) => _verifyCentered(index, attempt + 1));
+  }
+
+  void _scheduleRetry(int index, int attempt) {
+    if (attempt > 8) {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _scrollToIndex(index, attempt: attempt + 1);
     });
+  }
+
+  void _verifyCentered(int index, int attempt) {
+    if (!mounted || attempt > 8) {
+      return;
+    }
+    if (!widget.controller.hasClients) {
+      _scheduleRetry(index, attempt + 1);
+      return;
+    }
+    if (index < 0 || index >= _itemKeys.length) {
+      return;
+    }
+
+    final BuildContext? targetContext = _itemKeys[index].currentContext;
+    if (targetContext == null) {
+      _scrollWithEstimate(index, attempt + 1);
+      return;
+    }
+
+    final RenderObject? renderObject = targetContext.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      _scrollWithEstimate(index, attempt + 1);
+      return;
+    }
+
+    final ScrollPosition position = widget.controller.position;
+    if (!position.hasPixels || !position.hasContentDimensions) {
+      _scheduleRetry(index, attempt + 1);
+      return;
+    }
+
+    final RenderAbstractViewport? viewport = RenderAbstractViewport.of(
+      renderObject,
+    );
+    if (viewport == null) {
+      _scrollWithEstimate(index, attempt + 1);
+      return;
+    }
+
+    final double targetOffset = viewport
+        .getOffsetToReveal(renderObject, 0.5)
+        .offset
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
+
+    if ((targetOffset - position.pixels).abs() <= 0.5) {
+      return;
+    }
+
+    widget.controller
+        .animateTo(
+          targetOffset,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutQuad,
+        )
+        .then((_) => _verifyCentered(index, attempt + 1));
+  }
+
+  void _scrollWithEstimate(int index, int attempt) {
+    if (!widget.controller.hasClients) {
+      _scheduleRetry(index, attempt);
+      return;
+    }
+
+    final ScrollPosition position = widget.controller.position;
+    if (!position.hasPixels || !position.hasContentDimensions) {
+      _scheduleRetry(index, attempt);
+      return;
+    }
+
+    final double viewportHeight = position.viewportDimension;
+    if (!viewportHeight.isFinite || viewportHeight <= 0) {
+      _scheduleRetry(index, attempt);
+      return;
+    }
+
+    final double lineExtent =
+        _approxLineHeight(context) + _linePadding.vertical;
+    final double roughOffset = (viewportHeight / 2) + lineExtent * index;
+    final double targetOffset =
+        roughOffset - (viewportHeight / 2) + lineExtent / 2;
+    final double clamped = targetOffset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+
+    widget.controller
+        .animateTo(
+          clamped,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutQuad,
+        )
+        .then((_) => _verifyCentered(index, attempt + 1));
   }
 
   TextStyle _baseRenderStyle(BuildContext context) {
@@ -294,10 +400,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         );
         final double sharpDistance = math.max(0.0, halfViewport - blurBand);
         final double blurMaxDistance = halfViewport;
-        final double edgeSpacer = math.max(
-          0.0,
-          halfViewport - placeholderHeight * 0.5,
-        );
+        final double edgeSpacer = halfViewport;
 
         return BlocListener<PlayerBloc, PlayerBlocState>(
           listener: (context, state) {

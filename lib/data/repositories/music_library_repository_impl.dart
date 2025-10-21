@@ -300,18 +300,9 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   }
 
   @override
-  Future<void> addTrackToPlaylist(String playlistId, String trackId) async {
+  Future<void> addTrackToPlaylist(String playlistId, String trackHash) async {
     try {
-      final playlist = await getPlaylistById(playlistId);
-      if (playlist != null) {
-        final updatedTrackIds = List<String>.from(playlist.trackIds)
-          ..add(trackId);
-        final updatedPlaylist = playlist.copyWith(
-          trackIds: updatedTrackIds,
-          updatedAt: DateTime.now(),
-        );
-        await updatePlaylist(updatedPlaylist);
-      }
+      await _localDataSource.addTrackToPlaylist(playlistId, trackHash, 0);
     } catch (e) {
       throw DatabaseException(
         'Failed to add track to playlist: ${e.toString()}',
@@ -322,23 +313,24 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   @override
   Future<void> removeTrackFromPlaylist(
     String playlistId,
-    String trackId,
+    String trackHash,
   ) async {
     try {
-      final playlist = await getPlaylistById(playlistId);
-      if (playlist != null) {
-        final updatedTrackIds = List<String>.from(playlist.trackIds)
-          ..remove(trackId);
-        final updatedPlaylist = playlist.copyWith(
-          trackIds: updatedTrackIds,
-          updatedAt: DateTime.now(),
-        );
-        await updatePlaylist(updatedPlaylist);
-      }
+      await _localDataSource.removeTrackFromPlaylist(playlistId, trackHash);
     } catch (e) {
       throw DatabaseException(
         'Failed to remove track from playlist: ${e.toString()}',
       );
+    }
+  }
+
+  @override
+  Future<List<Track>> getPlaylistTracks(String playlistId) async {
+    try {
+      final trackModels = await _localDataSource.getPlaylistTracks(playlistId);
+      return trackModels.map((model) => model.toEntity()).toList();
+    } catch (e) {
+      throw DatabaseException('Failed to get playlist tracks: ${e.toString()}');
     }
   }
 
@@ -529,6 +521,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           sourceType: TrackSourceType.webdav,
           sourceId: normalizedSource.id,
           remotePath: remoteFile.relativePath,
+          contentHash:
+              metadata?.fingerprint ?? existing?.contentHash ?? filePathKey,
         );
 
         if (existing == null) {
@@ -1678,6 +1672,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         sourceId: source.id,
         remotePath: entry.relativePath,
         httpHeaders: headers.isEmpty ? existing?.httpHeaders : headers,
+        contentHash:
+            metadata?['hash_sha1_first_10kb'] as String? ?? entry.trackId,
       );
 
       if (existing == null) {

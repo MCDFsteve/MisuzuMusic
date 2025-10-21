@@ -40,6 +40,12 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       BehaviorSubject<Duration>.seeded(Duration.zero);
   final BehaviorSubject<Duration> _durationSubject =
       BehaviorSubject<Duration>.seeded(Duration.zero);
+  final BehaviorSubject<Track?> _currentTrackSubject =
+      BehaviorSubject<Track?>.seeded(null);
+  final BehaviorSubject<List<Track>> _queueSubject =
+      BehaviorSubject<List<Track>>.seeded(const []);
+  final BehaviorSubject<PlayMode> _playModeSubject =
+      BehaviorSubject<PlayMode>.seeded(PlayMode.repeatAll);
 
   // Queue management
   final List<Track> _queue = [];
@@ -107,6 +113,19 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     );
   }
 
+  void _updateCurrentTrack(Track? track) {
+    _currentTrack = track;
+    if (!_currentTrackSubject.isClosed) {
+      _currentTrackSubject.add(track);
+    }
+  }
+
+  void _notifyQueueChanged() {
+    if (!_queueSubject.isClosed) {
+      _queueSubject.add(List.unmodifiable(_queue));
+    }
+  }
+
   void _restoreVolume() {
     final raw = _configStore.getValue<dynamic>(StorageKeys.volume);
     final savedVolume = raw is num ? raw.toDouble() : null;
@@ -119,6 +138,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   void _restorePlayMode() {
     final savedMode = _configStore.getValue<String>(StorageKeys.playMode);
     if (savedMode == null) {
+      _playModeSubject.add(_playMode);
       return;
     }
 
@@ -130,6 +150,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     } catch (_) {
       _playMode = PlayMode.repeatAll;
     }
+    _playModeSubject.add(_playMode);
   }
 
   Future<void> _persistVolume() async {
@@ -216,7 +237,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       print('🎵 AudioService: 开始播放 - ${playableTrack.title}');
       print('🎵 AudioService: 文件路径 - ${playableTrack.filePath}');
 
-      _currentTrack = playableTrack;
+      _updateCurrentTrack(playableTrack);
       await _setAudioSource(playableTrack);
       await _audioPlayer.play();
 
@@ -262,7 +283,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       );
 
       print('🎵 AudioService: 预加载音轨 - ${playableTrack.title}');
-      _currentTrack = playableTrack;
+      _updateCurrentTrack(playableTrack);
       await _setAudioSource(playableTrack);
 
       final index = _queue.indexWhere(
@@ -317,7 +338,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   Future<void> stop() async {
     try {
       await _audioPlayer.stop();
-      _currentTrack = null;
+      _updateCurrentTrack(null);
       await _persistPosition(Duration.zero);
     } catch (e) {
       throw AudioPlaybackException('Failed to stop: ${e.toString()}');
@@ -361,6 +382,15 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   Track? get currentTrack => _currentTrack;
 
   @override
+  Stream<Track?> get currentTrackStream => _currentTrackSubject.stream;
+
+  @override
+  Stream<List<Track>> get queueStream => _queueSubject.stream;
+
+  @override
+  Stream<PlayMode> get playModeStream => _playModeSubject.stream;
+
+  @override
   Duration get currentPosition => _positionSubject.value;
 
   @override
@@ -375,6 +405,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     _queue
       ..clear()
       ..addAll(tracks);
+    _notifyQueueChanged();
 
     if (_queue.isEmpty) {
       _currentIndex = 0;
@@ -391,6 +422,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> addToQueue(Track track) async {
     _queue.add(track);
+    _notifyQueueChanged();
     await _persistQueueState();
   }
 
@@ -403,6 +435,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       } else if (index == _currentIndex && _currentIndex >= _queue.length) {
         _currentIndex = _queue.length - 1;
       }
+      _notifyQueueChanged();
       await _persistQueueState();
     }
   }
@@ -411,6 +444,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   Future<void> clearQueue() async {
     _queue.clear();
     _currentIndex = 0;
+    _notifyQueueChanged();
     await _clearPersistedQueue();
   }
 
@@ -423,6 +457,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> setPlayMode(PlayMode mode) async {
     _playMode = mode;
+    _playModeSubject.add(_playMode);
     await _persistPlayMode();
   }
 
@@ -577,6 +612,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _playerStateSubject.close();
     await _positionSubject.close();
     await _durationSubject.close();
+    await _currentTrackSubject.close();
+    await _queueSubject.close();
+    await _playModeSubject.close();
     await _audioPlayer.dispose();
   }
 
@@ -680,7 +718,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       if (_isSameTrack(candidate, original)) {
         _queue[i] = replacement;
         if (_currentIndex == i) {
-          _currentTrack = replacement;
+          _updateCurrentTrack(replacement);
         }
         changed = true;
       }
@@ -688,6 +726,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
     if (changed) {
       await _persistQueueState();
+      _notifyQueueChanged();
     }
   }
 
@@ -709,7 +748,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       if (updated != null && (updated.artworkPath ?? '').isNotEmpty) {
         await _replaceTrackInQueue(track, updated);
         if (_currentTrack != null && _isSameTrack(_currentTrack!, track)) {
-          _currentTrack = updated;
+          _updateCurrentTrack(updated);
           _emitPlayerStateSnapshot();
         }
         unawaited(_playbackHistoryRepository.updateTrackMetadata(updated));

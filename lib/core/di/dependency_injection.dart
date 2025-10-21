@@ -1,3 +1,4 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../data/datasources/local/database_helper.dart';
@@ -9,6 +10,7 @@ import '../../data/repositories/music_library_repository_impl.dart';
 import '../../data/repositories/lyrics_repository_impl.dart';
 import '../../data/repositories/playback_history_repository_impl.dart';
 import '../../data/services/audio_player_service_impl.dart';
+import '../../data/services/misuzu_audio_handler.dart';
 import '../../data/datasources/remote/netease_api_client.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/lyrics_repository.dart';
@@ -20,6 +22,7 @@ import '../theme/theme_controller.dart';
 import '../../domain/usecases/lyrics_usecases.dart';
 import '../storage/storage_path_provider.dart';
 import '../storage/binary_config_store.dart';
+import '../../data/storage/playlist_file_storage.dart';
 
 final sl = GetIt.instance;
 
@@ -36,6 +39,7 @@ class DependencyInjection {
       await configStore.init();
       sl.registerSingleton(storagePathProvider);
       sl.registerSingleton(configStore);
+      sl.registerLazySingleton(() => PlaylistFileStorage(sl()));
 
       // Core
       print('🗄️ 初始化数据库...');
@@ -44,7 +48,7 @@ class DependencyInjection {
       // Data sources
       print('📊 注册数据源...');
       sl.registerLazySingleton<MusicLocalDataSource>(
-        () => MusicLocalDataSourceImpl(sl()),
+        () => MusicLocalDataSourceImpl(sl(), sl()),
       );
 
       sl.registerLazySingleton<LyricsLocalDataSource>(
@@ -81,6 +85,17 @@ class DependencyInjection {
           sl<MusicLibraryRepository>(),
         ),
       );
+
+      print('🎧 初始化音频处理程序...');
+      final audioHandler = await AudioService.init(
+        builder: () => MisuzuAudioHandler(sl<AudioPlayerService>()),
+        config: const AudioServiceConfig(
+          androidNotificationChannelId: 'com.aimessoft.misuzumusic.playback',
+          androidNotificationChannelName: 'Misuzu Music',
+          androidStopForegroundOnPause: true,
+        ),
+      );
+      sl.registerSingleton<AudioHandler>(audioHandler);
 
       sl.registerLazySingleton(() => ThemeController(sl()));
 
