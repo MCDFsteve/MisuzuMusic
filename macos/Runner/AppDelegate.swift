@@ -77,37 +77,109 @@ class AppDelegate: FlutterAppDelegate {
       return
     }
 
-    mainMenu.item(at: 0)?.title = "Misuzu Music"
-    mainMenu.item(at: 1)?.title = "控制"
-    mainMenu.item(at: 2)?.title = "窗口"
-    mainMenu.item(at: 3)?.title = "帮助"
+    let appMenuTitle = localizedMenuString(forKey: "menu.app.title", fallback: "Misuzu 音乐")
+
+    mainMenu.item(at: 0)?.title = appMenuTitle
+    mainMenu.item(at: 1)?.title = localizedMenuString(forKey: "menu.control.title", fallback: "控制")
+    mainMenu.item(at: 2)?.title = localizedMenuString(forKey: "menu.window.title", fallback: "窗口")
+    mainMenu.item(at: 3)?.title = localizedMenuString(forKey: "menu.help.title", fallback: "帮助")
 
     if let appMenu = mainMenu.item(at: 0)?.submenu {
-      appMenu.item(withTitle: "关于 Misuzu Music")?.title = "关于 Misuzu Music"
-      appMenu.item(withTitle: "设置…")?.title = "设置…"
-      appMenu.item(withTitle: "隐藏 Misuzu Music")?.title = "隐藏 Misuzu Music"
-      appMenu.item(withTitle: "隐藏其他")?.title = "隐藏其他"
-      appMenu.item(withTitle: "全部显示")?.title = "全部显示"
-      appMenu.item(withTitle: "退出 Misuzu Music")?.title = "退出 Misuzu Music"
+      if let aboutItem = appMenu.item(at: 0) {
+        let title = String(
+          format: localizedMenuString(forKey: "menu.app.about", fallback: "关于 %@"),
+          appMenuTitle
+        )
+        aboutItem.title = title
+      }
+
+      if let settingsItem = appMenu.item(at: 2) {
+        settingsItem.title = localizedMenuString(forKey: "menu.app.settings", fallback: "设置…")
+      }
+
+      if let servicesItem = appMenu.item(at: 4) {
+        servicesItem.title = localizedMenuString(forKey: "menu.app.services", fallback: "服务")
+      }
+
+      if let hideItem = appMenu.item(at: 6) {
+        let title = String(
+          format: localizedMenuString(forKey: "menu.app.hide", fallback: "隐藏 %@"),
+          appMenuTitle
+        )
+        hideItem.title = title
+      }
+
+      if let hideOthersItem = appMenu.item(at: 7) {
+        hideOthersItem.title = localizedMenuString(forKey: "menu.app.hideOthers", fallback: "隐藏其他")
+      }
+
+      if let showAllItem = appMenu.item(at: 8) {
+        showAllItem.title = localizedMenuString(forKey: "menu.app.showAll", fallback: "全部显示")
+      }
+
+      if let quitItem = appMenu.item(at: 10) {
+        let title = String(
+          format: localizedMenuString(forKey: "menu.app.quit", fallback: "退出 %@"),
+          appMenuTitle
+        )
+        quitItem.title = title
+      }
     }
 
     if let controlMenu = mainMenu.item(at: 1)?.submenu {
-      controlMenu.item(at: 0)?.title = "上一曲"
-      controlMenu.item(at: 1)?.title = "播放/暂停"
-      controlMenu.item(at: 2)?.title = "下一曲"
-      controlMenu.item(at: 4)?.title = "音量调大"
-      controlMenu.item(at: 5)?.title = "音量调小"
-      controlMenu.item(at: 7)?.title = "切换播放模式"
+      controlMenu.item(at: 0)?.title = localizedMenuString(
+        forKey: "menu.control.previous",
+        fallback: "上一曲"
+      )
+      controlMenu.item(at: 1)?.title = localizedMenuString(
+        forKey: "menu.control.playPause",
+        fallback: "播放/暂停"
+      )
+      controlMenu.item(at: 2)?.title = localizedMenuString(
+        forKey: "menu.control.next",
+        fallback: "下一曲"
+      )
+      controlMenu.item(at: 4)?.title = localizedMenuString(
+        forKey: "menu.control.volumeUp",
+        fallback: "音量调大"
+      )
+      controlMenu.item(at: 5)?.title = localizedMenuString(
+        forKey: "menu.control.volumeDown",
+        fallback: "音量调小"
+      )
+      controlMenu.item(at: 7)?.title = localizedMenuString(
+        forKey: "menu.control.cycleMode",
+        fallback: "切换播放模式"
+      )
     }
 
     if let windowMenu = mainMenu.item(at: 2)?.submenu {
-      windowMenu.item(withTitle: "Minimize")?.title = "最小化"
-      windowMenu.item(withTitle: "缩放")?.title = "缩放"
-      windowMenu.item(withTitle: "Bring All to Front")?.title = "全部置于顶层"
+      windowMenu.item(at: 0)?.title = localizedMenuString(
+        forKey: "menu.window.minimize",
+        fallback: "最小化"
+      )
+      windowMenu.item(at: 1)?.title = localizedMenuString(
+        forKey: "menu.window.zoom",
+        fallback: "缩放"
+      )
+      windowMenu.item(at: 3)?.title = localizedMenuString(
+        forKey: "menu.window.front",
+        fallback: "全部置于顶层"
+      )
     }
 
     if let helpMenu = mainMenu.item(at: 3)?.submenu {
-      helpMenu.item(at: 0)?.title = "Misuzu Music 帮助"
+      if let helpItem = helpMenu.item(at: 0) {
+        let title = String(
+          format: localizedMenuString(forKey: "menu.help.documentation", fallback: "%@ 帮助"),
+          appMenuTitle
+        )
+        helpItem.title = title
+      }
     }
+  }
+
+  private func localizedMenuString(forKey key: String, fallback: String) -> String {
+    return Bundle.main.localizedString(forKey: key, value: fallback, table: nil)
   }
 }
