@@ -335,18 +335,18 @@ class _HomePageContentState extends State<HomePageContent> {
   Future<void> _handleAddTrackToPlaylist(Track track) async {
     final playlistsCubit = context.read<PlaylistsCubit>();
 
-    final result = await showMacosSheet<String?>(
+    final result = await showDialog<String?>(
       context: context,
       barrierDismissible: true,
-      builder: (sheetContext) => BlocProvider.value(
+      builder: (dialogContext) => BlocProvider.value(
         value: playlistsCubit,
-        child: _PlaylistSelectionSheet(track: track),
+        child: _PlaylistSelectionDialog(track: track),
       ),
     );
 
     if (!mounted) return;
 
-    if (result == _PlaylistSelectionSheet.createSignal) {
+    if (result == _PlaylistSelectionDialog.createSignal) {
       final newId = await showPlaylistCreationSheet(context, track: track);
       if (!mounted) return;
       if (newId != null) {

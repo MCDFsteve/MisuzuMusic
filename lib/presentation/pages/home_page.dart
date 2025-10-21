@@ -45,6 +45,7 @@ part 'home/widgets/blurred_artwork_background.dart';
 part 'home/widgets/playlist_message.dart';
 part 'home/dialogs/webdav_connection_dialog.dart';
 part 'home/dialogs/webdav_directory_picker_dialog.dart';
+part 'home/dialogs/playlist_modal_components.dart';
 part 'home/dialogs/playlist_creation_dialog.dart';
 part 'home/views/music_library_view.dart';
 part 'home/views/playlist_view.dart';
