@@ -30,6 +30,7 @@ import '../widgets/common/adaptive_scrollbar.dart';
 import '../widgets/common/artwork_thumbnail.dart';
 import '../widgets/common/library_search_field.dart';
 import '../widgets/common/track_list_tile.dart';
+import '../widgets/common/hover_glow_overlay.dart';
 import '../widgets/macos/collection/collection_overview_grid.dart';
 import '../widgets/macos/collection/collection_summary_card.dart';
 import '../widgets/macos/macos_player_control_bar.dart';
@@ -44,11 +45,11 @@ part 'home/widgets/blurred_artwork_background.dart';
 part 'home/widgets/playlist_message.dart';
 part 'home/dialogs/webdav_connection_dialog.dart';
 part 'home/dialogs/webdav_directory_picker_dialog.dart';
+part 'home/dialogs/playlist_creation_dialog.dart';
 part 'home/views/music_library_view.dart';
 part 'home/views/playlist_view.dart';
 part 'home/views/playlists_view.dart';
 part 'home/sheets/playlist_selection_sheet.dart';
-part 'home/sheets/playlist_creation_sheet.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
