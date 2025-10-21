@@ -267,6 +267,8 @@ class PlaylistModel extends Playlist {
     required super.trackIds,
     required super.createdAt,
     required super.updatedAt,
+    super.description,
+    super.coverPath,
   });
 
   factory PlaylistModel.fromEntity(Playlist playlist) {
@@ -276,6 +278,8 @@ class PlaylistModel extends Playlist {
       trackIds: playlist.trackIds,
       createdAt: playlist.createdAt,
       updatedAt: playlist.updatedAt,
+      description: playlist.description,
+      coverPath: playlist.coverPath,
     );
   }
 
@@ -286,6 +290,8 @@ class PlaylistModel extends Playlist {
       trackIds: [], // Will be populated separately from playlist_tracks table
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
+      description: map['description'] as String?,
+      coverPath: map['cover_path'] as String?,
     );
   }
 
@@ -295,6 +301,8 @@ class PlaylistModel extends Playlist {
       'name': name,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
+      'description': description,
+      'cover_path': coverPath,
     };
   }
 
@@ -305,6 +313,8 @@ class PlaylistModel extends Playlist {
       trackIds: trackIds,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      description: description,
+      coverPath: coverPath,
     );
   }
 
@@ -315,6 +325,8 @@ class PlaylistModel extends Playlist {
     List<String>? trackIds,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? description,
+    String? coverPath,
   }) {
     return PlaylistModel(
       id: id ?? this.id,
@@ -322,6 +334,8 @@ class PlaylistModel extends Playlist {
       trackIds: trackIds ?? this.trackIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      description: description ?? this.description,
+      coverPath: coverPath ?? this.coverPath,
     );
   }
 }

@@ -33,6 +33,7 @@ abstract class MusicLibraryRepository {
   Future<void> deletePlaylist(String id);
   Future<void> addTrackToPlaylist(String playlistId, String trackId);
   Future<void> removeTrackFromPlaylist(String playlistId, String trackId);
+  Future<List<Track>> getPlaylistTracks(String playlistId);
 
   // Library management
   Future<void> scanDirectory(String path);

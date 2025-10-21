@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../blocs/player/player_bloc.dart';
 import '../../../domain/entities/lyrics_entities.dart';
@@ -88,6 +89,15 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         _scrollToIndex(_activeIndex);
       });
     }
+
+    if (_activeIndex >= 0 &&
+        oldWidget.lines.length == widget.lines.length &&
+        oldWidget.lines[_activeIndex] != widget.lines[_activeIndex]) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _scrollToIndex(_activeIndex);
+      });
+    }
   }
 
   @override
@@ -157,6 +167,32 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
     final BuildContext? targetContext = _itemKeys[index].currentContext;
     if (targetContext != null) {
+      final renderObject = targetContext.findRenderObject();
+      final position = widget.controller.position;
+      if (renderObject is RenderBox) {
+        final viewport = RenderAbstractViewport.of(renderObject);
+        if (viewport != null) {
+          final revealTop = viewport
+              .getOffsetToReveal(renderObject, 0.0)
+              .offset;
+          final revealBottom = viewport
+              .getOffsetToReveal(renderObject, 1.0)
+              .offset;
+          final itemHeight = revealBottom - revealTop;
+          final targetOffset =
+              revealTop - (position.viewportDimension - itemHeight) / 2.0;
+          final clamped = targetOffset.clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          );
+          widget.controller.animateTo(
+            clamped,
+            duration: const Duration(milliseconds: 360),
+            curve: Curves.easeOutQuad,
+          );
+          return;
+        }
+      }
       Scrollable.ensureVisible(
         targetContext,
         alignment: 0.5,
@@ -181,15 +217,12 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     final double placeholderHeight =
         _approxLineHeight(context) + _linePadding.vertical;
     final double viewportHeight = position.viewportDimension;
-    final double edgeSpacer = math.max(
-      0.0,
-      viewportHeight * 0.5 - placeholderHeight * 0.5,
-    );
+    final double halfViewport = viewportHeight * 0.5;
+    final double edgeSpacer = halfViewport;
 
     final double roughCenterOffset = edgeSpacer + placeholderHeight * index;
-    final double targetOffset =
-        roughCenterOffset -
-        math.max(0.0, viewportHeight * 0.5 - placeholderHeight * 0.5);
+    final double targetOffset = roughCenterOffset - halfViewport +
+        placeholderHeight * 0.5;
     final double clampedOffset = targetOffset.clamp(
       position.minScrollExtent,
       position.maxScrollExtent,
@@ -294,10 +327,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         );
         final double sharpDistance = math.max(0.0, halfViewport - blurBand);
         final double blurMaxDistance = halfViewport;
-        final double edgeSpacer = math.max(
-          0.0,
-          halfViewport - placeholderHeight * 0.5,
-        );
+        final double edgeSpacer = halfViewport;
 
         return BlocListener<PlayerBloc, PlayerBlocState>(
           listener: (context, state) {

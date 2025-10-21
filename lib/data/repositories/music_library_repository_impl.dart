@@ -343,6 +343,16 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   }
 
   @override
+  Future<List<Track>> getPlaylistTracks(String playlistId) async {
+    try {
+      final trackModels = await _localDataSource.getPlaylistTracks(playlistId);
+      return trackModels.map((model) => model.toEntity()).toList();
+    } catch (e) {
+      throw DatabaseException('Failed to get playlist tracks: ${e.toString()}');
+    }
+  }
+
+  @override
   Future<void> scanDirectory(String directoryPath) async {
     try {
       final directory = Directory(directoryPath);

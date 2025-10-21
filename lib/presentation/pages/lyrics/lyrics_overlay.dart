@@ -498,22 +498,23 @@ class _TranslationToggleButton extends StatelessWidget {
         ? 'icons/tran2.png'
         : (isActive ? 'icons/tran.png' : 'icons/tran2.png');
 
+    final double iconSize = 30;
+    final Color activeColor = iconColor;
+    final Color inactiveColor = iconColor.withOpacity(0.82);
+    final Color disabledColor = iconColor.withOpacity(0.42);
+
     return MacosTooltip(
       message: tooltip,
       child: _HoverGlyphButton(
         enabled: isEnabled,
         onPressed: onPressed,
-        baseColor: iconColor.withOpacity(isActive ? 1.0 : 0.85),
-        hoverColor: iconColor,
-        disabledColor: iconColor.withOpacity(0.45),
-        iconBuilder: (color) => Image.asset(
-          assetPath,
-          width: 23,
-          height: 23,
-          color: color,
-          colorBlendMode: BlendMode.srcIn,
-          filterQuality: FilterQuality.high,
-        ),
+        assetPath: assetPath,
+        size: iconSize,
+        baseColor: isEnabled
+            ? (isActive ? activeColor : inactiveColor)
+            : disabledColor,
+        hoverColor: isEnabled ? activeColor : disabledColor,
+        disabledColor: disabledColor,
       ),
     );
   }
@@ -523,18 +524,20 @@ class _HoverGlyphButton extends StatefulWidget {
   const _HoverGlyphButton({
     required this.enabled,
     required this.onPressed,
-    required this.iconBuilder,
+    required this.assetPath,
     required this.baseColor,
     required this.hoverColor,
     required this.disabledColor,
+    this.size = 30,
   });
 
   final bool enabled;
   final VoidCallback? onPressed;
-  final Widget Function(Color color) iconBuilder;
+  final String assetPath;
   final Color baseColor;
   final Color hoverColor;
   final Color disabledColor;
+  final double size;
 
   @override
   State<_HoverGlyphButton> createState() => _HoverGlyphButtonState();
@@ -585,8 +588,10 @@ class _HoverGlyphButtonState extends State<_HoverGlyphButton> {
       scale: _currentScale,
       duration: const Duration(milliseconds: 140),
       curve: _pressing ? Curves.easeInOut : Curves.easeOutBack,
-      child: widget.iconBuilder(
-        _pressing && _enabled ? widget.hoverColor : _currentColor,
+      child: MacosImageIcon(
+        AssetImage(widget.assetPath),
+        size: widget.size,
+        color: _pressing && _enabled ? widget.hoverColor : _currentColor,
       ),
     );
 

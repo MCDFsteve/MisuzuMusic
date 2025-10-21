@@ -9,7 +9,7 @@ class DatabaseHelper {
   DatabaseHelper(this._pathProvider);
 
   static const String _databaseName = 'misuzu_music.db';
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   final StoragePathProvider _pathProvider;
   Database? _database;
@@ -65,6 +65,8 @@ class DatabaseHelper {
         CREATE TABLE playlists (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
+          cover_path TEXT,
+          description TEXT,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
         )
@@ -158,6 +160,10 @@ class DatabaseHelper {
         await db.execute('ALTER TABLE tracks ADD COLUMN source_id TEXT');
         await db.execute('ALTER TABLE tracks ADD COLUMN remote_path TEXT');
         await db.execute('ALTER TABLE tracks ADD COLUMN http_headers TEXT');
+      }
+      if (oldVersion < 3) {
+        await db.execute('ALTER TABLE playlists ADD COLUMN cover_path TEXT');
+        await db.execute('ALTER TABLE playlists ADD COLUMN description TEXT');
       }
     } catch (e) {
       throw app_exceptions.DatabaseException(

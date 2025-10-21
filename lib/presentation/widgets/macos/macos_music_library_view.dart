@@ -16,6 +16,7 @@ class MacOSMusicLibraryView extends StatelessWidget {
   final List<Artist> artists;
   final List<Album> albums;
   final String? searchQuery;
+  final ValueChanged<Track>? onAddToPlaylist;
 
   const MacOSMusicLibraryView({
     super.key,
@@ -23,6 +24,7 @@ class MacOSMusicLibraryView extends StatelessWidget {
     required this.artists,
     required this.albums,
     this.searchQuery,
+    this.onAddToPlaylist,
   });
 
   @override
@@ -67,7 +69,7 @@ class MacOSMusicLibraryView extends StatelessWidget {
                 print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
                 final isRemoteTrack =
                     track.sourceType == TrackSourceType.webdav ||
-                        track.filePath.startsWith('webdav://');
+                    track.filePath.startsWith('webdav://');
 
                 if (isRemoteTrack) {
                   print('🎵 WebDAV 音轨，直接尝试远程播放');
@@ -88,6 +90,9 @@ class MacOSMusicLibraryView extends StatelessWidget {
                   PlayerSetQueue(tracks, startIndex: index),
                 );
               },
+              onSecondaryTap: onAddToPlaylist == null
+                  ? null
+                  : (_) => onAddToPlaylist!(track),
             );
           },
         );
