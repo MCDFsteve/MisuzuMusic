@@ -36,7 +36,10 @@ class CollectionSummaryCard extends StatelessWidget {
   final double cardSize;
 
   bool get _canShowArtwork =>
-      hasArtwork && artworkPath != null && artworkPath!.trim().isNotEmpty;
+      hasArtwork &&
+      artworkPath != null &&
+      artworkPath!.trim().isNotEmpty &&
+      !kIsWeb;
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +146,7 @@ class CollectionSummaryCard extends StatelessWidget {
   }
 
   Widget _buildArtworkWidget(bool isDark) {
-    if (_canShowArtwork && !kIsWeb) {
+    if (_canShowArtwork) {
       final file = File(artworkPath!);
       if (file.existsSync()) {
         return Image.file(file, fit: BoxFit.cover);

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -28,7 +27,6 @@ import '../blocs/playback_history/playback_history_state.dart';
 import '../blocs/playlists/playlists_cubit.dart';
 import '../widgets/macos/macos_player_control_bar.dart';
 import '../widgets/macos/macos_track_list_view.dart';
-import '../widgets/macos/collection/collection_detail_header.dart';
 import '../widgets/macos/collection/collection_overview_grid.dart';
 import '../widgets/macos/collection/collection_summary_card.dart';
 import '../widgets/common/artwork_thumbnail.dart';
@@ -108,6 +106,8 @@ class _HomePageContentState extends State<HomePageContent> {
   bool _lyricsVisible = false;
   Track? _lyricsActiveTrack;
   final FocusNode _shortcutFocusNode = FocusNode();
+  final GlobalKey<_PlaylistsViewState> _playlistsViewKey =
+      GlobalKey<_PlaylistsViewState>();
   late final VoidCallback _focusManagerListener;
 
   @override
@@ -174,6 +174,26 @@ class _HomePageContentState extends State<HomePageContent> {
     } else if (state is PlayerPaused) {
       playerBloc.add(const PlayerResume());
     }
+  }
+
+  Future<void> _handleCreatePlaylistFromHeader() async {
+    final playlistsCubit = context.read<PlaylistsCubit>();
+    final newId = await showPlaylistCreationSheet(context);
+    if (!mounted || newId == null) {
+      return;
+    }
+
+    await playlistsCubit.ensurePlaylistTracks(newId, force: true);
+
+    if (_selectedIndex != 1) {
+      setState(() {
+        _selectedIndex = 1;
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _playlistsViewKey.currentState?.openPlaylistById(newId);
+    });
   }
 
   Widget _buildMacOSLayout() {
@@ -311,6 +331,8 @@ class _HomePageContentState extends State<HomePageContent> {
                                         searchQuery: _searchQuery,
                                         onSearchChanged: _onSearchQueryChanged,
                                         onSelectMusicFolder: _selectMusicFolder,
+                                        onCreatePlaylist:
+                                            _handleCreatePlaylistFromHeader,
                                       ),
                                     ),
                                   ),
@@ -381,7 +403,10 @@ class _HomePageContentState extends State<HomePageContent> {
       case 0:
         return MusicLibraryView(onAddToPlaylist: _handleAddTrackToPlaylist);
       case 1:
-        return PlaylistsView(onAddToPlaylist: _handleAddTrackToPlaylist);
+        return PlaylistsView(
+          key: _playlistsViewKey,
+          onAddToPlaylist: _handleAddTrackToPlaylist,
+        );
       case 2:
         return PlaylistView(
           searchQuery: _activeSearchQuery,
@@ -630,6 +655,7 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _selectWebDavFolder() async {
     final connection = await _showWebDavConnectionDialog();
     if (connection == null) {
@@ -811,6 +837,7 @@ class _MacOSGlassHeader extends StatelessWidget {
     required this.searchQuery,
     required this.onSearchChanged,
     required this.onSelectMusicFolder,
+    required this.onCreatePlaylist,
   });
 
   final double height;
@@ -819,6 +846,7 @@ class _MacOSGlassHeader extends StatelessWidget {
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSelectMusicFolder;
+  final VoidCallback onCreatePlaylist;
 
   Future<void> _handleDoubleTap() async {
     if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
@@ -912,12 +940,25 @@ class _MacOSGlassHeader extends StatelessWidget {
                 ),
               ),
               MacosTooltip(
+                message: '新建歌单',
+                child: _HeaderIconButton(
+                  baseColor: textColor.withOpacity(0.72),
+                  hoverColor: textColor,
+                  size: 36,
+                  iconSize: 20,
+                  icon: CupertinoIcons.square_stack_3d_up,
+                  onPressed: onCreatePlaylist,
+                ),
+              ),
+              const SizedBox(width: 8),
+              MacosTooltip(
                 message: '选择音乐文件夹',
                 child: _HeaderIconButton(
                   baseColor: textColor.withOpacity(0.72),
                   hoverColor: textColor,
                   size: 36,
                   iconSize: 22,
+                  icon: CupertinoIcons.folder,
                   onPressed: onSelectMusicFolder,
                 ),
               ),
@@ -939,6 +980,7 @@ class _HeaderIconButton extends StatefulWidget {
   const _HeaderIconButton({
     required this.baseColor,
     required this.hoverColor,
+    required this.icon,
     required this.onPressed,
     this.size = 36,
     this.iconSize = 22,
@@ -946,6 +988,7 @@ class _HeaderIconButton extends StatefulWidget {
 
   final Color baseColor;
   final Color hoverColor;
+  final IconData icon;
   final VoidCallback onPressed;
   final double size;
   final double iconSize;
@@ -995,7 +1038,7 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
             height: widget.size,
             child: Center(
               child: MacosIcon(
-                CupertinoIcons.folder,
+                widget.icon,
                 size: widget.iconSize,
                 color: targetColor,
               ),
@@ -1960,8 +2003,6 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
 
   @override
   Widget build(BuildContext context) {
-    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
-
     return BlocBuilder<MusicLibraryBloc, MusicLibraryState>(
       builder: (context, state) {
         if (state is MusicLibraryLoading || state is MusicLibraryScanning) {
@@ -2373,15 +2414,17 @@ class _PlaylistsViewState extends State<PlaylistsView> {
   bool _showList = false;
   String? _activePlaylistId;
 
-  void _openPlaylist(Playlist playlist) {
+  void openPlaylistById(String id) {
+    if (!mounted) return;
     setState(() {
       _showList = true;
-      _activePlaylistId = playlist.id;
+      _activePlaylistId = id;
     });
-    context.read<PlaylistsCubit>().ensurePlaylistTracks(
-      playlist.id,
-      force: true,
-    );
+    context.read<PlaylistsCubit>().ensurePlaylistTracks(id, force: true);
+  }
+
+  void _openPlaylist(Playlist playlist) {
+    openPlaylistById(playlist.id);
   }
 
   void _returnOverview() {
@@ -2389,23 +2432,6 @@ class _PlaylistsViewState extends State<PlaylistsView> {
       _showList = false;
       _activePlaylistId = null;
     });
-  }
-
-  Future<void> _handleCreatePlaylist() async {
-    final newId = await showPlaylistCreationSheet(context);
-    if (!mounted) {
-      return;
-    }
-    if (newId != null) {
-      setState(() {
-        _showList = true;
-        _activePlaylistId = newId;
-      });
-      await context.read<PlaylistsCubit>().ensurePlaylistTracks(
-        newId,
-        force: true,
-      );
-    }
   }
 
   @override
@@ -2426,60 +2452,64 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const MacosIcon(
+              children: const [
+                MacosIcon(
                   CupertinoIcons.square_stack_3d_up,
                   size: 72,
                   color: MacosColors.systemGrayColor,
                 ),
-                const SizedBox(height: 16),
-                Text('暂无歌单', style: MacosTheme.of(context).typography.title2),
-                const SizedBox(height: 12),
-                PushButton(
-                  controlSize: ControlSize.large,
-                  onPressed: state.isProcessing ? null : _handleCreatePlaylist,
-                  child: const Text('新建歌单'),
-                ),
+                SizedBox(height: 12),
+                Text('暂无歌单'),
               ],
             ),
           );
         }
 
         if (!_showList) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _PlaylistsOverviewHeader(
-                  isProcessing: state.isProcessing,
-                  errorMessage: state.errorMessage,
-                  onCreatePlaylist: _handleCreatePlaylist,
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: CollectionOverviewGrid(
-                    itemCount: playlists.length,
-                    itemBuilder: (context, tileWidth, index) {
-                      final playlist = playlists[index];
-                      final subtitle =
-                          playlist.description?.trim().isNotEmpty == true
-                          ? playlist.description!.trim()
-                          : '歌单';
-                      return CollectionSummaryCard(
-                        title: playlist.name,
-                        subtitle: subtitle,
-                        detailText: '${playlist.trackIds.length} 首歌曲 · 点击查看全部',
-                        artworkPath: playlist.coverPath,
-                        hasArtwork: _coverExists(playlist.coverPath),
-                        fallbackIcon: CupertinoIcons.square_stack_3d_up,
-                        onTap: () => _openPlaylist(playlist),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+          return CollectionOverviewGrid(
+            itemCount: playlists.length,
+            itemBuilder: (context, tileWidth, index) {
+              final playlist = playlists[index];
+              final subtitle = playlist.description?.trim().isNotEmpty == true
+                  ? playlist.description!.trim()
+                  : '歌单';
+
+              final loadedTracks = state.playlistTracks[playlist.id];
+              if (loadedTracks == null) {
+                context.read<PlaylistsCubit>().ensurePlaylistTracks(
+                  playlist.id,
+                );
+              }
+
+              String? artworkPath;
+              bool hasArtwork = false;
+
+              if (loadedTracks != null && loadedTracks.isNotEmpty) {
+                final preview = loadedTracks.firstWhere(
+                  (track) => _trackArtworkExists(track.artworkPath),
+                  orElse: () => loadedTracks.first,
+                );
+                if (_trackArtworkExists(preview.artworkPath)) {
+                  artworkPath = preview.artworkPath;
+                  hasArtwork = true;
+                }
+              }
+
+              if (!hasArtwork && _coverExists(playlist.coverPath)) {
+                artworkPath = playlist.coverPath;
+                hasArtwork = true;
+              }
+
+              return CollectionSummaryCard(
+                title: playlist.name,
+                subtitle: subtitle,
+                detailText: '${playlist.trackIds.length} 首歌曲',
+                artworkPath: artworkPath,
+                hasArtwork: hasArtwork,
+                fallbackIcon: CupertinoIcons.square_stack_3d_up,
+                onTap: () => _openPlaylist(playlist),
+              );
+            },
           );
         }
 
@@ -2494,49 +2524,12 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           context.read<PlaylistsCubit>().ensurePlaylistTracks(playlist.id);
         }
 
-        final content = Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              CollectionDetailHeader(
-                title: playlist.name,
-                subtitle: playlist.description,
-                secondaryText:
-                    '${tracks?.length ?? playlist.trackIds.length} 首歌曲 · 最后更新于 ${_formatDate(playlist.updatedAt)}',
-                artworkPath: playlist.coverPath,
-                fallbackIcon: CupertinoIcons.square_stack_3d_up,
-                actions: [
-                  PushButton(
-                    onPressed: state.isProcessing
-                        ? null
-                        : _handleCreatePlaylist,
-                    controlSize: ControlSize.small,
-                    child: const Text('新建歌单'),
-                  ),
-                ],
-              ),
-              if (state.errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  state.errorMessage!,
-                  style: MacosTheme.of(context).typography.caption1.copyWith(
-                    color: MacosColors.systemRedColor,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Expanded(
-                child: isLoading
-                    ? const Center(child: ProgressCircle())
-                    : MacOSTrackListView(
-                        tracks: tracks ?? const [],
-                        onAddToPlaylist: widget.onAddToPlaylist,
-                      ),
-              ),
-            ],
-          ),
-        );
+        final content = isLoading
+            ? const Center(child: ProgressCircle())
+            : MacOSTrackListView(
+                tracks: tracks ?? const [],
+                onAddToPlaylist: widget.onAddToPlaylist,
+              );
 
         return Shortcuts(
           shortcuts: <LogicalKeySet, Intent>{
@@ -2552,7 +2545,13 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                 },
               ),
             },
-            child: Focus(autofocus: true, child: content),
+            child: Focus(
+              autofocus: true,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                child: content,
+              ),
+            ),
           ),
         );
       },
@@ -2573,60 +2572,15 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     }
   }
 
-  String _formatDate(DateTime dateTime) {
-    return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
-  }
-}
-
-class _PlaylistsOverviewHeader extends StatelessWidget {
-  const _PlaylistsOverviewHeader({
-    required this.isProcessing,
-    required this.onCreatePlaylist,
-    this.errorMessage,
-  });
-
-  final bool isProcessing;
-  final VoidCallback onCreatePlaylist;
-  final String? errorMessage;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = MacosTheme.of(context);
-
-    return Row(
-      children: [
-        Text(
-          '歌单',
-          style: theme.typography.title2.copyWith(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(width: 12),
-        if (errorMessage != null)
-          Expanded(
-            child: Text(
-              errorMessage!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.typography.caption1.copyWith(
-                color: MacosColors.systemRedColor,
-              ),
-            ),
-          )
-        else
-          const Spacer(),
-        PushButton(
-          onPressed: isProcessing ? null : onCreatePlaylist,
-          controlSize: ControlSize.small,
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              MacosIcon(CupertinoIcons.plus),
-              SizedBox(width: 6),
-              Text('新建歌单'),
-            ],
-          ),
-        ),
-      ],
-    );
+  bool _trackArtworkExists(String? path) {
+    if (path == null || path.trim().isEmpty || kIsWeb) {
+      return false;
+    }
+    try {
+      return File(path).existsSync();
+    } catch (_) {
+      return false;
+    }
   }
 }
 
