@@ -13,6 +13,17 @@ class _PlaylistsViewState extends State<PlaylistsView> {
   bool _showList = false;
   String? _activePlaylistId;
 
+  Future<void> _editPlaylist(Playlist playlist) async {
+    final result = await showPlaylistEditDialog(context, playlist: playlist);
+    if (!mounted) {
+      return;
+    }
+    if (result == _PlaylistCreationDialog.deleteSignal &&
+        _activePlaylistId == playlist.id) {
+      _returnOverview();
+    }
+  }
+
   void openPlaylistById(String id) {
     if (!mounted) return;
     setState(() {
@@ -107,6 +118,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                 hasArtwork: hasArtwork,
                 fallbackIcon: CupertinoIcons.square_stack_3d_up,
                 onTap: () => _openPlaylist(playlist),
+                onSecondaryTap: () => _editPlaylist(playlist),
               );
             },
           );

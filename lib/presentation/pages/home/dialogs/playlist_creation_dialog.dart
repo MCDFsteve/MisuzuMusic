@@ -19,10 +19,36 @@ Future<String?> showPlaylistCreationSheet(
   return result;
 }
 
+Future<String?> showPlaylistEditDialog(
+  BuildContext context, {
+  required Playlist playlist,
+}) async {
+  final playlistsCubit = context.read<PlaylistsCubit>();
+  final result = await showPlaylistModalDialog<String?>(
+    context: context,
+    barrierDismissible: true,
+    builder: (_) => BlocProvider.value(
+      value: playlistsCubit,
+      child: _PlaylistCreationDialog(initialPlaylist: playlist),
+    ),
+  );
+  if (result != null &&
+      result != _PlaylistCreationDialog.deleteSignal &&
+      result == playlist.id) {
+    await playlistsCubit.ensurePlaylistTracks(playlist.id, force: true);
+  }
+  return result;
+}
+
 class _PlaylistCreationDialog extends StatefulWidget {
-  const _PlaylistCreationDialog({this.initialTrack});
+  const _PlaylistCreationDialog({this.initialTrack, this.initialPlaylist});
+
+  static const String deleteSignal = '__delete_playlist__';
 
   final Track? initialTrack;
+  final Playlist? initialPlaylist;
+
+  bool get isEditing => initialPlaylist != null;
 
   @override
   State<_PlaylistCreationDialog> createState() =>
@@ -38,9 +64,16 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
   @override
   void initState() {
     super.initState();
-    final track = widget.initialTrack;
-    if (track != null) {
-      _nameController.text = '${track.artist} - ${track.album}';
+    final playlist = widget.initialPlaylist;
+    if (playlist != null) {
+      _nameController.text = playlist.name;
+      _descriptionController.text = playlist.description ?? '';
+      _coverPath = playlist.coverPath;
+    } else {
+      final track = widget.initialTrack;
+      if (track != null) {
+        _nameController.text = '${track.artist} - ${track.album}';
+      }
     }
   }
 
@@ -65,9 +98,11 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
     final playlistsCubit = context.watch<PlaylistsCubit>();
     final state = playlistsCubit.state;
     final theme = Theme.of(context);
+    final isEditing = widget.isEditing;
+    final dialogTitle = isEditing ? '编辑歌单' : '新建歌单';
 
     return _PlaylistModalScaffold(
-      title: '新建歌单',
+      title: dialogTitle,
       maxWidth: 340,
       contentSpacing: 14,
       actionsSpacing: 16,
@@ -146,45 +181,90 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
               ? null
               : () => Navigator.of(context).pop(),
         ),
+        if (isEditing)
+          _SheetActionButton.secondary(
+            label: '删除歌单',
+            onPressed: state.isProcessing
+                ? null
+                : () => _handleDelete(playlistsCubit),
+          ),
         _SheetActionButton.primary(
           label: '保存',
           onPressed: state.isProcessing
               ? null
-              : () async {
-                  final name = _nameController.text.trim();
-                  if (name.isEmpty) {
-                    setState(() {
-                      _error = '歌单名称不能为空';
-                    });
-                    return;
-                  }
-                  final playlistsCubit = context.read<PlaylistsCubit>();
-                  final newId = await playlistsCubit.createPlaylist(
-                    name: name,
-                    description: _descriptionController.text.trim(),
-                    coverPath: _coverPath,
-                  );
-                  if (!mounted) return;
-                  if (newId == null) {
-                    setState(() {
-                      _error = playlistsCubit.state.errorMessage ?? '创建歌单失败';
-                    });
-                    return;
-                  }
-                  if (widget.initialTrack != null) {
-                    await playlistsCubit.addTrackToPlaylist(
-                      newId,
-                      widget.initialTrack!,
-                    );
-                  }
-                  if (mounted) {
-                    Navigator.of(context).pop(newId);
-                  }
-                },
+              : () => _handleSubmit(playlistsCubit),
           isBusy: state.isProcessing,
         ),
       ],
     );
+  }
+
+  Future<void> _handleSubmit(PlaylistsCubit playlistsCubit) async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      setState(() {
+        _error = '歌单名称不能为空';
+      });
+      return;
+    }
+
+    setState(() {
+      _error = null;
+    });
+
+    if (widget.isEditing) {
+      final playlist = widget.initialPlaylist!;
+      final success = await playlistsCubit.updatePlaylist(
+        playlistId: playlist.id,
+        name: name,
+        description: _descriptionController.text.trim(),
+        coverPath: _coverPath,
+      );
+      if (!mounted) return;
+      if (!success) {
+        setState(() {
+          _error = playlistsCubit.state.errorMessage ?? '保存失败';
+        });
+        return;
+      }
+      Navigator.of(context).pop(playlist.id);
+      return;
+    }
+
+    final newId = await playlistsCubit.createPlaylist(
+      name: name,
+      description: _descriptionController.text.trim(),
+      coverPath: _coverPath,
+    );
+    if (!mounted) return;
+    if (newId == null) {
+      setState(() {
+        _error = playlistsCubit.state.errorMessage ?? '创建歌单失败';
+      });
+      return;
+    }
+    if (widget.initialTrack != null) {
+      await playlistsCubit.addTrackToPlaylist(newId, widget.initialTrack!);
+    }
+    if (mounted) {
+      Navigator.of(context).pop(newId);
+    }
+  }
+
+  Future<void> _handleDelete(PlaylistsCubit playlistsCubit) async {
+    final playlist = widget.initialPlaylist;
+    if (playlist == null) {
+      return;
+    }
+    final success = await playlistsCubit.deletePlaylist(playlist.id);
+    if (!mounted) return;
+    if (!success) {
+      setState(() {
+        _error = playlistsCubit.state.errorMessage ?? '删除歌单失败';
+      });
+      return;
+    }
+    Navigator.of(context).pop(_PlaylistCreationDialog.deleteSignal);
   }
 }
 

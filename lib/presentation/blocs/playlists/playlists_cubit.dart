@@ -151,4 +151,84 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
       emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
     }
   }
+
+  Future<bool> updatePlaylist({
+    required String playlistId,
+    required String name,
+    String? description,
+    String? coverPath,
+  }) async {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) {
+      emit(state.copyWith(errorMessage: '歌单名称不能为空'));
+      return false;
+    }
+
+    emit(state.copyWith(isProcessing: true, clearError: true));
+    try {
+      Playlist? sourcePlaylist;
+      for (final item in state.playlists) {
+        if (item.id == playlistId) {
+          sourcePlaylist = item;
+          break;
+        }
+      }
+      sourcePlaylist ??= await _repository.getPlaylistById(playlistId);
+      if (sourcePlaylist == null) {
+        emit(state.copyWith(isProcessing: false, errorMessage: '未找到该歌单'));
+        return false;
+      }
+
+      final updated = sourcePlaylist.copyWith(
+        name: trimmedName,
+        description: description?.trim().isEmpty == true
+            ? null
+            : description?.trim(),
+        coverPath: coverPath?.trim().isEmpty == true ? null : coverPath?.trim(),
+        updatedAt: DateTime.now(),
+      );
+
+      await _repository.updatePlaylist(updated);
+
+      final updatedPlaylists = state.playlists
+          .map((playlist) => playlist.id == playlistId ? updated : playlist)
+          .toList();
+
+      emit(
+        state.copyWith(
+          isProcessing: false,
+          playlists: updatedPlaylists,
+          clearError: true,
+        ),
+      );
+      return true;
+    } catch (e) {
+      emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
+      return false;
+    }
+  }
+
+  Future<bool> deletePlaylist(String playlistId) async {
+    emit(state.copyWith(isProcessing: true, clearError: true));
+    try {
+      await _repository.deletePlaylist(playlistId);
+      final updatedPlaylists = state.playlists
+          .where((playlist) => playlist.id != playlistId)
+          .toList();
+      final updatedTracks = Map<String, List<Track>>.from(state.playlistTracks)
+        ..remove(playlistId);
+      emit(
+        state.copyWith(
+          isProcessing: false,
+          playlists: updatedPlaylists,
+          playlistTracks: updatedTracks,
+          clearError: true,
+        ),
+      );
+      return true;
+    } catch (e) {
+      emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
+      return false;
+    }
+  }
 }

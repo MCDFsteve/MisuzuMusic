@@ -223,11 +223,11 @@ class _FrostedDialogSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseColor = isDark
-        ? const Color(0xFF1C1C1E).withOpacity(0.33)
-        : Colors.white.withOpacity(0.5);
+        ? const Color(0xFF0F0F11).withOpacity(0.82)
+        : Colors.white.withOpacity(0.88);
     final borderColor = isDark
-        ? Colors.white.withOpacity(0.1)
-        : Colors.black.withOpacity(0.07);
+        ? Colors.white.withOpacity(0.06)
+        : Colors.black.withOpacity(0.1);
 
     final card = ClipRRect(
       borderRadius: BorderRadius.circular(14),

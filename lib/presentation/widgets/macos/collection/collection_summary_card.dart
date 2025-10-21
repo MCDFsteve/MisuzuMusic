@@ -21,6 +21,7 @@ class CollectionSummaryCard extends StatelessWidget {
     this.onRemove,
     this.contextMenuLabel,
     this.cardSize = 220,
+    this.onSecondaryTap,
   });
 
   final String title;
@@ -34,6 +35,7 @@ class CollectionSummaryCard extends StatelessWidget {
   final VoidCallback? onRemove;
   final String? contextMenuLabel;
   final double cardSize;
+  final VoidCallback? onSecondaryTap;
 
   bool get _canShowArtwork =>
       hasArtwork &&
@@ -92,14 +94,20 @@ class CollectionSummaryCard extends StatelessWidget {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
-        onSecondaryTapDown: onRemove == null
-            ? null
-            : (details) =>
-                  _showContextMenu(context, details.globalPosition, subtitle),
-        onLongPressStart: onRemove == null
-            ? null
-            : (details) =>
-                  _showContextMenu(context, details.globalPosition, subtitle),
+        onSecondaryTapDown: (details) {
+          if (onSecondaryTap != null) {
+            onSecondaryTap!();
+          } else if (onRemove != null) {
+            _showContextMenu(context, details.globalPosition, subtitle);
+          }
+        },
+        onLongPressStart: (details) {
+          if (onSecondaryTap != null) {
+            onSecondaryTap!();
+          } else if (onRemove != null) {
+            _showContextMenu(context, details.globalPosition, subtitle);
+          }
+        },
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
