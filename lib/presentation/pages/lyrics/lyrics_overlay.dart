@@ -33,7 +33,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late Track _currentTrack;
   late final ScrollController _lyricsScrollController;
   late final LyricsCubit _lyricsCubit;
-  bool _showTranslation = true;
+  static bool _lastTranslationPreference = true;
+  bool _showTranslation = _lastTranslationPreference;
 
   @override
   void initState() {
@@ -76,6 +77,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     setState(() {
       _showTranslation = !_showTranslation;
     });
+    _lastTranslationPreference = _showTranslation;
   }
 
   Track? _extractTrack(PlayerBlocState state) {
