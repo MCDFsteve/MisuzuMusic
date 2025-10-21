@@ -97,7 +97,93 @@ class HomePage extends StatelessWidget {
           create: (context) => PlaylistsCubit(sl<MusicLibraryRepository>()),
         ),
       ],
-      child: const HomePageContent(),
+      child: const _MediaControlShortcutScope(
+        child: HomePageContent(),
+      ),
     );
   }
+}
+
+class _MediaControlShortcutScope extends StatelessWidget {
+  const _MediaControlShortcutScope({required this.child});
+
+  final Widget child;
+
+  static final Map<LogicalKeySet, Intent> _shortcuts = <LogicalKeySet, Intent>{
+    LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious): const _PreviousTrackIntent(),
+    LogicalKeySet(LogicalKeyboardKey.mediaPlayPause): const _TogglePlayPauseIntent(),
+    LogicalKeySet(LogicalKeyboardKey.mediaTrackNext): const _NextTrackIntent(),
+    LogicalKeySet(LogicalKeyboardKey.f7): const _PreviousTrackIntent(),
+    LogicalKeySet(LogicalKeyboardKey.f8): const _TogglePlayPauseIntent(),
+    LogicalKeySet(LogicalKeyboardKey.f9): const _NextTrackIntent(),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Platform.isMacOS) {
+      return child;
+    }
+
+    void dispatchPrevious() {
+      context.read<PlayerBloc>().add(const PlayerSkipPrevious());
+    }
+
+    void dispatchNext() {
+      context.read<PlayerBloc>().add(const PlayerSkipNext());
+    }
+
+    void dispatchToggle() {
+      final bloc = context.read<PlayerBloc>();
+      final state = bloc.state;
+      if (state is PlayerPlaying) {
+        bloc.add(const PlayerPause());
+      } else if (state is PlayerPaused) {
+        bloc.add(const PlayerResume());
+      }
+    }
+
+    return Shortcuts(
+      shortcuts: _shortcuts,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _PreviousTrackIntent: CallbackAction<_PreviousTrackIntent>(
+            onInvoke: (_) {
+              dispatchPrevious();
+              return null;
+            },
+          ),
+          _TogglePlayPauseIntent: CallbackAction<_TogglePlayPauseIntent>(
+            onInvoke: (_) {
+              dispatchToggle();
+              return null;
+            },
+          ),
+          _NextTrackIntent: CallbackAction<_NextTrackIntent>(
+            onInvoke: (_) {
+              dispatchNext();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          canRequestFocus: true,
+          includeSemantics: false,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _PreviousTrackIntent extends Intent {
+  const _PreviousTrackIntent();
+}
+
+class _TogglePlayPauseIntent extends Intent {
+  const _TogglePlayPauseIntent();
+}
+
+class _NextTrackIntent extends Intent {
+  const _NextTrackIntent();
 }

@@ -35,6 +35,9 @@ abstract class AudioPlayerService {
   Stream<PlayerState> get playerStateStream;
   Stream<Duration> get positionStream;
   Stream<Duration> get durationStream;
+  Stream<Track?> get currentTrackStream;
+  Stream<List<Track>> get queueStream;
+  Stream<PlayMode> get playModeStream;
   Track? get currentTrack;
   Duration get currentPosition;
   Duration get duration;
