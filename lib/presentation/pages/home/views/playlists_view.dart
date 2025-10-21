@@ -128,6 +128,8 @@ class _PlaylistsViewState extends State<PlaylistsView> {
             : MacOSTrackListView(
                 tracks: tracks ?? const [],
                 onAddToPlaylist: widget.onAddToPlaylist,
+                onRemoveFromPlaylist: (track) =>
+                    _removeTrackFromPlaylist(playlist.id, track),
               );
 
         return Shortcuts(
@@ -174,6 +176,11 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<void> _removeTrackFromPlaylist(String playlistId, Track track) async {
+    final playlistsCubit = context.read<PlaylistsCubit>();
+    await playlistsCubit.removeTrackFromPlaylist(playlistId, track);
   }
 
   _ResolvedArtwork? _resolvePlaylistArtwork(

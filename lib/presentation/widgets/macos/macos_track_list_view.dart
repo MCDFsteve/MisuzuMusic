@@ -17,10 +17,12 @@ class MacOSTrackListView extends StatelessWidget {
     super.key,
     required this.tracks,
     this.onAddToPlaylist,
+    this.onRemoveFromPlaylist,
   });
 
   final List<Track> tracks;
   final ValueChanged<Track>? onAddToPlaylist;
+  final ValueChanged<Track>? onRemoveFromPlaylist;
 
   @override
   Widget build(BuildContext context) {
@@ -76,14 +78,60 @@ class MacOSTrackListView extends StatelessWidget {
                   PlayerSetQueue(tracks, startIndex: index),
                 );
               },
-              onSecondaryTap: onAddToPlaylist == null
-                  ? null
-                  : (_) => onAddToPlaylist!(track),
+              onSecondaryTap: (position) {
+                _handleSecondaryTap(context, position, track);
+              },
             );
           },
         );
       },
     );
+  }
+
+  Future<void> _handleSecondaryTap(
+    BuildContext context,
+    Offset globalPosition,
+    Track track,
+  ) async {
+    final hasAddOption = onAddToPlaylist != null;
+    final hasRemoveOption = onRemoveFromPlaylist != null;
+
+    if (!hasAddOption && !hasRemoveOption) {
+      return;
+    }
+
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final menuPosition = RelativeRect.fromLTRB(
+      globalPosition.dx,
+      globalPosition.dy,
+      overlay.size.width - globalPosition.dx,
+      overlay.size.height - globalPosition.dy,
+    );
+
+    final items = <PopupMenuEntry<String>>[];
+    if (hasAddOption) {
+      items.add(const PopupMenuItem(value: 'add', child: Text('添加到歌单')));
+    }
+    if (hasRemoveOption) {
+      items.add(const PopupMenuItem(value: 'remove', child: Text('从歌单删除')));
+    }
+
+    final selection = await showMenu<String>(
+      context: context,
+      position: menuPosition,
+      items: items,
+    );
+
+    switch (selection) {
+      case 'add':
+        onAddToPlaylist?.call(track);
+        break;
+      case 'remove':
+        onRemoveFromPlaylist?.call(track);
+        break;
+      default:
+        break;
+    }
   }
 
   String _formatDuration(Duration duration) {
