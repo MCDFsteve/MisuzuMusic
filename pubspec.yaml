@@ -53,7 +53,6 @@ dependencies:
   hive_flutter: ^1.1.0
 
   # Japanese Text Processing
-  jp_transliterate: ^1.0.5
 
   # Platform Specific UI
   macos_ui: ^2.2.0
@@ -104,6 +103,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/japanese_dictionary/words.csv
     - icons/tran.png
     - icons/tran2.png
 

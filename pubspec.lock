@@ -536,14 +536,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
-  jp_transliterate:
-    dependency: "direct main"
-    description:
-      name: jp_transliterate
-      sha256: af04ec60295538676a1443ef6744b3fa4c978136e2295c1f1911b9031d68522b
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.5"
   js:
     dependency: transitive
     description:

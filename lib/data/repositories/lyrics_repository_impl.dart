@@ -426,14 +426,14 @@ class LyricsRepositoryImpl implements LyricsRepository {
     Lyrics lyrics, {
     String source = 'unknown',
   }) async {
-    if (lyrics.format == LyricsFormat.lrc) {
-      return lyrics;
-    }
+    JapaneseAnnotationService.clearCache();
+    JapaneseAnnotationService.clearCache();
+    print(
+      '🈺 Autonotate: source=$source, track=${lyrics.trackId}, format=${lyrics.format}',
+    );
 
-    print('🈺 Autonotate: source=$source, track=${lyrics.trackId}');
     final annotatedLines = await _autoAnnotateLines(lyrics.lines);
     if (identical(annotatedLines, lyrics.lines)) {
-      print('🈚️ Autonotate: no changes for track ${lyrics.trackId}');
       return lyrics;
     }
 
@@ -452,15 +452,12 @@ class LyricsRepositoryImpl implements LyricsRepository {
       return lines;
     }
 
-    bool changed = false;
     final List<LyricsLine> result = <LyricsLine>[];
     for (final line in lines) {
       if (_shouldAutoAnnotate(line)) {
-        print('🈶️ Autonotate: line="${line.originalText}"');
         final segments = await JapaneseAnnotationService.annotate(
           line.originalText,
         );
-        print('🈶️ Autonotate: segments=${segments.length}');
         result.add(
           LyricsLine(
             timestamp: line.timestamp,
@@ -469,14 +466,12 @@ class LyricsRepositoryImpl implements LyricsRepository {
             annotatedTexts: segments,
           ),
         );
-        changed = true;
       } else {
-        print('🈳 Autonotate: skip line="${line.originalText}"');
         result.add(line);
       }
     }
 
-    return changed ? result : lines;
+    return result;
   }
 
   bool _shouldAutoAnnotate(LyricsLine line) {
