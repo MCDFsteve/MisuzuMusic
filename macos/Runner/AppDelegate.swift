@@ -101,7 +101,7 @@ class AppDelegate: FlutterAppDelegate {
       return
     }
 
-    let appMenuTitle = localizedMenuString(forKey: "menu.app.title", fallback: "Misuzu 音乐")
+    let appMenuTitle = localizedMenuString(forKey: "menu.app.title", fallback: "Misuzu Music")
 
     mainMenu.item(at: 0)?.title = appMenuTitle
 
