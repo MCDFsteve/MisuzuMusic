@@ -159,6 +159,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
   void _scrollToIndex(int index, {int attempt = 0}) {
     if (!widget.controller.hasClients) {
+      _scheduleRetry(index, attempt);
       return;
     }
     if (index < 0 || index >= _itemKeys.length) {
@@ -167,32 +168,33 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
     final BuildContext? targetContext = _itemKeys[index].currentContext;
     if (targetContext != null) {
-      final renderObject = targetContext.findRenderObject();
-      final position = widget.controller.position;
+      final RenderObject? renderObject = targetContext.findRenderObject();
+      final ScrollPosition position = widget.controller.position;
+
       if (renderObject is RenderBox) {
-        final viewport = RenderAbstractViewport.of(renderObject);
+        final RenderAbstractViewport? viewport = RenderAbstractViewport.of(
+          renderObject,
+        );
         if (viewport != null) {
-          final revealTop = viewport
-              .getOffsetToReveal(renderObject, 0.0)
+          final double targetOffset = viewport
+              .getOffsetToReveal(renderObject, 0.5)
               .offset;
-          final revealBottom = viewport
-              .getOffsetToReveal(renderObject, 1.0)
-              .offset;
-          final itemHeight = revealBottom - revealTop;
-          final targetOffset =
-              revealTop - (position.viewportDimension - itemHeight) / 2.0;
-          final clamped = targetOffset.clamp(
+          final double clampedOffset = targetOffset.clamp(
             position.minScrollExtent,
             position.maxScrollExtent,
           );
+          if ((position.pixels - clampedOffset).abs() <= 0.5) {
+            return;
+          }
           widget.controller.animateTo(
-            clamped,
+            clampedOffset,
             duration: const Duration(milliseconds: 360),
             curve: Curves.easeOutQuad,
           );
           return;
         }
       }
+
       Scrollable.ensureVisible(
         targetContext,
         alignment: 0.5,
@@ -202,36 +204,10 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
       return;
     }
 
-    final ScrollPosition position = widget.controller.position;
-    if (!position.hasPixels) {
-      if (attempt > 6) {
-        return;
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _scrollToIndex(index, attempt: attempt + 1);
-      });
-      return;
-    }
+    _scheduleRetry(index, attempt);
+  }
 
-    final double placeholderHeight =
-        _approxLineHeight(context) + _linePadding.vertical;
-    final double viewportHeight = position.viewportDimension;
-    final double halfViewport = viewportHeight * 0.5;
-    final double edgeSpacer = halfViewport;
-
-    final double roughCenterOffset = edgeSpacer + placeholderHeight * index;
-    final double targetOffset = roughCenterOffset - halfViewport +
-        placeholderHeight * 0.5;
-    final double clampedOffset = targetOffset.clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-
-    if ((position.pixels - clampedOffset).abs() > 1.0) {
-      position.jumpTo(clampedOffset);
-    }
-
+  void _scheduleRetry(int index, int attempt) {
     if (attempt > 6) {
       return;
     }
