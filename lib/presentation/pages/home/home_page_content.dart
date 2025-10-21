@@ -335,7 +335,7 @@ class _HomePageContentState extends State<HomePageContent> {
   Future<void> _handleAddTrackToPlaylist(Track track) async {
     final playlistsCubit = context.read<PlaylistsCubit>();
 
-    final result = await showDialog<String?>(
+    final result = await showPlaylistModalDialog<String?>(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => BlocProvider.value(

@@ -240,7 +240,7 @@ class _FrostedDialogSurface extends StatelessWidget {
             border: Border.all(color: borderColor, width: 0.6),
             boxShadow: [
               BoxShadow(
-                color: isDark ? Colors.black.withOpacity(0.3) : Colors.black12,
+                color: isDark ? Colors.black.withOpacity(0.28) : Colors.black12,
                 blurRadius: 20,
                 offset: const Offset(0, 12),
               ),
@@ -258,6 +258,8 @@ class _FrostedDialogSurface extends StatelessWidget {
       isDarkMode: isDark,
       borderRadius: BorderRadius.circular(14),
       blurSigma: 0,
+      glowOpacity: 0.33,
+      glowRadius: 0.65,
       child: card,
     );
   }
@@ -304,37 +306,75 @@ class _PlaylistModalScaffold extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth.clamp(240.0, maxWidth);
+          final dialogContent = _FrostedDialogSurface(
+            isDark: isDark,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                SizedBox(height: contentSpacing),
+                body,
+                SizedBox(height: actionsSpacing),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: actionRowChildren,
+                ),
+              ],
+            ),
+          );
+
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: width),
-              child: _FrostedDialogSurface(
-                isDark: isDark,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    SizedBox(height: contentSpacing),
-                    body,
-                    SizedBox(height: actionsSpacing),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: actionRowChildren,
-                    ),
-                  ],
-                ),
-              ),
+              child: dialogContent,
             ),
           );
         },
       ),
     );
   }
+}
+
+Future<T?> showPlaylistModalDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+}) {
+  final materialLocalizations = Localizations.of<MaterialLocalizations>(
+    context,
+    MaterialLocalizations,
+  );
+  final barrierLabel = materialLocalizations?.modalBarrierDismissLabel ?? '关闭';
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: barrierLabel,
+    barrierColor: Colors.black.withOpacity(0.28),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return builder(context);
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
 }

@@ -5,7 +5,7 @@ Future<String?> showPlaylistCreationSheet(
   Track? track,
 }) async {
   final playlistsCubit = context.read<PlaylistsCubit>();
-  final result = await showDialog<String?>(
+  final result = await showPlaylistModalDialog<String?>(
     context: context,
     barrierDismissible: true,
     builder: (_) => BlocProvider.value(
