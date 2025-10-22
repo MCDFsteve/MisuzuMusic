@@ -24,6 +24,8 @@ class AppConstants {
   static const String neteaseApiBaseUrl = 'http://43.128.47.234:3000';
   static const String cloudPlaylistEndpoint =
       'https://nipaplay.aimes-soft.com/cloud_playlist.php';
+  static const String remoteLyricsEndpoint =
+      'https://nipaplay.aimes-soft.com/lyrics_service.php';
 
 
   // Settings Keys

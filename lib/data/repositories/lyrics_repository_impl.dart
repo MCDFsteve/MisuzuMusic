@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
 
-import '../../core/constants/app_constants.dart';
 import '../../core/error/exceptions.dart';
 import '../../domain/entities/lyrics_entities.dart';
 import '../../domain/repositories/lyrics_repository.dart';
@@ -9,16 +8,20 @@ import '../datasources/local/lyrics_local_datasource.dart';
 import '../datasources/remote/netease_api_client.dart';
 import '../models/lyrics_models.dart';
 import '../services/japanese_annotation_service.dart';
+import '../services/remote_lyrics_api.dart';
 
 class LyricsRepositoryImpl implements LyricsRepository {
   final LyricsLocalDataSource _localDataSource;
   final NeteaseApiClient _neteaseApiClient;
+  final RemoteLyricsApi _remoteLyricsApi;
 
   LyricsRepositoryImpl({
     required LyricsLocalDataSource localDataSource,
     required NeteaseApiClient neteaseApiClient,
-  }) : _localDataSource = localDataSource,
-       _neteaseApiClient = neteaseApiClient;
+    required RemoteLyricsApi remoteLyricsApi,
+  })  : _localDataSource = localDataSource,
+        _neteaseApiClient = neteaseApiClient,
+        _remoteLyricsApi = remoteLyricsApi;
 
   @override
   Future<Lyrics?> getLyricsByTrackId(String trackId) async {
@@ -227,6 +230,15 @@ class LyricsRepositoryImpl implements LyricsRepository {
     }
 
     try {
+      final Lyrics? remoteLyrics = await _fetchLyricsFromRemoteLibrary(
+        trackId: trackId,
+        title: trimmedTitle,
+        artist: artist,
+      );
+      if (remoteLyrics != null) {
+        return remoteLyrics;
+      }
+
       final songId = await _neteaseApiClient.searchSongId(
         title: trimmedTitle,
         artist: artist?.trim(),
@@ -262,6 +274,132 @@ class LyricsRepositoryImpl implements LyricsRepository {
       print('⚠️ LyricsRepository: 在线歌词获取失败 -> $e');
       return null;
     }
+  }
+
+  Future<Lyrics?> _fetchLyricsFromRemoteLibrary({
+    required String trackId,
+    required String title,
+    String? artist,
+  }) async {
+    try {
+      final available = await _remoteLyricsApi.listAvailableLyrics();
+      if (available.isEmpty) {
+        return null;
+      }
+
+      final Map<String, String> normalizedMap = {
+        for (final file in available)
+          _normalizeNameForMatch(file): file,
+      }..removeWhere((key, value) => key.isEmpty);
+
+      final candidateKeys = _buildCandidateKeys(title, artist);
+      for (final candidate in candidateKeys) {
+        final normalized = _normalizeNameForMatch(candidate);
+        final matchedFile = normalizedMap[normalized];
+        if (matchedFile == null) {
+          continue;
+        }
+        final content = await _remoteLyricsApi.fetchLyrics(matchedFile);
+        if (content == null || content.trim().isEmpty) {
+          continue;
+        }
+        final parsedLines = _parseLrcContent(content);
+        if (parsedLines.isEmpty) {
+          continue;
+        }
+        final lyrics = Lyrics(
+          trackId: trackId,
+          lines: parsedLines,
+          format: LyricsFormat.lrc,
+        );
+        await saveLyrics(lyrics);
+        return await getLyricsByTrackId(trackId);
+      }
+
+      final fallbackKey = _normalizeNameForMatch(title);
+      final looseMatch = normalizedMap.entries.firstWhere(
+        (entry) => entry.key.contains(fallbackKey) && fallbackKey.isNotEmpty,
+        orElse: () => const MapEntry('', ''),
+      );
+      if (looseMatch.key.isEmpty) {
+        return null;
+      }
+      final content = await _remoteLyricsApi.fetchLyrics(looseMatch.value);
+      if (content == null || content.trim().isEmpty) {
+        return null;
+      }
+      final parsedLines = _parseLrcContent(content);
+      if (parsedLines.isEmpty) {
+        return null;
+      }
+      final lyrics = Lyrics(
+        trackId: trackId,
+        lines: parsedLines,
+        format: LyricsFormat.lrc,
+      );
+      await saveLyrics(lyrics);
+      return await getLyricsByTrackId(trackId);
+    } catch (e) {
+      print('⚠️ LyricsRepository: 云歌词获取失败 -> $e');
+      return null;
+    }
+  }
+
+  Iterable<String> _buildCandidateKeys(String title, String? artist) {
+    final trimmedTitle = title.trim();
+    final trimmedArtist = artist?.trim();
+    final normalizedTitle = _normalizeSegment(trimmedTitle);
+    final normalizedArtist =
+        (trimmedArtist == null || trimmedArtist.isEmpty)
+            ? null
+            : _normalizeSegment(trimmedArtist);
+
+    final Set<String> candidates = {
+      if (trimmedArtist != null && trimmedArtist.isNotEmpty)
+        '${trimmedArtist} - $trimmedTitle.lrc',
+      if (trimmedArtist != null && trimmedArtist.isNotEmpty)
+        '$trimmedTitle - $trimmedArtist.lrc',
+      '$trimmedTitle.lrc',
+    };
+
+    if (trimmedArtist != null && trimmedArtist.isNotEmpty) {
+      candidates
+        ..add('${trimmedArtist}_$trimmedTitle.lrc')
+        ..add('${trimmedTitle}_$trimmedArtist.lrc');
+    }
+
+    if (normalizedArtist != null && normalizedArtist.isNotEmpty) {
+      candidates
+        ..add('$normalizedArtist-$normalizedTitle.lrc')
+        ..add('$normalizedTitle-$normalizedArtist.lrc')
+        ..add('$normalizedArtist_$normalizedTitle.lrc')
+        ..add('$normalizedTitle_$normalizedArtist.lrc');
+    }
+
+    if (normalizedTitle.isNotEmpty) {
+      candidates.add('$normalizedTitle.lrc');
+    }
+
+    return candidates.where((candidate) => candidate.trim().isNotEmpty);
+  }
+
+  String _normalizeSegment(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .trim('_');
+  }
+
+  String _normalizeNameForMatch(String value) {
+    final lower = value.toLowerCase().trim();
+    final withoutExt = lower.endsWith('.lrc')
+        ? lower.substring(0, lower.length - 4)
+        : lower;
+    return withoutExt
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .trim('_');
   }
 
   List<LyricsLine> _mergeNeteaseLyrics(
