@@ -39,6 +39,7 @@ class LyricsCubit extends Cubit<LyricsState> {
         final cloudLyrics = await _loadLyricsFromOnline(track, cloudOnly: true);
         if (isClosed) return;
         if (cloudLyrics != null && cloudLyrics.lines.isNotEmpty) {
+          print('🎼 LyricsCubit: 使用云端歌词');
           emit(LyricsLoaded(cloudLyrics));
           return;
         }
@@ -49,6 +50,7 @@ class LyricsCubit extends Cubit<LyricsState> {
             final Lyrics? upgraded = await _loadLyricsFromOnline(track);
             if (isClosed) return;
             if (upgraded != null && upgraded.lines.isNotEmpty) {
+              print('🎼 LyricsCubit: 使用网易云歌词');
               emit(LyricsLoaded(upgraded));
               return;
             }
@@ -60,6 +62,7 @@ class LyricsCubit extends Cubit<LyricsState> {
         final onlineLyrics = await _loadLyricsFromOnline(track);
         if (isClosed) return;
         if (onlineLyrics != null && onlineLyrics.lines.isNotEmpty) {
+          print('🎼 LyricsCubit: 使用网易云歌词');
           emit(LyricsLoaded(onlineLyrics));
           return;
         }
@@ -68,6 +71,7 @@ class LyricsCubit extends Cubit<LyricsState> {
       }
 
       if (isClosed) return;
+      print('🎼 LyricsCubit: 使用本地歌词');
       emit(LyricsLoaded(lyricsFromFile));
     } catch (e) {
       if (isClosed) return;

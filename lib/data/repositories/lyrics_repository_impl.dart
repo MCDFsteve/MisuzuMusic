@@ -266,13 +266,14 @@ class LyricsRepositoryImpl implements LyricsRepository {
         return null;
       }
 
-      final lyrics = Lyrics(
-        trackId: trackId,
-        lines: mergedLines,
-        format: LyricsFormat.lrc,
+      print('🎼 LyricsRepository: 使用网易云歌词 -> songId=$songId');
+      await saveLyrics(
+        Lyrics(
+          trackId: trackId,
+          lines: mergedLines,
+          format: LyricsFormat.lrc,
+        ),
       );
-
-      await saveLyrics(lyrics);
       return await getLyricsByTrackId(trackId);
     } catch (e) {
       print('⚠️ LyricsRepository: 在线歌词获取失败 -> $e');
@@ -350,12 +351,14 @@ class LyricsRepositoryImpl implements LyricsRepository {
         if (parsedLines.isEmpty) {
           continue;
         }
-        final lyrics = Lyrics(
-          trackId: trackId,
-          lines: parsedLines,
-          format: LyricsFormat.lrc,
+        print('🎼 LyricsRepository: 使用云端歌词 -> $matchedFile');
+        await saveLyrics(
+          Lyrics(
+            trackId: trackId,
+            lines: parsedLines,
+            format: LyricsFormat.lrc,
+          ),
         );
-        await saveLyrics(lyrics);
         return await getLyricsByTrackId(trackId);
       }
 
@@ -379,12 +382,14 @@ class LyricsRepositoryImpl implements LyricsRepository {
       if (parsedLines.isEmpty) {
         return null;
       }
-      final lyrics = Lyrics(
-        trackId: trackId,
-        lines: parsedLines,
-        format: LyricsFormat.lrc,
+      print('🎼 LyricsRepository: 使用云端歌词(模糊匹配) -> ${looseEntry.value.first}');
+      await saveLyrics(
+        Lyrics(
+          trackId: trackId,
+          lines: parsedLines,
+          format: LyricsFormat.lrc,
+        ),
       );
-      await saveLyrics(lyrics);
       return await getLyricsByTrackId(trackId);
     } catch (e) {
       print('⚠️ LyricsRepository: 云歌词获取失败 -> $e');
