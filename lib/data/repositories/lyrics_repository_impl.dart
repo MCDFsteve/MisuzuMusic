@@ -196,6 +196,11 @@ class LyricsRepositoryImpl implements LyricsRepository {
         lines = _parseTextContent(content);
       }
 
+      if (lines.isNotEmpty) {
+        _logLyricsPreview(lines);
+      } else {
+        print('🎼 LyricsRepository: 本地歌词解析为空');
+      }
       return Lyrics(trackId: trackId, lines: lines, format: format);
     } catch (e) {
       throw LyricsException('Failed to load lyrics from file: ${e.toString()}');
@@ -267,6 +272,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
       }
 
       print('🎼 LyricsRepository: 使用网易云歌词 -> songId=$songId');
+      _logLyricsPreview(mergedLines);
       await saveLyrics(
         Lyrics(
           trackId: trackId,
@@ -347,11 +353,15 @@ class LyricsRepositoryImpl implements LyricsRepository {
         if (content == null || content.trim().isEmpty) {
           continue;
         }
+        print('🎼 LyricsRepository: 云端歌词原文预览 ->\n' + _extractPreview(content));
         final parsedLines = _parseLrcContent(content);
         if (parsedLines.isEmpty) {
           continue;
         }
         print('🎼 LyricsRepository: 使用云端歌词 -> $matchedFile');
+        print('--- Cloud LRC Raw ---\n${content.split('\n').take(20).join('\n')}\n---------------------');
+        _debugPrintAnnotations(parsedLines);
+        _logLyricsPreview(parsedLines);
         await saveLyrics(
           Lyrics(
             trackId: trackId,
@@ -378,18 +388,22 @@ class LyricsRepositoryImpl implements LyricsRepository {
       if (content == null || content.trim().isEmpty) {
         return null;
       }
+      print('🎼 LyricsRepository: 云端歌词原文预览 ->\n' + _extractPreview(content));
       final parsedLines = _parseLrcContent(content);
       if (parsedLines.isEmpty) {
         return null;
       }
       print('🎼 LyricsRepository: 使用云端歌词(模糊匹配) -> ${looseEntry.value.first}');
+      print('--- Cloud LRC Raw ---\n${content.split('\n').take(20).join('\n')}\n---------------------');
+      _debugPrintAnnotations(parsedLines);
+      _logLyricsPreview(parsedLines);
       await saveLyrics(
         Lyrics(
           trackId: trackId,
           lines: parsedLines,
           format: LyricsFormat.lrc,
-        ),
-      );
+          ),
+        );
       return await getLyricsByTrackId(trackId);
     } catch (e) {
       print('⚠️ LyricsRepository: 云歌词获取失败 -> $e');
@@ -455,6 +469,35 @@ class LyricsRepositoryImpl implements LyricsRepository {
         .replaceAll(RegExp(r'[‐‑‒–—―〜~]+'), '-')
         .replaceAll(RegExp(r'[\\/:*?"<>|]+'), '-')
         .replaceAll(RegExp(r'-+'), '-');
+  }
+
+  void _logLyricsPreview(List<LyricsLine> lines) {
+    if (lines.isEmpty) {
+      print('🎼 LyricsRepository: 预览空内容');
+      return;
+    }
+    final preview = lines
+        .take(3)
+        .map(
+          (line) =>
+              '[${line.timestamp}] ${line.originalText} | 注音: ${line.annotatedTexts.map((segment) => '${segment.type}:${segment.original}->{segment.annotation}').join(', ')}',
+        )
+        .join('\n');
+    print('🎼 LyricsRepository: 预览前几行:\n$preview');
+  }
+
+  void _debugPrintAnnotations(List<LyricsLine> lines) {
+    final sample = lines.take(3);
+    for (final line in sample) {
+      for (final seg in line.annotatedTexts) {
+        print('🔍 seg original="${seg.original}" annotation="${seg.annotation}" codeUnits=${seg.annotation.codeUnits}');
+      }
+    }
+  }
+
+  String _extractPreview(String content) {
+    final lines = content.split('\n');
+    return lines.take(5).join('\n');
   }
 
   List<LyricsLine> _mergeNeteaseLyrics(

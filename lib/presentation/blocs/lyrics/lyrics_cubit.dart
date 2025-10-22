@@ -169,19 +169,7 @@ class LyricsCubit extends Cubit<LyricsState> {
   }
 
   bool _needsTranslationUpgrade(Lyrics lyrics, Track track) {
-    if (lyrics.format != LyricsFormat.lrc) {
-      return false;
-    }
-    final bool hasTranslation = lyrics.lines.any(
-      (line) => (line.translatedText ?? '').trim().isNotEmpty,
-    );
-    if (hasTranslation) {
-      return false;
-    }
-    // Avoid hammering the API when metadata is empty.
-    if (track.title.trim().isEmpty) {
-      return false;
-    }
-    return true;
+    // 用户更倾向使用本地/云端提供的歌词，不再额外尝试网易云翻译
+    return false;
   }
 }
