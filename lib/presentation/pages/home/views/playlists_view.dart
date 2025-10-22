@@ -64,39 +64,29 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     Playlist playlist,
     Offset position,
   ) async {
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) {
-      return;
-    }
-    final result = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        overlay.size.width - position.dx,
-        overlay.size.height - position.dy,
+    final actions = <MacosContextMenuAction>[
+      MacosContextMenuAction(
+        label: '打开歌单',
+        icon: CupertinoIcons.play_circle,
+        onSelected: () => _openPlaylist(playlist),
       ),
-      items: const [
-        PopupMenuItem(value: 'open', child: Text('打开歌单')),
-        PopupMenuItem(value: 'edit', child: Text('编辑歌单')),
-        PopupMenuItem(value: 'upload', child: Text('上传到云')),
-      ],
-    );
-    if (!mounted || result == null) {
-      return;
-    }
+      MacosContextMenuAction(
+        label: '编辑歌单',
+        icon: CupertinoIcons.pencil,
+        onSelected: () => _editPlaylist(playlist),
+      ),
+      MacosContextMenuAction(
+        label: '上传到云',
+        icon: CupertinoIcons.cloud_upload,
+        onSelected: () => _handleUploadToCloud(playlist),
+      ),
+    ];
 
-    switch (result) {
-      case 'open':
-        _openPlaylist(playlist);
-        break;
-      case 'edit':
-        _editPlaylist(playlist);
-        break;
-      case 'upload':
-        await _handleUploadToCloud(playlist);
-        break;
-    }
+    await MacosContextMenu.show(
+      context: context,
+      globalPosition: position,
+      actions: actions,
+    );
   }
 
   Future<void> _handleUploadToCloud(Playlist playlist) async {
