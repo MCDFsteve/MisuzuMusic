@@ -428,18 +428,10 @@ class LyricsRepositoryImpl implements LyricsRepository {
   }) async {
     JapaneseAnnotationService.clearCache();
     JapaneseAnnotationService.clearCache();
-    print(
-      '🈺 Autonotate: source=$source, track=${lyrics.trackId}, format=${lyrics.format}',
-    );
-
     final annotatedLines = await _autoAnnotateLines(lyrics.lines);
     if (identical(annotatedLines, lyrics.lines)) {
       return lyrics;
     }
-
-    print(
-      '🈴 Autonotate: applied annotations for track ${lyrics.trackId}',
-    );
     return Lyrics(
       trackId: lyrics.trackId,
       lines: annotatedLines,
@@ -487,7 +479,6 @@ class LyricsRepositoryImpl implements LyricsRepository {
           segment.annotation.trim() != segment.original.trim(),
     );
     if (hasRuby) {
-      print('🈵 Autonotate: existing ruby for line="${line.originalText}"');
       return false;
     }
     return true;

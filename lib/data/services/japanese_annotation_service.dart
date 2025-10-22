@@ -13,12 +13,12 @@ import '../../domain/entities/lyrics_entities.dart';
 class JapaneseAnnotationService {
   JapaneseAnnotationService._();
 
-  static const String _wordsAsset = 'assets/japanese_dictionary/words.csv';
+  static const String _charsAsset = 'assets/japanese_dictionary/chars.csv';
 
   static final Map<String, List<AnnotatedText>> _cache = HashMap();
   static final RegExp _kanjiRegex = RegExp(r'[\u4E00-\u9FFF]');
 
-  static Map<String, String>? _wordDictionary;
+  static Map<String, String>? _charDictionary;
   static List<String>? _sortedDictionaryKeys;
   static bool _loading = false;
 
@@ -60,13 +60,13 @@ class JapaneseAnnotationService {
     }
     _loading = true;
     try {
-      final raw = await rootBundle.loadString(_wordsAsset);
-      final wordMap = _parseCsv(raw);
-      _wordDictionary = wordMap;
-      _sortedDictionaryKeys = wordMap.keys.toList()
+      final raw = await rootBundle.loadString(_charsAsset);
+      final charMap = _parseCsv(raw);
+      _charDictionary = charMap;
+      _sortedDictionaryKeys = charMap.keys.toList()
         ..sort((a, b) => b.length.compareTo(a.length));
     } catch (e) {
-      _wordDictionary = const {};
+      _charDictionary = const {};
       _sortedDictionaryKeys = const [];
     } finally {
       _loading = false;
@@ -74,9 +74,9 @@ class JapaneseAnnotationService {
   }
 
   static List<AnnotatedText>? _annotateWithDictionary(String text) {
-    final words = _wordDictionary;
+    final chars = _charDictionary;
     final sorted = _sortedDictionaryKeys;
-    if (words == null || sorted == null || sorted.isEmpty) {
+    if (chars == null || sorted == null || sorted.isEmpty) {
       return null;
     }
 
@@ -86,7 +86,7 @@ class JapaneseAnnotationService {
     int index = 0;
 
     while (index < text.length) {
-      final match = _matchWordEntry(text, index, sorted, words);
+      final match = _matchCharEntry(text, index, sorted, chars);
       if (match != null) {
         if (buffer.isNotEmpty) {
           segments.add(
@@ -126,15 +126,15 @@ class JapaneseAnnotationService {
     return annotated ? segments : null;
   }
 
-  static _DictionaryMatch? _matchWordEntry(
+  static _DictionaryMatch? _matchCharEntry(
     String text,
     int start,
     List<String> sortedKeys,
-    Map<String, String> words,
+    Map<String, String> chars,
   ) {
     for (final key in sortedKeys) {
       if (text.startsWith(key, start)) {
-        final reading = words[key];
+        final reading = chars[key];
         if (reading != null) {
           return _DictionaryMatch(key, reading);
         }

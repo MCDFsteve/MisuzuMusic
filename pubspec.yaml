@@ -103,7 +103,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/japanese_dictionary/words.csv
+    - assets/japanese_dictionary/chars.csv
     - icons/tran.png
     - icons/tran2.png
 
