@@ -1,5 +1,147 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
+enum PlaylistCreationMode {
+  local,
+  cloud,
+}
+
+Future<PlaylistCreationMode?> showPlaylistCreationModeDialog(
+  BuildContext context,
+) {
+  return showPlaylistModalDialog<PlaylistCreationMode>(
+    context: context,
+    builder: (dialogContext) {
+      return _PlaylistModalScaffold(
+        title: '选择新建方式',
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _PlaylistCreationModeOption(
+              icon: CupertinoIcons.add_circled_solid,
+              title: '本地新建歌单',
+              description: '使用本地存储，立即编辑歌单名称和内容。',
+              onTap: () => Navigator.of(dialogContext).pop(PlaylistCreationMode.local),
+            ),
+            const SizedBox(height: 12),
+            _PlaylistCreationModeOption(
+              icon: CupertinoIcons.cloud_download,
+              title: '拉取云歌单',
+              description: '根据云端 ID 下载现有歌单并导入本地。',
+              onTap: () => Navigator.of(dialogContext).pop(PlaylistCreationMode.cloud),
+            ),
+          ],
+        ),
+        actions: [
+          _SheetActionButton.secondary(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+        ],
+        maxWidth: 360,
+        contentSpacing: 18,
+        actionsSpacing: 16,
+      );
+    },
+  );
+}
+
+Future<String?> showCloudPlaylistIdDialog(
+  BuildContext context, {
+  required String title,
+  required String confirmLabel,
+  required String invalidMessage,
+  String? description,
+  required bool Function(String id) validator,
+}) {
+  final controller = TextEditingController();
+  String? errorText;
+  return showPlaylistModalDialog<String>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          final macTheme = MacosTheme.maybeOf(context);
+          final isDark = macTheme?.brightness == Brightness.dark ||
+              Theme.of(context).brightness == Brightness.dark;
+
+          final descriptionStyle = Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(
+                color: isDark
+                    ? Colors.white.withOpacity(0.72)
+                    : Colors.black.withOpacity(0.68),
+              ) ??
+              TextStyle(
+                color: isDark
+                    ? Colors.white.withOpacity(0.72)
+                    : Colors.black.withOpacity(0.68),
+                fontSize: 13,
+              );
+          final errorStyle = Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: MacosColors.systemRedColor) ??
+              TextStyle(color: MacosColors.systemRedColor, fontSize: 12);
+
+          void submit() {
+            final value = controller.text.trim();
+            if (!validator(value)) {
+              setState(() => errorText = invalidMessage);
+              return;
+            }
+            Navigator.of(dialogContext).pop(value);
+          }
+
+          return _PlaylistModalScaffold(
+            title: title,
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (description != null) ...[
+                  Text(description!, style: descriptionStyle),
+                  const SizedBox(height: 12),
+                ],
+                _ModalTextField(
+                  controller: controller,
+                  label: '云端ID',
+                  hintText: '至少 5 位，仅限字母/数字/下划线',
+                  enabled: true,
+                  onChanged: (_) {
+                    if (errorText != null) {
+                      setState(() => errorText = null);
+                    }
+                  },
+                  onSubmitted: (_) => submit(),
+                ),
+                if (errorText != null) ...[
+                  const SizedBox(height: 8),
+                  Text(errorText!, style: errorStyle),
+                ],
+              ],
+            ),
+            actions: [
+              _SheetActionButton.secondary(
+                label: '取消',
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+              _SheetActionButton.primary(
+                label: confirmLabel,
+                onPressed: submit,
+              ),
+            ],
+            maxWidth: 360,
+            contentSpacing: 18,
+            actionsSpacing: 16,
+          );
+        },
+      );
+    },
+  ).whenComplete(controller.dispose);
+}
+
 Future<String?> showPlaylistCreationSheet(
   BuildContext context, {
   Track? track,
@@ -99,6 +241,276 @@ class _PlaylistCreationDialog extends StatefulWidget {
   @override
   State<_PlaylistCreationDialog> createState() =>
       _PlaylistCreationDialogState();
+}
+
+class _PlaylistCreationModeOption extends StatelessWidget {
+  const _PlaylistCreationModeOption({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final macTheme = MacosTheme.maybeOf(context);
+    final isDark = macTheme?.brightness == Brightness.dark ||
+        Theme.of(context).brightness == Brightness.dark;
+
+    final background = isDark
+        ? Colors.white.withOpacity(0.06)
+        : Colors.black.withOpacity(0.04);
+    final hoverBackground = isDark
+        ? Colors.white.withOpacity(0.1)
+        : Colors.black.withOpacity(0.08);
+    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: isDark
+              ? Colors.white.withOpacity(0.92)
+              : Colors.black.withOpacity(0.9),
+        ) ??
+        TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: isDark
+              ? Colors.white.withOpacity(0.92)
+              : Colors.black.withOpacity(0.9),
+        );
+    final descriptionStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: isDark
+              ? Colors.white.withOpacity(0.66)
+              : Colors.black.withOpacity(0.62),
+        ) ??
+        TextStyle(
+          fontSize: 12,
+          color: isDark
+              ? Colors.white.withOpacity(0.66)
+              : Colors.black.withOpacity(0.62),
+        );
+
+    return _HoverableCard(
+      baseColor: background,
+      hoverColor: hoverBackground,
+      borderColor: isDark
+          ? Colors.white.withOpacity(0.14)
+          : Colors.black.withOpacity(0.08),
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              size: 22,
+              color: isDark
+                  ? Colors.white.withOpacity(0.86)
+                  : Colors.black.withOpacity(0.8),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: titleStyle),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: descriptionStyle,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            CupertinoIcons.chevron_right,
+            size: 16,
+            color: isDark
+                ? Colors.white.withOpacity(0.42)
+                : Colors.black.withOpacity(0.3),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModalTextField extends StatelessWidget {
+  const _ModalTextField({
+    required this.controller,
+    required this.label,
+    required this.hintText,
+    required this.enabled,
+    required this.onChanged,
+    required this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String hintText;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final isDark = macTheme?.brightness == Brightness.dark ||
+        theme.brightness == Brightness.dark;
+
+    final labelColor = isDark
+        ? Colors.white.withOpacity(0.86)
+        : Colors.black.withOpacity(0.78);
+    final hintColor = isDark
+        ? Colors.white.withOpacity(0.42)
+        : Colors.black.withOpacity(0.45);
+    final fillColor = isDark
+        ? Colors.white.withOpacity(0.08)
+        : Colors.white.withOpacity(0.74);
+    final borderColor = isDark
+        ? Colors.white.withOpacity(0.18)
+        : Colors.black.withOpacity(0.12);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.titleSmall?.copyWith(
+                color: labelColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ) ??
+              TextStyle(
+                color: labelColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          enabled: enabled,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: TextStyle(color: hintColor, fontSize: 13),
+            filled: true,
+            fillColor: fillColor,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: borderColor, width: 0.8),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: borderColor, width: 0.8),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: macTheme?.primaryColor ?? theme.colorScheme.primary,
+                width: 1.1,
+              ),
+            ),
+          ),
+          onChanged: onChanged,
+          onSubmitted: onSubmitted,
+        ),
+      ],
+    );
+  }
+}
+
+class _HoverableCard extends StatefulWidget {
+  const _HoverableCard({
+    required this.child,
+    required this.baseColor,
+    required this.hoverColor,
+    required this.borderColor,
+    required this.onTap,
+  });
+
+  final Widget child;
+  final Color baseColor;
+  final Color hoverColor;
+  final Color borderColor;
+  final VoidCallback onTap;
+
+  @override
+  State<_HoverableCard> createState() => _HoverableCardState();
+}
+
+class _HoverableCardState extends State<_HoverableCard> {
+  bool _hovering = false;
+  bool _pressing = false;
+
+  void _setHovering(bool value) {
+    if (_hovering == value) {
+      return;
+    }
+    setState(() {
+      _hovering = value;
+      if (!value) {
+        _pressing = false;
+      }
+    });
+  }
+
+  void _setPressing(bool value) {
+    if (_pressing == value) {
+      return;
+    }
+    setState(() {
+      _pressing = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showHover = _hovering || _pressing;
+    final background = showHover ? widget.hoverColor : widget.baseColor;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => _setHovering(true),
+      onExit: (_) => _setHovering(false),
+      child: GestureDetector(
+        onTapDown: (_) => _setPressing(true),
+        onTapCancel: () => _setPressing(false),
+        onTapUp: (_) => _setPressing(false),
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: widget.borderColor, width: 0.8),
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
 }
 
 class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {

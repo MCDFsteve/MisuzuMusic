@@ -22,6 +22,9 @@ class AppConstants {
   static const String artworkCacheDir = 'artwork_cache';
   static const String lyricsCacheDir = 'lyrics_cache';
   static const String neteaseApiBaseUrl = 'http://43.128.47.234:3000';
+  static const String cloudPlaylistEndpoint =
+      'https://nipaplay.aimes-soft.com/cloud_playlist.php';
+
 
   // Settings Keys
   static const String settingsVolume = 'volume';

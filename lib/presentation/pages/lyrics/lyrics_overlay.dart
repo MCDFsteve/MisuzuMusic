@@ -4,8 +4,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:macos_ui/macos_ui.dart';
+import 'package:misuzu_music/presentation/pages/home_page.dart';
 
 import '../../../core/di/dependency_injection.dart';
+import '../../../core/services/lrc_export_service.dart';
 import '../../../domain/entities/lyrics_entities.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../../domain/usecases/lyrics_usecases.dart';
@@ -14,6 +16,7 @@ import '../../blocs/player/player_bloc.dart';
 import '../../widgets/common/artwork_thumbnail.dart';
 import '../../widgets/common/hover_glow_overlay.dart';
 import '../../widgets/common/lyrics_display.dart';
+import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
 
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
@@ -80,6 +83,90 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _lastTranslationPreference = _showTranslation;
   }
 
+  Future<void> _downloadLrcFile() async {
+    final lyricsState = _lyricsCubit.state;
+    if (lyricsState is! LyricsLoaded || _currentTrack == null) {
+      return;
+    }
+
+    try {
+      // Generate LRC content
+      final lrcContent = LrcExportService.formatLyricsToLrc(
+        lyrics: lyricsState.lyrics,
+        title: _currentTrack!.title,
+        artist: _currentTrack!.artist,
+        album: _currentTrack!.album,
+      );
+
+      // Generate filename
+      final filename = LrcExportService.generateFilename(
+        artist: _currentTrack!.artist,
+        title: _currentTrack!.title,
+        trackId: _currentTrack!.id,
+      );
+
+      // Save file
+      final success = await LrcExportService.saveToFile(
+        lrcContent: lrcContent,
+        filename: filename,
+      );
+
+      if (mounted) {
+        if (success) {
+          // Show success message
+          showPlaylistModalDialog(
+            context: context,
+            builder: (context) => PlaylistModalScaffold(
+              title: '下载成功',
+              body: const Text('LRC歌词文件已保存到您选择的位置'),
+              actions: [
+                SheetActionButton.primary(
+                  label: '确定',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+              maxWidth: 300,
+            ),
+          );
+        } else {
+          // Show error message
+          showPlaylistModalDialog(
+            context: context,
+            builder: (context) => PlaylistModalScaffold(
+              title: '下载失败',
+              body: const Text('无法保存LRC文件，请检查文件夹权限设置'),
+              actions: [
+                SheetActionButton.primary(
+                  label: '确定',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+              maxWidth: 300,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        final errorMessage = '下载LRC文件时出错: $e';
+        showPlaylistModalDialog(
+          context: context,
+          builder: (context) => PlaylistModalScaffold(
+            title: '下载出错',
+            body: Text(errorMessage),
+            actions: [
+              SheetActionButton.primary(
+                label: '确定',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+            maxWidth: 300,
+          ),
+        );
+      }
+    }
+  }
+
   Track? _extractTrack(PlayerBlocState state) {
     if (state is PlayerPlaying) {
       return state.track;
@@ -121,6 +208,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             isMac: isMac,
             showTranslation: _showTranslation,
             onToggleTranslation: _toggleTranslationVisibility,
+            onDownloadLrc: _downloadLrcFile,
           ),
         ),
       ),
@@ -135,6 +223,7 @@ class _LyricsLayout extends StatelessWidget {
     required this.isMac,
     required this.showTranslation,
     required this.onToggleTranslation,
+    required this.onDownloadLrc,
   });
 
   final Track track;
@@ -142,6 +231,7 @@ class _LyricsLayout extends StatelessWidget {
   final bool isMac;
   final bool showTranslation;
   final VoidCallback onToggleTranslation;
+  final VoidCallback onDownloadLrc;
 
   @override
   Widget build(BuildContext context) {
@@ -189,6 +279,7 @@ class _LyricsLayout extends StatelessWidget {
                     track: track,
                     showTranslation: showTranslation,
                     onToggleTranslation: onToggleTranslation,
+                    onDownloadLrc: onDownloadLrc,
                   ),
                 ),
               ],
@@ -312,6 +403,7 @@ class _LyricsPanel extends StatelessWidget {
     required this.track,
     required this.showTranslation,
     required this.onToggleTranslation,
+    required this.onDownloadLrc,
   });
 
   final bool isDarkMode;
@@ -319,6 +411,7 @@ class _LyricsPanel extends StatelessWidget {
   final Track track;
   final bool showTranslation;
   final VoidCallback onToggleTranslation;
+  final VoidCallback onDownloadLrc;
 
   @override
   Widget build(BuildContext context) {
@@ -350,6 +443,17 @@ class _LyricsPanel extends StatelessWidget {
               return Stack(
                 children: [
                   Positioned.fill(child: content),
+                  // Download LRC button
+                  Positioned(
+                    bottom: 80, // Above the translation button
+                    right: 12,
+                    child: _DownloadLrcButton(
+                      isDarkMode: isDarkMode,
+                      isEnabled: state is LyricsLoaded,
+                      onPressed: state is LyricsLoaded ? onDownloadLrc : null,
+                    ),
+                  ),
+                  // Translation toggle button
                   Positioned(
                     bottom: 20,
                     right: 12,
@@ -620,3 +724,133 @@ class _HoverGlyphButtonState extends State<_HoverGlyphButton> {
     );
   }
 }
+
+class _DownloadLrcButton extends StatelessWidget {
+  const _DownloadLrcButton({
+    required this.isDarkMode,
+    required this.isEnabled,
+    required this.onPressed,
+  });
+
+  final bool isDarkMode;
+  final bool isEnabled;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color iconColor = isDarkMode ? Colors.white : Colors.black;
+    final String tooltip = isEnabled ? '下载LRC歌词文件' : '歌词加载中...';
+
+    final double iconSize = 25;
+    final Color activeColor = iconColor;
+    final Color inactiveColor = iconColor.withOpacity(0.82);
+    final Color disabledColor = iconColor.withOpacity(0.42);
+
+    return MacosTooltip(
+      message: tooltip,
+      child: _DownloadIconButton(
+        enabled: isEnabled,
+        onPressed: onPressed,
+        baseColor: isEnabled ? inactiveColor : disabledColor,
+        hoverColor: isEnabled ? activeColor : disabledColor,
+        disabledColor: disabledColor,
+        size: iconSize,
+      ),
+    );
+  }
+}
+
+class _DownloadIconButton extends StatefulWidget {
+  const _DownloadIconButton({
+    required this.enabled,
+    required this.onPressed,
+    required this.baseColor,
+    required this.hoverColor,
+    required this.disabledColor,
+    this.size = 30,
+  });
+
+  final bool enabled;
+  final VoidCallback? onPressed;
+  final Color baseColor;
+  final Color hoverColor;
+  final Color disabledColor;
+  final double size;
+
+  @override
+  State<_DownloadIconButton> createState() => _DownloadIconButtonState();
+}
+
+class _DownloadIconButtonState extends State<_DownloadIconButton> {
+  bool _hovering = false;
+  bool _pressing = false;
+
+  bool get _enabled => widget.enabled && widget.onPressed != null;
+
+  void _setHovering(bool value) {
+    if (!_enabled || _hovering == value) return;
+    setState(() => _hovering = value);
+  }
+
+  void _setPressing(bool value) {
+    if (!_enabled || _pressing == value) return;
+    setState(() => _pressing = value);
+  }
+
+  Color get _currentColor {
+    if (!_enabled) {
+      return widget.disabledColor;
+    }
+    if (_hovering) {
+      return widget.hoverColor;
+    }
+    return widget.baseColor;
+  }
+
+  double get _currentScale {
+    if (!_enabled) {
+      return 1.0;
+    }
+    if (_pressing) {
+      return 0.95;
+    }
+    if (_hovering) {
+      return 1.05;
+    }
+    return 1.0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Transform.scale(
+      scale: _currentScale,
+      child: Icon(
+        CupertinoIcons.cloud_download,
+        size: widget.size,
+        color: _currentColor,
+      ),
+    );
+
+    final button = GestureDetector(
+      onTap: _enabled ? widget.onPressed : null,
+      onTapDown: _enabled ? (_) => _setPressing(true) : null,
+      onTapUp: _enabled ? (_) => _setPressing(false) : null,
+      onTapCancel: _enabled ? () => _setPressing(false) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
+        child: SizedBox(width: 30, height: 30, child: Center(child: child)),
+      ),
+    );
+
+    return MouseRegion(
+      cursor: _enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) => _setHovering(true),
+      onExit: (_) {
+        _setHovering(false);
+        _setPressing(false);
+      },
+      child: button,
+    );
+  }
+}
+

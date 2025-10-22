@@ -23,12 +23,14 @@ import '../datasources/remote/netease_api_client.dart';
 import '../models/music_models.dart';
 import '../models/webdav_bundle.dart';
 import '../models/webdav_models.dart';
+import '../services/cloud_playlist_api.dart';
 import '../../core/constants/app_constants.dart';
 
 class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   final MusicLocalDataSource _localDataSource;
   final BinaryConfigStore _configStore;
   final NeteaseApiClient _neteaseApiClient;
+  final CloudPlaylistApi _cloudPlaylistApi;
   final Uuid _uuid = const Uuid();
   static const Set<String> _supportedAudioExtensions = {
     '.mp3',
@@ -56,9 +58,11 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     required MusicLocalDataSource localDataSource,
     required BinaryConfigStore configStore,
     required NeteaseApiClient neteaseApiClient,
+    required CloudPlaylistApi cloudPlaylistApi,
   }) : _localDataSource = localDataSource,
        _configStore = configStore,
-       _neteaseApiClient = neteaseApiClient;
+       _neteaseApiClient = neteaseApiClient,
+       _cloudPlaylistApi = cloudPlaylistApi;
 
   final Map<String, String?> _neteaseArtworkCache = {};
   final StreamController<Track> _trackUpdateController =
@@ -331,6 +335,42 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       return trackModels.map((model) => model.toEntity()).toList();
     } catch (e) {
       throw DatabaseException('Failed to get playlist tracks: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> uploadPlaylistToCloud({
+    required String playlistId,
+    required String remoteId,
+  }) async {
+    try {
+      final bytes = await _localDataSource.exportPlaylistBinary(playlistId);
+      if (bytes == null) {
+        throw DatabaseException('未找到要上传的歌单', playlistId);
+      }
+      await _cloudPlaylistApi.uploadPlaylist(
+        remoteId: remoteId,
+        bytes: bytes,
+      );
+    } on AppException {
+      rethrow;
+    } catch (e) {
+      throw NetworkException('上传歌单失败', e.toString());
+    }
+  }
+
+  @override
+  Future<Playlist?> downloadPlaylistFromCloud(String remoteId) async {
+    try {
+      final bytes = await _cloudPlaylistApi.downloadPlaylist(
+        remoteId: remoteId,
+      );
+      final model = await _localDataSource.importPlaylistBinary(bytes);
+      return model?.toEntity();
+    } on AppException {
+      rethrow;
+    } catch (e) {
+      throw NetworkException('拉取云歌单失败', e.toString());
     }
   }
 

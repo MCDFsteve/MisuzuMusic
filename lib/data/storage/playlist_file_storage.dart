@@ -53,6 +53,28 @@ class PlaylistFileStorage {
     return _readPlaylistFile(file);
   }
 
+  Future<Uint8List?> exportPlaylistBytes(String id) async {
+    final file = await _fileForId(id);
+    if (!await file.exists()) {
+      return null;
+    }
+    try {
+      return await file.readAsBytes();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<PlaylistModel?> importPlaylistBytes(Uint8List bytes) async {
+    final model = _parsePlaylistBytes(bytes);
+    if (model == null) {
+      return null;
+    }
+    final file = await _fileForId(model.id);
+    await file.writeAsBytes(bytes, flush: true);
+    return model;
+  }
+
   Future<void> savePlaylist(PlaylistModel playlist) async {
     final file = await _fileForId(playlist.id);
     final bytes = _encodePlaylist(playlist);
@@ -74,78 +96,82 @@ class PlaylistFileStorage {
   Future<PlaylistModel?> _readPlaylistFile(File file) async {
     try {
       final bytes = await file.readAsBytes();
-      if (bytes.length < 4) {
-        return null;
-      }
-      final data = ByteData.sublistView(bytes);
-      int offset = 0;
-
-      if (bytes[0] != _magic[0] ||
-          bytes[1] != _magic[1] ||
-          bytes[2] != _magic[2]) {
-        return null;
-      }
-      offset += _magic.length;
-
-      final version = data.getUint8(offset);
-      offset += 1;
-      if (version != _version) {
-        return null;
-      }
-
-      final idResult = _readString(bytes, offset);
-      final id = idResult.$1;
-      offset = idResult.$2;
-      if (id == null) {
-        return null;
-      }
-
-      final nameResult = _readString(bytes, offset);
-      final name = nameResult.$1 ?? 'Playlist';
-      offset = nameResult.$2;
-
-      final descriptionResult = _readString(bytes, offset);
-      final description = descriptionResult.$1;
-      offset = descriptionResult.$2;
-
-      final coverResult = _readString(bytes, offset);
-      final coverPath = coverResult.$1;
-      offset = coverResult.$2;
-
-      final createdAt = DateTime.fromMillisecondsSinceEpoch(
-        data.getInt64(offset, Endian.little),
-      );
-      offset += 8;
-      final updatedAt = DateTime.fromMillisecondsSinceEpoch(
-        data.getInt64(offset, Endian.little),
-      );
-      offset += 8;
-
-      final trackCount = data.getUint32(offset, Endian.little);
-      offset += 4;
-
-      final trackIds = <String>[];
-      for (var i = 0; i < trackCount; i++) {
-        final trackResult = _readString(bytes, offset);
-        final hash = trackResult.$1;
-        offset = trackResult.$2;
-        if (hash != null) {
-          trackIds.add(hash);
-        }
-      }
-
-      return PlaylistModel(
-        id: id,
-        name: name,
-        trackIds: trackIds,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        description: description,
-        coverPath: coverPath,
-      );
+      return _parsePlaylistBytes(bytes);
     } catch (_) {
       return null;
     }
+  }
+
+  PlaylistModel? _parsePlaylistBytes(Uint8List bytes) {
+    if (bytes.length < 4) {
+      return null;
+    }
+    final data = ByteData.sublistView(bytes);
+    int offset = 0;
+
+    if (bytes[0] != _magic[0] ||
+        bytes[1] != _magic[1] ||
+        bytes[2] != _magic[2]) {
+      return null;
+    }
+    offset += _magic.length;
+
+    final version = data.getUint8(offset);
+    offset += 1;
+    if (version != _version) {
+      return null;
+    }
+
+    final idResult = _readString(bytes, offset);
+    final id = idResult.$1;
+    offset = idResult.$2;
+    if (id == null) {
+      return null;
+    }
+
+    final nameResult = _readString(bytes, offset);
+    final name = nameResult.$1 ?? 'Playlist';
+    offset = nameResult.$2;
+
+    final descriptionResult = _readString(bytes, offset);
+    final description = descriptionResult.$1;
+    offset = descriptionResult.$2;
+
+    final coverResult = _readString(bytes, offset);
+    final coverPath = coverResult.$1;
+    offset = coverResult.$2;
+
+    final createdAt = DateTime.fromMillisecondsSinceEpoch(
+      data.getInt64(offset, Endian.little),
+    );
+    offset += 8;
+    final updatedAt = DateTime.fromMillisecondsSinceEpoch(
+      data.getInt64(offset, Endian.little),
+    );
+    offset += 8;
+
+    final trackCount = data.getUint32(offset, Endian.little);
+    offset += 4;
+
+    final trackIds = <String>[];
+    for (var i = 0; i < trackCount; i++) {
+      final trackResult = _readString(bytes, offset);
+      final hash = trackResult.$1;
+      offset = trackResult.$2;
+      if (hash != null) {
+        trackIds.add(hash);
+      }
+    }
+
+    return PlaylistModel(
+      id: id,
+      name: name,
+      trackIds: trackIds,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      description: description,
+      coverPath: coverPath,
+    );
   }
 
   Uint8List _encodePlaylist(PlaylistModel playlist) {

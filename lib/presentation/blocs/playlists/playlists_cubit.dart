@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/error/exceptions.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../../domain/repositories/music_library_repository.dart';
 
@@ -14,6 +15,14 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
 
   final MusicLibraryRepository _repository;
   final Uuid _uuid = const Uuid();
+  static final RegExp _cloudIdPattern = RegExp(r'^[A-Za-z0-9_]{5,}$');
+  static const String _cloudIdRuleMessage = '云端ID需至少5位，只能包含字母、数字或下划线';
+
+  bool isValidCloudPlaylistId(String id) {
+    return _cloudIdPattern.hasMatch(id.trim());
+  }
+
+  String get cloudIdRuleDescription => _cloudIdRuleMessage;
 
   Future<void> loadPlaylists() async {
     emit(state.copyWith(isLoading: true, clearError: true));
@@ -230,5 +239,66 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
       emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
       return false;
     }
+  }
+
+  Future<String?> uploadPlaylistToCloud({
+    required Playlist playlist,
+    required String remoteId,
+  }) async {
+    final trimmed = remoteId.trim();
+    if (!isValidCloudPlaylistId(trimmed)) {
+      emit(state.copyWith(errorMessage: _cloudIdRuleMessage));
+      return _cloudIdRuleMessage;
+    }
+
+    emit(state.copyWith(isProcessing: true, clearError: true));
+    try {
+      await _repository.uploadPlaylistToCloud(
+        playlistId: playlist.id,
+        remoteId: trimmed,
+      );
+      emit(state.copyWith(isProcessing: false, clearError: true));
+      return null;
+    } catch (e) {
+      final message = _resolveErrorMessage(e);
+      emit(state.copyWith(isProcessing: false, errorMessage: message));
+      return message;
+    }
+  }
+
+  Future<(String? playlistId, String? error)> importPlaylistFromCloud(
+    String remoteId,
+  ) async {
+    final trimmed = remoteId.trim();
+    if (!isValidCloudPlaylistId(trimmed)) {
+      emit(state.copyWith(errorMessage: _cloudIdRuleMessage));
+      return (null, _cloudIdRuleMessage);
+    }
+
+    emit(state.copyWith(isProcessing: true, clearError: true));
+    try {
+      final playlist = await _repository.downloadPlaylistFromCloud(trimmed);
+      if (playlist == null) {
+        const message = '云端返回的歌单内容无效';
+        emit(state.copyWith(isProcessing: false, errorMessage: message));
+        return (null, message);
+      }
+
+      await loadPlaylists();
+      await ensurePlaylistTracks(playlist.id, force: true);
+      emit(state.copyWith(isProcessing: false, clearError: true));
+      return (playlist.id, null);
+    } catch (e) {
+      final message = _resolveErrorMessage(e);
+      emit(state.copyWith(isProcessing: false, errorMessage: message));
+      return (null, message);
+    }
+  }
+
+  String _resolveErrorMessage(Object error) {
+    if (error is AppException) {
+      return error.message;
+    }
+    return error.toString();
   }
 }

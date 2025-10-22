@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../models/music_models.dart';
 
 abstract class MusicLocalDataSource {
@@ -44,6 +46,8 @@ abstract class MusicLocalDataSource {
   );
   Future<void> removeTrackFromPlaylist(String playlistId, String trackHash);
   Future<List<TrackModel>> getPlaylistTracks(String playlistId);
+  Future<Uint8List?> exportPlaylistBinary(String playlistId);
+  Future<PlaylistModel?> importPlaylistBinary(Uint8List bytes);
 
   // Library management
   Future<void> clearAllTracks();

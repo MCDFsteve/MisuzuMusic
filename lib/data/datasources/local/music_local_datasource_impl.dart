@@ -575,6 +575,24 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   }
 
   @override
+  Future<Uint8List?> exportPlaylistBinary(String playlistId) async {
+    try {
+      return _playlistStorage.exportPlaylistBytes(playlistId);
+    } catch (e) {
+      throw DatabaseException('Failed to export playlist: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<PlaylistModel?> importPlaylistBinary(Uint8List bytes) async {
+    try {
+      return _playlistStorage.importPlaylistBytes(bytes);
+    } catch (e) {
+      throw DatabaseException('Failed to import playlist: ${e.toString()}');
+    }
+  }
+
+  @override
   Future<void> clearAllTracks() async {
     try {
       await _databaseHelper.delete('tracks');

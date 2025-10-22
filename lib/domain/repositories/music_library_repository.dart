@@ -34,6 +34,11 @@ abstract class MusicLibraryRepository {
   Future<void> addTrackToPlaylist(String playlistId, String trackHash);
   Future<void> removeTrackFromPlaylist(String playlistId, String trackHash);
   Future<List<Track>> getPlaylistTracks(String playlistId);
+  Future<void> uploadPlaylistToCloud({
+    required String playlistId,
+    required String remoteId,
+  });
+  Future<Playlist?> downloadPlaylistFromCloud(String remoteId);
 
   // Library management
   Future<void> scanDirectory(String path);

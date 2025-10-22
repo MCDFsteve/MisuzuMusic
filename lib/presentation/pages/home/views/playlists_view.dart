@@ -60,6 +60,123 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     openPlaylistById(playlist.id);
   }
 
+  Future<void> _showPlaylistContextMenu(
+    Playlist playlist,
+    Offset position,
+  ) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) {
+      return;
+    }
+    final result = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        overlay.size.width - position.dx,
+        overlay.size.height - position.dy,
+      ),
+      items: const [
+        PopupMenuItem(value: 'open', child: Text('打开歌单')),
+        PopupMenuItem(value: 'edit', child: Text('编辑歌单')),
+        PopupMenuItem(value: 'upload', child: Text('上传到云')),
+      ],
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+
+    switch (result) {
+      case 'open':
+        _openPlaylist(playlist);
+        break;
+      case 'edit':
+        _editPlaylist(playlist);
+        break;
+      case 'upload':
+        await _handleUploadToCloud(playlist);
+        break;
+    }
+  }
+
+  Future<void> _handleUploadToCloud(Playlist playlist) async {
+    final playlistsCubit = context.read<PlaylistsCubit>();
+    final cloudId = await showCloudPlaylistIdDialog(
+      context,
+      title: '上传到云',
+      confirmLabel: '上传',
+      invalidMessage: playlistsCubit.cloudIdRuleDescription,
+      description: '为 “${playlist.name}” 指定云端 ID，用于其它设备拉取。',
+      validator: playlistsCubit.isValidCloudPlaylistId,
+    );
+    if (!mounted || cloudId == null) {
+      return;
+    }
+
+    String? message;
+    var isError = false;
+    await _runWithBlockingProgress(
+      title: '正在上传云歌单...',
+      task: () async {
+        final error = await playlistsCubit.uploadPlaylistToCloud(
+          playlist: playlist,
+          remoteId: cloudId,
+        );
+        message = error ?? '上传成功（ID: $cloudId）';
+        isError = error != null;
+      },
+    );
+
+    if (!mounted || message == null) {
+      return;
+    }
+    _showSnack(message!, isError: isError);
+  }
+
+  Future<void> _runWithBlockingProgress({
+    required String title,
+    required Future<void> Function() task,
+  }) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showPlaylistModalDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PlaylistModalScaffold(
+        title: title,
+        body: const SizedBox(
+          height: 80,
+          child: Center(child: ProgressCircle()),
+        ),
+        actions: const [],
+        maxWidth: 240,
+        contentSpacing: 20,
+        actionsSpacing: 0,
+      ),
+    );
+
+    await Future<void>.delayed(Duration.zero);
+
+    try {
+      await task();
+    } finally {
+      if (mounted && navigator.canPop()) {
+        navigator.pop();
+      }
+    }
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.clearSnackBars();
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   void _returnOverview() {
     setState(() {
       _showList = false;
@@ -130,7 +247,8 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                 hasArtwork: hasArtwork,
                 fallbackIcon: CupertinoIcons.square_stack_3d_up,
                 onTap: () => _openPlaylist(playlist),
-                onSecondaryTap: () => _editPlaylist(playlist),
+                onContextMenuRequested: (position) =>
+                    _showPlaylistContextMenu(playlist, position),
               );
             },
           );

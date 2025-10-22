@@ -79,14 +79,129 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<void> _handleCreatePlaylistFromHeader() async {
+    await _startPlaylistCreationFlow(openAfterCreate: true);
+  }
+
+  Future<String?> _startPlaylistCreationFlow({
+    Track? initialTrack,
+    required bool openAfterCreate,
+  }) async {
     final playlistsCubit = context.read<PlaylistsCubit>();
-    final newId = await showPlaylistCreationSheet(context);
-    if (!mounted || newId == null) {
-      return;
+
+    final mode = await showPlaylistCreationModeDialog(context);
+    if (!mounted || mode == null) {
+      return null;
     }
 
-    await playlistsCubit.ensurePlaylistTracks(newId, force: true);
+    if (mode == PlaylistCreationMode.local) {
+      final newId = await showPlaylistCreationSheet(
+        context,
+        track: initialTrack,
+      );
+      if (!mounted || newId == null) {
+        return null;
+      }
 
+      await playlistsCubit.ensurePlaylistTracks(newId, force: true);
+      if (openAfterCreate) {
+        _navigateToPlaylistView(newId);
+      }
+      return newId;
+    }
+
+    final cloudId = await showCloudPlaylistIdDialog(
+      context,
+      title: '拉取云歌单',
+      confirmLabel: '拉取',
+      invalidMessage: playlistsCubit.cloudIdRuleDescription,
+      description: '输入云端歌单的 ID，至少 5 位，支持字母、数字和下划线。',
+      validator: playlistsCubit.isValidCloudPlaylistId,
+    );
+    if (!mounted || cloudId == null) {
+      return null;
+    }
+
+    String? playlistId;
+    String successMessage = '已拉取云歌单（ID: $cloudId）';
+    String? errorMessage;
+
+    await _runWithBlockingProgress(
+      title: '正在拉取云歌单...',
+      task: () async {
+        final result = await playlistsCubit.importPlaylistFromCloud(cloudId);
+        final (id, error) = result;
+        playlistId = id;
+        errorMessage = error;
+        if (errorMessage != null || playlistId == null) {
+          return;
+        }
+        if (initialTrack != null) {
+          final added = await playlistsCubit.addTrackToPlaylist(
+            playlistId!,
+            initialTrack,
+          );
+          if (added) {
+            successMessage = '已拉取云歌单并添加当前歌曲';
+          } else {
+            successMessage = '云歌单已拉取，歌曲已存在于该歌单';
+          }
+        }
+      },
+    );
+
+    if (!mounted) {
+      return playlistId;
+    }
+
+    if (errorMessage != null) {
+      _showOperationSnackBar(errorMessage!, isError: true);
+      return null;
+    }
+    if (playlistId == null) {
+      return null;
+    }
+
+    _showOperationSnackBar(successMessage);
+
+    if (openAfterCreate) {
+      _navigateToPlaylistView(playlistId!);
+    }
+    return playlistId;
+  }
+
+  Future<void> _runWithBlockingProgress({
+    required String title,
+    required Future<void> Function() task,
+  }) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showPlaylistModalDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PlaylistModalScaffold(
+        title: title,
+        body: const SizedBox(
+          height: 80,
+          child: Center(child: ProgressCircle()),
+        ),
+        actions: const [],
+        maxWidth: 240,
+        contentSpacing: 20,
+        actionsSpacing: 0,
+      ),
+    );
+
+    await Future<void>.delayed(Duration.zero);
+
+    try {
+      await task();
+    } finally {
+      if (mounted && navigator.canPop()) {
+        navigator.pop();
+      }
+    }
+  }
+
+  void _navigateToPlaylistView(String playlistId) {
     if (_selectedIndex != 1) {
       setState(() {
         _selectedIndex = 1;
@@ -94,8 +209,20 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _playlistsViewKey.currentState?.openPlaylistById(newId);
+      _playlistsViewKey.currentState?.openPlaylistById(playlistId);
     });
+  }
+
+  void _showOperationSnackBar(String message, {bool isError = false}) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.clearSnackBars();
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Widget _buildMacOSLayout() {
@@ -384,7 +511,10 @@ class _HomePageContentState extends State<HomePageContent> {
     if (!mounted) return;
 
     if (result == _PlaylistSelectionDialog.createSignal) {
-      final newId = await showPlaylistCreationSheet(context, track: track);
+      final newId = await _startPlaylistCreationFlow(
+        initialTrack: track,
+        openAfterCreate: false,
+      );
       if (!mounted) return;
       if (newId != null) {
         await playlistsCubit.ensurePlaylistTracks(newId, force: true);

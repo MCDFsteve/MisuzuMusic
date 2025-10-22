@@ -11,6 +11,7 @@ import '../../data/repositories/lyrics_repository_impl.dart';
 import '../../data/repositories/playback_history_repository_impl.dart';
 import '../../data/services/audio_player_service_impl.dart';
 import '../../data/services/misuzu_audio_handler.dart';
+import '../../data/services/cloud_playlist_api.dart';
 import '../../data/datasources/remote/netease_api_client.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/lyrics_repository.dart';
@@ -58,12 +59,14 @@ class DependencyInjection {
       // Repositories
       print('📚 注册仓库...');
       sl.registerLazySingleton<NeteaseApiClient>(() => NeteaseApiClient());
+      sl.registerLazySingleton(() => CloudPlaylistApi());
 
       sl.registerLazySingleton<MusicLibraryRepository>(
         () => MusicLibraryRepositoryImpl(
           localDataSource: sl(),
           configStore: sl(),
           neteaseApiClient: sl(),
+          cloudPlaylistApi: sl(),
         ),
       );
 
