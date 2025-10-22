@@ -32,47 +32,39 @@ class LyricsCubit extends Cubit<LyricsState> {
     try {
       final lyricsFromFile = await _loadLyricsFromAssociatedFile(track);
       if (isClosed) return;
-      if (lyricsFromFile == null || lyricsFromFile.lines.isEmpty) {
-        final cached = await _getLyrics(track.id);
-        if (isClosed) return;
 
-        final cloudLyrics = await _loadLyricsFromOnline(track, cloudOnly: true);
-        if (isClosed) return;
-        if (cloudLyrics != null && cloudLyrics.lines.isNotEmpty) {
-          print('🎼 LyricsCubit: 使用云端歌词');
-          emit(LyricsLoaded(cloudLyrics));
-          return;
-        }
-
-        if (cached != null && cached.lines.isNotEmpty) {
-          Lyrics current = cached;
-          if (_needsTranslationUpgrade(current, track)) {
-            final Lyrics? upgraded = await _loadLyricsFromOnline(track);
-            if (isClosed) return;
-            if (upgraded != null && upgraded.lines.isNotEmpty) {
-              print('🎼 LyricsCubit: 使用网易云歌词');
-              emit(LyricsLoaded(upgraded));
-              return;
-            }
-          }
-          emit(LyricsLoaded(current));
-          return;
-        }
-
-        final onlineLyrics = await _loadLyricsFromOnline(track);
-        if (isClosed) return;
-        if (onlineLyrics != null && onlineLyrics.lines.isNotEmpty) {
-          print('🎼 LyricsCubit: 使用网易云歌词');
-          emit(LyricsLoaded(onlineLyrics));
-          return;
-        }
-        emit(const LyricsEmpty());
+      // Always attempt to refresh from cloud so server updates are reflected
+      final cloudLyrics = await _loadLyricsFromOnline(track, cloudOnly: true);
+      if (isClosed) return;
+      if (cloudLyrics != null && cloudLyrics.lines.isNotEmpty) {
+        print('🎼 LyricsCubit: 使用云端歌词');
+        emit(LyricsLoaded(cloudLyrics));
         return;
       }
 
+      if (lyricsFromFile != null && lyricsFromFile.lines.isNotEmpty) {
+        print('🎼 LyricsCubit: 使用本地歌词');
+        emit(LyricsLoaded(lyricsFromFile));
+        return;
+      }
+
+      final cached = await _getLyrics(track.id);
       if (isClosed) return;
-      print('🎼 LyricsCubit: 使用本地歌词');
-      emit(LyricsLoaded(lyricsFromFile));
+      if (cached != null && cached.lines.isNotEmpty) {
+        print('🎼 LyricsCubit: 使用缓存歌词');
+        emit(LyricsLoaded(cached));
+        return;
+      }
+
+      final onlineLyrics = await _loadLyricsFromOnline(track);
+      if (isClosed) return;
+      if (onlineLyrics != null && onlineLyrics.lines.isNotEmpty) {
+        print('🎼 LyricsCubit: 使用网易云歌词');
+        emit(LyricsLoaded(onlineLyrics));
+        return;
+      }
+
+      emit(const LyricsEmpty());
     } catch (e) {
       if (isClosed) return;
       emit(LyricsError(e.toString()));
