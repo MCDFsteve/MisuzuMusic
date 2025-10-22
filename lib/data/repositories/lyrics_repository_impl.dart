@@ -8,7 +8,6 @@ import '../../domain/repositories/lyrics_repository.dart';
 import '../datasources/local/lyrics_local_datasource.dart';
 import '../datasources/remote/netease_api_client.dart';
 import '../models/lyrics_models.dart';
-import '../services/japanese_annotation_service.dart';
 import '../services/remote_lyrics_api.dart';
 
 class LyricsRepositoryImpl implements LyricsRepository {
@@ -28,11 +27,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
   Future<Lyrics?> getLyricsByTrackId(String trackId) async {
     try {
       final lyricsModel = await _localDataSource.getLyricsByTrackId(trackId);
-      if (lyricsModel != null) {
-        final entity = lyricsModel.toEntity();
-        return await _autoAnnotateLyricsIfNeeded(entity, source: 'cache');
-      }
-      return null;
+      return lyricsModel?.toEntity();
     } catch (e) {
       throw DatabaseException('Failed to get lyrics: ${e.toString()}');
     }
@@ -201,8 +196,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
         lines = _parseTextContent(content);
       }
 
-      final lyrics = Lyrics(trackId: trackId, lines: lines, format: format);
-      return await _autoAnnotateLyricsIfNeeded(lyrics, source: 'file:$extension');
+      return Lyrics(trackId: trackId, lines: lines, format: format);
     } catch (e) {
       throw LyricsException('Failed to load lyrics from file: ${e.toString()}');
     }
@@ -614,68 +608,6 @@ class LyricsRepositoryImpl implements LyricsRepository {
     }
 
     return lines;
-  }
-
-  Future<Lyrics> _autoAnnotateLyricsIfNeeded(
-    Lyrics lyrics, {
-    String source = 'unknown',
-  }) async {
-    JapaneseAnnotationService.clearCache();
-    JapaneseAnnotationService.clearCache();
-    final annotatedLines = await _autoAnnotateLines(lyrics.lines);
-    if (identical(annotatedLines, lyrics.lines)) {
-      return lyrics;
-    }
-    return Lyrics(
-      trackId: lyrics.trackId,
-      lines: annotatedLines,
-      format: lyrics.format,
-    );
-  }
-
-  Future<List<LyricsLine>> _autoAnnotateLines(List<LyricsLine> lines) async {
-    if (lines.isEmpty) {
-      return lines;
-    }
-
-    final List<LyricsLine> result = <LyricsLine>[];
-    for (final line in lines) {
-      if (_shouldAutoAnnotate(line)) {
-        final segments = await JapaneseAnnotationService.annotate(
-          line.originalText,
-        );
-        result.add(
-          LyricsLine(
-            timestamp: line.timestamp,
-            originalText: line.originalText,
-            translatedText: line.translatedText,
-            annotatedTexts: segments,
-          ),
-        );
-      } else {
-        result.add(line);
-      }
-    }
-
-    return result;
-  }
-
-  bool _shouldAutoAnnotate(LyricsLine line) {
-    if (!JapaneseAnnotationService.containsKanji(line.originalText)) {
-      return false;
-    }
-    if (line.annotatedTexts.isEmpty) {
-      return true;
-    }
-    final hasRuby = line.annotatedTexts.any(
-      (segment) =>
-          segment.type == TextType.kanji &&
-          segment.annotation.trim() != segment.original.trim(),
-    );
-    if (hasRuby) {
-      return false;
-    }
-    return true;
   }
 
   _ParsedAnnotatedLine _parseAnnotatedLine(String rawText) {
