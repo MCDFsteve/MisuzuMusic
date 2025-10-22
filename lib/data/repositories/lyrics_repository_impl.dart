@@ -1,7 +1,7 @@
 import 'dart:io';
+import 'package:misuzu_music/core/constants/app_constants.dart';
 import 'package:path/path.dart' as path;
 
-import '../../core/constants/app_constants.dart';
 import '../../core/error/exceptions.dart';
 import '../../domain/entities/lyrics_entities.dart';
 import '../../domain/repositories/lyrics_repository.dart';
@@ -224,6 +224,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
     required String trackId,
     required String title,
     String? artist,
+    bool cloudOnly = false,
   }) async {
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) {
@@ -231,6 +232,14 @@ class LyricsRepositoryImpl implements LyricsRepository {
     }
 
     try {
+      if (cloudOnly) {
+        return await _fetchLyricsFromRemoteLibrary(
+          trackId: trackId,
+          title: trimmedTitle,
+          artist: artist,
+        );
+      }
+
       final Lyrics? remoteLyrics = await _fetchLyricsFromRemoteLibrary(
         trackId: trackId,
         title: trimmedTitle,
@@ -288,18 +297,57 @@ class LyricsRepositoryImpl implements LyricsRepository {
         return null;
       }
 
-      final Map<String, String> normalizedMap = {
+      print('🎼 LyricsRepository: 云端可用歌词 ${available.length} 个');
+      for (final entry in available) {
+        print('  • $entry');
+      }
+
+      final normalizedAvailable = <MapEntry<String, String>>[
         for (final file in available)
-          _normalizeNameForMatch(file): file,
-      }..removeWhere((key, value) => key.isEmpty);
+          MapEntry<String, String>(file, _normalizeForLooseCompare(file)),
+      ];
+
+      final Map<String, List<String>> normalizedMap = {};
+      for (final file in available) {
+        final baseName = file.toLowerCase().endsWith('.lrc')
+            ? file.substring(0, file.length - 4)
+            : file;
+        final key = _sanitizeForComparison(baseName);
+        if (key.isEmpty) {
+          continue;
+        }
+        normalizedMap.putIfAbsent(key, () => []).add(file);
+      }
 
       final candidateKeys = _buildCandidateKeys(title, artist);
-      for (final candidate in candidateKeys) {
-        final normalized = _normalizeNameForMatch(candidate);
-        final matchedFile = normalizedMap[normalized];
+      for (var candidate in candidateKeys) {
+        if (!candidate.toLowerCase().endsWith('.lrc')) {
+          candidate = '$candidate.lrc';
+        }
+
+        final looseCandidate = _normalizeForLooseCompare(candidate);
+        final directEntry = normalizedAvailable.firstWhere(
+          (entry) => entry.value == looseCandidate,
+          orElse: () => const MapEntry<String, String>('', ''),
+        );
+
+        String? matchedFile = directEntry.key.isNotEmpty ? directEntry.key : null;
+        if (matchedFile == null) {
+          final normalizedKey = _sanitizeForComparison(
+            candidate.substring(0, candidate.length - 4),
+          );
+          if (normalizedKey.isNotEmpty) {
+            final candidates = normalizedMap[normalizedKey];
+            if (candidates != null && candidates.isNotEmpty) {
+              matchedFile = candidates.first;
+            }
+          }
+        }
+
         if (matchedFile == null) {
           continue;
         }
+
         final content = await _remoteLyricsApi.fetchLyrics(matchedFile);
         if (content == null || content.trim().isEmpty) {
           continue;
@@ -317,15 +365,19 @@ class LyricsRepositoryImpl implements LyricsRepository {
         return await getLyricsByTrackId(trackId);
       }
 
-      final fallbackKey = _normalizeNameForMatch(title);
-      final looseMatch = normalizedMap.entries.firstWhere(
-        (entry) => entry.key.contains(fallbackKey) && fallbackKey.isNotEmpty,
-        orElse: () => const MapEntry('', ''),
-      );
-      if (looseMatch.key.isEmpty) {
+      final fallbackKey = _sanitizeForComparison(title);
+      if (fallbackKey.isEmpty) {
         return null;
       }
-      final content = await _remoteLyricsApi.fetchLyrics(looseMatch.value);
+      final looseEntry = normalizedMap.entries.firstWhere(
+        (entry) => entry.key.contains(fallbackKey),
+        orElse: () => const MapEntry<String, List<String>>('', <String>[]),
+      );
+      if (looseEntry.value.isEmpty) {
+        return null;
+      }
+
+      final content = await _remoteLyricsApi.fetchLyrics(looseEntry.value.first);
       if (content == null || content.trim().isEmpty) {
         return null;
       }
@@ -349,64 +401,61 @@ class LyricsRepositoryImpl implements LyricsRepository {
   Iterable<String> _buildCandidateKeys(String title, String? artist) {
     final trimmedTitle = title.trim();
     final trimmedArtist = artist?.trim();
-    final normalizedTitle = _normalizeSegment(trimmedTitle);
-    final normalizedArtist =
-        (trimmedArtist == null || trimmedArtist.isEmpty)
-            ? null
-            : _normalizeSegment(trimmedArtist);
 
     final Set<String> candidates = {
+      trimmedTitle,
       if (trimmedArtist != null && trimmedArtist.isNotEmpty)
-        '${trimmedArtist} - $trimmedTitle.lrc',
+        '${trimmedArtist} - $trimmedTitle',
       if (trimmedArtist != null && trimmedArtist.isNotEmpty)
-        '$trimmedTitle - $trimmedArtist.lrc',
-      '$trimmedTitle.lrc',
+        '$trimmedTitle - $trimmedArtist',
+      if (trimmedArtist != null && trimmedArtist.isNotEmpty)
+        '${trimmedArtist}_$trimmedTitle',
+      if (trimmedArtist != null && trimmedArtist.isNotEmpty)
+        '${trimmedTitle}_$trimmedArtist',
     };
 
-    if (trimmedArtist != null && trimmedArtist.isNotEmpty) {
-      candidates
-        ..add('${trimmedArtist}_${trimmedTitle}.lrc')
-        ..add('${trimmedTitle}_${trimmedArtist}.lrc');
-    }
-
-    if (normalizedArtist != null && normalizedArtist.isNotEmpty) {
-      candidates
-        ..add('${normalizedArtist}-${normalizedTitle}.lrc')
-        ..add('${normalizedTitle}-${normalizedArtist}.lrc')
-        ..add('${normalizedArtist}_${normalizedTitle}.lrc')
-        ..add('${normalizedTitle}_${normalizedArtist}.lrc');
-    }
+    final normalizedTitle = _sanitizeForComparison(trimmedTitle);
+    final normalizedArtist =
+        trimmedArtist == null ? '' : _sanitizeForComparison(trimmedArtist);
 
     if (normalizedTitle.isNotEmpty) {
-      candidates.add('$normalizedTitle.lrc');
+      candidates.add(normalizedTitle);
+    }
+    if (normalizedArtist.isNotEmpty) {
+      candidates
+        ..add('${normalizedArtist}_$normalizedTitle')
+        ..add('${normalizedTitle}_$normalizedArtist')
+        ..add('${normalizedArtist}-$normalizedTitle')
+        ..add('${normalizedTitle}-$normalizedArtist');
     }
 
     return candidates.where((candidate) => candidate.trim().isNotEmpty);
   }
 
-  String _normalizeSegment(String value) {
-    final normalized = value
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+  String _sanitizeForComparison(String value) {
+    var result = value.trim().toLowerCase();
+    if (result.isEmpty) {
+      return '';
+    }
+    result = result
+        .replaceAll(RegExp(r'[\s]+'), '_')
+        .replaceAll(RegExp(r'[\-‐‑‒–—―〜~]+'), '_')
+        .replaceAll(RegExp(r'[\\/:*?"<>|]+'), '_')
+        .replaceAll(RegExp(r'[()\[\]{}]+'), '')
         .replaceAll(RegExp(r'_+'), '_');
-    return _trimUnderscores(normalized);
-  }
-
-  String _normalizeNameForMatch(String value) {
-    final lower = value.toLowerCase().trim();
-    final withoutExt = lower.endsWith('.lrc')
-        ? lower.substring(0, lower.length - 4)
-        : lower;
-    final normalized = withoutExt
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_');
-    return _trimUnderscores(normalized);
-  }
-
-  String _trimUnderscores(String value) {
-    return value
+    return result
         .replaceFirst(RegExp(r'^_+'), '')
         .replaceFirst(RegExp(r'_+$'), '');
+  }
+
+  String _normalizeForLooseCompare(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s]+'), ' ')
+        .replaceAll(RegExp(r'[‐‑‒–—―〜~]+'), '-')
+        .replaceAll(RegExp(r'[\\/:*?"<>|]+'), '-')
+        .replaceAll(RegExp(r'-+'), '-');
   }
 
   List<LyricsLine> _mergeNeteaseLyrics(

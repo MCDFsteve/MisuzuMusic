@@ -85,7 +85,13 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
       _ignoreNextChange = false;
       return;
     }
-    widget.onQueryChanged(value);
+    if (value.isEmpty) {
+      widget.onQueryChanged('');
+    }
+  }
+
+  void _handleSubmitted(String value) {
+    widget.onQueryChanged(value.trim());
   }
 
   @override
@@ -100,6 +106,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
               focusNode: _focusNode,
               placeholder: widget.placeholder,
               onChanged: _handleChanged,
+              onSubmitted: _handleSubmitted,
               isFocused: _focusNode.hasFocus,
               focusProgress: _focusController.value,
             )
@@ -108,6 +115,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
               focusNode: _focusNode,
               placeholder: widget.placeholder,
               onChanged: _handleChanged,
+              onSubmitted: _handleSubmitted,
               isFocused: _focusNode.hasFocus,
               focusProgress: _focusController.value,
             ),
@@ -121,6 +129,7 @@ class _MacSearchField extends StatelessWidget {
     required this.focusNode,
     required this.placeholder,
     required this.onChanged,
+    required this.onSubmitted,
     required this.isFocused,
     required this.focusProgress,
   });
@@ -129,6 +138,7 @@ class _MacSearchField extends StatelessWidget {
   final FocusNode focusNode;
   final String placeholder;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
   final bool isFocused;
   final double focusProgress;
 
@@ -150,41 +160,45 @@ class _MacSearchField extends StatelessWidget {
     final BorderRadius baseRadius = BorderRadius.circular(12);
 
     final textField = cupertino.CupertinoTextField(
-        controller: controller,
-        focusNode: focusNode,
-        placeholder: placeholder,
-        placeholderStyle: theme.typography.body.copyWith(
-          color: (isDark ? Colors.white : macos_ui.MacosColors.systemGrayColor).withOpacity(0.6),
+      controller: controller,
+      focusNode: focusNode,
+      placeholder: placeholder,
+      placeholderStyle: theme.typography.body.copyWith(
+        color: (isDark ? Colors.white : macos_ui.MacosColors.systemGrayColor).withOpacity(0.6),
+      ),
+      style: theme.typography.body.copyWith(
+        color: isDark ? Colors.white : macos_ui.MacosColors.labelColor,
+      ),
+      cursorColor: _accentColor,
+      cursorWidth: 2.4,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      prefix: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Icon(
+          cupertino.CupertinoIcons.search,
+          size: 16,
+          color: iconColor,
         ),
-        style: theme.typography.body.copyWith(
-          color: isDark ? Colors.white : macos_ui.MacosColors.labelColor,
-        ),
-        cursorColor: _accentColor,
-        cursorWidth: 2.4,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        prefix: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Icon(
-            cupertino.CupertinoIcons.search,
-            size: 16,
-            color: iconColor,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: baseRadius,
+        border: Border.all(color: baseBorderColor, width: 0.9),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withOpacity(0.28) : Colors.black.withOpacity(0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
-        ),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: baseRadius,
-          border: Border.all(color: baseBorderColor, width: 0.9),
-          boxShadow: [
-            BoxShadow(
-              color: isDark ? Colors.black.withOpacity(0.28) : Colors.black.withOpacity(0.08),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        onChanged: onChanged,
-        clearButtonMode: cupertino.OverlayVisibilityMode.editing,
-      );
+        ],
+      ),
+      textInputAction: TextInputAction.search,
+      keyboardType: TextInputType.text,
+      maxLines: 1,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      clearButtonMode: cupertino.OverlayVisibilityMode.editing,
+    );
 
     return Stack(
       clipBehavior: Clip.none,
@@ -221,6 +235,7 @@ class _MaterialSearchField extends StatelessWidget {
     required this.focusNode,
     required this.placeholder,
     required this.onChanged,
+    required this.onSubmitted,
     required this.isFocused,
     required this.focusProgress,
   });
@@ -229,6 +244,7 @@ class _MaterialSearchField extends StatelessWidget {
   final FocusNode focusNode;
   final String placeholder;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
   final bool isFocused;
   final double focusProgress;
 
@@ -263,8 +279,12 @@ class _MaterialSearchField extends StatelessWidget {
               controller: controller,
               focusNode: focusNode,
               onChanged: onChanged,
+              onSubmitted: onSubmitted,
               cursorColor: colorScheme.primary,
               cursorWidth: 2.4,
+              textInputAction: TextInputAction.search,
+              keyboardType: TextInputType.text,
+              maxLines: 1,
               style: theme.textTheme.bodyMedium,
               decoration: InputDecoration(
                 icon: Icon(

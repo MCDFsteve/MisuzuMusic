@@ -25,5 +25,6 @@ abstract class LyricsRepository {
     required String trackId,
     required String title,
     String? artist,
+    bool cloudOnly = false,
   });
 }

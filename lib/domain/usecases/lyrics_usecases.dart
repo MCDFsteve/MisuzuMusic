@@ -50,11 +50,13 @@ class FetchOnlineLyrics {
     required String trackId,
     required String title,
     String? artist,
+    bool cloudOnly = false,
   }) async {
     return await _repository.fetchOnlineLyrics(
       trackId: trackId,
       title: title,
       artist: artist,
+      cloudOnly: cloudOnly,
     );
   }
 }

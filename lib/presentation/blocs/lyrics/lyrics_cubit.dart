@@ -30,32 +30,40 @@ class LyricsCubit extends Cubit<LyricsState> {
     if (isClosed) return;
     emit(const LyricsLoading());
     try {
-      final cached = await _getLyrics(track.id);
-      if (isClosed) return;
-      if (cached != null && cached.lines.isNotEmpty) {
-        Lyrics current = cached;
-        if (_needsTranslationUpgrade(current, track)) {
-          final Lyrics? upgraded = await _loadLyricsFromOnline(track);
-          if (isClosed) return;
-          if (upgraded != null && upgraded.lines.isNotEmpty) {
-            current = upgraded;
-          }
-        }
-        emit(LyricsLoaded(current));
-        return;
-      }
-
       final lyricsFromFile = await _loadLyricsFromAssociatedFile(track);
       if (isClosed) return;
       if (lyricsFromFile == null || lyricsFromFile.lines.isEmpty) {
-        final onlineLyrics = await _loadLyricsFromOnline(track);
+        final cached = await _getLyrics(track.id);
         if (isClosed) return;
-        if (onlineLyrics == null || onlineLyrics.lines.isEmpty) {
-          emit(const LyricsEmpty());
+
+        final cloudLyrics = await _loadLyricsFromOnline(track, cloudOnly: true);
+        if (isClosed) return;
+        if (cloudLyrics != null && cloudLyrics.lines.isNotEmpty) {
+          emit(LyricsLoaded(cloudLyrics));
           return;
         }
+
+        if (cached != null && cached.lines.isNotEmpty) {
+          Lyrics current = cached;
+          if (_needsTranslationUpgrade(current, track)) {
+            final Lyrics? upgraded = await _loadLyricsFromOnline(track);
+            if (isClosed) return;
+            if (upgraded != null && upgraded.lines.isNotEmpty) {
+              emit(LyricsLoaded(upgraded));
+              return;
+            }
+          }
+          emit(LyricsLoaded(current));
+          return;
+        }
+
+        final onlineLyrics = await _loadLyricsFromOnline(track);
         if (isClosed) return;
-        emit(LyricsLoaded(onlineLyrics));
+        if (onlineLyrics != null && onlineLyrics.lines.isNotEmpty) {
+          emit(LyricsLoaded(onlineLyrics));
+          return;
+        }
+        emit(const LyricsEmpty());
         return;
       }
 
@@ -128,7 +136,10 @@ class LyricsCubit extends Cubit<LyricsState> {
     }
   }
 
-  Future<Lyrics?> _loadLyricsFromOnline(Track track) async {
+  Future<Lyrics?> _loadLyricsFromOnline(
+    Track track, {
+    bool cloudOnly = false,
+  }) async {
     final title = track.title.trim();
     if (title.isEmpty) {
       return null;
@@ -139,6 +150,7 @@ class LyricsCubit extends Cubit<LyricsState> {
         trackId: track.id,
         title: title,
         artist: track.artist.trim().isEmpty ? null : track.artist,
+        cloudOnly: cloudOnly,
       );
       if (lyrics != null) {
         print('🎼 LyricsCubit: 在线歌词获取成功');
