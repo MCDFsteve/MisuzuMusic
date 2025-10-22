@@ -11,7 +11,12 @@ class RemoteLyricsApi {
   final http.Client _client;
 
   Future<List<String>> listAvailableLyrics() async {
-    final uri = Uri.parse(AppConstants.remoteLyricsEndpoint);
+    final uri = Uri.parse(AppConstants.remoteLyricsEndpoint).replace(
+      queryParameters: const {
+        'action': 'list',
+        'format': 'json',
+      },
+    );
     final response = await _client.get(uri);
 
     if (response.statusCode != 200) {
@@ -30,11 +35,10 @@ class RemoteLyricsApi {
               .toList();
         }
       }
+      return const [];
     } catch (e) {
       throw NetworkException('解析云歌词列表失败: $e');
     }
-
-    return const [];
   }
 
   Future<String?> fetchLyrics(String filename) async {

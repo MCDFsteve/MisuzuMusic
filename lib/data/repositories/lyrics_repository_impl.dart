@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
 
+import '../../core/constants/app_constants.dart';
 import '../../core/error/exceptions.dart';
 import '../../domain/entities/lyrics_entities.dart';
 import '../../domain/repositories/lyrics_repository.dart';
@@ -364,16 +365,16 @@ class LyricsRepositoryImpl implements LyricsRepository {
 
     if (trimmedArtist != null && trimmedArtist.isNotEmpty) {
       candidates
-        ..add('${trimmedArtist}_$trimmedTitle.lrc')
-        ..add('${trimmedTitle}_$trimmedArtist.lrc');
+        ..add('${trimmedArtist}_${trimmedTitle}.lrc')
+        ..add('${trimmedTitle}_${trimmedArtist}.lrc');
     }
 
     if (normalizedArtist != null && normalizedArtist.isNotEmpty) {
       candidates
-        ..add('$normalizedArtist-$normalizedTitle.lrc')
-        ..add('$normalizedTitle-$normalizedArtist.lrc')
-        ..add('$normalizedArtist_$normalizedTitle.lrc')
-        ..add('$normalizedTitle_$normalizedArtist.lrc');
+        ..add('${normalizedArtist}-${normalizedTitle}.lrc')
+        ..add('${normalizedTitle}-${normalizedArtist}.lrc')
+        ..add('${normalizedArtist}_${normalizedTitle}.lrc')
+        ..add('${normalizedTitle}_${normalizedArtist}.lrc');
     }
 
     if (normalizedTitle.isNotEmpty) {
@@ -384,11 +385,11 @@ class LyricsRepositoryImpl implements LyricsRepository {
   }
 
   String _normalizeSegment(String value) {
-    return value
+    final normalized = value
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
-        .trim('_');
+        .replaceAll(RegExp(r'_+'), '_');
+    return _trimUnderscores(normalized);
   }
 
   String _normalizeNameForMatch(String value) {
@@ -396,10 +397,16 @@ class LyricsRepositoryImpl implements LyricsRepository {
     final withoutExt = lower.endsWith('.lrc')
         ? lower.substring(0, lower.length - 4)
         : lower;
-    return withoutExt
+    final normalized = withoutExt
         .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
-        .trim('_');
+        .replaceAll(RegExp(r'_+'), '_');
+    return _trimUnderscores(normalized);
+  }
+
+  String _trimUnderscores(String value) {
+    return value
+        .replaceFirst(RegExp(r'^_+'), '')
+        .replaceFirst(RegExp(r'_+$'), '');
   }
 
   List<LyricsLine> _mergeNeteaseLyrics(
