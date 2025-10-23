@@ -88,19 +88,36 @@ function requireCode(string $provided): void
 
 function handleList(): void
 {
-    $tracks   = [];
+    try {
+        $directory = new RecursiveDirectoryIterator(
+            MUSIC_ROOT,
+            FilesystemIterator::SKIP_DOTS | FilesystemIterator::CURRENT_AS_FILEINFO
+        );
+    } catch (UnexpectedValueException $e) {
+        respondJson(500, '无法读取音乐目录', ['error' => $e->getMessage()]);
+    }
+
     $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator(MUSIC_ROOT, FilesystemIterator::SKIP_DOTS)
+        $directory,
+        RecursiveIteratorIterator::LEAVES_ONLY,
+        RecursiveIteratorIterator::CATCH_GET_CHILD
     );
 
+    $tracks = [];
     foreach ($iterator as $info) {
-        if (!$info->isFile()) {
+        try {
+            if (!$info instanceof SplFileInfo || !$info->isFile() || !$info->isReadable()) {
+                continue;
+            }
+        } catch (UnexpectedValueException $e) {
             continue;
         }
+
         $ext = strtolower($info->getExtension());
         if (!in_array($ext, AUDIO_EXTENSIONS, true)) {
             continue;
         }
+
         $metadata = loadTrackMetadata($info->getPathname());
         if ($metadata === null) {
             continue;

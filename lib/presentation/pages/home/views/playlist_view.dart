@@ -98,13 +98,16 @@ class _PlaylistHistoryList extends StatelessWidget {
             final entry = filteredEntries[index];
             final track = entry.track;
             final playCount = entry.playCount;
-            final artworkPath = track.httpHeaders?
-                    [MysteryLibraryConstants.headerThumbnailLocal] ??
-                track.artworkPath;
+            final remoteArtworkUrl =
+                MysteryLibraryConstants.buildArtworkUrl(
+              track.httpHeaders,
+              thumbnail: true,
+            );
             return TrackListTile(
               index: index + 1,
               leading: ArtworkThumbnail(
-                artworkPath: artworkPath,
+                artworkPath: track.artworkPath,
+                remoteImageUrl: remoteArtworkUrl,
                 size: 48,
                 borderRadius: BorderRadius.circular(8),
                 backgroundColor: artworkBackground,

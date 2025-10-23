@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../blocs/player/player_bloc.dart';
 import '../common/artwork_thumbnail.dart';
+import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 
 class MaterialPlayerControlBar extends StatelessWidget {
@@ -44,6 +45,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
         Duration duration = Duration.zero;
         double progress = 0.0;
         String? artworkPath;
+        String? remoteArtworkUrl;
         Track? currentTrack;
 
         if (canControl) {
@@ -53,7 +55,12 @@ class MaterialPlayerControlBar extends StatelessWidget {
               '${playingState.track.artist} • ${playingState.track.album}';
           position = playingState.position;
           duration = playingState.duration;
-          artworkPath = playingState.track.artworkPath;
+          final track = playingState.track as Track;
+          artworkPath = track.artworkPath;
+          remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+            track.httpHeaders,
+            thumbnail: true,
+          );
           currentTrack = playingState.track as Track;
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
@@ -70,6 +77,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
           // 当前播放歌曲信息
           _LyricsArtworkButton(
             artworkPath: artworkPath,
+            remoteArtworkUrl: remoteArtworkUrl,
             onTap: currentTrack != null && onArtworkTap != null
                 ? onArtworkTap
                 : null,
@@ -371,11 +379,13 @@ class _MaterialHoverIconButton extends StatefulWidget {
 class _LyricsArtworkButton extends StatelessWidget {
   const _LyricsArtworkButton({
     required this.artworkPath,
+    required this.remoteArtworkUrl,
     required this.onTap,
     required this.isLyricsActive,
   });
 
   final String? artworkPath;
+  final String? remoteArtworkUrl;
   final VoidCallback? onTap;
   final bool isLyricsActive;
 
@@ -384,6 +394,7 @@ class _LyricsArtworkButton extends StatelessWidget {
     final theme = Theme.of(context);
     final artwork = ArtworkThumbnail(
       artworkPath: artworkPath,
+      remoteImageUrl: remoteArtworkUrl,
       size: 48,
       borderRadius: BorderRadius.circular(4),
       backgroundColor: theme.colorScheme.surfaceContainerHighest,

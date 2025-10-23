@@ -16,6 +16,7 @@ import '../../blocs/player/player_bloc.dart';
 import '../../widgets/common/artwork_thumbnail.dart';
 import '../../widgets/common/hover_glow_overlay.dart';
 import '../../widgets/common/lyrics_display.dart';
+import '../../../core/constants/mystery_library_constants.dart';
 import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
 
 class LyricsOverlay extends StatefulWidget {
@@ -333,6 +334,15 @@ class _CoverColumn extends StatelessWidget {
               ) ??
               const TextStyle(fontSize: 14, color: Colors.black54);
 
+    final remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+      track.httpHeaders,
+      thumbnail: false,
+    ) ??
+        MysteryLibraryConstants.buildArtworkUrl(
+          track.httpHeaders,
+          thumbnail: true,
+        );
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -349,6 +359,7 @@ class _CoverColumn extends StatelessWidget {
             cursor: SystemMouseCursors.basic,
             child: ArtworkThumbnail(
               artworkPath: track.artworkPath,
+              remoteImageUrl: remoteArtworkUrl,
               size: coverSize,
               borderRadius: BorderRadius.circular(20),
               backgroundColor: isMac
@@ -853,4 +864,3 @@ class _DownloadIconButtonState extends State<_DownloadIconButton> {
     );
   }
 }
-

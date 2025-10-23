@@ -10,6 +10,7 @@ import '../../blocs/player/player_bloc.dart';
 import 'macos_progress_bar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 
 const double _muteThreshold = 0.005;
@@ -54,6 +55,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
         double progress = 0.0;
         double volume = 1.0;
         String? artworkPath;
+        String? remoteArtworkUrl;
         Track? currentTrack;
 
         if (canControl) {
@@ -64,8 +66,13 @@ class MacOSPlayerControlBar extends StatelessWidget {
           position = playingState.position;
           duration = playingState.duration;
           volume = playingState.volume;
-          artworkPath = playingState.track.artworkPath;
-          currentTrack = playingState.track as Track;
+          final track = playingState.track as Track;
+          artworkPath = track.artworkPath;
+          remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+            track.httpHeaders,
+            thumbnail: true,
+          );
+          currentTrack = track;
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
           }
@@ -127,6 +134,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
                           title: trackTitle,
                           subtitle: trackArtist,
                           artworkPath: artworkPath,
+                          remoteArtworkUrl: remoteArtworkUrl,
                           titleColor: iconColor,
                           subtitleColor: secondaryIconColor,
                           onArtworkTap:
@@ -600,6 +608,7 @@ class _TrackInfoRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.artworkPath,
+    required this.remoteArtworkUrl,
     required this.titleColor,
     required this.subtitleColor,
     this.onArtworkTap,
@@ -609,6 +618,7 @@ class _TrackInfoRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final String? artworkPath;
+  final String? remoteArtworkUrl;
   final Color titleColor;
   final Color subtitleColor;
   final VoidCallback? onArtworkTap;
@@ -622,6 +632,7 @@ class _TrackInfoRow extends StatelessWidget {
 
     Widget artwork = ArtworkThumbnail(
       artworkPath: artworkPath,
+      remoteImageUrl: remoteArtworkUrl,
       size: 34,
       borderRadius: BorderRadius.circular(5),
       backgroundColor: MacosColors.controlBackgroundColor,

@@ -11,6 +11,7 @@ class ArtworkThumbnail extends StatelessWidget {
     this.borderRadius,
     this.backgroundColor,
     this.borderColor,
+    this.remoteImageUrl,
   });
 
   final String? artworkPath;
@@ -19,6 +20,7 @@ class ArtworkThumbnail extends StatelessWidget {
   final BorderRadius? borderRadius;
   final Color? backgroundColor;
   final Color? borderColor;
+  final String? remoteImageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +41,20 @@ class ArtworkThumbnail extends StatelessWidget {
           ),
         );
       }
+    }
+
+    if (remoteImageUrl != null && remoteImageUrl!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: radius,
+        child: Image.network(
+          remoteImageUrl!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildPlaceholder(radius),
+        ),
+      );
     }
 
     return _buildPlaceholder(radius);

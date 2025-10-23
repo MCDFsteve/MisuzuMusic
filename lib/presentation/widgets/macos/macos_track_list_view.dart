@@ -46,13 +46,16 @@ class MacOSTrackListView extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final track = tracks[index];
-            final artworkPath = track.httpHeaders?
-                    [MysteryLibraryConstants.headerThumbnailLocal] ??
-                track.artworkPath;
+            final remoteArtworkUrl =
+                MysteryLibraryConstants.buildArtworkUrl(
+              track.httpHeaders,
+              thumbnail: true,
+            );
             return TrackListTile(
               index: index + 1,
               leading: ArtworkThumbnail(
-                artworkPath: artworkPath,
+                artworkPath: track.artworkPath,
+                remoteImageUrl: remoteArtworkUrl,
                 size: 48,
                 borderRadius: BorderRadius.circular(6),
                 backgroundColor: MacosColors.controlBackgroundColor,

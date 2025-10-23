@@ -671,30 +671,6 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         final coverRemote = rawTrack['cover_path'] as String?;
         final thumbRemote = rawTrack['thumbnail_path'] as String?;
 
-        final artworkPath = await _downloadMysteryArtwork(
-          client: client,
-          baseUri: resolvedBase,
-          code: normalizedCode,
-          remotePath: coverRemote ?? thumbRemote,
-          sourceId: sourceId,
-          isThumbnail: false,
-          previousPath: existing?.artworkPath,
-        );
-
-        final thumbnailPath = await _downloadMysteryArtwork(
-          client: client,
-          baseUri: resolvedBase,
-          code: normalizedCode,
-          remotePath: thumbRemote,
-          sourceId: sourceId,
-          isThumbnail: true,
-          previousPath: existing?.httpHeaders
-              ?[MysteryLibraryConstants.headerThumbnailLocal],
-        );
-
-        final effectiveArtworkPath =
-            artworkPath ?? thumbnailPath ?? existing?.artworkPath;
-
         final headers = <String, String>{
           if (existing?.httpHeaders != null) ...existing!.httpHeaders!,
           MysteryLibraryConstants.headerBaseUrl: resolvedBase.toString(),
@@ -706,11 +682,12 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           if (thumbRemote != null)
             MysteryLibraryConstants.headerThumbnailRemote:
                 _normalizeMysteryRelativePath(thumbRemote),
-          if (artworkPath != null)
-            MysteryLibraryConstants.headerCoverLocal: artworkPath,
-          if (thumbnailPath != null)
-            MysteryLibraryConstants.headerThumbnailLocal: thumbnailPath,
         };
+
+        headers.remove(MysteryLibraryConstants.headerCoverLocal);
+        headers.remove(MysteryLibraryConstants.headerThumbnailLocal);
+
+        final effectiveArtworkPath = existing?.artworkPath;
 
         final contentHash =
             existing?.contentHash ?? trackId;
