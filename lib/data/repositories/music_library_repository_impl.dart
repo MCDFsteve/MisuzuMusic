@@ -15,6 +15,7 @@ import 'package:webdav_client/webdav_client.dart' as webdav;
 import '../../core/error/exceptions.dart';
 import '../../core/storage/binary_config_store.dart';
 import '../../core/storage/storage_keys.dart';
+import '../../core/constants/mystery_library_constants.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/repositories/music_library_repository.dart';
@@ -583,6 +584,184 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     } catch (e) {
       print('❌ WebDAV: 扫描目录失败 -> $e');
       throw FileSystemException('扫描 WebDAV 目录失败: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<int> mountMysteryLibrary({
+    required Uri baseUri,
+    required String code,
+  }) async {
+    final normalizedCode = code.trim().toLowerCase();
+    if (normalizedCode.isEmpty) {
+      throw const NetworkException('神秘代码不能为空');
+    }
+
+    final resolvedBase = baseUri.scheme.isEmpty
+        ? Uri.parse(MysteryLibraryConstants.defaultBaseUrl)
+        : baseUri;
+    final sourceId = _buildMysterySourceId(normalizedCode);
+    final displayName = '神秘代码 $normalizedCode';
+
+    final client = HttpClient()..userAgent = 'MisuzuMusic/1.0';
+
+    try {
+      final listUri = resolvedBase.replace(
+        queryParameters: {
+          'action': 'list',
+          'code': normalizedCode,
+        },
+      );
+
+      final payload = await _fetchMysteryJson(client, listUri);
+      final tracksRaw = payload['tracks'];
+      if (tracksRaw is! List) {
+        throw const NetworkException('挂载神秘代码失败', '返回数据格式不正确');
+      }
+
+      final existingTracks = await _localDataSource.getTracksBySource(
+        TrackSourceType.mystery,
+        sourceId,
+      );
+      final existingById = {
+        for (final track in existingTracks) track.id: track,
+      };
+
+      final now = DateTime.now();
+      final seenIds = <String>{};
+      var imported = 0;
+
+      for (final rawTrack in tracksRaw) {
+        if (rawTrack is! Map<String, dynamic>) {
+          continue;
+        }
+
+        final relativeValue = rawTrack['relative_path'] as String?;
+        if (relativeValue == null || relativeValue.trim().isEmpty) {
+          continue;
+        }
+        final relativePath = _normalizeMysteryRelativePath(relativeValue);
+        final metadata =
+            (rawTrack['metadata'] as Map<String, dynamic>?) ?? const {};
+        final tags =
+            (metadata['tags'] as Map<String, dynamic>?) ?? const {};
+
+        final trackId =
+            sha1.convert(utf8.encode('$sourceId|$relativePath')).toString();
+        final existing = existingById[trackId];
+
+        final title = _readNonEmptyString(metadata['title']) ??
+            path.basenameWithoutExtension(relativePath);
+        final artist = _readNonEmptyString(metadata['artist']) ??
+            _readNonEmptyString(tags['artist']) ??
+            _readNonEmptyString(tags['album_artist']) ??
+            'Unknown Artist';
+        final album = _readNonEmptyString(metadata['album']) ??
+            _readNonEmptyString(tags['album']) ??
+            'Unknown Album';
+
+        final duration = _parseMysteryDuration(metadata, existing?.duration);
+        final trackNumber =
+            _parseNullableInt(tags['track']) ?? _parseNullableInt(tags['tracknumber']);
+        final year = _parseNullableInt(tags['year']) ??
+            _parseNullableInt(tags['date']);
+        final genre = _readNonEmptyString(metadata['genre']) ??
+            _readNonEmptyString(tags['genre']);
+
+        final coverRemote = rawTrack['cover_path'] as String?;
+        final thumbRemote = rawTrack['thumbnail_path'] as String?;
+
+        final artworkPath = await _downloadMysteryArtwork(
+          client: client,
+          baseUri: resolvedBase,
+          code: normalizedCode,
+          remotePath: coverRemote ?? thumbRemote,
+          sourceId: sourceId,
+          isThumbnail: false,
+          previousPath: existing?.artworkPath,
+        );
+
+        final thumbnailPath = await _downloadMysteryArtwork(
+          client: client,
+          baseUri: resolvedBase,
+          code: normalizedCode,
+          remotePath: thumbRemote,
+          sourceId: sourceId,
+          isThumbnail: true,
+          previousPath: existing?.httpHeaders
+              ?[MysteryLibraryConstants.headerThumbnailLocal],
+        );
+
+        final effectiveArtworkPath =
+            artworkPath ?? thumbnailPath ?? existing?.artworkPath;
+
+        final headers = <String, String>{
+          if (existing?.httpHeaders != null) ...existing!.httpHeaders!,
+          MysteryLibraryConstants.headerBaseUrl: resolvedBase.toString(),
+          MysteryLibraryConstants.headerCode: normalizedCode,
+          MysteryLibraryConstants.headerDisplayName: displayName,
+          if (coverRemote != null)
+            MysteryLibraryConstants.headerCoverRemote:
+                _normalizeMysteryRelativePath(coverRemote),
+          if (thumbRemote != null)
+            MysteryLibraryConstants.headerThumbnailRemote:
+                _normalizeMysteryRelativePath(thumbRemote),
+          if (artworkPath != null)
+            MysteryLibraryConstants.headerCoverLocal: artworkPath,
+          if (thumbnailPath != null)
+            MysteryLibraryConstants.headerThumbnailLocal: thumbnailPath,
+        };
+
+        final contentHash =
+            existing?.contentHash ?? trackId;
+
+        final model = TrackModel(
+          id: trackId,
+          title: title,
+          artist: artist,
+          album: album,
+          filePath: _buildMysteryFilePath(sourceId, relativePath),
+          duration: duration,
+          dateAdded: existing?.dateAdded ?? now,
+          artworkPath: effectiveArtworkPath,
+          trackNumber: trackNumber ?? existing?.trackNumber,
+          year: year ?? existing?.year,
+          genre: genre ?? existing?.genre,
+          sourceType: TrackSourceType.mystery,
+          sourceId: sourceId,
+          remotePath: relativePath,
+          httpHeaders: headers,
+          contentHash: contentHash,
+        );
+
+        if (existing == null) {
+          await _localDataSource.insertTrack(model);
+        } else {
+          await _localDataSource.updateTrack(model);
+          _emitTrackUpdate(model.toEntity());
+        }
+
+        seenIds.add(trackId);
+        imported++;
+      }
+
+      final removedIds = existingTracks
+          .where((track) => !seenIds.contains(track.id))
+          .map((track) => track.id)
+          .toList();
+      if (removedIds.isNotEmpty) {
+        await _localDataSource.deleteTracksByIds(removedIds);
+        print('🕵️ Mystery: 已移除 ${removedIds.length} 首失效曲目');
+      }
+
+      print('🕵️ Mystery: 导入 $imported 首歌曲');
+      return imported;
+    } on AppException {
+      rethrow;
+    } catch (e) {
+      throw NetworkException('挂载神秘代码失败', e.toString());
+    } finally {
+      client.close(force: true);
     }
   }
 
@@ -1302,6 +1481,192 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       default:
         return '.img';
     }
+  }
+
+  Future<Map<String, dynamic>> _fetchMysteryJson(
+    HttpClient client,
+    Uri uri,
+  ) async {
+    final request = await client.getUrl(uri);
+    request.headers.set(HttpHeaders.userAgentHeader, 'MisuzuMusic/1.0');
+    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    final rawPreview = body.length > 360 ? '${body.substring(0, 360)}...' : body;
+    print('🕵️ Mystery: 响应预览 -> $rawPreview');
+    if (response.statusCode != HttpStatus.ok) {
+      throw NetworkException(
+        '神秘代码请求失败',
+        'HTTP ${response.statusCode}',
+      );
+    }
+    final cleaned = _sanitizeMysteryResponseBody(body);
+    final cleanedPreview =
+        cleaned.length > 360 ? '${cleaned.substring(0, 360)}...' : cleaned;
+    print('🕵️ Mystery: 清理后响应预览 -> $cleanedPreview');
+    try {
+      final decoded = json.decode(cleaned);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } catch (e) {
+      final preview = cleaned.length > 180
+          ? '${cleaned.substring(0, 177)}...'
+          : cleaned;
+      throw NetworkException('神秘代码请求失败', '无法解析响应: $preview');
+    }
+    throw const NetworkException('神秘代码请求失败', '响应格式错误');
+  }
+
+  Future<String?> _downloadMysteryArtwork({
+    required HttpClient client,
+    required Uri baseUri,
+    required String code,
+    required String? remotePath,
+    required String sourceId,
+    required bool isThumbnail,
+    String? previousPath,
+  }) async {
+    if (remotePath == null || remotePath.trim().isEmpty) {
+      return previousPath;
+    }
+
+    final normalizedRemote = _normalizeMysteryRelativePath(remotePath);
+    final uri = baseUri.replace(
+      queryParameters: {
+        'action': isThumbnail ? 'thumbnail' : 'cover',
+        'code': code,
+        'path': normalizedRemote,
+      },
+    );
+
+    try {
+      final request = await client.getUrl(uri);
+      request.headers.set(HttpHeaders.userAgentHeader, 'MisuzuMusic/1.0');
+      final response = await request.close();
+      if (response.statusCode != HttpStatus.ok) {
+        return previousPath;
+      }
+
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk in response) {
+        builder.add(chunk);
+      }
+      final bytes = builder.takeBytes();
+      if (bytes.isEmpty) {
+        return previousPath;
+      }
+
+      final cacheDir = await _artworkCacheDirectory();
+      final digest = sha1.convert(
+        utf8.encode(
+          '$sourceId|$normalizedRemote|${isThumbnail ? 'thumb' : 'cover'}',
+        ),
+      );
+      final fileName =
+          'mystery_${digest.toString()}${isThumbnail ? '_thumb' : '_cover'}.webp';
+      final filePath = path.join(cacheDir.path, fileName);
+      final file = File(filePath);
+      await file.writeAsBytes(bytes, flush: true);
+
+      if (previousPath != null && previousPath != filePath) {
+        final previousFile = File(previousPath);
+        if (await previousFile.exists()) {
+          await previousFile.delete();
+        }
+      }
+
+      return filePath;
+    } catch (e) {
+      print('⚠️ Mystery: 下载封面失败 [$remotePath] -> $e');
+      return previousPath;
+    }
+  }
+
+  String _buildMysterySourceId(String code) {
+    return '${MysteryLibraryConstants.idPrefix}_$code';
+  }
+
+  String _normalizeMysteryRelativePath(String rawPath) {
+    var normalized = rawPath.trim().replaceAll('\\', '/');
+    if (normalized.isEmpty) {
+      return '/';
+    }
+    if (!normalized.startsWith('/')) {
+      normalized = '/$normalized';
+    }
+    normalized = posix.normalize(normalized);
+    if (normalized.isEmpty) {
+      return '/';
+    }
+    return normalized.startsWith('/') ? normalized : '/$normalized';
+  }
+
+  String _buildMysteryFilePath(String sourceId, String relativePath) {
+    final normalized = _normalizeMysteryRelativePath(relativePath);
+    return 'mystery://$sourceId$normalized';
+  }
+
+  Duration _parseMysteryDuration(
+    Map<String, dynamic> metadata,
+    Duration? fallback,
+  ) {
+    final tags = (metadata['tags'] as Map<String, dynamic>?) ?? const {};
+    final seconds = _parseNullableDouble(metadata['duration']) ??
+        _parseNullableDouble(tags['duration']);
+    if (seconds == null) {
+      return fallback ?? Duration.zero;
+    }
+    final milliseconds = (seconds * 1000).round();
+    if (milliseconds <= 0) {
+      return fallback ?? Duration.zero;
+    }
+    return Duration(milliseconds: milliseconds);
+  }
+
+  String? _readNonEmptyString(dynamic value) {
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) {
+        return null;
+      }
+      return trimmed;
+    }
+    return null;
+  }
+
+  double? _parseNullableDouble(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) {
+        return null;
+      }
+      return double.tryParse(trimmed);
+    }
+    return null;
+  }
+
+  String _sanitizeMysteryResponseBody(String body) {
+    var sanitized = body.trimLeft();
+    sanitized = sanitized.replaceAll(String.fromCharCode(0), '');
+
+    if (sanitized.isEmpty) {
+      return sanitized;
+    }
+
+    final match = RegExp(r'[\{\[]').firstMatch(sanitized);
+    if (match != null && match.start > 0) {
+      sanitized = sanitized.substring(match.start).trimLeft();
+    }
+
+    sanitized = sanitized.replaceAll(String.fromCharCode(0), '');
+    return sanitized;
   }
 
   Future<void> _registerLibraryDirectory(String directoryPath) async {

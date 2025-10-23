@@ -15,6 +15,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/di/dependency_injection.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/mystery_library_constants.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/repositories/music_library_repository.dart';
@@ -49,6 +50,7 @@ part 'home/dialogs/webdav_connection_dialog.dart';
 part 'home/dialogs/webdav_directory_picker_dialog.dart';
 part 'home/dialogs/playlist_modal_components.dart';
 part 'home/dialogs/playlist_creation_dialog.dart';
+part 'home/dialogs/library_mount_dialog.dart';
 part 'home/views/music_library_view.dart';
 part 'home/views/playlist_view.dart';
 part 'home/views/playlists_view.dart';
@@ -70,6 +72,7 @@ class HomePage extends StatelessWidget {
             getAllAlbums: sl<GetAllAlbums>(),
             getLibraryDirectories: sl<GetLibraryDirectories>(),
             scanWebDavDirectory: sl<ScanWebDavDirectory>(),
+            mountMysteryLibrary: sl<MountMysteryLibrary>(),
             getWebDavSources: sl<GetWebDavSources>(),
             ensureWebDavTrackMetadata: sl<EnsureWebDavTrackMetadata>(),
             getWebDavPassword: sl<GetWebDavPassword>(),

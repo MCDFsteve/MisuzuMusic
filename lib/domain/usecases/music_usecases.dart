@@ -91,6 +91,19 @@ class ScanWebDavDirectory {
   }
 }
 
+class MountMysteryLibrary {
+  final MusicLibraryRepository _repository;
+
+  MountMysteryLibrary(this._repository);
+
+  Future<int> call({
+    required Uri baseUri,
+    required String code,
+  }) async {
+    return _repository.mountMysteryLibrary(baseUri: baseUri, code: code);
+  }
+}
+
 class GetWebDavSources {
   final MusicLibraryRepository _repository;
 

@@ -5,7 +5,7 @@ abstract class Entity extends Equatable {
   const Entity();
 }
 
-enum TrackSourceType { local, webdav }
+enum TrackSourceType { local, webdav, mystery }
 
 // Track entity - represents a music track
 class Track extends Entity {

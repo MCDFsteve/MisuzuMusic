@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart' hide PlayerState;
 import 'package:rxdart/rxdart.dart';
 import 'package:crypto/crypto.dart';
 
+import '../../core/constants/mystery_library_constants.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/repositories/playback_history_repository.dart';
@@ -642,6 +643,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return normalized;
     }
 
+    if (track.sourceType == TrackSourceType.mystery ||
+        track.filePath.startsWith('mystery://')) {
+      var normalized = track;
+      if (track.sourceType != TrackSourceType.mystery) {
+        normalized = track.copyWith(sourceType: TrackSourceType.mystery);
+        await _replaceTrackInQueue(track, normalized);
+      }
+      return normalized;
+    }
+
     final originalFile = File(track.filePath);
     if (await originalFile.exists()) {
       return await _ensureLocalArtwork(track);
@@ -779,6 +790,17 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         }
       }
     }
+    if (a.sourceType == TrackSourceType.mystery) {
+      if (a.sourceId != null &&
+          b.sourceId != null &&
+          a.sourceId == b.sourceId) {
+        if (a.remotePath != null &&
+            b.remotePath != null &&
+            a.remotePath == b.remotePath) {
+          return true;
+        }
+      }
+    }
     if (a.filePath == b.filePath) return true;
     if (a.title.toLowerCase() != b.title.toLowerCase()) return false;
     if (a.artist.toLowerCase() != b.artist.toLowerCase()) return false;
@@ -819,9 +841,44 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         streamInfo.url.toString(),
         headers: streamInfo.headers,
       );
-    } else {
-      await _audioPlayer.setFilePath(track.filePath);
+      return;
     }
+
+    if (track.sourceType == TrackSourceType.mystery ||
+        track.filePath.startsWith('mystery://')) {
+      final streamInfo = _buildMysteryStreamInfo(track);
+      await _audioPlayer.setUrl(
+        streamInfo.url.toString(),
+        headers: streamInfo.headers,
+      );
+      return;
+    }
+
+    await _audioPlayer.setFilePath(track.filePath);
+  }
+
+  _MysteryStreamInfo _buildMysteryStreamInfo(Track track) {
+    final headers = track.httpHeaders;
+    final baseUrl = headers?[MysteryLibraryConstants.headerBaseUrl] ??
+        MysteryLibraryConstants.defaultBaseUrl;
+    final code = headers?[MysteryLibraryConstants.headerCode] ?? 'irigas';
+    final remote = track.remotePath ??
+        _extractMysteryRelativePath(track.filePath) ??
+        '/';
+    final normalizedRemote = _normalizeRemotePath(remote);
+    final baseUri = Uri.parse(baseUrl);
+    final uri = baseUri.replace(
+      queryParameters: {
+        'action': 'stream',
+        'code': code,
+        'path': normalizedRemote,
+      },
+    );
+
+    return _MysteryStreamInfo(
+      url: uri,
+      headers: const {'User-Agent': 'MisuzuMusic/1.0'},
+    );
   }
 
   Future<_WebDavStreamInfo> _buildWebDavStreamInfo(Track track) async {
@@ -888,6 +945,19 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     return baseUri.replace(pathSegments: segments);
   }
 
+  String? _extractMysteryRelativePath(String filePath) {
+    const prefix = 'mystery://';
+    if (!filePath.startsWith(prefix)) {
+      return null;
+    }
+    final remainder = filePath.substring(prefix.length);
+    final slashIndex = remainder.indexOf('/');
+    if (slashIndex == -1) {
+      return null;
+    }
+    return remainder.substring(slashIndex);
+  }
+
   String _normalizeRemotePath(String remotePath) {
     var normalized = remotePath.trim().replaceAll('\\', '/');
     if (normalized.isEmpty) {
@@ -908,4 +978,11 @@ class _WebDavStreamInfo {
 
   final Uri url;
   final Map<String, String> headers;
+}
+
+class _MysteryStreamInfo {
+  const _MysteryStreamInfo({required this.url, this.headers});
+
+  final Uri url;
+  final Map<String, String>? headers;
 }

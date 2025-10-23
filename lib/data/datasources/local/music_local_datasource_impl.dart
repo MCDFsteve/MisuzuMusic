@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -148,6 +149,12 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
 
     if (track.sourceType == TrackSourceType.webdav) {
       final hash = track.contentHash ?? track.id;
+      return track.copyWith(contentHash: hash);
+    }
+
+    if (track.sourceType == TrackSourceType.mystery) {
+      final hash = track.contentHash ??
+          sha1.convert(utf8.encode(track.filePath)).toString();
       return track.copyWith(contentHash: hash);
     }
 
@@ -302,6 +309,23 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
       return maps.map((map) => TrackModel.fromMap(map)).toList();
     } catch (e) {
       throw DatabaseException('Failed to get WebDAV tracks: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<List<TrackModel>> getTracksBySource(
+    TrackSourceType sourceType,
+    String sourceId,
+  ) async {
+    try {
+      final maps = await _databaseHelper.query(
+        'tracks',
+        where: 'source_type = ? AND source_id = ?',
+        whereArgs: [sourceType.name, sourceId],
+      );
+      return maps.map((map) => TrackModel.fromMap(map)).toList();
+    } catch (e) {
+      throw DatabaseException('Failed to get tracks: ${e.toString()}');
     }
   }
 

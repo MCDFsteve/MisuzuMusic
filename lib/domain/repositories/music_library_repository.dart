@@ -46,6 +46,10 @@ abstract class MusicLibraryRepository {
     required WebDavSource source,
     required String password,
   });
+  Future<int> mountMysteryLibrary({
+    required Uri baseUri,
+    required String code,
+  });
   Future<void> removeLibraryDirectory(String directoryPath);
   Future<Track?> ensureWebDavTrackMetadata(Track track, {bool force = false});
   Future<void> uploadWebDavPlayLog({

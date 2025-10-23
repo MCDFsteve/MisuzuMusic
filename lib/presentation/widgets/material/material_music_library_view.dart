@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
 import '../common/adaptive_scrollbar.dart';
@@ -67,10 +68,13 @@ class MaterialMusicLibraryView extends StatelessWidget {
                 ),
                 itemBuilder: (context, index) {
                   final track = tracks[index];
+                  final artworkPath = track.httpHeaders?
+                          [MysteryLibraryConstants.headerThumbnailLocal] ??
+                      track.artworkPath;
                   return TrackListTile(
                     index: index + 1,
                     leading: ArtworkThumbnail(
-                      artworkPath: track.artworkPath,
+                      artworkPath: artworkPath,
                       size: 48,
                       borderRadius: BorderRadius.circular(4),
                       backgroundColor:
@@ -90,7 +94,9 @@ class MaterialMusicLibraryView extends StatelessWidget {
                       print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
                       final isRemoteTrack =
                           track.sourceType == TrackSourceType.webdav ||
-                              track.filePath.startsWith('webdav://');
+                              track.filePath.startsWith('webdav://') ||
+                              track.sourceType == TrackSourceType.mystery ||
+                              track.filePath.startsWith('mystery://');
 
                       if (isRemoteTrack) {
                         print('🎵 WebDAV 音轨，直接尝试远程播放');

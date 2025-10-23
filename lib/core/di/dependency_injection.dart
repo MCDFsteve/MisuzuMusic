@@ -113,6 +113,7 @@ class DependencyInjection {
       sl.registerLazySingleton(() => SearchTracks(sl()));
       sl.registerLazySingleton(() => ScanMusicDirectory(sl()));
       sl.registerLazySingleton(() => ScanWebDavDirectory(sl()));
+      sl.registerLazySingleton(() => MountMysteryLibrary(sl()));
       sl.registerLazySingleton(() => GetAllArtists(sl()));
       sl.registerLazySingleton(() => GetAllAlbums(sl()));
       sl.registerLazySingleton(() => GetLibraryDirectories(sl()));

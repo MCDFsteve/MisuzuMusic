@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:macos_ui/macos_ui.dart';
 
+import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
 import '../common/adaptive_scrollbar.dart';
@@ -45,10 +46,13 @@ class MacOSTrackListView extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final track = tracks[index];
+            final artworkPath = track.httpHeaders?
+                    [MysteryLibraryConstants.headerThumbnailLocal] ??
+                track.artworkPath;
             return TrackListTile(
               index: index + 1,
               leading: ArtworkThumbnail(
-                artworkPath: track.artworkPath,
+                artworkPath: artworkPath,
                 size: 48,
                 borderRadius: BorderRadius.circular(6),
                 backgroundColor: MacosColors.controlBackgroundColor,
@@ -75,7 +79,9 @@ class MacOSTrackListView extends StatelessWidget {
   void _handleTrackTap(BuildContext context, Track track, int index) {
     final isRemoteTrack =
         track.sourceType == TrackSourceType.webdav ||
-        track.filePath.startsWith('webdav://');
+        track.filePath.startsWith('webdav://') ||
+        track.sourceType == TrackSourceType.mystery ||
+        track.filePath.startsWith('mystery://');
 
     if (!isRemoteTrack && !kIsWeb) {
       final file = File(track.filePath);

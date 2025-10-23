@@ -695,7 +695,43 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<void> _selectMusicFolder() async {
-    await _selectLocalFolder();
+    final mode = await showLibraryMountModeDialog(context);
+    if (!mounted || mode == null) {
+      return;
+    }
+
+    switch (mode) {
+      case LibraryMountMode.local:
+        await _selectLocalFolder();
+        break;
+      case LibraryMountMode.mystery:
+        await _selectMysteryLibrary();
+        break;
+    }
+  }
+
+  Future<void> _selectMysteryLibrary() async {
+    final code = await showMysteryCodeDialog(context);
+    if (!mounted || code == null) {
+      return;
+    }
+
+    final normalizedCode = code.trim();
+    if (normalizedCode.isEmpty) {
+      return;
+    }
+
+    if (normalizedCode.toLowerCase() != 'irigas') {
+      _showErrorDialog(context, '神秘代码不正确');
+      return;
+    }
+
+    context.read<MusicLibraryBloc>().add(
+          MountMysteryLibraryEvent(
+            code: normalizedCode,
+            baseUri: Uri.parse(MysteryLibraryConstants.defaultBaseUrl),
+          ),
+        );
   }
 
   Future<void> _selectLocalFolder() async {

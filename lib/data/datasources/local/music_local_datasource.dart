@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../../domain/entities/music_entities.dart';
 import '../../models/music_models.dart';
 
 abstract class MusicLocalDataSource {
@@ -22,6 +23,10 @@ abstract class MusicLocalDataSource {
     required int durationMs,
   });
   Future<List<TrackModel>> getTracksByWebDavSource(String sourceId);
+  Future<List<TrackModel>> getTracksBySource(
+    TrackSourceType sourceType,
+    String sourceId,
+  );
   Future<void> deleteTracksByIds(List<String> ids);
 
   // Artist operations
