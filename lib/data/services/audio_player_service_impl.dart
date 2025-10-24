@@ -875,6 +875,30 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       },
     );
 
+    print('🕵️ Mystery: 播放 URL -> ${uri.toString()}');
+
+    unawaited(() async {
+      try {
+        final client = HttpClient();
+        final req = await client.openUrl('GET', uri);
+        req.headers.set(HttpHeaders.rangeHeader, 'bytes=0-1');
+        req.headers.set(HttpHeaders.userAgentHeader, 'MisuzuMusic/1.0');
+        final res = await req.close();
+        final previewBytes = await res.fold<List<int>>([], (prev, element) {
+          prev.addAll(element);
+          return prev;
+        });
+        print(
+          '🕵️ Mystery: 预检状态 -> ${res.statusCode} ${res.reasonPhrase}, '
+          'Content-Type: ${res.headers.value(HttpHeaders.contentTypeHeader)}, '
+          'Bytes: ${previewBytes.length >= 2 ? previewBytes.sublist(0, 2) : previewBytes}',
+        );
+        client.close(force: true);
+      } catch (e) {
+        print('⚠️ Mystery: 预检失败 -> $e');
+      }
+    }());
+
     return _MysteryStreamInfo(
       url: uri,
       headers: const {'User-Agent': 'MisuzuMusic/1.0'},

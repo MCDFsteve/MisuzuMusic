@@ -73,6 +73,7 @@ class HomePage extends StatelessWidget {
             getLibraryDirectories: sl<GetLibraryDirectories>(),
             scanWebDavDirectory: sl<ScanWebDavDirectory>(),
             mountMysteryLibrary: sl<MountMysteryLibrary>(),
+            unmountMysteryLibrary: sl<UnmountMysteryLibrary>(),
             getWebDavSources: sl<GetWebDavSources>(),
             ensureWebDavTrackMetadata: sl<EnsureWebDavTrackMetadata>(),
             getWebDavPassword: sl<GetWebDavPassword>(),

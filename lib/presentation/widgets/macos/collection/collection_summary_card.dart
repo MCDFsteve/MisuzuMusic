@@ -15,6 +15,7 @@ class CollectionSummaryCard extends StatelessWidget {
     required this.detailText,
     required this.onTap,
     this.artworkPath,
+    this.remoteImageUrl,
     this.hasArtwork = false,
     this.fallbackIcon = CupertinoIcons.folder_solid,
     this.gradientColors,
@@ -30,6 +31,7 @@ class CollectionSummaryCard extends StatelessWidget {
   final String detailText;
   final VoidCallback onTap;
   final String? artworkPath;
+  final String? remoteImageUrl;
   final bool hasArtwork;
   final IconData fallbackIcon;
   final List<Color>? gradientColors;
@@ -44,6 +46,9 @@ class CollectionSummaryCard extends StatelessWidget {
       artworkPath != null &&
       artworkPath!.trim().isNotEmpty &&
       !kIsWeb;
+
+  bool get _hasRemoteArtwork =>
+      remoteImageUrl != null && remoteImageUrl!.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -172,12 +177,39 @@ class CollectionSummaryCard extends StatelessWidget {
     if (_canShowArtwork) {
       final file = File(artworkPath!);
       if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover);
+        try {
+          if (file.lengthSync() > 12) {
+            return Image.file(
+              file,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  _buildGradientFallback(isDark),
+            );
+          }
+          file.deleteSync();
+        } catch (_) {
+          try {
+            file.deleteSync();
+          } catch (_) {}
+          // Ignore and fall back
+        }
       }
     }
 
-    final colors =
-        gradientColors ??
+    if (_hasRemoteArtwork) {
+      return Image.network(
+        remoteImageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildGradientFallback(isDark),
+      );
+    }
+
+    return _buildGradientFallback(isDark);
+  }
+
+  Widget _buildGradientFallback(bool isDark) {
+    final colors = gradientColors ??
         (isDark
             ? [const Color(0xFF3C3C3E), const Color(0xFF1C1C1E)]
             : [const Color(0xFFE9F1FF), const Color(0xFFFDFEFF)]);

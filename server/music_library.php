@@ -145,6 +145,11 @@ function handleList(): void
 function handleStream(): void
 {
     $relative = $_GET['path'] ?? '';
+    if (!is_string($relative)) {
+        respondJson(400, '非法的 path 参数');
+        return;
+    }
+    $relative = urldecode($relative);
     if ($relative === '') {
         respondJson(400, '缺少 path 参数');
         return;
@@ -156,8 +161,12 @@ function handleStream(): void
         return;
     }
 
-    $mime     = mime_content_type($audioPath) ?: 'application/octet-stream';
-    $filesize = filesize($audioPath);
+    $mime     = @mime_content_type($audioPath) ?: 'application/octet-stream';
+    $filesize = @filesize($audioPath);
+    if ($filesize === false || $filesize <= 0) {
+      respondJson(404, '音频大小未知');
+      return;
+    }
 
     header('Content-Type: ' . $mime);
     header('Accept-Ranges', 'bytes');
@@ -186,7 +195,7 @@ function handleStream(): void
     $length = $end - $start + 1;
     header('Content-Length: ' . $length);
 
-    $fp = fopen($audioPath, 'rb');
+    $fp = @fopen($audioPath, 'rb');
     if ($fp === false) {
         respondJson(500, '无法读取音频');
         return;
@@ -199,7 +208,7 @@ function handleStream(): void
     $remaining = $length;
     while ($remaining > 0 && !feof($fp)) {
         $chunk  = (int)min(MAX_CHUNK_BYTES, $remaining);
-        $buffer = fread($fp, $chunk);
+        $buffer = @fread($fp, $chunk);
         if ($buffer === false) {
             break;
         }
@@ -215,6 +224,11 @@ function handleStream(): void
 function handleAsset(bool $isThumb = false): void
 {
     $relative = $_GET['path'] ?? '';
+    if (!is_string($relative)) {
+        respondJson(400, '非法的 path 参数');
+        return;
+    }
+    $relative = urldecode($relative);
     if ($relative === '') {
         respondJson(400, '缺少 path 参数');
         return;
@@ -226,10 +240,26 @@ function handleAsset(bool $isThumb = false): void
         return;
     }
 
-    $mime = mime_content_type($assetPath) ?: 'application/octet-stream';
+    $mime = @mime_content_type($assetPath) ?: 'image/webp';
+    $size = @filesize($assetPath);
+    $fp = @fopen($assetPath, 'rb');
+    if ($fp === false) {
+        respondJson(500, '无法读取资源');
+        return;
+    }
+
     header('Content-Type: ' . $mime);
-    header('Content-Length: ' . filesize($assetPath));
-    readfile($assetPath);
+    if ($size !== false) {
+        header('Content-Length: ' . $size);
+    }
+    while (!feof($fp)) {
+        $chunk = @fread($fp, 8192);
+        if ($chunk === false) {
+            break;
+        }
+        echo $chunk;
+    }
+    fclose($fp);
 }
 
 function handleUpload(): void

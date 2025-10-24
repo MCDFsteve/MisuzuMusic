@@ -62,6 +62,15 @@ class MountMysteryLibraryEvent extends MusicLibraryEvent {
   List<Object> get props => [baseUri, code];
 }
 
+class UnmountMysteryLibraryEvent extends MusicLibraryEvent {
+  final String sourceId;
+
+  const UnmountMysteryLibraryEvent(this.sourceId);
+
+  @override
+  List<Object> get props => [sourceId];
+}
+
 class RemoveLibraryDirectoryEvent extends MusicLibraryEvent {
   final String directoryPath;
 
@@ -193,6 +202,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
   final GetLibraryDirectories _getLibraryDirectories;
   final ScanWebDavDirectory _scanWebDavDirectory;
   final MountMysteryLibrary _mountMysteryLibrary;
+  final UnmountMysteryLibrary _unmountMysteryLibrary;
   final GetWebDavSources _getWebDavSources;
   final EnsureWebDavTrackMetadata _ensureWebDavTrackMetadata;
   final GetWebDavPassword _getWebDavPassword;
@@ -214,6 +224,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     required GetLibraryDirectories getLibraryDirectories,
     required ScanWebDavDirectory scanWebDavDirectory,
     required MountMysteryLibrary mountMysteryLibrary,
+    required UnmountMysteryLibrary unmountMysteryLibrary,
     required GetWebDavSources getWebDavSources,
     required EnsureWebDavTrackMetadata ensureWebDavTrackMetadata,
     required GetWebDavPassword getWebDavPassword,
@@ -228,6 +239,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
        _getLibraryDirectories = getLibraryDirectories,
        _scanWebDavDirectory = scanWebDavDirectory,
        _mountMysteryLibrary = mountMysteryLibrary,
+       _unmountMysteryLibrary = unmountMysteryLibrary,
        _getWebDavSources = getWebDavSources,
        _ensureWebDavTrackMetadata = ensureWebDavTrackMetadata,
        _getWebDavPassword = getWebDavPassword,
@@ -240,6 +252,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     on<ScanDirectoryEvent>(_onScanDirectory);
     on<ScanWebDavDirectoryEvent>(_onScanWebDavDirectory);
     on<MountMysteryLibraryEvent>(_onMountMysteryLibrary);
+    on<UnmountMysteryLibraryEvent>(_onUnmountMysteryLibrary);
     on<RemoveLibraryDirectoryEvent>(_onRemoveLibraryDirectory);
     on<RemoveWebDavSourceEvent>(_onRemoveWebDavSource);
     on<LoadAllArtistsEvent>(_onLoadAllArtists);
@@ -612,6 +625,20 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     } catch (e) {
       print('❌ BLoC: 挂载神秘代码失败 -> $e');
       emit(MusicLibraryError('挂载神秘代码失败: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onUnmountMysteryLibrary(
+    UnmountMysteryLibraryEvent event,
+    Emitter<MusicLibraryState> emit,
+  ) async {
+    try {
+      print('🕵️ BLoC: 卸载神秘代码 -> ${event.sourceId}');
+      await _unmountMysteryLibrary(event.sourceId);
+      add(const LoadAllTracks());
+    } catch (e) {
+      print('❌ BLoC: 卸载神秘代码失败 -> $e');
+      emit(MusicLibraryError('卸载神秘代码失败: ${e.toString()}'));
     }
   }
 

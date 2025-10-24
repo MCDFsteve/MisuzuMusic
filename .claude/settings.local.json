@@ -16,7 +16,9 @@
       "WebSearch",
       "WebFetch(domain:blog.csdn.net)",
       "WebFetch(domain:jlptsensei.com)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(tree:*)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []

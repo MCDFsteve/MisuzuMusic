@@ -182,6 +182,51 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       );
     }
 
+    final Map<String, List<Track>> mysteryGroups = {};
+    final Map<String, String> mysteryDisplayNames = {};
+    final Map<String, String?> mysteryCodes = {};
+
+    for (final track in state.tracks) {
+      if (track.sourceType != TrackSourceType.mystery) {
+        continue;
+      }
+      final sourceId = track.sourceId;
+      if (sourceId == null || sourceId.isEmpty) {
+        continue;
+      }
+      final headers = track.httpHeaders;
+      mysteryGroups.putIfAbsent(sourceId, () => <Track>[]).add(track);
+      if (!mysteryDisplayNames.containsKey(sourceId)) {
+        final code = headers?[MysteryLibraryConstants.headerCode];
+        final displayName = headers?[MysteryLibraryConstants.headerDisplayName] ??
+            (code != null && code.isNotEmpty
+                ? '神秘代码 $code'
+                : '神秘音乐库');
+        mysteryDisplayNames[sourceId] = displayName;
+        mysteryCodes[sourceId] = code;
+      }
+    }
+
+    mysteryGroups.forEach((sourceId, tracks) {
+      if (tracks.isEmpty) {
+        return;
+      }
+      final previewTrack = _findPreviewTrack(tracks);
+      final hasArtwork = previewTrack != null && _hasArtwork(previewTrack);
+      remoteSummaries.add(
+        _DirectorySummaryData(
+          filterKey: 'mystery://$sourceId',
+          displayName: mysteryDisplayNames[sourceId] ?? '神秘音乐库',
+          previewTrack: previewTrack,
+          totalTracks: tracks.length,
+          hasArtwork: hasArtwork,
+          mysterySourceId: sourceId,
+          mysteryDisplayName: mysteryDisplayNames[sourceId],
+          mysteryCode: mysteryCodes[sourceId],
+        ),
+      );
+    });
+
     final allPreviewTrack = _findPreviewTrack(state.tracks);
     final allHasArtwork =
         allPreviewTrack != null && _hasArtwork(allPreviewTrack);
@@ -224,11 +269,19 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     }
 
     final isRemote = summary.isRemote;
-    final title = isRemote ? '移除 WebDAV 音乐库' : '移除音乐文件夹';
+    final isWebDav = summary.isWebDav;
+    final isMystery = summary.isMystery;
     final name = summary.displayName;
-    final message = isRemote
+    final title = isWebDav
+        ? '移除 WebDAV 音乐库'
+        : isMystery
+            ? '卸载神秘音乐库'
+            : '移除音乐文件夹';
+    final message = isWebDav
         ? '确定要移除 "$name" 吗？移除后将不再同步该 WebDAV 源的歌曲。'
-        : '确定要移除 "$name" 目录吗？这将从音乐库中移除该目录中的所有歌曲。';
+        : isMystery
+            ? '确定要卸载 "$name" 吗？卸载后将移除该神秘代码导入的所有歌曲。'
+            : '确定要移除 "$name" 目录吗？这将从音乐库中移除该目录中的所有歌曲。';
 
     bool? confirmed;
     if (defaultTargetPlatform == TargetPlatform.macOS) {
@@ -275,8 +328,10 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     }
 
     final bloc = context.read<MusicLibraryBloc>();
-    if (isRemote && summary.webDavSource != null) {
+    if (isWebDav && summary.webDavSource != null) {
       bloc.add(RemoveWebDavSourceEvent(summary.webDavSource!));
+    } else if (isMystery && summary.mysterySourceId != null) {
+      bloc.add(UnmountMysteryLibraryEvent(summary.mysterySourceId!));
     } else if (summary.directoryPath != null) {
       bloc.add(RemoveLibraryDirectoryEvent(summary.directoryPath!));
     }
@@ -379,26 +434,36 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
               itemCount: summariesData.length,
               itemBuilder: (context, tileWidth, index) {
                 final summary = summariesData[index];
-                final isRemote = summary.webDavSource != null;
-                final subtitle = isRemote
+                final subtitle = summary.isWebDav
                     ? '${summary.webDavSource!.baseUrl}${summary.webDavSource!.rootPath}'
-                    : (summary.directoryPath == null ||
-                              summary.directoryPath!.isEmpty
-                          ? '所有目录'
-                          : p.normalize(summary.directoryPath!));
-                final gradient = isRemote
+                    : summary.isMystery
+                        ? '神秘代码: ${summary.mysteryCode ?? summary.displayName}'
+                        : (summary.directoryPath == null ||
+                                summary.directoryPath!.isEmpty
+                            ? '所有目录'
+                            : p.normalize(summary.directoryPath!));
+                final gradient = summary.isRemote
                     ? [const Color(0xFF2F3542), const Color(0xFF1E272E)]
                     : null;
+
+                final remoteArtworkUrl =
+                    MysteryLibraryConstants.buildArtworkUrl(
+                  summary.previewTrack?.httpHeaders,
+                  thumbnail: true,
+                );
 
                 return CollectionSummaryCard(
                   title: summary.displayName,
                   subtitle: subtitle,
                   detailText: '${summary.totalTracks} 首歌曲 · 点击查看全部',
                   artworkPath: summary.previewTrack?.artworkPath,
+                  remoteImageUrl: remoteArtworkUrl,
                   hasArtwork: summary.hasArtwork,
-                  fallbackIcon: isRemote
+                  fallbackIcon: summary.isWebDav
                       ? CupertinoIcons.cloud
-                      : CupertinoIcons.folder_solid,
+                      : summary.isMystery
+                          ? CupertinoIcons.music_note
+                          : CupertinoIcons.folder_solid,
                   gradientColors: gradient,
                   onTap: () {
                     setState(() {
@@ -414,7 +479,11 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                       : () => _confirmRemoveSummary(summary),
                   contextMenuLabel: summary.isAll
                       ? null
-                      : (isRemote ? '移除 WebDAV 音乐库' : '移除音乐库'),
+                      : (summary.isWebDav
+                          ? '移除 WebDAV 音乐库'
+                          : summary.isMystery
+                              ? '卸载神秘音乐库'
+                              : '移除音乐库'),
                 );
               },
             );
@@ -430,6 +499,11 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   if (key.startsWith('webdav://')) {
                     final sourceId = key.substring('webdav://'.length);
                     return track.sourceType == TrackSourceType.webdav &&
+                        track.sourceId == sourceId;
+                  }
+                  if (key.startsWith('mystery://')) {
+                    final sourceId = key.substring('mystery://'.length);
+                    return track.sourceType == TrackSourceType.mystery &&
                         track.sourceId == sourceId;
                   }
                   return _isTrackInDirectory(track, key);
@@ -490,6 +564,9 @@ class _DirectorySummaryData {
     required this.hasArtwork,
     this.directoryPath,
     this.webDavSource,
+    this.mysterySourceId,
+    this.mysteryDisplayName,
+    this.mysteryCode,
   });
 
   final String filterKey;
@@ -499,8 +576,13 @@ class _DirectorySummaryData {
   final bool hasArtwork;
   final String? directoryPath;
   final WebDavSource? webDavSource;
+  final String? mysterySourceId;
+  final String? mysteryDisplayName;
+  final String? mysteryCode;
 
-  bool get isRemote => webDavSource != null;
+  bool get isWebDav => webDavSource != null;
+  bool get isMystery => mysterySourceId != null;
+  bool get isRemote => isWebDav || isMystery;
   bool get isAll => filterKey == allKey;
 
   static const String allKey = '__all__';

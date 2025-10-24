@@ -671,6 +671,15 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         final coverRemote = rawTrack['cover_path'] as String?;
         final thumbRemote = rawTrack['thumbnail_path'] as String?;
 
+        String? effectiveArtworkPath;
+        final previousArtworkPath = existing?.artworkPath;
+        if (previousArtworkPath != null && previousArtworkPath.isNotEmpty) {
+          final previousFile = File(previousArtworkPath);
+          if (previousFile.existsSync()) {
+            effectiveArtworkPath = previousArtworkPath;
+          }
+        }
+
         final headers = <String, String>{
           if (existing?.httpHeaders != null) ...existing!.httpHeaders!,
           MysteryLibraryConstants.headerBaseUrl: resolvedBase.toString(),
@@ -686,8 +695,6 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
         headers.remove(MysteryLibraryConstants.headerCoverLocal);
         headers.remove(MysteryLibraryConstants.headerThumbnailLocal);
-
-        final effectiveArtworkPath = existing?.artworkPath;
 
         final contentHash =
             existing?.contentHash ?? trackId;
@@ -739,6 +746,24 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       throw NetworkException('挂载神秘代码失败', e.toString());
     } finally {
       client.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> unmountMysteryLibrary(String sourceId) async {
+    try {
+      final tracks = await _localDataSource.getTracksBySource(
+        TrackSourceType.mystery,
+        sourceId,
+      );
+      if (tracks.isEmpty) {
+        return;
+      }
+      final ids = tracks.map((track) => track.id).toList();
+      await _localDataSource.deleteTracksByIds(ids);
+      print('🕵️ Mystery: 已卸载 $sourceId, 删除 ${ids.length} 首歌曲');
+    } catch (e) {
+      throw FileSystemException('卸载神秘音乐库失败', e.toString());
     }
   }
 
@@ -1589,16 +1614,26 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     Duration? fallback,
   ) {
     final tags = (metadata['tags'] as Map<String, dynamic>?) ?? const {};
-    final seconds = _parseNullableDouble(metadata['duration']) ??
-        _parseNullableDouble(tags['duration']);
-    if (seconds == null) {
+    final durationMsValue = metadata['duration_ms'] ?? tags['duration_ms'];
+    int? durationMs;
+    if (durationMsValue is num) {
+      durationMs = durationMsValue.toInt();
+    } else if (durationMsValue is String) {
+      durationMs = int.tryParse(durationMsValue.trim());
+    }
+
+    if (durationMs == null) {
+      final seconds = _parseNullableDouble(metadata['duration']) ??
+          _parseNullableDouble(tags['duration']);
+      if (seconds != null) {
+        durationMs = (seconds * 1000).round();
+      }
+    }
+
+    if (durationMs == null || durationMs <= 0) {
       return fallback ?? Duration.zero;
     }
-    final milliseconds = (seconds * 1000).round();
-    if (milliseconds <= 0) {
-      return fallback ?? Duration.zero;
-    }
-    return Duration(milliseconds: milliseconds);
+    return Duration(milliseconds: durationMs);
   }
 
   String? _readNonEmptyString(dynamic value) {

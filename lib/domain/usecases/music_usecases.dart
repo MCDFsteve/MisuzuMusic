@@ -104,6 +104,16 @@ class MountMysteryLibrary {
   }
 }
 
+class UnmountMysteryLibrary {
+  final MusicLibraryRepository _repository;
+
+  UnmountMysteryLibrary(this._repository);
+
+  Future<void> call(String sourceId) async {
+    await _repository.unmountMysteryLibrary(sourceId);
+  }
+}
+
 class GetWebDavSources {
   final MusicLibraryRepository _repository;
 
