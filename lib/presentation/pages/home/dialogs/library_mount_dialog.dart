@@ -23,7 +23,7 @@ Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
             _PlaylistCreationModeOption(
               icon: CupertinoIcons.lock,
               title: '神秘代码',
-              description: '输入神秘代码，挂载远程音乐库。',
+              description: '',
               onTap: () =>
                   Navigator.of(dialogContext).pop(LibraryMountMode.mystery),
             ),
@@ -69,7 +69,7 @@ Future<String?> showMysteryCodeDialog(BuildContext context) {
                 _ModalTextField(
                   controller: controller,
                   label: '神秘代码',
-                  hintText: '例如：irigas',
+                  hintText: '',
                   enabled: true,
                   onChanged: (_) {
                     if (errorText != null) {

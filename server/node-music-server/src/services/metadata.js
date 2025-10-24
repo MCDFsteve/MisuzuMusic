@@ -96,22 +96,48 @@ class MetadataService {
       const coverPath = path.join(coverDir, `${baseName}.cover.${config.images.format}`);
       const thumbnailPath = path.join(coverDir, `${baseName}.thumb.${config.images.format}`);
 
-      // 生成封面
-      await sharp(picture.data)
-        .resize(config.images.coverMaxSize, config.images.coverMaxSize, {
-          fit: 'inside',
-          withoutEnlargement: true
-        })
-        .webp({ quality: config.images.quality })
-        .toFile(coverPath);
+      // 检查音频文件修改时间
+      const audioStats = await fs.stat(audioFilePath);
+      const audioTime = audioStats.mtime;
 
-      // 生成缩略图
-      await sharp(picture.data)
-        .resize(config.images.thumbnailSize, config.images.thumbnailSize, {
-          fit: 'cover'
-        })
-        .webp({ quality: config.images.quality })
-        .toFile(thumbnailPath);
+      // 检查封面是否已存在且比音频文件新
+      let coverExists = false;
+      let thumbnailExists = false;
+
+      try {
+        const coverStats = await fs.stat(coverPath);
+        coverExists = coverStats.mtime >= audioTime;
+      } catch {
+        // 封面不存在
+      }
+
+      try {
+        const thumbStats = await fs.stat(thumbnailPath);
+        thumbnailExists = thumbStats.mtime >= audioTime;
+      } catch {
+        // 缩略图不存在
+      }
+
+      // 只有在封面不存在或过期时才生成
+      if (!coverExists) {
+        await sharp(picture.data)
+          .resize(config.images.coverMaxSize, config.images.coverMaxSize, {
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .webp({ quality: config.images.quality })
+          .toFile(coverPath);
+      }
+
+      // 只有在缩略图不存在或过期时才生成
+      if (!thumbnailExists) {
+        await sharp(picture.data)
+          .resize(config.images.thumbnailSize, config.images.thumbnailSize, {
+            fit: 'cover'
+          })
+          .webp({ quality: config.images.quality })
+          .toFile(thumbnailPath);
+      }
 
       return {
         cover: coverPath,
@@ -170,22 +196,48 @@ class MetadataService {
       const coverPath = path.join(coverDir, `${baseName}.cover.${config.images.format}`);
       const thumbnailPath = path.join(coverDir, `${baseName}.thumb.${config.images.format}`);
 
-      // 生成封面
-      await sharp(imagePath)
-        .resize(config.images.coverMaxSize, config.images.coverMaxSize, {
-          fit: 'inside',
-          withoutEnlargement: true
-        })
-        .webp({ quality: config.images.quality })
-        .toFile(coverPath);
+      // 检查音频文件修改时间
+      const audioStats = await fs.stat(audioFilePath);
+      const audioTime = audioStats.mtime;
 
-      // 生成缩略图
-      await sharp(imagePath)
-        .resize(config.images.thumbnailSize, config.images.thumbnailSize, {
-          fit: 'cover'
-        })
-        .webp({ quality: config.images.quality })
-        .toFile(thumbnailPath);
+      // 检查封面是否已存在且比音频文件新
+      let coverExists = false;
+      let thumbnailExists = false;
+
+      try {
+        const coverStats = await fs.stat(coverPath);
+        coverExists = coverStats.mtime >= audioTime;
+      } catch {
+        // 封面不存在
+      }
+
+      try {
+        const thumbStats = await fs.stat(thumbnailPath);
+        thumbnailExists = thumbStats.mtime >= audioTime;
+      } catch {
+        // 缩略图不存在
+      }
+
+      // 只有在封面不存在或过期时才生成
+      if (!coverExists) {
+        await sharp(imagePath)
+          .resize(config.images.coverMaxSize, config.images.coverMaxSize, {
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .webp({ quality: config.images.quality })
+          .toFile(coverPath);
+      }
+
+      // 只有在缩略图不存在或过期时才生成
+      if (!thumbnailExists) {
+        await sharp(imagePath)
+          .resize(config.images.thumbnailSize, config.images.thumbnailSize, {
+            fit: 'cover'
+          })
+          .webp({ quality: config.images.quality })
+          .toFile(thumbnailPath);
+      }
 
       return {
         cover: coverPath,

@@ -10,7 +10,7 @@ const config = {
   // 音乐库配置
   music: {
     // 音乐文件根目录
-    rootPath: process.env.MUSIC_ROOT || path.join(__dirname, '..', 'music_library_data'),
+    rootPath: process.env.MUSIC_ROOT || '/root/data/disk1/music',
     // 支持的音频格式
     supportedFormats: ['.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wv', '.ape'],
     // 封面图片格式
