@@ -19,7 +19,8 @@
       "Bash(flutter analyze:*)",
       "Bash(tree:*)",
       "Bash(chmod:*)",
-      "Read(//Users/dfsteve/.pub-cache/hosted/pub.dev/**)"
+      "Read(//Users/dfsteve/.pub-cache/hosted/pub.dev/**)",
+      "WebFetch(domain:pub.dev)"
     ],
     "deny": [],
     "ask": []
