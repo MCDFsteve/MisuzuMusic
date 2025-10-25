@@ -658,51 +658,28 @@ class _SortModeButtonState extends State<_SortModeButton> {
   void _showSortModeMenu() async {
     if (!widget.enabled) return;
 
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final offset = renderBox.localToGlobal(Offset.zero);
-    final left = offset.dx;
-    final top = offset.dy + renderBox.size.height + 8;
-
-    final selectedMode = await showMacosSheet(
+    final selectedMode = await showPlaylistModalDialog(
       context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        return MacosSheet(
-          insetPadding: EdgeInsets.only(
-            left: left,
-            top: top,
-            right: 0,
-            bottom: 0,
+      builder: (context) => _PlaylistModalScaffold(
+        title: '选择排序方式',
+        maxWidth: 280,
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: TrackSortMode.values.map((mode) {
+            return _SortModeMenuItem(
+              mode: mode,
+              isSelected: mode == widget.sortMode,
+              onTap: () => Navigator.of(context).pop(mode),
+            );
+          }).toList(),
+        ),
+        actions: [
+          SheetActionButton.secondary(
+            label: '取消',
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          child: Container(
-            width: 200,
-            decoration: BoxDecoration(
-              color: MacosTheme.of(context).canvasColor,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 20,
-                  spreadRadius: 0,
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: TrackSortMode.values.map((mode) {
-                  return _SortModeMenuItem(
-                    mode: mode,
-                    isSelected: mode == widget.sortMode,
-                    onTap: () => Navigator.of(context).pop(mode),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        );
-      },
+        ],
+      ),
     );
 
     if (selectedMode != null && selectedMode != widget.sortMode) {
@@ -823,8 +800,20 @@ class _SortModeMenuItemState extends State<_SortModeMenuItem> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = MacosTheme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
+
+    final textColor = isDark
+        ? Colors.white.withOpacity(0.88)
+        : Colors.black.withOpacity(0.85);
+    final hoverColor = isDark
+        ? Colors.white.withOpacity(0.08)
+        : Colors.black.withOpacity(0.05);
+    final selectedColor = isDark
+        ? Colors.white.withOpacity(0.12)
+        : Colors.black.withOpacity(0.08);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
@@ -834,13 +823,13 @@ class _SortModeMenuItemState extends State<_SortModeMenuItem> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: _hovering
-                ? (isDark
-                    ? Colors.white.withOpacity(0.08)
-                    : Colors.black.withOpacity(0.05))
-                : Colors.transparent,
+            color: widget.isSelected
+                ? selectedColor
+                : (_hovering ? hoverColor : Colors.transparent),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             children: [
@@ -850,9 +839,7 @@ class _SortModeMenuItemState extends State<_SortModeMenuItem> {
                   locale: Locale("zh-Hans", "zh"),
                   style: TextStyle(
                     fontSize: 13,
-                    color: isDark
-                        ? Colors.white.withOpacity(0.88)
-                        : Colors.black.withOpacity(0.85),
+                    color: textColor,
                     fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
@@ -860,8 +847,8 @@ class _SortModeMenuItemState extends State<_SortModeMenuItem> {
               if (widget.isSelected)
                 Icon(
                   CupertinoIcons.checkmark_alt,
-                  size: 14,
-                  color: theme.primaryColor,
+                  size: 16,
+                  color: macTheme?.primaryColor ?? theme.colorScheme.primary,
                 ),
             ],
           ),
