@@ -129,7 +129,7 @@ class _WebDavDirectoryPickerDialogState
                           onTap: entry.isDirectory
                               ? () => _load(entry.path)
                               : null,
-                          subtitle: Text(entry.path, maxLines: 1),
+                          subtitle: Text(entry.path, maxLines: 1,locale: Locale("zh-Hans", "zh"),),
                         );
                       },
                     ),
@@ -140,11 +140,11 @@ class _WebDavDirectoryPickerDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: const Text('取消',locale: Locale("zh-Hans", "zh"),),
         ),
         ElevatedButton(
           onPressed: () => Navigator.of(context).pop(_currentPath),
-          child: const Text('选择此文件夹'),
+          child: const Text('选择此文件夹',locale: Locale("zh-Hans", "zh"),),
         ),
       ],
     );

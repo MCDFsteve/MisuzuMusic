@@ -215,6 +215,7 @@ class _SettingsSection extends StatelessWidget {
       children: [
         Text(
           title,
+          locale: Locale("zh-Hans", "zh"),
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -226,6 +227,7 @@ class _SettingsSection extends StatelessWidget {
         Expanded(
           child: Text(
             subtitle,
+            locale: Locale("zh-Hans", "zh"),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w400,
@@ -283,6 +285,7 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
       children: [
         Text(
           '主题模式',
+          locale: Locale("zh-Hans", "zh"),
           style: theme.typography.body.copyWith(
             fontWeight: FontWeight.w500,
             color: isDarkMode
@@ -348,7 +351,7 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
                                     ? Colors.white.withOpacity(0.85)
                                     : Colors.black.withOpacity(0.75)),
                           ),
-                          child: Text(label),
+                          child: Text(label,locale: Locale("zh-Hans", "zh"),),
                         ),
                       ),
                     ),
@@ -432,6 +435,7 @@ class _MobileThemeModeControl extends StatelessWidget {
             '主题模式',
             style: TextStyle(
               fontSize: 16,
+              locale: Locale("zh-Hans", "zh"),
               fontWeight: FontWeight.w500,
               color: isDarkMode
                   ? Colors.white.withOpacity(0.9)
@@ -511,6 +515,7 @@ class _ThemeOption extends StatelessWidget {
                     children: [
                       Text(
                         title,
+                        locale: Locale("zh-Hans", "zh"),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -520,6 +525,7 @@ class _ThemeOption extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         description,
+                        locale: Locale("zh-Hans", "zh"),
                         style: TextStyle(
                           fontSize: 14,
                           color: isDarkMode

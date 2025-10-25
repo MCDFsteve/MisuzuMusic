@@ -229,6 +229,7 @@ class MacOSTrackListView extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(
                     '从歌单移除歌曲？',
+                    locale: Locale("zh-Hans", "zh"),
                     style:
                         theme.textTheme.titleMedium?.copyWith(
                           fontSize: 16,
@@ -245,6 +246,7 @@ class MacOSTrackListView extends StatelessWidget {
                   Text(
                     '“${track.title}” 将从当前歌单移除，但文件和其它歌单不会受到影响。',
                     textAlign: TextAlign.center,
+                    locale: Locale("zh-Hans", "zh"),
                     style:
                         theme.textTheme.bodySmall?.copyWith(
                           color: textColorSecondary,
@@ -345,6 +347,7 @@ class _GlassDialogButtonState extends State<_GlassDialogButton> {
           ),
           child: Text(
             widget.label,
+            locale: Locale("zh-Hans", "zh"),
             style:
                 theme.textTheme.bodyMedium?.copyWith(
                   color: textColor,

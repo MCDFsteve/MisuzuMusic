@@ -227,6 +227,7 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
                 child: Text(
                   _formatDuration(widget.position),
                   textAlign: TextAlign.right,
+                  locale: Locale("zh-Hans", "zh"),
                   style: textStyle,
                 ),
               ),
@@ -246,6 +247,7 @@ class _MacOSProgressBarState extends State<MacOSProgressBar> {
                 child: Text(
                   _formatDuration(widget.duration),
                   textAlign: TextAlign.left,
+                  locale: Locale("zh-Hans", "zh"),
                   style: textStyle,
                 ),
               ),

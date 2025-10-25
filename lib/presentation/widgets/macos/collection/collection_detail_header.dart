@@ -60,16 +60,17 @@ class CollectionDetailHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title, style: titleStyle),
+              Text(title, locale: Locale("zh-Hans", "zh"),style: titleStyle),
               if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(subtitle!.trim(), style: subtitleStyle),
+                Text(subtitle!.trim(), locale: Locale("zh-Hans", "zh"),style: subtitleStyle),
               ],
               if (secondaryText != null &&
                   secondaryText!.trim().isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   secondaryText!,
+                  locale: Locale("zh-Hans", "zh"),
                   style: subtitleStyle?.copyWith(fontSize: 12),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

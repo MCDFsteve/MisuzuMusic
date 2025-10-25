@@ -289,17 +289,17 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
         context: context,
         builder: (context) => MacosAlertDialog(
           appIcon: const MacosIcon(CupertinoIcons.exclamationmark_triangle),
-          title: Text(title),
-          message: Text(message),
+          title: Text(title,locale: Locale("zh-Hans", "zh"),),
+          message: Text(message,locale: Locale("zh-Hans", "zh"),),
           primaryButton: PushButton(
             controlSize: ControlSize.large,
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('移除'),
+            child: const Text('移除',locale: Locale("zh-Hans", "zh"),),
           ),
           secondaryButton: PushButton(
             controlSize: ControlSize.large,
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: const Text('取消',locale: Locale("zh-Hans", "zh"),),
           ),
         ),
       );
@@ -307,16 +307,16 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
+          title: Text(title,locale: Locale("zh-Hans", "zh"),),
+          content: Text(message,locale: Locale("zh-Hans", "zh"),),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
+              child: const Text('取消',locale: Locale("zh-Hans", "zh"),),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('移除'),
+              child: const Text('移除',locale: Locale("zh-Hans", "zh"),),
             ),
           ],
         ),
@@ -348,7 +348,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
               children: [
                 ProgressCircle(),
                 SizedBox(height: 16),
-                Text('正在加载音乐库...'),
+                Text('正在加载音乐库...',locale: Locale("zh-Hans", "zh"),),
               ],
             ),
           );
@@ -365,10 +365,11 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   color: CupertinoColors.systemRed,
                 ),
                 const SizedBox(height: 16),
-                Text('加载失败', style: MacosTheme.of(context).typography.title1),
+                Text('加载失败', locale: Locale("zh-Hans", "zh"),style: MacosTheme.of(context).typography.title1),
                 const SizedBox(height: 8),
                 Text(
                   state.message,
+                  locale: Locale("zh-Hans", "zh"),
                   textAlign: TextAlign.center,
                   style: MacosTheme.of(context).typography.body.copyWith(
                     color: MacosColors.systemGrayColor,
@@ -380,7 +381,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   onPressed: () {
                     context.read<MusicLibraryBloc>().add(const LoadAllTracks());
                   },
-                  child: const Text('重试'),
+                  child: const Text('重试',locale: Locale("zh-Hans", "zh"),),
                 ),
               ],
             ),

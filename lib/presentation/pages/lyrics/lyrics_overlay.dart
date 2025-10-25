@@ -119,7 +119,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             context: context,
             builder: (context) => PlaylistModalScaffold(
               title: '下载成功',
-              body: const Text('LRC歌词文件已保存到您选择的位置'),
+              body: const Text('LRC歌词文件已保存到您选择的位置',locale: Locale("zh-Hans", "zh"),),
               actions: [
                 SheetActionButton.primary(
                   label: '确定',
@@ -135,7 +135,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             context: context,
             builder: (context) => PlaylistModalScaffold(
               title: '下载失败',
-              body: const Text('无法保存LRC文件，请检查文件夹权限设置'),
+              body: const Text('无法保存LRC文件，请检查文件夹权限设置',locale: Locale("zh-Hans", "zh"),),
               actions: [
                 SheetActionButton.primary(
                   label: '确定',
@@ -154,7 +154,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           context: context,
           builder: (context) => PlaylistModalScaffold(
             title: '下载出错',
-            body: Text(errorMessage),
+            body: Text(errorMessage,locale: Locale("zh-Hans", "zh"),),
             actions: [
               SheetActionButton.primary(
                 label: '确定',
@@ -386,6 +386,7 @@ class _CoverColumn extends StatelessWidget {
                 Text(
                   track.title,
                   textAlign: TextAlign.center,
+                  locale: Locale("zh-Hans", "zh"),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: titleStyle,
@@ -393,6 +394,7 @@ class _CoverColumn extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   '${track.artist} · ${track.album}',
+                  locale: Locale("zh-Hans", "zh"),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -577,9 +579,9 @@ class _LyricsPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title, style: titleStyle, textAlign: TextAlign.center),
+              Text(title, locale: Locale("zh-Hans", "zh"),style: titleStyle, textAlign: TextAlign.center),
               const SizedBox(height: 8),
-              Text(subtitle, style: subtitleStyle, textAlign: TextAlign.center),
+              Text(subtitle, locale: Locale("zh-Hans", "zh"),style: subtitleStyle, textAlign: TextAlign.center),
             ],
           ),
         ),

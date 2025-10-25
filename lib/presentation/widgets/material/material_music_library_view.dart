@@ -33,7 +33,7 @@ class MaterialMusicLibraryView extends StatelessWidget {
           child: Row(
             children: [
               Text(
-                '${tracks.length} 首歌曲, ${artists.length} 位艺术家, ${albums.length} 张专辑',
+                '${tracks.length} 首歌曲, ${artists.length} 位艺术家, ${albums.length} 张专辑',locale: Locale("zh-Hans", "zh"),
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
@@ -41,7 +41,7 @@ class MaterialMusicLibraryView extends StatelessWidget {
               const Spacer(),
               if (searchQuery?.isNotEmpty == true)
                 Chip(
-                  label: Text('搜索: $searchQuery'),
+                  label: Text('搜索: $searchQuery',locale: Locale("zh-Hans", "zh"),),
                   deleteIcon: const Icon(Icons.close, size: 18),
                   onDeleted: () {
                     // Clear search

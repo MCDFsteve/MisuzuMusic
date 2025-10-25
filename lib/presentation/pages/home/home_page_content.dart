@@ -218,7 +218,7 @@ class _HomePageContentState extends State<HomePageContent> {
     messenger?.clearSnackBars();
     messenger?.showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(locale: Locale("zh-Hans", "zh"), message),
         backgroundColor: isError ? Colors.redAccent : Colors.green,
         duration: const Duration(seconds: 3),
       ),
@@ -658,7 +658,11 @@ class _HomePageContentState extends State<HomePageContent> {
     final track = _lyricsActiveTrack;
     if (track == null) {
       return Center(
-        child: Text('暂无播放', style: Theme.of(context).textTheme.titleMedium),
+        child: Text(
+          locale: Locale("zh-Hans", "zh"),
+          '暂无播放',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
       );
     }
 
@@ -727,11 +731,11 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     context.read<MusicLibraryBloc>().add(
-          MountMysteryLibraryEvent(
-            code: normalizedCode,
-            baseUri: Uri.parse(MysteryLibraryConstants.defaultBaseUrl),
-          ),
-        );
+      MountMysteryLibraryEvent(
+        code: normalizedCode,
+        baseUri: Uri.parse(MysteryLibraryConstants.defaultBaseUrl),
+      ),
+    );
   }
 
   Future<void> _selectLocalFolder() async {
@@ -760,7 +764,12 @@ class _HomePageContentState extends State<HomePageContent> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(child: Text('正在扫描文件夹: ${result.split('/').last}')),
+                    Expanded(
+                      child: Text(
+                        locale: Locale("zh-Hans", "zh"),
+                        '正在扫描文件夹: ${result.split('/').last}',
+                      ),
+                    ),
                   ],
                 ),
                 duration: const Duration(seconds: 10),
@@ -887,17 +896,19 @@ class _HomePageContentState extends State<HomePageContent> {
             size: 64,
           ),
           title: Text(
+            locale: Locale("zh-Hans", "zh"),
             '扫描完成',
             style: MacosTheme.of(context).typography.headline,
           ),
           message: Text(
+            locale: Locale("zh-Hans", "zh"),
             message,
             textAlign: TextAlign.center,
             style: MacosTheme.of(context).typography.body,
           ),
           primaryButton: PushButton(
             controlSize: ControlSize.large,
-            child: const Text('好'),
+            child: const Text(locale: Locale("zh-Hans", "zh"), '好'),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -907,7 +918,7 @@ class _HomePageContentState extends State<HomePageContent> {
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('✅ 扫描完成！$message'),
+          content: Text(locale: Locale("zh-Hans", "zh"), '✅ 扫描完成！$message'),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
         ),
@@ -926,17 +937,19 @@ class _HomePageContentState extends State<HomePageContent> {
             size: 64,
           ),
           title: Text(
+            locale: Locale("zh-Hans", "zh"),
             '发生错误',
             style: MacosTheme.of(context).typography.headline,
           ),
           message: Text(
+            locale: Locale("zh-Hans", "zh"),
             message,
             textAlign: TextAlign.center,
             style: MacosTheme.of(context).typography.body,
           ),
           primaryButton: PushButton(
             controlSize: ControlSize.large,
-            child: const Text('好'),
+            child: const Text(locale: Locale("zh-Hans", "zh"), '好'),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -944,7 +957,7 @@ class _HomePageContentState extends State<HomePageContent> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ $message'),
+          content: Text(locale: Locale("zh-Hans", "zh"), '❌ $message'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 5),
         ),

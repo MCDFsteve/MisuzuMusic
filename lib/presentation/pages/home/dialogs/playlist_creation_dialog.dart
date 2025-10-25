@@ -1,9 +1,6 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
-enum PlaylistCreationMode {
-  local,
-  cloud,
-}
+enum PlaylistCreationMode { local, cloud }
 
 Future<PlaylistCreationMode?> showPlaylistCreationModeDialog(
   BuildContext context,
@@ -21,14 +18,16 @@ Future<PlaylistCreationMode?> showPlaylistCreationModeDialog(
               icon: CupertinoIcons.add_circled_solid,
               title: '本地新建歌单',
               description: '使用本地存储，立即编辑歌单名称和内容。',
-              onTap: () => Navigator.of(dialogContext).pop(PlaylistCreationMode.local),
+              onTap: () =>
+                  Navigator.of(dialogContext).pop(PlaylistCreationMode.local),
             ),
             const SizedBox(height: 12),
             _PlaylistCreationModeOption(
               icon: CupertinoIcons.cloud_download,
               title: '拉取云歌单',
               description: '根据云端 ID 下载现有歌单并导入本地。',
-              onTap: () => Navigator.of(dialogContext).pop(PlaylistCreationMode.cloud),
+              onTap: () =>
+                  Navigator.of(dialogContext).pop(PlaylistCreationMode.cloud),
             ),
           ],
         ),
@@ -113,10 +112,12 @@ class _CloudPlaylistIdDialogState extends State<_CloudPlaylistIdDialog> {
   @override
   Widget build(BuildContext context) {
     final macTheme = MacosTheme.maybeOf(context);
-    final isDark = macTheme?.brightness == Brightness.dark ||
+    final isDark =
+        macTheme?.brightness == Brightness.dark ||
         Theme.of(context).brightness == Brightness.dark;
 
-    final descriptionStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+    final descriptionStyle =
+        Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: isDark
               ? Colors.white.withOpacity(0.72)
               : Colors.black.withOpacity(0.68),
@@ -128,13 +129,11 @@ class _CloudPlaylistIdDialogState extends State<_CloudPlaylistIdDialog> {
           fontSize: 13,
         );
 
-    final errorStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: MacosColors.systemRedColor,
-        ) ??
-        const TextStyle(
-          color: MacosColors.systemRedColor,
-          fontSize: 12,
-        );
+    final errorStyle =
+        Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: MacosColors.systemRedColor) ??
+        const TextStyle(color: MacosColors.systemRedColor, fontSize: 12);
 
     return _PlaylistModalScaffold(
       title: widget.title,
@@ -143,7 +142,11 @@ class _CloudPlaylistIdDialogState extends State<_CloudPlaylistIdDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (widget.description != null) ...[
-            Text(widget.description!, style: descriptionStyle),
+            Text(
+              locale: Locale("zh-Hans", "zh"),
+              widget.description!,
+              style: descriptionStyle,
+            ),
             const SizedBox(height: 12),
           ],
           _ModalTextField(
@@ -160,7 +163,11 @@ class _CloudPlaylistIdDialogState extends State<_CloudPlaylistIdDialog> {
           ),
           if (_errorText != null) ...[
             const SizedBox(height: 8),
-            Text(_errorText!, style: errorStyle),
+            Text(
+              locale: Locale("zh-Hans", "zh"),
+              _errorText!,
+              style: errorStyle,
+            ),
           ],
         ],
       ),
@@ -298,7 +305,8 @@ class _PlaylistCreationModeOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final macTheme = MacosTheme.maybeOf(context);
-    final isDark = macTheme?.brightness == Brightness.dark ||
+    final isDark =
+        macTheme?.brightness == Brightness.dark ||
         Theme.of(context).brightness == Brightness.dark;
 
     final background = isDark
@@ -307,7 +315,8 @@ class _PlaylistCreationModeOption extends StatelessWidget {
     final hoverBackground = isDark
         ? Colors.white.withOpacity(0.1)
         : Colors.black.withOpacity(0.08);
-    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+    final titleStyle =
+        Theme.of(context).textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w600,
           color: isDark
               ? Colors.white.withOpacity(0.92)
@@ -320,7 +329,8 @@ class _PlaylistCreationModeOption extends StatelessWidget {
               ? Colors.white.withOpacity(0.92)
               : Colors.black.withOpacity(0.9),
         );
-    final descriptionStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+    final descriptionStyle =
+        Theme.of(context).textTheme.bodySmall?.copyWith(
           color: isDark
               ? Colors.white.withOpacity(0.66)
               : Colors.black.withOpacity(0.62),
@@ -364,9 +374,10 @@ class _PlaylistCreationModeOption extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: titleStyle),
+                Text(locale: Locale("zh-Hans", "zh"), title, style: titleStyle),
                 const SizedBox(height: 4),
                 Text(
+                  locale: Locale("zh-Hans", "zh"),
                   description,
                   style: descriptionStyle,
                 ),
@@ -408,7 +419,8 @@ class _ModalTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final macTheme = MacosTheme.maybeOf(context);
-    final isDark = macTheme?.brightness == Brightness.dark ||
+    final isDark =
+        macTheme?.brightness == Brightness.dark ||
         theme.brightness == Brightness.dark;
 
     final labelColor = isDark
@@ -428,8 +440,10 @@ class _ModalTextField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
+          locale: Locale("zh-Hans", "zh"),
           label,
-          style: theme.textTheme.titleSmall?.copyWith(
+          style:
+              theme.textTheme.titleSmall?.copyWith(
                 color: labelColor,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
@@ -451,8 +465,10 @@ class _ModalTextField extends StatelessWidget {
             hintStyle: TextStyle(color: hintColor, fontSize: 13),
             filled: true,
             fillColor: fillColor,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(color: borderColor, width: 0.8),
@@ -651,6 +667,7 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
+                      locale: Locale("zh-Hans", "zh"),
                       '封面',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontSize: 13,
@@ -666,6 +683,7 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
                     if (_coverPath != null && !isAutoGeneratedCover) ...[
                       const SizedBox(height: 6),
                       Text(
+                        locale: Locale("zh-Hans", "zh"),
                         _coverPath!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -712,6 +730,7 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(
+              locale: Locale("zh-Hans", "zh"),
               _error!,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.error,
@@ -854,6 +873,7 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
         ),
         const SizedBox(height: 16),
         Text(
+          locale: Locale("zh-Hans", "zh"),
           '确定删除 “$playlistName” 吗？',
           textAlign: TextAlign.center,
           style:
@@ -873,6 +893,7 @@ class _PlaylistCreationDialogState extends State<_PlaylistCreationDialog> {
         ),
         const SizedBox(height: 8),
         Text(
+          locale: Locale("zh-Hans", "zh"),
           '该歌单将被永久移除，包含的歌曲不会删除。',
           textAlign: TextAlign.center,
           style:
@@ -989,6 +1010,7 @@ class _LabeledTextField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
+          locale: Locale("zh-Hans", "zh"),
           label,
           style: theme.textTheme.titleSmall?.copyWith(
             fontSize: 13,

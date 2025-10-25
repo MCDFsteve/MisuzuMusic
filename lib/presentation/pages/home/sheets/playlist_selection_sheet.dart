@@ -123,6 +123,7 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
       children: [
         Text(
           '当前没有歌单，可立即创建一个新的歌单。',
+          locale: Locale("zh-Hans", "zh"),
           style: macTheme.typography.body.copyWith(
             fontSize: 12,
             height: 1.4,
@@ -132,6 +133,7 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
         const SizedBox(height: 6),
         Text(
           '新建歌单后可以将这首歌添加进去。',
+          locale: Locale("zh-Hans", "zh"),
           style: macTheme.typography.caption1.copyWith(
             fontSize: 11,
             color: secondaryColor,
@@ -189,6 +191,7 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
           const SizedBox(height: 8),
           Text(
             _localError!,
+            locale: Locale("zh-Hans", "zh"),
             style: macTheme.typography.caption1.copyWith(
               color: MacosColors.systemRedColor,
             ),
@@ -266,6 +269,7 @@ class _PlaylistEntryTile extends StatelessWidget {
                 children: [
                   Text(
                     playlist.name,
+                    locale: Locale("zh-Hans", "zh"),
                     style: macTheme.typography.body.copyWith(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -277,6 +281,7 @@ class _PlaylistEntryTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${playlist.trackIds.length} 首歌曲',
+                    locale: Locale("zh-Hans", "zh"),
                     style: macTheme.typography.caption1.copyWith(
                       fontSize: 10,
                       color: isDark

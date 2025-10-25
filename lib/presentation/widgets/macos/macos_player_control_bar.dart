@@ -671,6 +671,7 @@ class _TrackInfoRow extends StatelessWidget {
             children: [
               Text(
                 title,
+                locale: Locale("zh-Hans", "zh"),
                 style: theme.typography.body.copyWith(
                   fontWeight: FontWeight.w500,
                   fontSize: 12,
@@ -681,6 +682,7 @@ class _TrackInfoRow extends StatelessWidget {
               ),
               Text(
                 subtitle,
+                locale: Locale("zh-Hans", "zh"),
                 style: theme.typography.caption1.copyWith(
                   fontSize: 10,
                   color: subtitleColor,

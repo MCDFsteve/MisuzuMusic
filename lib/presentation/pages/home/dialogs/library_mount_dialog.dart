@@ -82,6 +82,7 @@ Future<String?> showMysteryCodeDialog(BuildContext context) {
                   const SizedBox(height: 8),
                   Text(
                     errorText!,
+                    locale: Locale("zh-Hans", "zh"),
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall

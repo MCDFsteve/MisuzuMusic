@@ -170,6 +170,7 @@ class _SheetActionButtonState extends State<SheetActionButton> {
     } else {
       child = Text(
         widget.label,
+        locale: Locale("zh-Hans", "zh"),
         key: ValueKey(widget.label),
         style: macTheme.typography.body.copyWith(
           fontSize: 12,
@@ -341,6 +342,7 @@ class PlaylistModalScaffold extends StatelessWidget {
               children: [
                 Text(
                   title,
+                  locale: Locale("zh-Hans", "zh"),
                   style:
                       theme.textTheme.titleMedium?.copyWith(
                         fontSize: 16,

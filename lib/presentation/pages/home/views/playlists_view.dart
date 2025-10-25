@@ -160,7 +160,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     messenger?.clearSnackBars();
     messenger?.showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message,locale: Locale("zh-Hans", "zh"),),
         backgroundColor: isError ? Colors.redAccent : Colors.green,
         duration: const Duration(seconds: 3),
       ),
@@ -200,7 +200,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                   color: MacosColors.systemGrayColor,
                 ),
                 SizedBox(height: 12),
-                Text('暂无歌单'),
+                Text('暂无歌单',locale: Locale("zh-Hans", "zh"),),
               ],
             ),
           );

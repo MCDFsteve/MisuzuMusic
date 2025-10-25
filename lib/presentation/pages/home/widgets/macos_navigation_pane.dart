@@ -157,6 +157,7 @@ class _NavigationTile extends StatelessWidget {
                     Expanded(
                       child: Text(
                         item.label,
+                        locale: Locale("zh-Hans", "zh"),
                         style: theme.typography.body.copyWith(
                           color: effectiveLabelColor,
                           fontWeight: active

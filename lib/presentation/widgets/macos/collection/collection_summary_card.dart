@@ -142,6 +142,7 @@ class CollectionSummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
+                      locale: Locale("zh-Hans", "zh"),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -154,6 +155,7 @@ class CollectionSummaryCard extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      locale: Locale("zh-Hans", "zh"),
                       style: TextStyle(fontSize: 12, color: subtitleColor),
                     ),
                     const SizedBox(height: 8),
@@ -161,6 +163,7 @@ class CollectionSummaryCard extends StatelessWidget {
                       detailText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      locale: Locale("zh-Hans", "zh"),
                       style: TextStyle(fontSize: 12, color: subtitleColor),
                     ),
                   ],
@@ -249,7 +252,7 @@ class CollectionSummaryCard extends StatelessWidget {
         overlay.size.height - position.dy,
       ),
       items: [
-        PopupMenuItem(value: 'remove', child: Text(contextMenuLabel ?? '移除')),
+        PopupMenuItem(value: 'remove', child: Text(contextMenuLabel ?? '移除',locale: Locale("zh-Hans", "zh"),)),
       ],
     );
     if (result == 'remove') {

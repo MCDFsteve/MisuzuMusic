@@ -79,6 +79,7 @@ class _MacOSGlassHeader extends StatelessWidget {
                   children: [
                     Text(
                       'Misuzu Music',
+                      locale: Locale("zh-Hans", "zh"),
                       style: theme.typography.title2.copyWith(
                         fontWeight: FontWeight.w600,
                         color: textColor,
@@ -87,6 +88,7 @@ class _MacOSGlassHeader extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       sectionLabel,
+                      locale: Locale("zh-Hans", "zh"),
                       style: theme.typography.caption1.copyWith(
                         color: textColor.withOpacity(0.68),
                       ),
@@ -102,6 +104,7 @@ class _MacOSGlassHeader extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 320),
                     child: Text(
                       statsLabel!,
+                      locale: Locale("zh-Hans", "zh"),
                       style: theme.typography.caption1.copyWith(
                         color: textColor.withOpacity(0.68),
                       ),

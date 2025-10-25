@@ -91,11 +91,13 @@ class MaterialPlayerControlBar extends StatelessWidget {
               children: [
                 Text(
                   trackTitle,
+                  locale: Locale("zh-Hans", "zh"),
                   style: const TextStyle(fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   trackArtist,
+                  locale: Locale("zh-Hans", "zh"),
                   style: const TextStyle(fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -265,10 +267,12 @@ class MaterialPlayerControlBar extends StatelessWidget {
                   children: [
                     Text(
                       _formatDuration(position),
+                      locale: Locale("zh-Hans", "zh"),
                       style: const TextStyle(fontSize: 12),
                     ),
                     Text(
                       _formatDuration(duration),
+                      locale: Locale("zh-Hans", "zh"),
                       style: const TextStyle(fontSize: 12),
                     ),
                   ],

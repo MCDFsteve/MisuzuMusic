@@ -20,6 +20,7 @@ class _PlaylistMessage extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             message,
+            locale: Locale("zh-Hans", "zh"),
             style: macTheme.typography.title1.copyWith(color: color),
             textAlign: TextAlign.center,
           ),

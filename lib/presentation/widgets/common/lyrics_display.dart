@@ -637,6 +637,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
         textAlign: TextAlign.center,
         softWrap: true,
         maxLines: 4,
+        locale: Locale("zh-Hans", "zh"),
         strutStyle: StrutStyle(
           fontSize: fontSize,
           height: compressedLineHeight,
@@ -662,6 +663,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
           textAlign: TextAlign.center,
           softWrap: true,
           maxLines: 4,
+          locale: Locale("zh-Hans", "zh"),
           strutStyle: StrutStyle(
             fontSize: fontSize,
             height: compressedLineHeight,
