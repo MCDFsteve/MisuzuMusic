@@ -15,6 +15,8 @@ class _MacOSGlassHeader extends StatelessWidget {
     this.backTooltip = '返回上一层',
     this.sortMode,
     this.onSortModeChanged,
+    this.showCreatePlaylistButton = true,
+    this.showSelectFolderButton = true,
   });
 
   final double height;
@@ -30,6 +32,8 @@ class _MacOSGlassHeader extends StatelessWidget {
   final String backTooltip;
   final TrackSortMode? sortMode;
   final ValueChanged<TrackSortMode>? onSortModeChanged;
+  final bool showCreatePlaylistButton;
+  final bool showSelectFolderButton;
 
   Future<void> _handleDoubleTap() async {
     if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
@@ -168,33 +172,36 @@ class _MacOSGlassHeader extends StatelessWidget {
                   ),
                 ),
               if (showBackButton) SizedBox(width: actionSpacing),
-              _HeaderTooltip(
-                useMacStyle: !isWindows,
-                message: '新建歌单',
-                child: _HeaderIconButton(
-                  baseColor: textColor.withOpacity(0.72),
-                  hoverColor: textColor,
-                  size: actionButtonSize,
-                  iconSize: primaryIconSize,
-                  icon: CupertinoIcons.add,
-                  onPressed: onCreatePlaylist,
-                  isWindowsStyle: isWindows,
+              if (showCreatePlaylistButton)
+                _HeaderTooltip(
+                  useMacStyle: !isWindows,
+                  message: '新建歌单',
+                  child: _HeaderIconButton(
+                    baseColor: textColor.withOpacity(0.72),
+                    hoverColor: textColor,
+                    size: actionButtonSize,
+                    iconSize: primaryIconSize,
+                    icon: CupertinoIcons.add,
+                    onPressed: onCreatePlaylist,
+                    isWindowsStyle: isWindows,
+                  ),
                 ),
-              ),
-              SizedBox(width: actionSpacing),
-              _HeaderTooltip(
-                useMacStyle: !isWindows,
-                message: '选择音乐文件夹',
-                child: _HeaderIconButton(
-                  baseColor: textColor.withOpacity(0.72),
-                  hoverColor: textColor,
-                  size: actionButtonSize,
-                  iconSize: primaryIconSize,
-                  icon: CupertinoIcons.folder,
-                  onPressed: onSelectMusicFolder,
-                  isWindowsStyle: isWindows,
+              if (showCreatePlaylistButton && showSelectFolderButton)
+                SizedBox(width: actionSpacing),
+              if (showSelectFolderButton)
+                _HeaderTooltip(
+                  useMacStyle: !isWindows,
+                  message: '选择音乐文件夹',
+                  child: _HeaderIconButton(
+                    baseColor: textColor.withOpacity(0.72),
+                    hoverColor: textColor,
+                    size: actionButtonSize,
+                    iconSize: primaryIconSize,
+                    icon: CupertinoIcons.folder,
+                    onPressed: onSelectMusicFolder,
+                    isWindowsStyle: isWindows,
+                  ),
                 ),
-              ),
               if (isWindows) ...[
                 const SizedBox(width: 8),
                 _VerticalSeparator(color: textColor.withOpacity(0.18)),

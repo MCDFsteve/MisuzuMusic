@@ -408,6 +408,8 @@ class _HomePageContentState extends State<HomePageContent> {
                                         backTooltip: backTooltip,
                                         sortMode: sortMode,
                                         onSortModeChanged: onSortModeChanged,
+                                        showCreatePlaylistButton: _selectedIndex != 0,
+                                        showSelectFolderButton: _selectedIndex != 1,
                                       ),
                                     ),
                                   ),
