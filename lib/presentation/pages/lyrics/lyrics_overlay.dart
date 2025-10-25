@@ -619,8 +619,8 @@ class _TranslationToggleButton extends StatelessWidget {
 
     final double iconSize = 25;
     final Color activeColor = iconColor;
-    final Color inactiveColor = iconColor.withOpacity(0.82);
-    final Color disabledColor = iconColor.withOpacity(0.42);
+    final Color inactiveColor = iconColor.withOpacity(0.42);
+    final Color disabledColor = iconColor.withOpacity(0.24);
 
     return MacosTooltip(
       message: tooltip,

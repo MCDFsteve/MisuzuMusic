@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../core/constants/app_constants.dart';
+import '../../../core/storage/binary_config_store.dart';
+import '../../../core/storage/storage_keys.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../../domain/entities/webdav_entities.dart';
 import '../../../domain/usecases/music_usecases.dart';
@@ -97,6 +100,15 @@ class LoadAllAlbumsEvent extends MusicLibraryEvent {
   const LoadAllAlbumsEvent();
 }
 
+class ChangeSortModeEvent extends MusicLibraryEvent {
+  final TrackSortMode sortMode;
+
+  const ChangeSortModeEvent(this.sortMode);
+
+  @override
+  List<Object> get props => [sortMode];
+}
+
 // States
 abstract class MusicLibraryState extends Equatable {
   const MusicLibraryState();
@@ -129,6 +141,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
   final String? searchQuery;
   final List<String> libraryDirectories;
   final List<WebDavSource> webDavSources;
+  final TrackSortMode sortMode;
 
   const MusicLibraryLoaded({
     required this.tracks,
@@ -137,6 +150,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
     required this.libraryDirectories,
     required this.webDavSources,
     this.searchQuery,
+    this.sortMode = TrackSortMode.titleAZ,
   });
 
   @override
@@ -147,6 +161,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
     libraryDirectories,
     webDavSources,
     searchQuery,
+    sortMode,
   ];
 
   MusicLibraryLoaded copyWith({
@@ -156,6 +171,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
     List<String>? libraryDirectories,
     List<WebDavSource>? webDavSources,
     String? searchQuery,
+    TrackSortMode? sortMode,
   }) {
     return MusicLibraryLoaded(
       tracks: tracks ?? this.tracks,
@@ -164,6 +180,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
       libraryDirectories: libraryDirectories ?? this.libraryDirectories,
       webDavSources: webDavSources ?? this.webDavSources,
       searchQuery: searchQuery ?? this.searchQuery,
+      sortMode: sortMode ?? this.sortMode,
     );
   }
 }
@@ -209,6 +226,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
   final RemoveLibraryDirectory _removeLibraryDirectory;
   final DeleteWebDavSource _deleteWebDavSource;
   final WatchTrackUpdates _watchTrackUpdates;
+  final BinaryConfigStore _configStore;
 
   StreamSubscription<Track>? _trackUpdateSubscription;
 
@@ -231,6 +249,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     required RemoveLibraryDirectory removeLibraryDirectory,
     required DeleteWebDavSource deleteWebDavSource,
     required WatchTrackUpdates watchTrackUpdates,
+    required BinaryConfigStore configStore,
   }) : _getAllTracks = getAllTracks,
        _searchTracks = searchTracks,
        _scanMusicDirectory = scanMusicDirectory,
@@ -246,6 +265,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
        _removeLibraryDirectory = removeLibraryDirectory,
        _deleteWebDavSource = deleteWebDavSource,
        _watchTrackUpdates = watchTrackUpdates,
+       _configStore = configStore,
        super(const MusicLibraryInitial()) {
     on<LoadAllTracks>(_onLoadAllTracks);
     on<SearchTracksEvent>(_onSearchTracks);
@@ -257,6 +277,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     on<RemoveWebDavSourceEvent>(_onRemoveWebDavSource);
     on<LoadAllArtistsEvent>(_onLoadAllArtists);
     on<LoadAllAlbumsEvent>(_onLoadAllAlbums);
+    on<ChangeSortModeEvent>(_onChangeSortMode);
 
     _trackUpdateSubscription = _watchTrackUpdates().listen(_onTrackUpdated);
   }
@@ -296,23 +317,30 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       final albums = await _getAllAlbums();
       final directories = await _getLibraryDirectories();
 
+      // 加载保存的排序模式
+      await _configStore.init();
+      final sortModeString = _configStore.getValue<String>(StorageKeys.musicLibrarySortMode);
+      final sortMode = TrackSortModeExtension.fromStorageString(sortModeString);
+
       final visibleTracks = _filterVisibleTracks(tracks);
+      final sortedTracks = _sortTracks(visibleTracks, sortMode);
       final hiddenCount = tracks.length - visibleTracks.length;
       if (hiddenCount > 0) {
         print('🌐 BLoC: 暂时隐藏 $hiddenCount 首 WebDAV 音轨，等待元数据加载');
       }
 
       print(
-        '🎵 BLoC: 加载完成 - ${visibleTracks.length} 首可用歌曲, 隐藏 $hiddenCount 首, ${artists.length} 位艺术家, ${albums.length} 张专辑',
+        '🎵 BLoC: 加载完成 - ${sortedTracks.length} 首可用歌曲, 隐藏 $hiddenCount 首, ${artists.length} 位艺术家, ${albums.length} 张专辑',
       );
 
       emit(
         MusicLibraryLoaded(
-          tracks: visibleTracks,
+          tracks: sortedTracks,
           artists: artists,
           albums: albums,
           libraryDirectories: directories,
           webDavSources: webDavSources,
+          sortMode: sortMode,
         ),
       );
 
@@ -678,6 +706,50 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       print('❌ BLoC: 加载专辑失败: $e');
       emit(MusicLibraryError('加载专辑失败: ${e.toString()}'));
     }
+  }
+
+  Future<void> _onChangeSortMode(
+    ChangeSortModeEvent event,
+    Emitter<MusicLibraryState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! MusicLibraryLoaded) {
+      return;
+    }
+
+    // 保存排序模式到BinaryConfigStore
+    await _configStore.setValue(
+      StorageKeys.musicLibrarySortMode,
+      event.sortMode.toStorageString(),
+    );
+
+    // 对当前tracks重新排序
+    final sortedTracks = _sortTracks(currentState.tracks, event.sortMode);
+    emit(currentState.copyWith(
+      tracks: sortedTracks,
+      sortMode: event.sortMode,
+    ));
+  }
+
+  List<Track> _sortTracks(List<Track> tracks, TrackSortMode sortMode) {
+    final List<Track> sorted = List.from(tracks);
+
+    switch (sortMode) {
+      case TrackSortMode.titleAZ:
+        sorted.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        break;
+      case TrackSortMode.titleZA:
+        sorted.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        break;
+      case TrackSortMode.addedNewest:
+        sorted.sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
+        break;
+      case TrackSortMode.addedOldest:
+        sorted.sort((a, b) => a.dateAdded.compareTo(b.dateAdded));
+        break;
+    }
+
+    return sorted;
   }
 
   @override

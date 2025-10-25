@@ -62,3 +62,37 @@ enum TextType {
   hiragana,
   other,
 }
+
+enum TrackSortMode {
+  titleAZ,
+  titleZA,
+  addedNewest,
+  addedOldest,
+}
+
+extension TrackSortModeExtension on TrackSortMode {
+  String get displayName {
+    switch (this) {
+      case TrackSortMode.titleAZ:
+        return '字母排序（A-Z）';
+      case TrackSortMode.titleZA:
+        return '字母排序（Z-A）';
+      case TrackSortMode.addedNewest:
+        return '添加时间（从新到旧）';
+      case TrackSortMode.addedOldest:
+        return '添加时间（从旧到新）';
+    }
+  }
+
+  String toStorageString() {
+    return name;
+  }
+
+  static TrackSortMode fromStorageString(String? value) {
+    if (value == null) return TrackSortMode.titleAZ;
+    return TrackSortMode.values.firstWhere(
+      (mode) => mode.name == value,
+      orElse: () => TrackSortMode.titleAZ,
+    );
+  }
+}

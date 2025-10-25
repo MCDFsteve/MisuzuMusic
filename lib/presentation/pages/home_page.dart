@@ -16,6 +16,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/di/dependency_injection.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/mystery_library_constants.dart';
+import '../../core/storage/binary_config_store.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../core/utils/platform_utils.dart';
@@ -81,6 +82,7 @@ class HomePage extends StatelessWidget {
             removeLibraryDirectory: sl<RemoveLibraryDirectory>(),
             deleteWebDavSource: sl<DeleteWebDavSource>(),
             watchTrackUpdates: sl<WatchTrackUpdates>(),
+            configStore: sl<BinaryConfigStore>(),
           )..add(const LoadAllTracks()),
         ),
         BlocProvider(
@@ -101,7 +103,10 @@ class HomePage extends StatelessWidget {
               PlaybackHistoryCubit(sl<PlaybackHistoryRepository>()),
         ),
         BlocProvider(
-          create: (context) => PlaylistsCubit(sl<MusicLibraryRepository>()),
+          create: (context) => PlaylistsCubit(
+            sl<MusicLibraryRepository>(),
+            sl<BinaryConfigStore>(),
+          ),
         ),
       ],
       child: const _MediaControlShortcutScope(

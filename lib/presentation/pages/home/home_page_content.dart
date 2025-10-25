@@ -280,6 +280,8 @@ class _HomePageContentState extends State<HomePageContent> {
         bool canNavigateBack = false;
         VoidCallback? onNavigateBack;
         String backTooltip = '返回上一层';
+        TrackSortMode? sortMode;
+        ValueChanged<TrackSortMode>? onSortModeChanged;
         final playlistsViewState = _playlistsViewKey.currentState;
         final musicLibraryViewState = _musicLibraryViewKey.currentState;
 
@@ -290,6 +292,13 @@ class _HomePageContentState extends State<HomePageContent> {
             backTooltip = '返回音乐库';
             if (canNavigateBack) {
               onNavigateBack = () => musicLibraryViewState?.exitToOverview();
+              final musicState = context.read<MusicLibraryBloc>().state;
+              if (musicState is MusicLibraryLoaded) {
+                sortMode = musicState.sortMode;
+                onSortModeChanged = (mode) {
+                  context.read<MusicLibraryBloc>().add(ChangeSortModeEvent(mode));
+                };
+              }
             }
             break;
           case 1:
@@ -298,6 +307,10 @@ class _HomePageContentState extends State<HomePageContent> {
             backTooltip = '返回歌单列表';
             if (canNavigateBack) {
               onNavigateBack = () => playlistsViewState?.exitToOverview();
+              sortMode = context.read<PlaylistsCubit>().state.sortMode;
+              onSortModeChanged = (mode) {
+                context.read<PlaylistsCubit>().changeSortMode(mode);
+              };
             }
             break;
           default:
@@ -393,6 +406,8 @@ class _HomePageContentState extends State<HomePageContent> {
                                         canNavigateBack: canNavigateBack,
                                         onNavigateBack: onNavigateBack,
                                         backTooltip: backTooltip,
+                                        sortMode: sortMode,
+                                        onSortModeChanged: onSortModeChanged,
                                       ),
                                     ),
                                   ),

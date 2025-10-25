@@ -13,6 +13,8 @@ class _MacOSGlassHeader extends StatelessWidget {
     this.canNavigateBack = false,
     this.onNavigateBack,
     this.backTooltip = '返回上一层',
+    this.sortMode,
+    this.onSortModeChanged,
   });
 
   final double height;
@@ -26,6 +28,8 @@ class _MacOSGlassHeader extends StatelessWidget {
   final bool canNavigateBack;
   final VoidCallback? onNavigateBack;
   final String backTooltip;
+  final TrackSortMode? sortMode;
+  final ValueChanged<TrackSortMode>? onSortModeChanged;
 
   Future<void> _handleDoubleTap() async {
     if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
@@ -144,6 +148,23 @@ class _MacOSGlassHeader extends StatelessWidget {
                     iconSize: backIconSize,
                     enabled: canNavigateBack,
                     isWindowsStyle: isWindows,
+                  ),
+                ),
+              if (showBackButton && sortMode != null && onSortModeChanged != null)
+                Padding(
+                  padding: EdgeInsets.only(left: actionSpacing),
+                  child: _HeaderTooltip(
+                    useMacStyle: !isWindows,
+                    message: '切换排序方式',
+                    child: _SortModeButton(
+                      sortMode: sortMode!,
+                      onSortModeChanged: onSortModeChanged!,
+                      textColor: textColor,
+                      enabled: canNavigateBack,
+                      size: actionButtonSize,
+                      iconSize: backIconSize,
+                      isWindowsStyle: isWindows,
+                    ),
                   ),
                 ),
               if (showBackButton) SizedBox(width: actionSpacing),
@@ -590,6 +611,259 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
                       color: targetColor,
                     ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SortModeButton extends StatefulWidget {
+  const _SortModeButton({
+    required this.sortMode,
+    required this.onSortModeChanged,
+    required this.textColor,
+    required this.enabled,
+    required this.size,
+    required this.iconSize,
+    required this.isWindowsStyle,
+  });
+
+  final TrackSortMode sortMode;
+  final ValueChanged<TrackSortMode> onSortModeChanged;
+  final Color textColor;
+  final bool enabled;
+  final double size;
+  final double iconSize;
+  final bool isWindowsStyle;
+
+  @override
+  State<_SortModeButton> createState() => _SortModeButtonState();
+}
+
+class _SortModeButtonState extends State<_SortModeButton> {
+  bool _hovering = false;
+  bool _pressing = false;
+
+  void _updateHovering(bool value) {
+    if (_hovering == value || !mounted) return;
+    setState(() => _hovering = value);
+  }
+
+  void _updatePressing(bool value) {
+    if (_pressing == value || !mounted) return;
+    setState(() => _pressing = value);
+  }
+
+  void _showSortModeMenu() async {
+    if (!widget.enabled) return;
+
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final left = offset.dx;
+    final top = offset.dy + renderBox.size.height + 8;
+
+    final selectedMode = await showMacosSheet(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return MacosSheet(
+          insetPadding: EdgeInsets.only(
+            left: left,
+            top: top,
+            right: 0,
+            bottom: 0,
+          ),
+          child: Container(
+            width: 200,
+            decoration: BoxDecoration(
+              color: MacosTheme.of(context).canvasColor,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 20,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: TrackSortMode.values.map((mode) {
+                  return _SortModeMenuItem(
+                    mode: mode,
+                    isSelected: mode == widget.sortMode,
+                    onTap: () => Navigator.of(context).pop(mode),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedMode != null && selectedMode != widget.sortMode) {
+      widget.onSortModeChanged(selectedMode);
+    }
+  }
+
+  IconData _getSortIcon() {
+    switch (widget.sortMode) {
+      case TrackSortMode.titleAZ:
+        return CupertinoIcons.sort_down;
+      case TrackSortMode.titleZA:
+        return CupertinoIcons.sort_up;
+      case TrackSortMode.addedNewest:
+        return CupertinoIcons.clock;
+      case TrackSortMode.addedOldest:
+        return CupertinoIcons.time;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isEnabled = widget.enabled;
+    final bool windowsStyle = widget.isWindowsStyle;
+    final baseColor = isEnabled
+        ? widget.textColor.withOpacity(0.72)
+        : widget.textColor.withOpacity(0.24);
+    final Color targetColor = !isEnabled
+        ? baseColor
+        : (_hovering ? widget.textColor : baseColor);
+    final double scale = !isEnabled || windowsStyle
+        ? 1.0
+        : (_pressing ? 0.95 : (_hovering ? 1.05 : 1.0));
+
+    final BorderRadius borderRadius = windowsStyle
+        ? BorderRadius.circular(4)
+        : BorderRadius.circular(widget.size);
+
+    final Color backgroundColor = windowsStyle
+        ? (_hovering && isEnabled
+              ? widget.textColor.withOpacity(0.14)
+              : Colors.transparent)
+        : Colors.transparent;
+
+    final SystemMouseCursor cursor = windowsStyle
+        ? SystemMouseCursors.basic
+        : (isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic);
+
+    return MouseRegion(
+      cursor: cursor,
+      onEnter: (_) {
+        if (isEnabled) {
+          _updateHovering(true);
+        }
+      },
+      onExit: (_) {
+        _updateHovering(false);
+        _updatePressing(false);
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: isEnabled && !windowsStyle
+            ? (_) => _updatePressing(true)
+            : null,
+        onTapUp: isEnabled && !windowsStyle
+            ? (_) => _updatePressing(false)
+            : null,
+        onTapCancel: isEnabled && !windowsStyle
+            ? () => _updatePressing(false)
+            : null,
+        onTap: isEnabled ? _showSortModeMenu : null,
+        child: AnimatedScale(
+          scale: scale,
+          duration: const Duration(milliseconds: 140),
+          curve: _pressing ? Curves.easeInOut : Curves.easeOutBack,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: borderRadius,
+            ),
+            child: Center(
+              child: windowsStyle
+                  ? Icon(_getSortIcon(), size: widget.iconSize, color: targetColor)
+                  : MacosIcon(
+                      _getSortIcon(),
+                      size: widget.iconSize,
+                      color: targetColor,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SortModeMenuItem extends StatefulWidget {
+  const _SortModeMenuItem({
+    required this.mode,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final TrackSortMode mode;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  State<_SortModeMenuItem> createState() => _SortModeMenuItemState();
+}
+
+class _SortModeMenuItemState extends State<_SortModeMenuItem> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MacosTheme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _hovering
+                ? (isDark
+                    ? Colors.white.withOpacity(0.08)
+                    : Colors.black.withOpacity(0.05))
+                : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.mode.displayName,
+                  locale: Locale("zh-Hans", "zh"),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark
+                        ? Colors.white.withOpacity(0.88)
+                        : Colors.black.withOpacity(0.85),
+                    fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ),
+              if (widget.isSelected)
+                Icon(
+                  CupertinoIcons.checkmark_alt,
+                  size: 14,
+                  color: theme.primaryColor,
+                ),
+            ],
           ),
         ),
       ),
