@@ -35,6 +35,10 @@ class _BlurredArtworkBackground extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          // 完全不透明的底层背景，防止在Windows上透过模糊层看到其他窗口
+          Container(
+            color: isDarkMode ? Colors.black : Colors.white,
+          ),
           ImageFiltered(
             imageFilter: ui.ImageFilter.blur(sigmaX: 45, sigmaY: 45),
             child: ColorFiltered(
