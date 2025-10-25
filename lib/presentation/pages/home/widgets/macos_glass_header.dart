@@ -94,33 +94,25 @@ class _MacOSGlassHeader extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      sectionLabel,
-                      locale: Locale("zh-Hans", "zh"),
-                      style: theme.typography.caption1.copyWith(
-                        color: textColor.withOpacity(0.68),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: sectionLabel),
+                          if (statsLabel != null) ...[
+                            TextSpan(text: '  |  '),
+                            TextSpan(text: statsLabel),
+                          ],
+                        ],
+                        style: theme.typography.caption1.copyWith(
+                          color: textColor.withOpacity(0.68),
+                        ),
                       ),
+                      locale: Locale("zh-Hans", "zh"),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              if (statsLabel != null)
-                Padding(
-                  padding: EdgeInsets.only(right: isWindows ? 12 : 16),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 320),
-                    child: Text(
-                      statsLabel!,
-                      locale: Locale("zh-Hans", "zh"),
-                      style: theme.typography.caption1.copyWith(
-                        color: textColor.withOpacity(0.68),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.right,
-                    ),
-                  ),
-                ),
               Flexible(
                 flex: 3,
                 child: Padding(
