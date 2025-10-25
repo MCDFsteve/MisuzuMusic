@@ -426,6 +426,9 @@ class _ModalTextField extends StatelessWidget {
     final labelColor = isDark
         ? Colors.white.withOpacity(0.86)
         : Colors.black.withOpacity(0.78);
+    final textColor = isDark
+        ? Colors.white.withOpacity(0.92)
+        : Colors.black.withOpacity(0.88);
     final hintColor = isDark
         ? Colors.white.withOpacity(0.42)
         : Colors.black.withOpacity(0.45);
@@ -460,6 +463,7 @@ class _ModalTextField extends StatelessWidget {
           enabled: enabled,
           autofocus: true,
           textInputAction: TextInputAction.done,
+          style: TextStyle(color: textColor, fontSize: 13),
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(color: hintColor, fontSize: 13),
