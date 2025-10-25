@@ -45,6 +45,11 @@ class _MacOSGlassHeader extends StatelessWidget {
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final Color textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
+    final bool isWindows = Platform.isWindows;
+    final double actionButtonSize = isWindows ? 32 : 36;
+    final double primaryIconSize = isWindows ? 16 : 22;
+    final double backIconSize = isWindows ? 14 : 20;
+    final double actionSpacing = isWindows ? 4 : 8;
 
     final frostedColor = theme.canvasColor.withOpacity(
       isDarkMode ? 0.35 : 0.36,
@@ -92,7 +97,7 @@ class _MacOSGlassHeader extends StatelessWidget {
               ),
               if (statsLabel != null)
                 Padding(
-                  padding: const EdgeInsets.only(right: 16),
+                  padding: EdgeInsets.only(right: isWindows ? 12 : 16),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 320),
                     child: Text(
@@ -105,21 +110,25 @@ class _MacOSGlassHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    minWidth: 220,
-                    maxWidth: 320,
-                  ),
-                  child: LibrarySearchField(
-                    query: searchQuery,
-                    onQueryChanged: onSearchChanged,
+              Flexible(
+                flex: 3,
+                child: Padding(
+                  padding: EdgeInsets.only(right: isWindows ? 8 : 12),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: LibrarySearchField(
+                        query: searchQuery,
+                        onQueryChanged: onSearchChanged,
+                      ),
+                    ),
                   ),
                 ),
               ),
               if (showBackButton)
-                MacosTooltip(
+                _HeaderTooltip(
+                  isWindows: isWindows,
                   message: backTooltip,
                   child: _HeaderIconButton(
                     baseColor: canNavigateBack
@@ -128,37 +137,44 @@ class _MacOSGlassHeader extends StatelessWidget {
                     hoverColor: textColor,
                     icon: CupertinoIcons.left_chevron,
                     onPressed: canNavigateBack ? onNavigateBack : null,
-                    size: 36,
-                    iconSize: 20,
+                    size: actionButtonSize,
+                    iconSize: backIconSize,
                     enabled: canNavigateBack,
+                    isWindowsStyle: isWindows,
                   ),
                 ),
-              if (showBackButton) const SizedBox(width: 8),
-              MacosTooltip(
+              if (showBackButton) SizedBox(width: actionSpacing),
+              _HeaderTooltip(
+                isWindows: isWindows,
                 message: '新建歌单',
                 child: _HeaderIconButton(
                   baseColor: textColor.withOpacity(0.72),
                   hoverColor: textColor,
-                  size: 36,
-                  iconSize: 22,
+                  size: actionButtonSize,
+                  iconSize: primaryIconSize,
                   icon: CupertinoIcons.add,
                   onPressed: onCreatePlaylist,
+                  isWindowsStyle: isWindows,
                 ),
               ),
-              const SizedBox(width: 8),
-              MacosTooltip(
+              SizedBox(width: actionSpacing),
+              _HeaderTooltip(
+                isWindows: isWindows,
                 message: '选择音乐文件夹',
                 child: _HeaderIconButton(
                   baseColor: textColor.withOpacity(0.72),
                   hoverColor: textColor,
-                  size: 36,
-                  iconSize: 22,
+                  size: actionButtonSize,
+                  iconSize: primaryIconSize,
                   icon: CupertinoIcons.folder,
                   onPressed: onSelectMusicFolder,
+                  isWindowsStyle: isWindows,
                 ),
               ),
-              if (Platform.isWindows) ...[
-                const SizedBox(width: 12),
+              if (isWindows) ...[
+                const SizedBox(width: 8),
+                _VerticalSeparator(color: textColor.withOpacity(0.18)),
+                const SizedBox(width: 8),
                 _WindowsWindowControls(isDarkMode: isDarkMode),
               ],
             ],
@@ -189,6 +205,7 @@ class _HeaderIconButton extends StatefulWidget {
     this.size = 36,
     this.iconSize = 22,
     this.enabled = true,
+    this.isWindowsStyle = false,
   });
 
   final Color baseColor;
@@ -198,9 +215,31 @@ class _HeaderIconButton extends StatefulWidget {
   final double size;
   final double iconSize;
   final bool enabled;
+  final bool isWindowsStyle;
 
   @override
   State<_HeaderIconButton> createState() => _HeaderIconButtonState();
+}
+
+class _HeaderTooltip extends StatelessWidget {
+  const _HeaderTooltip({
+    required this.message,
+    required this.child,
+    required this.isWindows,
+  });
+
+  final String message;
+  final Widget child;
+  final bool isWindows;
+
+  @override
+  Widget build(BuildContext context) {
+    return MacosTooltip(
+      message: message,
+      considerDefaultTooltip: false,
+      child: child,
+    );
+  }
 }
 
 class _WindowsWindowControls extends StatefulWidget {
@@ -249,8 +288,8 @@ class _WindowsWindowControlsState extends State<_WindowsWindowControls>
   }
 
   Color get _iconColor => widget.isDarkMode
-      ? Colors.white.withOpacity(0.85)
-      : Colors.black.withOpacity(0.78);
+      ? Colors.white.withOpacity(0.82)
+      : Colors.black.withOpacity(0.7);
 
   @override
   Widget build(BuildContext context) {
@@ -447,15 +486,30 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
   @override
   Widget build(BuildContext context) {
     final bool isEnabled = widget.enabled && widget.onPressed != null;
+    final bool windowsStyle = widget.isWindowsStyle;
     final Color targetColor = !isEnabled
         ? widget.baseColor
         : (_hovering ? widget.hoverColor : widget.baseColor);
-    final double scale = !isEnabled
+    final double scale = !isEnabled || windowsStyle
         ? 1.0
         : (_pressing ? 0.95 : (_hovering ? 1.05 : 1.0));
 
+    final BorderRadius borderRadius = windowsStyle
+        ? BorderRadius.circular(4)
+        : BorderRadius.circular(widget.size);
+
+    final Color backgroundColor = windowsStyle
+        ? (_hovering && isEnabled
+            ? widget.hoverColor.withOpacity(0.14)
+            : Colors.transparent)
+        : Colors.transparent;
+
+    final SystemMouseCursor cursor = windowsStyle
+        ? SystemMouseCursors.basic
+        : (isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic);
+
     return MouseRegion(
-      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor: cursor,
       onEnter: (_) {
         if (isEnabled) {
           _updateHovering(true);
@@ -467,23 +521,36 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: isEnabled ? (_) => _updatePressing(true) : null,
-        onTapUp: isEnabled ? (_) => _updatePressing(false) : null,
-        onTapCancel: isEnabled ? () => _updatePressing(false) : null,
+        onTapDown: isEnabled && !windowsStyle ? (_) => _updatePressing(true) : null,
+        onTapUp: isEnabled && !windowsStyle ? (_) => _updatePressing(false) : null,
+        onTapCancel:
+            isEnabled && !windowsStyle ? () => _updatePressing(false) : null,
         onTap: isEnabled ? widget.onPressed : null,
         child: AnimatedScale(
           scale: scale,
           duration: const Duration(milliseconds: 140),
           curve: _pressing ? Curves.easeInOut : Curves.easeOutBack,
-          child: SizedBox(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
             width: widget.size,
             height: widget.size,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: borderRadius,
+            ),
             child: Center(
-              child: MacosIcon(
-                widget.icon,
-                size: widget.iconSize,
-                color: targetColor,
-              ),
+              child: windowsStyle
+                  ? Icon(
+                      widget.icon,
+                      size: widget.iconSize,
+                      color: targetColor,
+                    )
+                  : MacosIcon(
+                      widget.icon,
+                      size: widget.iconSize,
+                      color: targetColor,
+                    ),
             ),
           ),
         ),
