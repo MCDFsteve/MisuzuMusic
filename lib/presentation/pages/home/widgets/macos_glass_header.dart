@@ -157,16 +157,25 @@ class _MacOSGlassHeader extends StatelessWidget {
                   onPressed: onSelectMusicFolder,
                 ),
               ),
+              if (Platform.isWindows) ...[
+                const SizedBox(width: 12),
+                _WindowsWindowControls(isDarkMode: isDarkMode),
+              ],
             ],
           ),
         ),
       ),
     );
 
+    final draggable =
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
+        ? DragToMoveArea(child: headerContent)
+        : headerContent;
+
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onDoubleTap: _handleDoubleTap,
-      child: headerContent,
+      child: draggable,
     );
   }
 }
@@ -192,6 +201,233 @@ class _HeaderIconButton extends StatefulWidget {
 
   @override
   State<_HeaderIconButton> createState() => _HeaderIconButtonState();
+}
+
+class _WindowsWindowControls extends StatefulWidget {
+  const _WindowsWindowControls({required this.isDarkMode});
+
+  final bool isDarkMode;
+
+  @override
+  State<_WindowsWindowControls> createState() => _WindowsWindowControlsState();
+}
+
+class _WindowsWindowControlsState extends State<_WindowsWindowControls>
+    with WindowListener {
+  bool _isMaximized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+    _syncWindowState();
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  Future<void> _syncWindowState() async {
+    final isMaximized = await windowManager.isMaximized();
+    if (!mounted) return;
+    setState(() => _isMaximized = isMaximized);
+  }
+
+  @override
+  void onWindowMaximize() => _updateMaximized(true);
+
+  @override
+  void onWindowUnmaximize() => _updateMaximized(false);
+
+  void _updateMaximized(bool value) {
+    if (!mounted || _isMaximized == value) {
+      return;
+    }
+    setState(() => _isMaximized = value);
+  }
+
+  Color get _iconColor => widget.isDarkMode
+      ? Colors.white.withOpacity(0.85)
+      : Colors.black.withOpacity(0.78);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _WindowsCaptionButton(
+          tooltip: '最小化',
+          iconType: _CaptionIconType.minimize,
+          foregroundColor: _iconColor,
+          onPressed: () => windowManager.minimize(),
+        ),
+        _WindowsCaptionButton(
+          tooltip: _isMaximized ? '还原' : '最大化',
+          iconType: _isMaximized
+              ? _CaptionIconType.restore
+              : _CaptionIconType.maximize,
+          foregroundColor: _iconColor,
+          onPressed: () async {
+            final isMaximized = await windowManager.isMaximized();
+            if (isMaximized) {
+              await windowManager.unmaximize();
+            } else {
+              await windowManager.maximize();
+            }
+            _syncWindowState();
+          },
+        ),
+        _WindowsCaptionButton(
+          tooltip: '关闭',
+          iconType: _CaptionIconType.close,
+          foregroundColor: _iconColor,
+          hoverBackgroundColor: const Color(0xFFD70022),
+          hoverForegroundColor: Colors.white,
+          onPressed: () => windowManager.close(),
+        ),
+      ],
+    );
+  }
+}
+
+enum _CaptionIconType { minimize, maximize, restore, close }
+
+class _WindowsCaptionButton extends StatefulWidget {
+  const _WindowsCaptionButton({
+    required this.tooltip,
+    required this.iconType,
+    required this.foregroundColor,
+    required this.onPressed,
+    this.hoverBackgroundColor,
+    this.hoverForegroundColor,
+  });
+
+  final String tooltip;
+  final _CaptionIconType iconType;
+  final Color foregroundColor;
+  final Color? hoverBackgroundColor;
+  final Color? hoverForegroundColor;
+  final VoidCallback onPressed;
+
+  @override
+  State<_WindowsCaptionButton> createState() => _WindowsCaptionButtonState();
+}
+
+class _WindowsCaptionButtonState extends State<_WindowsCaptionButton> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseBackground = Colors.transparent;
+    final baseForeground = widget.foregroundColor;
+    final hoverBackground =
+        widget.hoverBackgroundColor ?? widget.foregroundColor.withOpacity(0.12);
+    final hoverForeground = widget.hoverForegroundColor ?? baseForeground;
+
+    final backgroundColor = _hovering ? hoverBackground : baseBackground;
+    final foregroundColor = _hovering ? hoverForeground : baseForeground;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: Tooltip(
+        message: widget.tooltip,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPressed,
+          child: Container(
+            width: 46,
+            height: 32,
+            color: backgroundColor,
+            alignment: Alignment.center,
+            child: CustomPaint(
+              size: const Size(16, 16),
+              painter: _CaptionIconPainter(
+                type: widget.iconType,
+                color: foregroundColor,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CaptionIconPainter extends CustomPainter {
+  _CaptionIconPainter({required this.type, required this.color});
+
+  final _CaptionIconType type;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.square;
+
+    switch (type) {
+      case _CaptionIconType.minimize:
+        final y = size.height * 0.7;
+        canvas.drawLine(
+          Offset(size.width * 0.2, y),
+          Offset(size.width * 0.8, y),
+          paint,
+        );
+        break;
+      case _CaptionIconType.maximize:
+        final rect = Rect.fromCenter(
+          center: size.center(Offset.zero),
+          width: size.width * 0.6,
+          height: size.height * 0.6,
+        );
+        canvas.drawRect(rect, paint);
+        break;
+      case _CaptionIconType.restore:
+        final backRect = Rect.fromCenter(
+          center: size.center(Offset(-size.width * 0.08, size.height * 0.08)),
+          width: size.width * 0.55,
+          height: size.height * 0.55,
+        );
+        final frontRect = backRect.translate(
+          size.width * 0.15,
+          -size.height * 0.15,
+        );
+        canvas.drawRect(backRect, paint);
+        canvas.drawRect(frontRect, paint);
+        canvas.drawLine(
+          frontRect.topLeft,
+          Offset(frontRect.left, backRect.top),
+          paint,
+        );
+        canvas.drawLine(
+          frontRect.topLeft,
+          Offset(backRect.right, frontRect.top),
+          paint,
+        );
+        break;
+      case _CaptionIconType.close:
+        canvas.drawLine(
+          Offset(size.width * 0.25, size.height * 0.25),
+          Offset(size.width * 0.75, size.height * 0.75),
+          paint,
+        );
+        canvas.drawLine(
+          Offset(size.width * 0.75, size.height * 0.25),
+          Offset(size.width * 0.25, size.height * 0.75),
+          paint,
+        );
+        break;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class _HeaderIconButtonState extends State<_HeaderIconButton> {
