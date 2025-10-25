@@ -1,0 +1,73 @@
+name: Reusable Build macOS
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      arch:
+        required: false
+        type: string
+        default: auto
+
+jobs:
+  build:
+    name: macOS Release
+    runs-on: macos-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: 启用 macOS 桌面支持
+        run: flutter config --enable-macos-desktop
+
+      - name: 获取依赖
+        run: flutter pub get
+
+      - name: 构建 macOS Release
+        run: flutter build macos --release
+
+      - name: 确定架构
+        id: arch
+        run: |
+          set -euo pipefail
+          arch_input="${{ inputs.arch }}"
+          if [[ "$arch_input" != "auto" && -n "$arch_input" ]]; then
+            arch="$arch_input"
+          else
+            arch=$(uname -m)
+          fi
+          echo "value=$arch" >> "$GITHUB_OUTPUT"
+          echo "使用架构: $arch"
+
+      - name: 打包 DMG
+        id: package
+        run: |
+          set -euo pipefail
+          build_dir="build/macos/Build/Products/Release"
+          app_path=$(find "$build_dir" -maxdepth 1 -name "*.app" | head -n 1)
+          if [[ -z "$app_path" ]]; then
+            echo "::error::未找到 .app 文件，请确认 Flutter 构建成功"
+            exit 1
+          fi
+          artifact_name="macos-${{ steps.arch.outputs.value }}-${{ inputs.version }}"
+          mkdir -p dist
+          dmg_path="dist/${artifact_name}.dmg"
+          volume_name=$(basename "$app_path" ".app")
+          hdiutil create -volname "$volume_name" -srcfolder "$app_path" -ov -format UDZO "$dmg_path"
+          echo "dmg=$dmg_path" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "创建 DMG: $dmg_path"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.artifact_name }}
+          path: ${{ steps.package.outputs.dmg }}
+          if-no-files-found: error

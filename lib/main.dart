@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,10 @@ import 'package:window_manager/window_manager.dart';
 
 import 'core/di/dependency_injection.dart';
 import 'core/theme/theme_controller.dart';
+import 'domain/services/audio_player_service.dart';
+import 'domain/usecases/lyrics_usecases.dart';
+import 'presentation/desktop/desktop_lyrics_controller.dart';
+import 'presentation/desktop/desktop_lyrics_window.dart';
 import 'presentation/pages/home_page.dart';
 
 Future<void> _configureWindow() async {
@@ -30,14 +35,62 @@ Future<void> _configureWindow() async {
   });
 }
 
-void main() async {
+bool _isDesktopLyricsEntry(List<String> args) {
+  if (args.length < 3) {
+    return false;
+  }
+  if (args[0] != 'multi_window') {
+    return false;
+  }
+  try {
+    final Map<String, dynamic> payload =
+        jsonDecode(args[2]) as Map<String, dynamic>;
+    return payload['entry'] == 'desktop_lyrics';
+  } catch (_) {
+    return false;
+  }
+}
+
+Map<String, dynamic> _parseInitialArgs(List<String> args) {
+  if (args.length < 3) {
+    return const {};
+  }
+  try {
+    return Map<String, dynamic>.from(
+      jsonDecode(args[2]) as Map<String, dynamic>,
+    );
+  } catch (_) {
+    return const {};
+  }
+}
+
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize window configuration (hidden title bar on all desktop platforms)
-  await _configureWindow();
+  if (_isDesktopLyricsEntry(args)) {
+    final int windowId = int.tryParse(args[1]) ?? 0;
+    final Map<String, dynamic> initialArgs = _parseInitialArgs(args);
+    await runDesktopLyricsWindow(windowId, initialArgs);
+    return;
+  }
 
-  // Initialize dependency injection
+  await _configureWindow();
   await DependencyInjection.init();
+
+  DesktopLyricsController desktopLyricsController;
+  if (sl.isRegistered<DesktopLyricsController>()) {
+    desktopLyricsController = sl<DesktopLyricsController>();
+  } else {
+    desktopLyricsController = DesktopLyricsController(
+      audioPlayerService: sl<AudioPlayerService>(),
+      findLyricsFile: sl<FindLyricsFile>(),
+      loadLyricsFromFile: sl<LoadLyricsFromFile>(),
+      fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
+      getLyrics: sl<GetLyrics>(),
+    );
+    sl.registerSingleton<DesktopLyricsController>(desktopLyricsController);
+  }
+  await desktopLyricsController.init();
 
   runApp(const MisuzuMusicApp());
 }

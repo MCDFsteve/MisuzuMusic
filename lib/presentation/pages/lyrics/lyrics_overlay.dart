@@ -19,6 +19,7 @@ import '../../widgets/common/hover_glow_overlay.dart';
 import '../../widgets/common/lyrics_display.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
+import '../../desktop/desktop_lyrics_controller.dart';
 
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
@@ -40,6 +41,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late final LyricsCubit _lyricsCubit;
   static bool _lastTranslationPreference = true;
   bool _showTranslation = _lastTranslationPreference;
+  DesktopLyricsController? _desktopLyricsController;
 
   @override
   void initState() {
@@ -52,6 +54,11 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
       getLyrics: sl<GetLyrics>(),
     )..loadLyricsForTrack(_currentTrack);
+
+    if (sl.isRegistered<DesktopLyricsController>()) {
+      _desktopLyricsController = sl<DesktopLyricsController>();
+      _desktopLyricsController?.updateShowTranslation(_showTranslation);
+    }
   }
 
   @override
@@ -83,6 +90,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _showTranslation = !_showTranslation;
     });
     _lastTranslationPreference = _showTranslation;
+    _desktopLyricsController?.updateShowTranslation(_showTranslation);
   }
 
   Future<void> _reportError() async {
@@ -257,6 +265,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             onToggleTranslation: _toggleTranslationVisibility,
             onDownloadLrc: _downloadLrcFile,
             onReportError: _reportError,
+            desktopLyricsController: _desktopLyricsController,
           ),
         ),
       ),
@@ -273,6 +282,7 @@ class _LyricsLayout extends StatelessWidget {
     required this.onToggleTranslation,
     required this.onDownloadLrc,
     required this.onReportError,
+    required this.desktopLyricsController,
   });
 
   final Track track;
@@ -282,6 +292,7 @@ class _LyricsLayout extends StatelessWidget {
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
+  final DesktopLyricsController? desktopLyricsController;
 
   @override
   Widget build(BuildContext context) {
@@ -331,6 +342,7 @@ class _LyricsLayout extends StatelessWidget {
                     onToggleTranslation: onToggleTranslation,
                     onDownloadLrc: onDownloadLrc,
                     onReportError: onReportError,
+                    desktopLyricsController: desktopLyricsController,
                   ),
                 ),
               ],
@@ -468,6 +480,7 @@ class _LyricsPanel extends StatelessWidget {
     required this.onToggleTranslation,
     required this.onDownloadLrc,
     required this.onReportError,
+    required this.desktopLyricsController,
   });
 
   final bool isDarkMode;
@@ -477,6 +490,7 @@ class _LyricsPanel extends StatelessWidget {
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
+  final DesktopLyricsController? desktopLyricsController;
 
   @override
   Widget build(BuildContext context) {
@@ -514,16 +528,25 @@ class _LyricsPanel extends StatelessWidget {
                   // Report Error button (only show for nipaplay source)
                   if (showReportError)
                     Positioned(
-                      bottom: 140, // Above the download button
+                      bottom: 200,
                       right: 12,
                       child: _ReportErrorButton(
                         isDarkMode: isDarkMode,
                         onPressed: onReportError,
                       ),
                     ),
+                  if (desktopLyricsController != null)
+                    Positioned(
+                      bottom: 140,
+                      right: 12,
+                      child: _DesktopLyricsWindowButton(
+                        controller: desktopLyricsController!,
+                        isDarkMode: isDarkMode,
+                      ),
+                    ),
                   // Download LRC button
                   Positioned(
-                    bottom: 80, // Above the translation button
+                    bottom: 80,
                     right: 12,
                     child: _DownloadLrcButton(
                       isDarkMode: isDarkMode,
@@ -700,6 +723,69 @@ class _TranslationToggleButton extends StatelessWidget {
         hoverColor: isEnabled ? activeColor : disabledColor,
         disabledColor: disabledColor,
       ),
+    );
+  }
+}
+
+class _DesktopLyricsWindowButton extends StatelessWidget {
+  const _DesktopLyricsWindowButton({
+    required this.controller,
+    required this.isDarkMode,
+  });
+
+  final DesktopLyricsController controller;
+  final bool isDarkMode;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: controller.isWindowOpenNotifier,
+      builder: (context, isOpen, _) {
+        final Color baseColor = isDarkMode ? Colors.white : Colors.black87;
+        final Color iconColor = isDarkMode
+            ? (isOpen ? Colors.white : Colors.white.withOpacity(0.82))
+            : (isOpen ? Colors.black87 : Colors.black54);
+        final Color backgroundColor = isDarkMode
+            ? Colors.white.withOpacity(isOpen ? 0.25 : 0.18)
+            : Colors.black.withOpacity(isOpen ? 0.18 : 0.12);
+        final Color borderColor = (isDarkMode ? Colors.white : Colors.black)
+            .withOpacity(isOpen ? 0.5 : 0.3);
+
+        final Widget button = GestureDetector(
+          onTap: () => controller.toggleWindow(),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: borderColor, width: 1.1),
+              boxShadow: isOpen
+                  ? [
+                      BoxShadow(
+                        color: baseColor.withOpacity(0.22),
+                        blurRadius: 12,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Icon(
+              Icons.lyrics,
+              size: 20,
+              color: iconColor,
+            ),
+          ),
+        );
+
+        final String tooltip = isOpen ? '隐藏桌面歌词' : '显示桌面歌词';
+        if (MacosTheme.maybeOf(context) != null) {
+          return MacosTooltip(message: tooltip, child: button);
+        }
+        return Tooltip(message: tooltip, child: button);
+      },
     );
   }
 }

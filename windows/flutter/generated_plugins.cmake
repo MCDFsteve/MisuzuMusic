@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_multi_window
   just_audio_windows
   permission_handler_windows
   screen_retriever

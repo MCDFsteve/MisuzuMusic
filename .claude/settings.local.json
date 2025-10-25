@@ -20,7 +20,8 @@
       "Bash(tree:*)",
       "Bash(chmod:*)",
       "Read(//Users/dfsteve/.pub-cache/hosted/pub.dev/**)",
-      "WebFetch(domain:pub.dev)"
+      "WebFetch(domain:pub.dev)",
+      "Bash(flutter run:*)"
     ],
     "deny": [],
     "ask": []

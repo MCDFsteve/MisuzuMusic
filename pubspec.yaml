@@ -65,6 +65,7 @@ dependencies:
   rxdart: ^0.27.7
   get_it: ^7.6.4
   window_manager: ^0.3.7
+  desktop_multi_window: ^0.2.1
   crypto: ^3.0.3
   webdav_client: ^1.1.11
   http: ^1.2.1

@@ -1,0 +1,116 @@
+name: Desktop Release Builds
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: 准备与校验
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+      should_run: ${{ steps.guard.outputs.should_run }}
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 校验提交信息是否含日期标记
+        id: guard
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          pattern='[0-9]{4}\.[0-9]{4}'
+          if [[ "$COMMIT_MESSAGE" =~ $pattern ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "✅ 提交信息满足 ${pattern} 要求: $COMMIT_MESSAGE"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::提交信息 \"$COMMIT_MESSAGE\" 未匹配 ${pattern}，后续任务将被跳过。"
+          fi
+
+      - name: 提取当前版本号
+        id: version
+        run: |
+          set -euo pipefail
+          version_line=$(grep -E '^version:' pubspec.yaml | head -n 1 | awk '{print $2}')
+          if [[ -z "$version_line" ]]; then
+            echo '::error::无法在 pubspec.yaml 中找到版本号'
+            exit 1
+          fi
+          echo "value=$version_line" >> "$GITHUB_OUTPUT"
+          echo "当前版本: $version_line"
+
+  build_macos:
+    name: 构建 macOS
+    needs: prepare
+    if: ${{ needs.prepare.outputs.should_run == 'true' }}
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
+
+  build_windows:
+    name: 构建 Windows
+    needs: prepare
+    if: ${{ needs.prepare.outputs.should_run == 'true' }}
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
+
+  bump_version:
+    name: 版本号 +1
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - build_macos
+      - build_windows
+    if: ${{ needs.prepare.outputs.should_run == 'true' && needs.build_macos.result == 'success' && needs.build_windows.result == 'success' }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 增量更新 pubspec 版本号
+        id: bump
+        run: |
+          set -euo pipefail
+          current=$(grep -E '^version:' pubspec.yaml | head -n 1 | awk '{print $2}')
+          base=${current%%+*}
+          suffix=""
+          if [[ "$current" == *"+"* ]]; then
+            suffix="${current#${base}}"
+          fi
+          IFS='.' read -r major minor patch <<< "$base"
+          if [[ -z "$major" || -z "$minor" || -z "$patch" ]]; then
+            echo '::error::版本号格式必须是 x.y.z 或 x.y.z+build'
+            exit 1
+          fi
+          patch=$((patch + 1))
+          next_version="$major.$minor.$patch$suffix"
+          sed -i.bak "s/^version: .*/version: ${next_version}/" pubspec.yaml
+          rm pubspec.yaml.bak
+          echo "new_version=$next_version" >> "$GITHUB_OUTPUT"
+          echo "版本号已从 $current bump 到 $next_version"
+
+      - name: 提交并推送版本号变更
+        env:
+          NEXT_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "没有可提交的变更，跳过。"
+            exit 0
+          fi
+          git commit -am "chore: bump version to ${NEXT_VERSION} [skip ci]"
+          git push
+          echo "已推送版本 ${NEXT_VERSION} (附带 [skip ci] 以避免重复触发)。"

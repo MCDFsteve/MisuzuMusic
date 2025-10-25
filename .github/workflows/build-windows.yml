@@ -1,0 +1,88 @@
+name: Reusable Build Windows
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      arch:
+        required: false
+        type: string
+        default: auto
+
+jobs:
+  build:
+    name: Windows Release
+    runs-on: windows-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: 获取依赖
+        shell: bash
+        run: flutter pub get
+
+      - name: 构建 Windows Release
+        shell: bash
+        run: |
+          flutter config --enable-windows-desktop
+          flutter build windows --release
+
+      - name: 打包 Zip
+        id: package
+        shell: pwsh
+        run: |
+          $archInput = '${{ inputs.arch }}'
+          if ([string]::IsNullOrEmpty($archInput) -or $archInput -eq 'auto') {
+            $arch = $env:PROCESSOR_ARCHITECTURE.ToLower()
+            if ($arch -eq 'amd64') { $arch = 'x64' }
+          } else {
+            $arch = $archInput
+          }
+
+          $version = '${{ inputs.version }}'
+          $artifactName = "windows-$arch-$version.zip"
+
+          $workspace = $env:GITHUB_WORKSPACE
+          $outputDir = Join-Path $workspace 'dist'
+          if (-not (Test-Path $outputDir)) {
+            New-Item -Path $outputDir -ItemType Directory | Out-Null
+          }
+
+          $candidatePaths = @(
+            'build/windows/runner/Release',
+            'build/windows/x64/runner/Release'
+          )
+          $buildPath = $null
+          foreach ($candidate in $candidatePaths) {
+            $full = Join-Path $workspace $candidate
+            if (Test-Path $full) {
+              $buildPath = $full
+              break
+            }
+          }
+
+          if (-not $buildPath) {
+            Write-Error "未找到 Release 目录，构建可能失败"
+            exit 1
+          }
+
+          $zipPath = Join-Path $outputDir $artifactName
+          if (Test-Path $zipPath) { Remove-Item $zipPath }
+          Compress-Archive -Path (Join-Path $buildPath '*') -DestinationPath $zipPath
+
+          "zip=$zipPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "artifact_name=$artifactName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.artifact_name }}
+          path: ${{ steps.package.outputs.zip }}
+          if-no-files-found: error
