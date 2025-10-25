@@ -128,7 +128,7 @@ class _MacOSGlassHeader extends StatelessWidget {
               ),
               if (showBackButton)
                 _HeaderTooltip(
-                  isWindows: isWindows,
+                  useMacStyle: !isWindows,
                   message: backTooltip,
                   child: _HeaderIconButton(
                     baseColor: canNavigateBack
@@ -145,7 +145,7 @@ class _MacOSGlassHeader extends StatelessWidget {
                 ),
               if (showBackButton) SizedBox(width: actionSpacing),
               _HeaderTooltip(
-                isWindows: isWindows,
+                useMacStyle: !isWindows,
                 message: '新建歌单',
                 child: _HeaderIconButton(
                   baseColor: textColor.withOpacity(0.72),
@@ -159,7 +159,7 @@ class _MacOSGlassHeader extends StatelessWidget {
               ),
               SizedBox(width: actionSpacing),
               _HeaderTooltip(
-                isWindows: isWindows,
+                useMacStyle: !isWindows,
                 message: '选择音乐文件夹',
                 child: _HeaderIconButton(
                   baseColor: textColor.withOpacity(0.72),
@@ -225,19 +225,45 @@ class _HeaderTooltip extends StatelessWidget {
   const _HeaderTooltip({
     required this.message,
     required this.child,
-    required this.isWindows,
+    required this.useMacStyle,
   });
 
   final String message;
   final Widget child;
-  final bool isWindows;
+  final bool useMacStyle;
 
   @override
   Widget build(BuildContext context) {
-    return MacosTooltip(
+    if (useMacStyle) {
+      return MacosTooltip(
+        message: message,
+        child: child,
+      );
+    }
+
+    return Tooltip(
       message: message,
-      considerDefaultTooltip: false,
+      waitDuration: const Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        color: const Color(0xF0121212),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      textStyle: const TextStyle(color: Colors.white, fontSize: 12),
       child: child,
+    );
+  }
+}
+
+class _VerticalSeparator extends StatelessWidget {
+  const _VerticalSeparator({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 24,
+      child: Center(child: Container(width: 1, height: 24, color: color)),
     );
   }
 }
@@ -302,6 +328,7 @@ class _WindowsWindowControlsState extends State<_WindowsWindowControls>
           foregroundColor: _iconColor,
           onPressed: () => windowManager.minimize(),
         ),
+        const SizedBox(width: 4),
         _WindowsCaptionButton(
           tooltip: _isMaximized ? '还原' : '最大化',
           iconType: _isMaximized
@@ -318,6 +345,7 @@ class _WindowsWindowControlsState extends State<_WindowsWindowControls>
             _syncWindowState();
           },
         ),
+        const SizedBox(width: 4),
         _WindowsCaptionButton(
           tooltip: '关闭',
           iconType: _CaptionIconType.close,
@@ -372,15 +400,21 @@ class _WindowsCaptionButtonState extends State<_WindowsCaptionButton> {
       cursor: SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
-      child: Tooltip(
+      child: _HeaderTooltip(
+        useMacStyle: false,
         message: widget.tooltip,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onPressed,
-          child: Container(
-            width: 46,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOutCubic,
+            width: 32,
             height: 32,
-            color: backgroundColor,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
             alignment: Alignment.center,
             child: CustomPaint(
               size: const Size(16, 16),
@@ -500,8 +534,8 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
 
     final Color backgroundColor = windowsStyle
         ? (_hovering && isEnabled
-            ? widget.hoverColor.withOpacity(0.14)
-            : Colors.transparent)
+              ? widget.hoverColor.withOpacity(0.14)
+              : Colors.transparent)
         : Colors.transparent;
 
     final SystemMouseCursor cursor = windowsStyle
@@ -521,10 +555,15 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: isEnabled && !windowsStyle ? (_) => _updatePressing(true) : null,
-        onTapUp: isEnabled && !windowsStyle ? (_) => _updatePressing(false) : null,
-        onTapCancel:
-            isEnabled && !windowsStyle ? () => _updatePressing(false) : null,
+        onTapDown: isEnabled && !windowsStyle
+            ? (_) => _updatePressing(true)
+            : null,
+        onTapUp: isEnabled && !windowsStyle
+            ? (_) => _updatePressing(false)
+            : null,
+        onTapCancel: isEnabled && !windowsStyle
+            ? () => _updatePressing(false)
+            : null,
         onTap: isEnabled ? widget.onPressed : null,
         child: AnimatedScale(
           scale: scale,
@@ -541,11 +580,7 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
             ),
             child: Center(
               child: windowsStyle
-                  ? Icon(
-                      widget.icon,
-                      size: widget.iconSize,
-                      color: targetColor,
-                    )
+                  ? Icon(widget.icon, size: widget.iconSize, color: targetColor)
                   : MacosIcon(
                       widget.icon,
                       size: widget.iconSize,
