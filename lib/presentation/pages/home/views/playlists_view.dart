@@ -5,10 +5,12 @@ class PlaylistsView extends StatefulWidget {
     super.key,
     this.onAddToPlaylist,
     this.onDetailStateChanged,
+    this.sortOrder = TrackSortOrder.addedDesc,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
+  final TrackSortOrder sortOrder;
 
   @override
   State<PlaylistsView> createState() => _PlaylistsViewState();
@@ -255,10 +257,11 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           context.read<PlaylistsCubit>().ensurePlaylistTracks(playlist.id);
         }
 
+        final sortedTracks = widget.sortOrder.sortTracks(tracks ?? const []);
         final content = isLoading
             ? const Center(child: ProgressCircle())
             : MacOSTrackListView(
-                tracks: tracks ?? const [],
+                tracks: sortedTracks,
                 onAddToPlaylist: widget.onAddToPlaylist,
                 onRemoveFromPlaylist: (track) =>
                     _removeTrackFromPlaylist(playlist.id, track),

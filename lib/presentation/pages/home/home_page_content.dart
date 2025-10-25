@@ -26,6 +26,8 @@ class _HomePageContentState extends State<HomePageContent> {
   bool _musicLibraryCanNavigateBack = false;
   bool _playlistsCanNavigateBack = false;
   late final VoidCallback _focusManagerListener;
+  TrackSortOrder _librarySortOrder = TrackSortOrder.addedDesc;
+  TrackSortOrder _playlistSortOrder = TrackSortOrder.addedDesc;
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class _HomePageContentState extends State<HomePageContent> {
       }
     };
     FocusManager.instance.addListener(_focusManagerListener);
+    unawaited(_loadSortPreferences());
   }
 
   @override
@@ -45,6 +48,57 @@ class _HomePageContentState extends State<HomePageContent> {
     FocusManager.instance.removeListener(_focusManagerListener);
     _shortcutFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSortPreferences() async {
+    final store = sl<BinaryConfigStore>();
+    await store.init();
+    final raw = store.getValue<dynamic>(StorageKeys.trackSortOrder);
+    if (!mounted) {
+      return;
+    }
+    if (raw is Map) {
+      setState(() {
+        _librarySortOrder = _parseSortOrder(raw['library'] as String?);
+        _playlistSortOrder = _parseSortOrder(raw['playlist'] as String?);
+      });
+    }
+  }
+
+  TrackSortOrder _parseSortOrder(String? value) {
+    for (final order in TrackSortOrder.values) {
+      if (order.name == value) {
+        return order;
+      }
+    }
+    return TrackSortOrder.addedDesc;
+  }
+
+  Future<void> _persistSortPreferences() async {
+    final store = sl<BinaryConfigStore>();
+    await store.setValue(StorageKeys.trackSortOrder, {
+      'library': _librarySortOrder.name,
+      'playlist': _playlistSortOrder.name,
+    });
+  }
+
+  void _cycleSortOrder() {
+    bool changed = false;
+    if (_selectedIndex == 0 && _musicLibraryCanNavigateBack) {
+      setState(() {
+        _librarySortOrder = _librarySortOrder.next;
+      });
+      changed = true;
+    } else if (_selectedIndex == 1 && _playlistsCanNavigateBack) {
+      setState(() {
+        _playlistSortOrder = _playlistSortOrder.next;
+      });
+      changed = true;
+    }
+
+    if (changed) {
+      unawaited(_persistSortPreferences());
+    }
   }
 
   @override
@@ -282,6 +336,7 @@ class _HomePageContentState extends State<HomePageContent> {
         String backTooltip = '返回上一层';
         final playlistsViewState = _playlistsViewKey.currentState;
         final musicLibraryViewState = _musicLibraryViewKey.currentState;
+        TrackSortOrder? currentSortOrder;
 
         switch (_selectedIndex) {
           case 0:
@@ -291,6 +346,7 @@ class _HomePageContentState extends State<HomePageContent> {
             if (canNavigateBack) {
               onNavigateBack = () => musicLibraryViewState?.exitToOverview();
             }
+            currentSortOrder = _librarySortOrder;
             break;
           case 1:
             showBackButton = true;
@@ -299,10 +355,19 @@ class _HomePageContentState extends State<HomePageContent> {
             if (canNavigateBack) {
               onNavigateBack = () => playlistsViewState?.exitToOverview();
             }
+            currentSortOrder = _playlistSortOrder;
             break;
           default:
             showBackButton = false;
         }
+
+        final showSortButton = currentSortOrder != null;
+        final sortButtonEnabled = showSortButton && canNavigateBack;
+        final sortTooltip = currentSortOrder != null
+            ? '排序：${currentSortOrder.displayLabel}'
+            : '切换排序方式';
+        final highlightSortButton =
+            currentSortOrder != null && !currentSortOrder.isDefault;
 
         return MacosWindow(
           titleBar: null,
@@ -393,6 +458,11 @@ class _HomePageContentState extends State<HomePageContent> {
                                         canNavigateBack: canNavigateBack,
                                         onNavigateBack: onNavigateBack,
                                         backTooltip: backTooltip,
+                                        showSortButton: showSortButton,
+                                        sortButtonEnabled: sortButtonEnabled,
+                                        onSortPressed: _cycleSortOrder,
+                                        sortTooltip: sortTooltip,
+                                        highlightSortButton: highlightSortButton,
                                       ),
                                     ),
                                   ),
@@ -471,6 +541,7 @@ class _HomePageContentState extends State<HomePageContent> {
               });
             }
           },
+          sortOrder: _librarySortOrder,
         );
       case 1:
         return PlaylistsView(
@@ -483,6 +554,7 @@ class _HomePageContentState extends State<HomePageContent> {
               });
             }
           },
+          sortOrder: _playlistSortOrder,
         );
       case 2:
         return PlaylistView(

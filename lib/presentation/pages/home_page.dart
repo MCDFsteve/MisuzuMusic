@@ -16,9 +16,11 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/di/dependency_injection.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/mystery_library_constants.dart';
+import '../../core/storage/binary_config_store.dart';
+import '../../core/storage/storage_keys.dart';
+import '../../core/utils/platform_utils.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
-import '../../core/utils/platform_utils.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/services/audio_player_service.dart';
@@ -56,6 +58,86 @@ part 'home/views/music_library_view.dart';
 part 'home/views/playlist_view.dart';
 part 'home/views/playlists_view.dart';
 part 'home/sheets/playlist_selection_sheet.dart';
+
+enum TrackSortOrder {
+  titleAsc,
+  titleDesc,
+  addedDesc,
+  addedAsc,
+}
+
+extension TrackSortOrderX on TrackSortOrder {
+  String get displayLabel {
+    switch (this) {
+      case TrackSortOrder.titleAsc:
+        return '字母排序（A-Z）';
+      case TrackSortOrder.titleDesc:
+        return '字母排序（Z-A）';
+      case TrackSortOrder.addedDesc:
+        return '添加时间（从新到旧）';
+      case TrackSortOrder.addedAsc:
+        return '添加时间（从旧到新）';
+    }
+  }
+
+  TrackSortOrder get next {
+    switch (this) {
+      case TrackSortOrder.titleAsc:
+        return TrackSortOrder.titleDesc;
+      case TrackSortOrder.titleDesc:
+        return TrackSortOrder.addedDesc;
+      case TrackSortOrder.addedDesc:
+        return TrackSortOrder.addedAsc;
+      case TrackSortOrder.addedAsc:
+        return TrackSortOrder.titleAsc;
+    }
+  }
+
+  bool get isDefault => this == TrackSortOrder.addedDesc;
+
+  int Function(Track a, Track b) get comparator {
+    switch (this) {
+      case TrackSortOrder.titleAsc:
+        return _compareTrackByTitle;
+      case TrackSortOrder.titleDesc:
+        return (a, b) => _compareTrackByTitle(b, a);
+      case TrackSortOrder.addedDesc:
+        return (a, b) {
+          final timeCompare = b.dateAdded.compareTo(a.dateAdded);
+          if (timeCompare != 0) {
+            return timeCompare;
+          }
+          return _compareTrackByTitle(a, b);
+        };
+      case TrackSortOrder.addedAsc:
+        return (a, b) {
+          final timeCompare = a.dateAdded.compareTo(b.dateAdded);
+          if (timeCompare != 0) {
+            return timeCompare;
+          }
+          return _compareTrackByTitle(a, b);
+        };
+    }
+  }
+
+  List<Track> sortTracks(List<Track> tracks) {
+    final sorted = List<Track>.from(tracks);
+    sorted.sort(comparator);
+    return sorted;
+  }
+}
+
+int _compareTrackByTitle(Track a, Track b) {
+  final titleCompare = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+  if (titleCompare != 0) {
+    return titleCompare;
+  }
+  final artistCompare = a.artist.toLowerCase().compareTo(b.artist.toLowerCase());
+  if (artistCompare != 0) {
+    return artistCompare;
+  }
+  return a.album.toLowerCase().compareTo(b.album.toLowerCase());
+}
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});

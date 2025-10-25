@@ -60,6 +60,7 @@ class MisuzuMusicApp extends StatelessWidget {
 
         final materialTheme = ThemeData(
           useMaterial3: true,
+          fontFamily: Platform.isWindows ? "微软雅黑" : null,
           brightness: materialBrightness,
           colorScheme: materialBrightness == Brightness.dark
               ? const ColorScheme.dark(

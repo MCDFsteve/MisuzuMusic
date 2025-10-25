@@ -12,4 +12,5 @@ class StorageKeys {
   static const libraryDirectories = 'library.directories';
   static const webDavSources = 'library.webdav_sources';
   static const webDavPasswords = 'library.webdav_passwords';
+  static const trackSortOrder = 'library.track_sort_order';
 }

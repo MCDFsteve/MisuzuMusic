@@ -13,6 +13,11 @@ class _MacOSGlassHeader extends StatelessWidget {
     this.canNavigateBack = false,
     this.onNavigateBack,
     this.backTooltip = '返回上一层',
+    this.showSortButton = false,
+    this.sortButtonEnabled = false,
+    this.onSortPressed,
+    this.sortTooltip = '切换排序方式',
+    this.highlightSortButton = false,
   });
 
   final double height;
@@ -26,6 +31,11 @@ class _MacOSGlassHeader extends StatelessWidget {
   final bool canNavigateBack;
   final VoidCallback? onNavigateBack;
   final String backTooltip;
+  final bool showSortButton;
+  final bool sortButtonEnabled;
+  final VoidCallback? onSortPressed;
+  final String sortTooltip;
+  final bool highlightSortButton;
 
   Future<void> _handleDoubleTap() async {
     if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
@@ -147,6 +157,26 @@ class _MacOSGlassHeader extends StatelessWidget {
                   ),
                 ),
               if (showBackButton) SizedBox(width: actionSpacing),
+              if (showSortButton)
+                _HeaderTooltip(
+                  useMacStyle: !isWindows,
+                  message: sortTooltip,
+                  child: _HeaderIconButton(
+                    baseColor: sortButtonEnabled
+                        ? (highlightSortButton
+                            ? textColor
+                            : textColor.withOpacity(0.72))
+                        : textColor.withOpacity(0.24),
+                    hoverColor: textColor,
+                    icon: CupertinoIcons.arrow_up_arrow_down_circle,
+                    onPressed: sortButtonEnabled ? onSortPressed : null,
+                    size: actionButtonSize,
+                    iconSize: primaryIconSize,
+                    enabled: sortButtonEnabled,
+                    isWindowsStyle: isWindows,
+                  ),
+                ),
+              if (showSortButton) SizedBox(width: actionSpacing),
               _HeaderTooltip(
                 useMacStyle: !isWindows,
                 message: '新建歌单',

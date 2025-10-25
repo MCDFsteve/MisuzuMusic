@@ -5,10 +5,12 @@ class MusicLibraryView extends StatefulWidget {
     super.key,
     this.onAddToPlaylist,
     this.onDetailStateChanged,
+    this.sortOrder = TrackSortOrder.addedDesc,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
+  final TrackSortOrder sortOrder;
 
   @override
   State<MusicLibraryView> createState() => _MusicLibraryViewState();
@@ -17,6 +19,177 @@ class MusicLibraryView extends StatefulWidget {
 class _MusicLibraryViewState extends State<MusicLibraryView> {
   bool _showList = false;
   String? _activeFilterKey;
+
+  Future<void> _showSummaryContextMenu({
+    required _DirectorySummaryData summary,
+    required MusicLibraryLoaded libraryState,
+    required Offset position,
+  }) async {
+    final actions = <MacosContextMenuAction>[
+      MacosContextMenuAction(
+        label: '扫描新增歌曲',
+        icon: CupertinoIcons.arrow_clockwise,
+        onSelected: () {
+          unawaited(_handleScanSummary(summary, libraryState));
+        },
+      ),
+    ];
+
+    if (!summary.isAll) {
+      final removeLabel = summary.isWebDav
+          ? '移除 WebDAV 音乐库'
+          : summary.isMystery
+              ? '卸载神秘音乐库'
+              : '移除音乐库';
+      actions.add(
+        MacosContextMenuAction(
+          label: removeLabel,
+          icon: CupertinoIcons.trash,
+          destructive: true,
+          onSelected: () {
+            unawaited(_confirmRemoveSummary(summary));
+          },
+        ),
+      );
+    }
+
+    await MacosContextMenu.show(
+      context: context,
+      globalPosition: position,
+      actions: actions,
+    );
+  }
+
+  Future<void> _handleScanSummary(
+    _DirectorySummaryData summary,
+    MusicLibraryLoaded libraryState,
+  ) async {
+    if (summary.isAll) {
+      final started = await _scanAllSources(libraryState);
+      if (!started) {
+        _showFeedback('暂无可重新扫描的音乐来源');
+      }
+      return;
+    }
+
+    if (summary.isWebDav && summary.webDavSource != null) {
+      final scanned = await _scanWebDavSource(summary.webDavSource!);
+      if (!scanned) {
+        _showFeedback('无法扫描该 WebDAV 音乐库，请重新输入密码');
+      }
+      return;
+    }
+
+    if (summary.isMystery) {
+      _showFeedback('神秘音乐库暂不支持重新扫描');
+      return;
+    }
+
+    final directory = summary.directoryPath;
+    if (directory == null || directory.trim().isEmpty) {
+      _showFeedback('未找到可扫描的本地目录');
+      return;
+    }
+
+    _scanLocalDirectory(directory);
+  }
+
+  Future<bool> _scanAllSources(MusicLibraryLoaded libraryState) async {
+    var started = false;
+    final seenDirectories = <String>{};
+
+    for (final raw in libraryState.libraryDirectories) {
+      final normalized = raw.trim();
+      if (normalized.isEmpty || !seenDirectories.add(normalized)) {
+        continue;
+      }
+      _scanLocalDirectory(normalized);
+      started = true;
+    }
+
+    var missingPassword = 0;
+    for (final source in libraryState.webDavSources) {
+      final scanned = await _scanWebDavSource(source, quietly: true);
+      if (!scanned) {
+        missingPassword++;
+      } else {
+        started = true;
+      }
+    }
+
+    if (missingPassword > 0) {
+      _showFeedback('部分 WebDAV 音乐库缺少密码，已跳过扫描');
+    }
+
+    return started;
+  }
+
+  void _scanLocalDirectory(String directory) {
+    context.read<MusicLibraryBloc>().add(ScanDirectoryEvent(directory));
+  }
+
+  Future<bool> _scanWebDavSource(
+    WebDavSource source, {
+    bool quietly = false,
+  }) async {
+    final password = await sl<GetWebDavPassword>()(source.id);
+    if (password == null || password.isEmpty) {
+      if (!quietly) {
+        _showFeedback('未保存 WebDAV 密码，无法扫描该目录');
+      }
+      return false;
+    }
+
+    context.read<MusicLibraryBloc>().add(
+          ScanWebDavDirectoryEvent(source: source, password: password),
+        );
+    return true;
+  }
+
+  void _showFeedback(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger != null) {
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(message, locale: const Locale('zh-Hans', 'zh')),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    if (prefersMacLikeUi()) {
+      showMacosAlertDialog(
+        context: context,
+        builder: (_) => MacosAlertDialog(
+          appIcon: const MacosIcon(CupertinoIcons.info),
+          title: const Text('提示', locale: Locale('zh-Hans', 'zh')),
+          message: Text(message, locale: const Locale('zh-Hans', 'zh')),
+          primaryButton: PushButton(
+            controlSize: ControlSize.large,
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('好的', locale: Locale('zh-Hans', 'zh')),
+          ),
+        ),
+      );
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('提示', locale: Locale('zh-Hans', 'zh')),
+        content: Text(message, locale: const Locale('zh-Hans', 'zh')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('好的', locale: Locale('zh-Hans', 'zh')),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -485,6 +658,12 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                           : summary.isMystery
                               ? '卸载神秘音乐库'
                               : '移除音乐库'),
+                  onContextMenuRequested: (position) =>
+                      _showSummaryContextMenu(
+                        summary: summary,
+                        libraryState: state,
+                        position: position,
+                      ),
                 );
               },
             );
@@ -510,8 +689,10 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   return _isTrackInDirectory(track, key);
                 }).toList();
 
+          final sortedTracks = widget.sortOrder.sortTracks(filteredTracks);
+
           final listWidget = MacOSTrackListView(
-            tracks: filteredTracks,
+            tracks: sortedTracks,
             onAddToPlaylist: widget.onAddToPlaylist,
           );
 
