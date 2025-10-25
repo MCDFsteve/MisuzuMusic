@@ -38,13 +38,13 @@ class LyricsCubit extends Cubit<LyricsState> {
       if (isClosed) return;
       if (cloudLyrics != null && cloudLyrics.lines.isNotEmpty) {
         print('🎼 LyricsCubit: 使用云端歌词');
-        emit(LyricsLoaded(cloudLyrics));
+        emit(LyricsLoaded(_withSource(cloudLyrics, LyricsSource.nipaplay)));
         return;
       }
 
       if (lyricsFromFile != null && lyricsFromFile.lines.isNotEmpty) {
         print('🎼 LyricsCubit: 使用本地歌词');
-        emit(LyricsLoaded(lyricsFromFile));
+        emit(LyricsLoaded(_withSource(lyricsFromFile, LyricsSource.local)));
         return;
       }
 
@@ -52,7 +52,7 @@ class LyricsCubit extends Cubit<LyricsState> {
       if (isClosed) return;
       if (cached != null && cached.lines.isNotEmpty) {
         print('🎼 LyricsCubit: 使用缓存歌词');
-        emit(LyricsLoaded(cached));
+        emit(LyricsLoaded(_withSource(cached, LyricsSource.cached)));
         return;
       }
 
@@ -60,7 +60,7 @@ class LyricsCubit extends Cubit<LyricsState> {
       if (isClosed) return;
       if (onlineLyrics != null && onlineLyrics.lines.isNotEmpty) {
         print('🎼 LyricsCubit: 使用网易云歌词');
-        emit(LyricsLoaded(onlineLyrics));
+        emit(LyricsLoaded(_withSource(onlineLyrics, LyricsSource.netease)));
         return;
       }
 
@@ -163,5 +163,14 @@ class LyricsCubit extends Cubit<LyricsState> {
   bool _needsTranslationUpgrade(Lyrics lyrics, Track track) {
     // 用户更倾向使用本地/云端提供的歌词，不再额外尝试网易云翻译
     return false;
+  }
+
+  Lyrics _withSource(Lyrics lyrics, LyricsSource source) {
+    return Lyrics(
+      trackId: lyrics.trackId,
+      lines: lyrics.lines,
+      format: lyrics.format,
+      source: source,
+    );
   }
 }

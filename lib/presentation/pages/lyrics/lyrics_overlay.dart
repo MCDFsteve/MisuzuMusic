@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:misuzu_music/presentation/pages/home_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/services/lrc_export_service.dart';
@@ -82,6 +83,51 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _showTranslation = !_showTranslation;
     });
     _lastTranslationPreference = _showTranslation;
+  }
+
+  Future<void> _reportError() async {
+    const url = 'https://nipaplay.aimes-soft.com/lyrics_service.php';
+    final uri = Uri.parse(url);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          showPlaylistModalDialog(
+            context: context,
+            builder: (context) => PlaylistModalScaffold(
+              title: '无法打开链接',
+              body: const Text('无法打开浏览器，请手动访问:\nhttps://nipaplay.aimes-soft.com/lyrics_service.php', locale: Locale("zh-Hans", "zh")),
+              actions: [
+                SheetActionButton.primary(
+                  label: '确定',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+              maxWidth: 400,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showPlaylistModalDialog(
+          context: context,
+          builder: (context) => PlaylistModalScaffold(
+            title: '打开链接出错',
+            body: Text('打开浏览器时出错: $e', locale: Locale("zh-Hans", "zh")),
+            actions: [
+              SheetActionButton.primary(
+                label: '确定',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+            maxWidth: 400,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _downloadLrcFile() async {
@@ -210,6 +256,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             showTranslation: _showTranslation,
             onToggleTranslation: _toggleTranslationVisibility,
             onDownloadLrc: _downloadLrcFile,
+            onReportError: _reportError,
           ),
         ),
       ),
@@ -225,6 +272,7 @@ class _LyricsLayout extends StatelessWidget {
     required this.showTranslation,
     required this.onToggleTranslation,
     required this.onDownloadLrc,
+    required this.onReportError,
   });
 
   final Track track;
@@ -233,6 +281,7 @@ class _LyricsLayout extends StatelessWidget {
   final bool showTranslation;
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
+  final VoidCallback onReportError;
 
   @override
   Widget build(BuildContext context) {
@@ -281,6 +330,7 @@ class _LyricsLayout extends StatelessWidget {
                     showTranslation: showTranslation,
                     onToggleTranslation: onToggleTranslation,
                     onDownloadLrc: onDownloadLrc,
+                    onReportError: onReportError,
                   ),
                 ),
               ],
@@ -417,6 +467,7 @@ class _LyricsPanel extends StatelessWidget {
     required this.showTranslation,
     required this.onToggleTranslation,
     required this.onDownloadLrc,
+    required this.onReportError,
   });
 
   final bool isDarkMode;
@@ -425,6 +476,7 @@ class _LyricsPanel extends StatelessWidget {
   final bool showTranslation;
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
+  final VoidCallback onReportError;
 
   @override
   Widget build(BuildContext context) {
@@ -453,9 +505,22 @@ class _LyricsPanel extends StatelessWidget {
               final bool canToggle =
                   state is LyricsLoaded && _hasAnyTranslation(state.lyrics);
 
+              final bool showReportError =
+                  state is LyricsLoaded && state.lyrics.source == LyricsSource.nipaplay;
+
               return Stack(
                 children: [
                   Positioned.fill(child: content),
+                  // Report Error button (only show for nipaplay source)
+                  if (showReportError)
+                    Positioned(
+                      bottom: 140, // Above the download button
+                      right: 12,
+                      child: _ReportErrorButton(
+                        isDarkMode: isDarkMode,
+                        onPressed: onReportError,
+                      ),
+                    ),
                   // Download LRC button
                   Positioned(
                     bottom: 80, // Above the translation button
@@ -863,6 +928,88 @@ class _DownloadIconButtonState extends State<_DownloadIconButton> {
         _setPressing(false);
       },
       child: button,
+    );
+  }
+}
+
+class _ReportErrorButton extends StatefulWidget {
+  const _ReportErrorButton({
+    required this.isDarkMode,
+    required this.onPressed,
+  });
+
+  final bool isDarkMode;
+  final VoidCallback onPressed;
+
+  @override
+  State<_ReportErrorButton> createState() => _ReportErrorButtonState();
+}
+
+class _ReportErrorButtonState extends State<_ReportErrorButton> {
+  bool _hovering = false;
+  bool _pressing = false;
+
+  void _setHovering(bool value) {
+    if (_hovering == value) return;
+    setState(() => _hovering = value);
+  }
+
+  void _setPressing(bool value) {
+    if (_pressing == value) return;
+    setState(() => _pressing = value);
+  }
+
+  Color get _currentColor {
+    final Color iconColor = widget.isDarkMode ? Colors.white : Colors.black;
+    if (_hovering) {
+      return iconColor;
+    }
+    return iconColor.withOpacity(0.82);
+  }
+
+  double get _currentScale {
+    if (_pressing) {
+      return 0.95;
+    }
+    if (_hovering) {
+      return 1.05;
+    }
+    return 1.0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Transform.scale(
+      scale: _currentScale,
+      child: Icon(
+        CupertinoIcons.pencil,
+        size: 25,
+        color: _currentColor,
+      ),
+    );
+
+    final button = GestureDetector(
+      onTap: widget.onPressed,
+      onTapDown: (_) => _setPressing(true),
+      onTapUp: (_) => _setPressing(false),
+      onTapCancel: () => _setPressing(false),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
+        child: SizedBox(width: 30, height: 30, child: Center(child: child)),
+      ),
+    );
+
+    return MacosTooltip(
+      message: '纠错',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => _setHovering(true),
+        onExit: (_) {
+          _setHovering(false);
+          _setPressing(false);
+        },
+        child: button,
+      ),
     );
   }
 }
