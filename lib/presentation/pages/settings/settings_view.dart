@@ -8,6 +8,7 @@ import 'package:macos_ui/macos_ui.dart';
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../../core/utils/platform_utils.dart';
 import '../../widgets/common/adaptive_scrollbar.dart';
 import '../../widgets/common/hover_glow_overlay.dart';
 
@@ -23,7 +24,7 @@ class SettingsView extends StatelessWidget {
       builder: (context, _) {
         final mode = themeController.themeMode;
 
-        if (defaultTargetPlatform == TargetPlatform.macOS) {
+        if (prefersMacLikeUi()) {
           return _MacOSSettingsView(
             currentMode: mode,
             onChanged: themeController.setThemeMode,

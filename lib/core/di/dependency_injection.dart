@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:get_it/get_it.dart';
+import 'package:sqflite/sqflite.dart' as sqflite;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../data/datasources/local/database_helper.dart';
 import '../../data/datasources/local/music_local_datasource.dart';
@@ -33,6 +37,8 @@ class DependencyInjection {
     print('🔧 开始初始化依赖注入...');
 
     try {
+      _configureDatabaseFactory();
+
       // Storage setup
       print('📁 配置存储路径与配置文件...');
       final storagePathProvider = StoragePathProvider();
@@ -153,5 +159,15 @@ class DependencyInjection {
       print('❌ 依赖注入初始化失败: $e');
       rethrow;
     }
+  }
+
+  static void _configureDatabaseFactory() {
+    if (Platform.isAndroid || Platform.isIOS) {
+      return;
+    }
+
+    print('💾 使用 sqflite_common_ffi 初始化桌面数据库工厂...');
+    sqfliteFfiInit();
+    sqflite.databaseFactory = databaseFactoryFfi;
   }
 }

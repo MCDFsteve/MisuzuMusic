@@ -52,6 +52,26 @@ class MisuzuMusicApp extends StatelessWidget {
     return AnimatedBuilder(
       animation: themeController,
       builder: (context, _) {
+        final materialBrightness = switch (themeController.themeMode) {
+          ThemeMode.dark => Brightness.dark,
+          ThemeMode.light => Brightness.light,
+          ThemeMode.system => WidgetsBinding.instance.platformDispatcher.platformBrightness,
+        };
+
+        final materialTheme = ThemeData(
+          useMaterial3: true,
+          brightness: materialBrightness,
+          colorScheme: materialBrightness == Brightness.dark
+              ? const ColorScheme.dark(
+                  primary: Color(0xFF3E73FF),
+                  secondary: Color(0xFF3E73FF),
+                )
+              : const ColorScheme.light(
+                  primary: Color(0xFF1B66FF),
+                  secondary: Color(0xFF1B66FF),
+                ),
+        );
+
         return MacosApp(
           title: 'Misuzu Music',
           debugShowCheckedModeBanner: false,
@@ -59,6 +79,20 @@ class MisuzuMusicApp extends StatelessWidget {
           darkTheme: MacosThemeData.dark(),
           themeMode: themeController.themeMode,
           home: const HomePage(),
+          builder: (context, child) {
+            return Theme(
+              data: materialTheme,
+              child: ScaffoldMessenger(
+                child: Scaffold(
+                  backgroundColor: Colors.transparent,
+                  body: Material(
+                    type: MaterialType.transparency,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );

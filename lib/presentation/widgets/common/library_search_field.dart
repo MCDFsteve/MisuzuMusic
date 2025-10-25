@@ -1,7 +1,8 @@
 import 'package:flutter/cupertino.dart' as cupertino;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart' as macos_ui;
+
+import '../../../core/utils/platform_utils.dart';
 
 class LibrarySearchField extends StatefulWidget {
   const LibrarySearchField({
@@ -96,11 +97,11 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
 
   @override
   Widget build(BuildContext context) {
-    final bool isMac = defaultTargetPlatform == TargetPlatform.macOS;
+    final bool useDesktopUi = prefersMacLikeUi();
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 34, maxHeight: 40),
-      child: isMac
+      child: useDesktopUi
           ? _MacSearchField(
               controller: _controller,
               focusNode: _focusNode,

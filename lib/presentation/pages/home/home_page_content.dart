@@ -749,7 +749,7 @@ class _HomePageContentState extends State<HomePageContent> {
           print('🎵 开始扫描音乐文件夹...');
           context.read<MusicLibraryBloc>().add(ScanDirectoryEvent(result));
 
-          if (defaultTargetPlatform != TargetPlatform.macOS) {
+          if (!prefersMacLikeUi()) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
@@ -877,7 +877,7 @@ class _HomePageContentState extends State<HomePageContent> {
     final message = webDavSource == null
         ? '添加了 $tracksAdded 首新歌曲'
         : '添加了 $tracksAdded 首新歌曲\n来源: ${webDavSource.name}';
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
+    if (prefersMacLikeUi()) {
       showMacosAlertDialog(
         context: context,
         builder: (_) => MacosAlertDialog(
@@ -916,7 +916,7 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _showErrorDialog(BuildContext context, String message) {
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
+    if (prefersMacLikeUi()) {
       showMacosAlertDialog(
         context: context,
         builder: (_) => MacosAlertDialog(

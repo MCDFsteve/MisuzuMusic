@@ -284,7 +284,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
             : '确定要移除 "$name" 目录吗？这将从音乐库中移除该目录中的所有歌曲。';
 
     bool? confirmed;
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
+    if (prefersMacLikeUi()) {
       confirmed = await showMacosAlertDialog<bool>(
         context: context,
         builder: (context) => MacosAlertDialog(
