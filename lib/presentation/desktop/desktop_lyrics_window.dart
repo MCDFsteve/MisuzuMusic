@@ -14,13 +14,23 @@ import '../../core/constants/app_constants.dart';
 import '../../domain/entities/lyrics_entities.dart';
 import '../widgets/common/furigana_text.dart';
 
+void _log(String message) {
+  debugPrint('🎛️ DesktopLyricsWindow: $message');
+}
+
 Future<void> runDesktopLyricsWindow(
   int windowId,
   Map<String, dynamic> initialArgs,
 ) async {
   WidgetsFlutterBinding.ensureInitialized();
+  _log('启动桌面歌词窗口 (id=$windowId)');
 
-  await windowManager.ensureInitialized();
+  try {
+    await windowManager.ensureInitialized();
+  } on MissingPluginException catch (error) {
+    _log('❌ window_manager 未注册: $error');
+    rethrow;
+  }
 
   const windowOptions = WindowOptions(
     size: Size(560, 240),
@@ -38,6 +48,7 @@ Future<void> runDesktopLyricsWindow(
     await windowManager.setAsFrameless();
     await windowManager.show();
     await windowManager.focus();
+    _log('窗口创建并已显示');
   });
 
   runApp(_DesktopLyricsApp(
@@ -74,9 +85,11 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     super.initState();
     windowManager.addListener(this);
     DesktopMultiWindow.setMethodHandler(_handleMethodCall);
+    _log('注册窗口事件监听');
     _applyInitialArgs(widget.initialArgs);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _log('通知主窗口子窗口已准备');
       DesktopMultiWindow.invokeMethod(
         0,
         'desktop_lyrics_ready',
@@ -95,12 +108,14 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     windowManager.removeListener(this);
     DesktopMultiWindow.invokeMethod(0, 'desktop_lyrics_closed', null);
     DesktopMultiWindow.setMethodHandler(null);
+    _log('注销窗口事件并关闭');
     super.dispose();
   }
 
   @override
   void onWindowClose() {
     DesktopMultiWindow.invokeMethod(0, 'desktop_lyrics_closed', null);
+    _log('窗口关闭事件');
   }
 
   Future<dynamic> _handleMethodCall(
@@ -114,6 +129,7 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     switch (call.method) {
       case 'desktop_lyrics_state':
         if (call.arguments is Map) {
+          _log('收到状态推送');
           _applyState(
             Map<String, dynamic>.from(call.arguments as Map),
           );
@@ -121,10 +137,12 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         break;
       case 'desktop_lyrics_position':
         if (call.arguments is int) {
+          _log('收到进度推送: ${call.arguments} ms');
           _applyPosition(Duration(milliseconds: call.arguments as int));
         }
         break;
       default:
+        _log('收到未知方法: ${call.method}');
         break;
     }
     return null;
@@ -134,9 +152,11 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     if (args.isEmpty) {
       return;
     }
+    _log('应用初始参数');
     final Object? payload = args['initialState'];
     if (payload is String && payload.isNotEmpty) {
       try {
+        _log('解析初始状态 JSON');
         _applyState(Map<String, dynamic>.from(jsonDecode(payload))); // ignore: avoid_catches_without_on_clauses
       } catch (_) {}
     } else if (payload is Map) {
@@ -179,6 +199,7 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
           _lyricsErrorMessage = null;
       }
       _recomputeActiveIndex();
+      _log('更新显示状态，当前激活行: $_activeIndex');
     });
   }
 
@@ -189,6 +210,7 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     setState(() {
       _position = position;
       _recomputeActiveIndex();
+      _log('刷新定位 -> ${position.inMilliseconds} ms, 激活行 $_activeIndex');
     });
   }
 

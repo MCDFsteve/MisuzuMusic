@@ -56,6 +56,10 @@ class DesktopLyricsController {
   bool get _isDesktop =>
       Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
+  void _log(String message) {
+    debugPrint('🪟 DesktopLyricsController: $message');
+  }
+
   Future<void> init() async {
     if (_initialized) {
       return;
@@ -63,9 +67,11 @@ class DesktopLyricsController {
     _initialized = true;
 
     if (!_isDesktop) {
+      _log('当前平台不是桌面平台，忽略桌面歌词初始化');
       return;
     }
 
+    _log('初始化桌面歌词控制器');
     DesktopMultiWindow.setMethodHandler(_handleMethodCall);
 
     _trackSubscription =
@@ -84,9 +90,11 @@ class DesktopLyricsController {
 
     final Track? initialTrack = _audioPlayerService.currentTrack;
     if (initialTrack != null) {
+      _log('捕获初始曲目 ${initialTrack.title}');
       _handleTrackChanged(initialTrack);
       final Duration initialPosition = _audioPlayerService.currentPosition;
       if (initialPosition > Duration.zero) {
+        _log('同步初始播放进度 ${initialPosition.inMilliseconds} ms');
         _handlePositionChanged(initialPosition);
       }
     }
@@ -97,8 +105,10 @@ class DesktopLyricsController {
       return;
     }
     if (isWindowOpen) {
+      _log('尝试关闭桌面歌词窗口');
       await closeWindow();
     } else {
+      _log('尝试打开桌面歌词窗口');
       await showWindow();
     }
   }
@@ -112,6 +122,7 @@ class DesktopLyricsController {
     }
     _windowOpening = true;
     try {
+      _log('创建桌面歌词子窗口 (platform=${Platform.operatingSystem})');
       final String initialState = jsonEncode(_buildStatePayload());
       final WindowController controller =
           await DesktopMultiWindow.createWindow(
@@ -129,9 +140,9 @@ class DesktopLyricsController {
       isWindowOpenNotifier.value = true;
       await controller.setTitle('Misuzu 桌面歌词');
       await controller.show();
+      _log('桌面歌词窗口已创建 (id=$_windowId)');
     } on PlatformException catch (error) {
-      // ignore: avoid_print
-      print('❌ 无法创建桌面歌词窗口: $error');
+      _log('❌ 无法创建桌面歌词窗口: $error');
       _resetWindowState();
     } finally {
       _windowOpening = false;
@@ -146,8 +157,7 @@ class DesktopLyricsController {
     try {
       await controller.close();
     } catch (_) {
-      // ignore: avoid_print
-      print('⚠️ 关闭桌面歌词窗口时出现异常，已忽略');
+      _log('⚠️ 关闭桌面歌词窗口时出现异常，已忽略');
     } finally {
       _resetWindowState();
     }
@@ -158,10 +168,12 @@ class DesktopLyricsController {
       return;
     }
     _showTranslation = show;
+    _log('更新翻译显示状态: ${show ? '显示' : '隐藏'}');
     _pushState();
   }
 
   Future<void> dispose() async {
+    _log('销毁桌面歌词控制器');
     await closeWindow();
     await _trackSubscription?.cancel();
     await _positionSubscription?.cancel();
@@ -181,6 +193,7 @@ class DesktopLyricsController {
 
     switch (call.method) {
       case 'desktop_lyrics_ready':
+        _log('收到窗口就绪事件');
         _windowReady = true;
         if (_stateDirty) {
           _pushState(force: true);
@@ -190,13 +203,16 @@ class DesktopLyricsController {
         }
         break;
       case 'desktop_lyrics_closed':
+        _log('收到窗口关闭事件');
         _resetWindowState();
         break;
       case 'desktop_lyrics_request_state':
+        _log('窗口请求同步状态');
         _pushState(force: true);
         _pushPosition(force: true);
         break;
       default:
+        _log('收到未知方法: ${call.method}');
         break;
     }
 
@@ -205,6 +221,7 @@ class DesktopLyricsController {
 
   void _handleTrackChanged(Track? track) {
     if (track == null) {
+      _log('播放器无曲目，清空歌词状态');
       _currentTrack = null;
       _currentLyrics = null;
       _lyricsState = const LyricsEmpty();
@@ -216,6 +233,7 @@ class DesktopLyricsController {
       return;
     }
 
+    _log('检测到曲目切换 -> ${track.title}');
     _currentTrack = track;
     _currentLyrics = null;
     _lyricsState = const LyricsLoading();
@@ -250,11 +268,17 @@ class DesktopLyricsController {
     }
 
     _stateDirty = false;
-    DesktopMultiWindow.invokeMethod(
-      _windowId!,
-      'desktop_lyrics_state',
-      _buildStatePayload(),
-    );
+    final payload = _buildStatePayload();
+    _log('推送歌词状态到窗口 (lines=${_currentLyrics?.lines.length ?? 0})');
+    try {
+      DesktopMultiWindow.invokeMethod(
+        _windowId!,
+        'desktop_lyrics_state',
+        payload,
+      );
+    } catch (error) {
+      _log('❌ 推送歌词状态失败: $error');
+    }
   }
 
   void _pushPosition({bool force = false}) {
@@ -266,12 +290,15 @@ class DesktopLyricsController {
       return;
     }
     _positionDirty = false;
-
-    DesktopMultiWindow.invokeMethod(
-      _windowId!,
-      'desktop_lyrics_position',
-      _currentPosition.inMilliseconds,
-    );
+    try {
+      DesktopMultiWindow.invokeMethod(
+        _windowId!,
+        'desktop_lyrics_position',
+        _currentPosition.inMilliseconds,
+      );
+    } catch (error) {
+      _log('❌ 推送播放进度失败: $error');
+    }
   }
 
   void _resetWindowState() {
@@ -283,6 +310,7 @@ class DesktopLyricsController {
     if (isWindowOpenNotifier.value) {
       isWindowOpenNotifier.value = false;
     }
+    _log('重置窗口状态');
   }
 
   Map<String, dynamic> _buildStatePayload() {
