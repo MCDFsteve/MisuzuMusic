@@ -51,9 +51,9 @@ class _MacOSGlassHeader extends StatelessWidget {
     final double backIconSize = isWindows ? 14 : 20;
     final double actionSpacing = isWindows ? 4 : 8;
 
-    final frostedColor = theme.canvasColor.withOpacity(
-      isDarkMode ? 0.35 : 0.36,
-    );
+    final Color frostedColor = isWindows
+        ? (isDarkMode ? const Color(0xE61D1D1F) : const Color(0xF2F6F6F8))
+        : theme.canvasColor.withOpacity(isDarkMode ? 0.35 : 0.36);
 
     final headerContent = ClipRect(
       child: BackdropFilter(
@@ -235,10 +235,7 @@ class _HeaderTooltip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (useMacStyle) {
-      return MacosTooltip(
-        message: message,
-        child: child,
-      );
+      return MacosTooltip(message: message, child: child);
     }
 
     return Tooltip(
@@ -405,7 +402,7 @@ class _WindowsCaptionButtonState extends State<_WindowsCaptionButton> {
         message: widget.tooltip,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: widget.onPressed,
+          onTapDown: (_) => widget.onPressed(),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             curve: Curves.easeOutCubic,
