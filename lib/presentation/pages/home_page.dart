@@ -11,7 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:window_manager_plus/window_manager_plus.dart';
 
 import '../../core/di/dependency_injection.dart';
 import '../../core/constants/app_constants.dart';
@@ -58,6 +58,8 @@ part 'home/views/music_library_view.dart';
 part 'home/views/playlist_view.dart';
 part 'home/views/playlists_view.dart';
 part 'home/sheets/playlist_selection_sheet.dart';
+
+WindowManagerPlus get windowManager => WindowManagerPlus.current;
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});

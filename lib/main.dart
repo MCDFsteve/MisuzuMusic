@@ -1,19 +1,20 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:window_manager_plus/window_manager_plus.dart';
 
 import 'core/di/dependency_injection.dart';
 import 'core/theme/theme_controller.dart';
+import 'presentation/desktop/desktop_lyrics_controller.dart';
+import 'presentation/desktop/desktop_lyrics_window.dart';
 import 'presentation/pages/home_page.dart';
 
-Future<void> _configureWindow() async {
-  if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
+Future<void> _configureMainWindow() async {
+  if (!(Platform.isMacOS || Platform.isWindows)) {
     return;
   }
-
-  await windowManager.ensureInitialized();
 
   const windowOptions = WindowOptions(
     size: Size(1067, 600),
@@ -22,22 +23,50 @@ Future<void> _configureWindow() async {
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.hidden,
+    windowButtonVisibility: false,
   );
 
-  await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
+  await WindowManagerPlus.current.waitUntilReadyToShow(windowOptions, () async {
+    await WindowManagerPlus.current.show();
+    await WindowManagerPlus.current.focus();
   });
 }
 
-void main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize window configuration (hidden title bar on all desktop platforms)
-  await _configureWindow();
+  final bool isSupportedDesktop = Platform.isMacOS || Platform.isWindows;
+  final int windowId = isSupportedDesktop && args.isNotEmpty
+      ? int.tryParse(args[0]) ?? 0
+      : 0;
 
-  // Initialize dependency injection
+  if (isSupportedDesktop) {
+    await WindowManagerPlus.ensureInitialized(windowId);
+
+    final List<String> windowArgs = args.length > 1 ? args.sublist(1) : const [];
+    if (windowId != 0 && windowArgs.isNotEmpty && windowArgs.first == 'desktop_lyrics') {
+      final String? rawState = windowArgs.length > 1 ? windowArgs[1] : null;
+      final Map<String, dynamic> initialState;
+      if (rawState == null || rawState.isEmpty) {
+        initialState = const {};
+      } else {
+        final decoded = jsonDecode(rawState);
+        initialState = decoded is Map<String, dynamic>
+            ? Map<String, dynamic>.from(decoded)
+            : const {};
+      }
+      await runDesktopLyricsWindow(windowId, initialState);
+      return;
+    }
+
+    await _configureMainWindow();
+  }
+
   await DependencyInjection.init();
+
+  if (isSupportedDesktop && sl.isRegistered<DesktopLyricsController>()) {
+    await sl<DesktopLyricsController>().init();
+  }
 
   runApp(const MisuzuMusicApp());
 }

@@ -324,10 +324,10 @@ class _WindowsWindowControlsState extends State<_WindowsWindowControls>
   }
 
   @override
-  void onWindowMaximize() => _updateMaximized(true);
+  void onWindowMaximize([int? windowId]) => _updateMaximized(true);
 
   @override
-  void onWindowUnmaximize() => _updateMaximized(false);
+  void onWindowUnmaximize([int? windowId]) => _updateMaximized(false);
 
   void _updateMaximized(bool value) {
     if (!mounted || _isMaximized == value) {

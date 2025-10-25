@@ -5,9 +5,9 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   just_audio_windows
   permission_handler_windows
-  screen_retriever
+  screen_retriever_windows
   url_launcher_windows
-  window_manager
+  window_manager_plus
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
