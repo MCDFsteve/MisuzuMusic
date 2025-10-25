@@ -58,9 +58,13 @@ class MisuzuMusicApp extends StatelessWidget {
           ThemeMode.system => WidgetsBinding.instance.platformDispatcher.platformBrightness,
         };
 
+        // Windows 平台使用微软雅黑，避免字体显示不一致
+        final fontFamily = Platform.isWindows ? 'Microsoft YaHei' : null;
+
         final materialTheme = ThemeData(
           useMaterial3: true,
           brightness: materialBrightness,
+          fontFamily: fontFamily,
           colorScheme: materialBrightness == Brightness.dark
               ? const ColorScheme.dark(
                   primary: Color(0xFF3E73FF),
@@ -72,11 +76,24 @@ class MisuzuMusicApp extends StatelessWidget {
                 ),
         );
 
+        // Windows 平台为 MacosThemeData 设置微软雅黑字体
+        final macosLightTheme = Platform.isWindows
+            ? MacosThemeData.light().copyWith(
+                typography: _createWindowsTypography(MacosThemeData.light().typography),
+              )
+            : MacosThemeData.light();
+
+        final macosDarkTheme = Platform.isWindows
+            ? MacosThemeData.dark().copyWith(
+                typography: _createWindowsTypography(MacosThemeData.dark().typography),
+              )
+            : MacosThemeData.dark();
+
         return MacosApp(
           title: 'Misuzu Music',
           debugShowCheckedModeBanner: false,
-          theme: MacosThemeData.light(),
-          darkTheme: MacosThemeData.dark(),
+          theme: macosLightTheme,
+          darkTheme: macosDarkTheme,
           themeMode: themeController.themeMode,
           home: const HomePage(),
           builder: (context, child) {
@@ -97,4 +114,22 @@ class MisuzuMusicApp extends StatelessWidget {
       },
     );
   }
+}
+
+/// 为 Windows 平台创建使用微软雅黑字体的 MacosTypography
+MacosTypography _createWindowsTypography(MacosTypography original) {
+  const fontFamily = 'Microsoft YaHei';
+  return MacosTypography.raw(
+    largeTitle: original.largeTitle.copyWith(fontFamily: fontFamily),
+    title1: original.title1.copyWith(fontFamily: fontFamily),
+    title2: original.title2.copyWith(fontFamily: fontFamily),
+    title3: original.title3.copyWith(fontFamily: fontFamily),
+    headline: original.headline.copyWith(fontFamily: fontFamily),
+    subheadline: original.subheadline.copyWith(fontFamily: fontFamily),
+    body: original.body.copyWith(fontFamily: fontFamily),
+    callout: original.callout.copyWith(fontFamily: fontFamily),
+    footnote: original.footnote.copyWith(fontFamily: fontFamily),
+    caption1: original.caption1.copyWith(fontFamily: fontFamily),
+    caption2: original.caption2.copyWith(fontFamily: fontFamily),
+  );
 }

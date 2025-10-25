@@ -18,7 +18,8 @@
       "WebFetch(domain:jlptsensei.com)",
       "Bash(flutter analyze:*)",
       "Bash(tree:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Read(//Users/dfsteve/.pub-cache/hosted/pub.dev/**)"
     ],
     "deny": [],
     "ask": []
