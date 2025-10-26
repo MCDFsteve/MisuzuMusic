@@ -1,0 +1,55 @@
+name: Build macOS DMG
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Target version used for artifact naming
+        required: true
+        type: string
+      arch:
+        description: CPU architecture label used in artifact naming
+        required: false
+        default: x64
+        type: string
+
+jobs:
+  build:
+    runs-on: macos-latest
+    env:
+      APP_VERSION: ${{ inputs.version }}
+      TARGET_ARCH: ${{ inputs.arch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: 获取依赖
+        run: flutter pub get
+      - name: 构建 macOS 应用
+        run: flutter build macos --release
+      - name: 打包 DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="build/artifacts"
+          STAGING_DIR="build/dmg-staging"
+          mkdir -p "$ARTIFACT_DIR"
+          rm -rf "$STAGING_DIR"
+          mkdir -p "$STAGING_DIR"
+          APP_PATH=$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' -print | head -n 1)
+          if [[ -z "$APP_PATH" ]]; then
+            echo "未找到 macOS .app 产物" >&2
+            exit 1
+          fi
+          rsync -a "$APP_PATH" "$STAGING_DIR/"
+          ARTIFACT_NAME="macos-${TARGET_ARCH}-${APP_VERSION}.dmg"
+          hdiutil create -volname "MisuzuMusic" -srcfolder "$STAGING_DIR" -ov -format UDZO "$ARTIFACT_DIR/$ARTIFACT_NAME"
+      - name: 上传 macOS 构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.dmg
+          path: build/artifacts/macos-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.dmg
+          if-no-files-found: error

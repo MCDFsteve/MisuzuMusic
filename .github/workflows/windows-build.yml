@@ -1,0 +1,55 @@
+name: Build Windows ZIP
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Target version used for artifact naming
+        required: true
+        type: string
+      arch:
+        description: CPU architecture label used in artifact naming
+        required: false
+        default: x64
+        type: string
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      APP_VERSION: ${{ inputs.version }}
+      TARGET_ARCH: ${{ inputs.arch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: 获取依赖
+        shell: pwsh
+        run: flutter pub get
+      - name: 构建 Windows 应用
+        shell: pwsh
+        run: flutter build windows --release
+      - name: 打包 ZIP
+        shell: pwsh
+        run: |
+          $artifactDir = "build/artifacts"
+          New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+          $buildDir = "build/windows/$env:TARGET_ARCH/runner/Release"
+          if (-not (Test-Path $buildDir)) {
+            Write-Error "未找到 Windows 构建输出：$buildDir"
+          }
+          $artifactName = "windows-$($env:TARGET_ARCH)-$($env:APP_VERSION).zip"
+          $destination = Join-Path $artifactDir $artifactName
+          if (Test-Path $destination) {
+            Remove-Item $destination -Force
+          }
+          Compress-Archive -Path (Join-Path $buildDir '*') -DestinationPath $destination -Force
+      - name: 上传 Windows 构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.zip
+          path: build/artifacts/windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.zip
+          if-no-files-found: error
