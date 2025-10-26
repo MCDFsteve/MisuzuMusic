@@ -22,34 +22,33 @@ jobs:
         id: meta
         env:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        shell: python
         run: |
-          python <<'PY'
-import os
-import re
-from pathlib import Path
+          import os
+          import re
+          from pathlib import Path
 
-msg = os.environ.get('COMMIT_MESSAGE', '')
-pattern = re.compile(r"\b\d{4}\.\d{4}\b")
-should_run = bool(pattern.search(msg))
-text = Path('pubspec.yaml').read_text(encoding='utf-8')
-match = re.search(r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)', text, re.MULTILINE)
-if not match:
-    raise SystemExit('无法在 pubspec.yaml 中找到版本号')
-current_version = match.group(1)
-parts = [int(p) for p in current_version.split('.')]
-if len(parts) != 3:
-    raise SystemExit('版本号不是三段式，无法自动递增')
-parts[2] += 1
-next_version = '.'.join(str(p) for p in parts)
-with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh:
-    fh.write(f"should_run={'true' if should_run else 'false'}\n")
-    fh.write(f"version={current_version}\n")
-    fh.write(f"next_version={next_version}\n")
-print(f"commit message: {msg}")
-print(f"pattern matched: {should_run}")
-print(f"current version: {current_version}")
-print(f"next version: {next_version}")
-PY
+          msg = os.environ.get('COMMIT_MESSAGE', '')
+          pattern = re.compile(r"\b\d{4}\.\d{4}\b")
+          should_run = bool(pattern.search(msg))
+          text = Path('pubspec.yaml').read_text(encoding='utf-8')
+          match = re.search(r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)', text, re.MULTILINE)
+          if not match:
+              raise SystemExit('无法在 pubspec.yaml 中找到版本号')
+          current_version = match.group(1)
+          parts = [int(p) for p in current_version.split('.')]
+          if len(parts) != 3:
+              raise SystemExit('版本号不是三段式，无法自动递增')
+          parts[2] += 1
+          next_version = '.'.join(str(p) for p in parts)
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh:
+              fh.write(f"should_run={'true' if should_run else 'false'}\n")
+              fh.write(f"version={current_version}\n")
+              fh.write(f"next_version={next_version}\n")
+          print(f"commit message: {msg}")
+          print(f"pattern matched: {should_run}")
+          print(f"current version: {current_version}")
+          print(f"next version: {next_version}")
       - name: 提示未匹配的提交信息
         if: ${{ steps.meta.outputs.should_run != 'true' }}
         run: echo "提交信息未包含形如 2025.1026 的标记，后续构建被跳过。"
