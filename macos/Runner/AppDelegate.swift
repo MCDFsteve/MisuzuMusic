@@ -54,6 +54,7 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   private func handleWindowChannel(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    NSLog("[Misuzu][MacOSWindow] method=\(call.method) args=\(String(describing: call.arguments))")
     switch call.method {
     case "setTransparent":
       guard let args = call.arguments as? [String: Any] else {
@@ -71,9 +72,7 @@ class AppDelegate: FlutterAppDelegate {
         return
       }
 
-      let overrideMask = (args["styleMask"] as? Int) ?? 0
-      applyTransparentStyle(to: window, extraMask: overrideMask)
-      logViewHierarchy(for: window)
+      applyTransparentStyle(to: window)
       result(true)
 
     default:
@@ -109,16 +108,13 @@ class AppDelegate: FlutterAppDelegate {
     }
   }
 
-  private func applyTransparentStyle(to window: NSWindow, extraMask: Int = 0) {
+  private func applyTransparentStyle(to window: NSWindow) {
     window.isOpaque = false
     window.backgroundColor = .clear
     window.hasShadow = false
     window.titleVisibility = .hidden
     window.titlebarAppearsTransparent = true
     window.styleMask.insert(.fullSizeContentView)
-    if extraMask > 0 {
-      window.styleMask.insert(NSWindow.StyleMask(rawValue: UInt(extraMask)))
-    }
     window.contentView?.alphaValue = 1.0
 
     makeViewTreeTransparent(window.contentView)
@@ -126,20 +122,24 @@ class AppDelegate: FlutterAppDelegate {
     if let superview = window.contentView?.superview {
       makeViewTreeTransparent(superview)
     }
+    scheduleTransparentRefresh(for: window, remaining: 5)
+    logViewHierarchy(for: window)
   }
 
   private func makeViewTreeTransparent(_ view: NSView?) {
     guard let view = view else {
       return
     }
-    view.wantsLayer = true
+    if view.layer == nil {
+      view.wantsLayer = true
+    }
+    updateLayerTransparency(view.layer)
     if let effectView = view as? NSVisualEffectView {
       effectView.material = .fullScreenUI
       effectView.state = .active
       effectView.isEmphasized = false
       effectView.blendingMode = .withinWindow
     }
-    updateLayerTransparency(view.layer)
     view.subviews.forEach { makeViewTreeTransparent($0) }
   }
 
@@ -155,6 +155,23 @@ class AppDelegate: FlutterAppDelegate {
       metalLayer.backgroundColor = NSColor.clear.cgColor
     }
     layer.sublayers?.forEach { updateLayerTransparency($0) }
+  }
+
+  private func scheduleTransparentRefresh(for window: NSWindow, remaining: Int) {
+    guard remaining > 0 else {
+      return
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self, weak window] in
+      guard let self, let window else {
+        return
+      }
+      self.makeViewTreeTransparent(window.contentView)
+      self.makeViewTreeTransparent(window.contentViewController?.view)
+      if let superview = window.contentView?.superview {
+        self.makeViewTreeTransparent(superview)
+      }
+      self.scheduleTransparentRefresh(for: window, remaining: remaining - 1)
+    }
   }
 
   private func logViewHierarchy(for window: NSWindow) {

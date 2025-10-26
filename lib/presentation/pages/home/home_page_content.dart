@@ -276,9 +276,14 @@ class _HomePageContentState extends State<HomePageContent> {
         final currentTrack = _playerTrack(playerState);
         const headerHeight = 76.0;
         final sectionLabel = _currentSectionLabel(_selectedIndex);
-        final statsLabel = _composeHeaderStatsLabel(
-          context.watch<MusicLibraryBloc>().state,
-        );
+        final MusicLibraryState libraryState =
+            context.watch<MusicLibraryBloc>().state;
+        final NeteaseState neteaseState =
+            context.watch<NeteaseCubit>().state;
+
+        final String? statsLabel = _selectedIndex == 2
+            ? _composeNeteaseStatsLabel(neteaseState)
+            : _composeHeaderStatsLabel(libraryState);
         bool showBackButton = false;
         bool canNavigateBack = false;
         VoidCallback? onNavigateBack;
@@ -697,6 +702,20 @@ class _HomePageContentState extends State<HomePageContent> {
     final minutes = totalDuration.inMinutes.remainder(60);
 
     return '共 $totalTracks 首歌曲 · ${hours} 小时 ${minutes} 分钟';
+  }
+
+  String? _composeNeteaseStatsLabel(NeteaseState state) {
+    if (!state.hasSession) {
+      return '未登录网易云';
+    }
+    final totalTracks = state.playlists.fold<int>(
+      0,
+      (sum, playlist) => sum + (playlist.trackCount > 0 ? playlist.trackCount : 0),
+    );
+    if (totalTracks <= 0) {
+      return '网易云歌单';
+    }
+    return '网易云共 $totalTracks 首歌曲';
   }
 
   Widget _buildLyricsOverlay({required bool isMac}) {

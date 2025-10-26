@@ -131,6 +131,13 @@ class _NeteaseViewState extends State<NeteaseView> {
     );
   }
 
+  String _formatPlaylistDetail(NeteasePlaylist playlist) {
+    final songsLabel = playlist.trackCount > 0
+        ? '${playlist.trackCount} 首'
+        : '网易云歌单';
+    return '$songsLabel · 播放 ${_formatPlayCount(playlist.playCount)}';
+  }
+
   Widget _buildPlaylistOverview(NeteaseState state) {
     if (state.isLoadingPlaylists && state.playlists.isEmpty) {
       return const Center(child: ProgressCircle());
@@ -151,8 +158,7 @@ class _NeteaseViewState extends State<NeteaseView> {
         final subtitle = playlist.description?.trim().isNotEmpty == true
             ? playlist.description!.trim()
             : '网易云歌单';
-        final detailText =
-            '${playlist.trackCount} 首 · 播放 ${_formatPlayCount(playlist.playCount)}';
+        final detailText = _formatPlaylistDetail(playlist);
         return CollectionSummaryCard(
           title: playlist.name,
           subtitle: subtitle,
@@ -446,15 +452,16 @@ class _NeteasePlaylistEntryTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    '${playlist.trackCount} 首 · ${playlist.playCount} 次播放',
-                    locale: const Locale('zh-Hans', 'zh'),
-                    style: macTheme.typography.caption1.copyWith(
-                      fontSize: 11,
-                      color: subtitleColor,
+                  if (playlist.trackCount >= 0)
+                    Text(
+                      '${playlist.trackCount} 首 · ${playlist.playCount} 次播放',
+                      locale: const Locale('zh-Hans', 'zh'),
+                      style: macTheme.typography.caption1.copyWith(
+                        fontSize: 11,
+                        color: subtitleColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
                 ],
               ),
             ),
