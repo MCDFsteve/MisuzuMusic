@@ -305,13 +305,18 @@ class DesktopLyricsController {
     }
     _positionDirty = false;
 
-    final int positionMs = _currentPosition.inMilliseconds;
-    _log('推送播放进度: ${positionMs}ms');
+    final Duration position = _currentPosition;
+    final int positionMs = position.inMilliseconds;
+    final int? activeIndex = _computeActiveLineIndex(position);
+    _log('推送播放进度: ${positionMs}ms (index=${activeIndex ?? '-'})');
     try {
       await WindowManagerPlus.current.invokeMethodToWindow(
         _lyricsWindowId!,
         'desktop_lyrics_position',
-        positionMs,
+        <String, dynamic>{
+          'position': positionMs,
+          if (activeIndex != null) 'activeIndex': activeIndex,
+        },
       );
     } catch (error) {
       _log('❌ 推送播放进度失败: $error');
@@ -392,12 +397,38 @@ class DesktopLyricsController {
   }
 
   Map<String, dynamic> _buildStatePayload() {
+    final int? activeLineIndex = _computeActiveLineIndex(_currentPosition);
     return <String, dynamic>{
       'track': _serializeTrack(_currentTrack),
       'lyrics': _serializeLyrics(_currentLyrics),
       'lyricsState': _serializeLyricsState(_lyricsState),
       'showTranslation': _showTranslation,
+      'position': _currentPosition.inMilliseconds,
+      'activeLineIndex': activeLineIndex,
     };
+  }
+
+  int? _computeActiveLineIndex(Duration position) {
+    final lyrics = _currentLyrics;
+    if (lyrics == null || lyrics.lines.isEmpty) {
+      return null;
+    }
+
+    int index = lyrics.lines.length - 1;
+    for (int i = 0; i < lyrics.lines.length; i++) {
+      final current = lyrics.lines[i].timestamp;
+      final Duration? next =
+          i + 1 < lyrics.lines.length ? lyrics.lines[i + 1].timestamp : null;
+      if (position < current) {
+        index = i == 0 ? 0 : i - 1;
+        break;
+      }
+      if (next == null || position < next) {
+        index = i;
+        break;
+      }
+    }
+    return index;
   }
 }
 

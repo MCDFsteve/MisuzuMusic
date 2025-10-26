@@ -16,14 +16,15 @@ Future<void> _configureMainWindow() async {
     return;
   }
 
-  const windowOptions = WindowOptions(
+  final bool isMacOS = Platform.isMacOS;
+  final windowOptions = WindowOptions(
     size: Size(1067, 600),
     minimumSize: Size(1067, 600),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.hidden,
-    windowButtonVisibility: false,
+    windowButtonVisibility: isMacOS,
   );
 
   await WindowManagerPlus.current.waitUntilReadyToShow(windowOptions, () async {

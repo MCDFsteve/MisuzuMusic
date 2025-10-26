@@ -2,12 +2,18 @@ import Cocoa
 import FlutterMacOS
 import window_manager_plus
 
-class MainFlutterWindow: NSPanel {
+class MainFlutterWindow: NSWindow {
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
+
+    styleMask.insert(.titled)
+    styleMask.insert(.closable)
+    styleMask.insert(.miniaturizable)
+    styleMask.insert(.resizable)
+    isMovableByWindowBackground = true
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     WindowManagerPlusPlugin.RegisterGeneratedPlugins = RegisterGeneratedPlugins

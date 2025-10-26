@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -19,12 +20,12 @@ Future<void> runDesktopLyricsWindow(
   WidgetsFlutterBinding.ensureInitialized();
   await WindowManagerPlus.ensureInitialized(windowId);
 
-  const windowOptions = WindowOptions(
+  final windowOptions = WindowOptions(
     size: Size(560, 240),
     minimumSize: Size(320, 160),
     center: true,
     backgroundColor: Colors.transparent,
-    skipTaskbar: true,
+    skipTaskbar: Platform.isWindows,
     alwaysOnTop: true,
     titleBarStyle: TitleBarStyle.hidden,
     windowButtonVisibility: false,
@@ -37,7 +38,11 @@ Future<void> runDesktopLyricsWindow(
     await WindowManagerPlus.current.focus();
   });
 
-  await WindowManagerPlus.current.setSkipTaskbar(true);
+  if (Platform.isWindows) {
+    await WindowManagerPlus.current.setSkipTaskbar(true);
+  } else {
+    await WindowManagerPlus.current.setSkipTaskbar(false);
+  }
   await WindowManagerPlus.current.setAlwaysOnTop(true);
   await WindowManagerPlus.current.setTitleBarStyle(
     TitleBarStyle.hidden,
@@ -61,7 +66,6 @@ class _DesktopLyricsApp extends StatefulWidget {
 
 class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     with WindowListener {
-  _DesktopTrackInfo? _track;
   List<LyricsLine> _lines = const [];
   LyricsStateDescriptor _lyricsDescriptor = LyricsStateDescriptor.loading;
   String? _lyricsErrorMessage;
@@ -104,9 +108,7 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         }
         break;
       case 'desktop_lyrics_position':
-        if (arguments is int) {
-          _applyPosition(Duration(milliseconds: arguments));
-        }
+        _applyPosition(arguments);
         break;
       default:
         debugPrint('🎛️ DesktopLyricsWindow: 未处理的事件 -> $eventName');
@@ -124,9 +126,15 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
 
   void _applyState(Map<String, dynamic> payload) {
     setState(() {
-      _track = _parseTrack(payload['track'] as Map?);
       _lines = _parseLines(payload['lyrics'] as Map?);
       _showTranslation = payload['showTranslation'] as bool? ?? true;
+      final Duration? incomingPosition =
+          _parseDurationMilliseconds(payload['position']);
+      if (incomingPosition != null) {
+        _position = incomingPosition;
+      }
+      final int? activeIndexFromPayload =
+          _parseIndex(payload['activeLineIndex']);
       final Map<String, dynamic>? stateMap =
           payload['lyricsState'] as Map<String, dynamic>?;
       final String? status = stateMap?['status'] as String?;
@@ -155,28 +163,58 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
           _lyricsDescriptor = LyricsStateDescriptor.initial;
           _lyricsErrorMessage = null;
       }
-      _recomputeActiveIndex();
+      _updateActiveIndex(preferredIndex: activeIndexFromPayload);
     });
   }
 
-  void _applyPosition(Duration position) {
-    if (position == _position) {
+  void _applyPosition(dynamic payload) {
+    Duration? nextPosition;
+    int? preferredIndex;
+
+    if (payload is int) {
+      nextPosition = Duration(milliseconds: payload);
+    } else if (payload is Map) {
+      final map = Map<String, dynamic>.from(payload as Map);
+      nextPosition = _parseDurationMilliseconds(map['position']);
+      preferredIndex = _parseIndex(map['activeIndex']);
+    }
+
+    if (nextPosition == null) {
       return;
     }
+
+    if (nextPosition == _position && preferredIndex == null) {
+      return;
+    }
+
     setState(() {
-      _position = position;
-      _recomputeActiveIndex();
+      _position = nextPosition!;
+      _updateActiveIndex(preferredIndex: preferredIndex);
     });
   }
 
-  void _recomputeActiveIndex() {
+  void _updateActiveIndex({int? preferredIndex}) {
     if (_lines.isEmpty) {
       _activeIndex = -1;
       return;
     }
 
-    final Duration position = _position;
-    int index = 0;
+    if (preferredIndex != null &&
+        preferredIndex >= 0 &&
+        preferredIndex < _lines.length) {
+      _activeIndex = preferredIndex;
+      return;
+    }
+
+    _activeIndex = _findActiveIndex(_position) ?? -1;
+  }
+
+  int? _findActiveIndex(Duration position) {
+    if (_lines.isEmpty) {
+      return null;
+    }
+
+    int index = _lines.length - 1;
     for (int i = 0; i < _lines.length; i++) {
       final Duration current = _lines[i].timestamp;
       final Duration? next =
@@ -189,11 +227,8 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         index = i;
         break;
       }
-      if (i == _lines.length - 1) {
-        index = i;
-      }
     }
-    _activeIndex = index;
+    return index;
   }
 
   List<LyricsLine> _parseLines(Map? raw) {
@@ -230,16 +265,30 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     }).toList();
   }
 
-  _DesktopTrackInfo? _parseTrack(Map? raw) {
-    if (raw == null) {
-      return null;
+  Duration? _parseDurationMilliseconds(dynamic value) {
+    if (value is int) {
+      return Duration(milliseconds: value);
     }
-    final Map<String, dynamic> map = Map<String, dynamic>.from(raw);
-    return _DesktopTrackInfo(
-      title: map['title'] as String? ?? '',
-      artist: map['artist'] as String? ?? '',
-      album: map['album'] as String? ?? '',
-    );
+    if (value is double) {
+      return Duration(milliseconds: value.round());
+    }
+    if (value is num) {
+      return Duration(milliseconds: value.toInt());
+    }
+    return null;
+  }
+
+  int? _parseIndex(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is double) {
+      return value.isNaN ? null : value.round();
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return null;
   }
 
   @override
@@ -278,9 +327,6 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
   }
 
   Widget _buildBody() {
-    final trackTitle = _track?.title ?? '';
-    final artist = _track?.artist ?? '';
-
     Widget content;
     switch (_lyricsDescriptor) {
       case LyricsStateDescriptor.initial:
@@ -294,53 +340,13 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         content = _buildMessage(_lyricsErrorMessage ?? '歌词加载失败');
         break;
       case LyricsStateDescriptor.loaded:
-        if (_lines.isEmpty) {
-          content = _buildMessage('暂无歌词');
-        } else {
-          content = _buildLyricsContent();
-        }
+        content = _lines.isEmpty
+            ? _buildMessage('暂无歌词')
+            : _buildLyricsContent();
         break;
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (trackTitle.isNotEmpty) ...[
-            Opacity(
-              opacity: 0.78,
-              child: Text(
-                trackTitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            if (artist.isNotEmpty)
-              Opacity(
-                opacity: 0.62,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    artist,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 16),
-          ],
-          Expanded(child: content),
-        ],
-      ),
-    );
+    return content;
   }
 
   Widget _buildMessage(String text) {
@@ -368,46 +374,18 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         _activeIndex >= 0 && _activeIndex < _lines.length
             ? _lines[_activeIndex]
             : null;
-    final LyricsLine? nextLine =
-        _activeIndex + 1 >= 0 && _activeIndex + 1 < _lines.length
-            ? _lines[_activeIndex + 1]
-            : null;
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _OutlinedLyricsLine(
-          line: activeLine,
-          highlighted: true,
-          showTranslation: _showTranslation,
-        ),
-        if (nextLine != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 18),
-            child: _OutlinedLyricsLine(
-              line: nextLine,
-              highlighted: false,
-              showTranslation: _showTranslation,
-            ),
-          ),
-      ],
+    return Center(
+      child: _OutlinedLyricsLine(
+        line: activeLine,
+        highlighted: true,
+        showTranslation: _showTranslation,
+      ),
     );
   }
 }
 
 enum LyricsStateDescriptor { initial, loading, loaded, empty, error }
-
-class _DesktopTrackInfo {
-  const _DesktopTrackInfo({
-    required this.title,
-    required this.artist,
-    required this.album,
-  });
-
-  final String title;
-  final String artist;
-  final String album;
-}
 
 class _OutlinedLyricsLine extends StatelessWidget {
   const _OutlinedLyricsLine({
