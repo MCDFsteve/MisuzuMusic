@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::{webview::Color, AppHandle, Emitter, Manager, State};
+#[cfg(target_os = "macos")]
+use tauri::ActivationPolicy;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LyricsPayload {
@@ -43,14 +45,26 @@ async fn get_lyrics_state(state: State<'_, SharedLyricsState>) -> Result<LyricsP
         .map_err(|_| "无法读取歌词状态".to_string())
 }
 
+#[tauri::command]
+fn exit_app(app: AppHandle) -> Result<(), ()> {
+    app.exit(0);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(SharedLyricsState::default())
-        .invoke_handler(tauri::generate_handler![update_lyrics, get_lyrics_state])
+        .invoke_handler(tauri::generate_handler![update_lyrics, get_lyrics_state, exit_app])
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            {
+                let _ = app.set_activation_policy(ActivationPolicy::Accessory);
+            }
+
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
+                let _ = window.set_skip_taskbar(true);
 
                 #[cfg(target_os = "windows")]
                 {
@@ -68,6 +82,14 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(err) = tokio::signal::ctrl_c().await {
+                    log::error!("等待 Ctrl+C 信号失败: {err}");
+                }
+                handle.exit(0);
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

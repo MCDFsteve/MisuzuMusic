@@ -51,7 +51,7 @@
         const fallback = document.createElement('div');
         fallback.textContent = DEFAULT_LINE;
         fallback.style.cssText = `
-          font-size: 48px;
+          font-size: 26px;
           font-weight: 700;
           color: #ffffff;
           text-align: center;
@@ -84,9 +84,9 @@
           ctx.clearRect(0, 0, width, height);
 
           const content = text || '—';
-          const maxWidth = width * 0.88;
-          let fontSize = Math.min(width, height) * 0.2;
-          fontSize = Math.max(fontSize, 24);
+          const maxWidth = width * 0.82;
+          let fontSize = Math.min(width, height) * 0.14;
+          fontSize = Math.max(fontSize, 20);
 
           const fontStack = "'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif";
           const setFont = () => {
@@ -105,9 +105,9 @@
           ctx.lineCap = 'round';
 
           ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = fontSize * 0.2;
+          ctx.shadowBlur = fontSize * 0.16;
 
-          ctx.lineWidth = Math.max(fontSize * 0.12, 3);
+          ctx.lineWidth = Math.max(fontSize * 0.08, 2.5);
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
           ctx.strokeText(content, width / 2, height / 2);
 
@@ -126,6 +126,22 @@
           drawLine(currentLine);
         };
 
+        const registerExitShortcuts = (tauri) => {
+          const handler = (event) => {
+            const key = event.key?.toLowerCase();
+            const comboPressed = event.metaKey || event.ctrlKey;
+            const exitViaQ = comboPressed && key === 'q';
+            const exitViaEsc = comboPressed && key === 'escape';
+
+            if (exitViaQ || exitViaEsc) {
+              event.preventDefault();
+              tauri.invoke('exit_app');
+            }
+          };
+
+          window.addEventListener('keydown', handler);
+        };
+
         async function init() {
           try {
             const tauri = await import('tauri://api');
@@ -136,6 +152,8 @@
             await tauri.event.listen('lyrics:update', ({ payload }) => {
               render(payload);
             });
+
+            registerExitShortcuts(tauri);
           } catch (error) {
             console.error('初始化 Tauri 接口失败:', error);
             drawLine(DEFAULT_LINE);
