@@ -343,13 +343,16 @@ class DesktopLyricsController {
       return;
     }
     try {
+      debugPrint('🪟 DesktopLyricsController: invoking setTransparent for windowId=$_lyricsWindowId');
       await _macosWindowChannel.invokeMethod(
         'setTransparent',
         <String, dynamic>{'windowId': _lyricsWindowId},
       );
       _windowTransparencySet = true;
-    } catch (error) {
-      //_log('⚠️ 设置窗口透明失败: $error');
+      debugPrint('🪟 DesktopLyricsController: setTransparent ok for windowId=$_lyricsWindowId');
+    } catch (error, stackTrace) {
+      debugPrint('🪟 DesktopLyricsController: setTransparent failed -> $error');
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 

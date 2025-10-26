@@ -18,6 +18,10 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
     WindowManagerPlusPlugin.RegisterGeneratedPlugins = RegisterGeneratedPlugins
 
+    if let delegate = NSApp.delegate as? AppDelegate {
+      delegate.configureChannelsIfNeeded(with: flutterViewController)
+    }
+
     super.awakeFromNib()
   }
 

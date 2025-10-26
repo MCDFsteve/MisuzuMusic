@@ -7,6 +7,7 @@ import window_manager_plus
 class AppDelegate: FlutterAppDelegate {
   private var hotKeyChannel: FlutterMethodChannel?
   private var windowChannel: FlutterMethodChannel?
+  private var channelsConfigured = false
   private lazy var menuLocalizationBundle: Bundle = {
     if let path = Bundle.main.path(forResource: "zh-Hans", ofType: "lproj"),
       let bundle = Bundle(path: path)
@@ -24,33 +25,41 @@ class AppDelegate: FlutterAppDelegate {
   override func applicationDidFinishLaunching(_ notification: Notification) {
     super.applicationDidFinishLaunching(notification)
 
-    DispatchQueue.main.async {
-      guard
-        let appDelegate = NSApp.delegate as? AppDelegate,
-        let controller = appDelegate.mainFlutterWindow?.contentViewController as? FlutterViewController
-      else {
-        return
-      }
-
-      appDelegate.hotKeyChannel = FlutterMethodChannel(
-        name: "com.aimessoft.misuzumusic/hotkeys",
-        binaryMessenger: controller.engine.binaryMessenger
-      )
-
-      appDelegate.windowChannel = FlutterMethodChannel(
-        name: "com.aimessoft.misuzumusic/macos_window",
-        binaryMessenger: controller.engine.binaryMessenger
-      )
-      appDelegate.windowChannel?.setMethodCallHandler(appDelegate.handleWindowChannel)
-
-      NSLog("✅ hotKeyChannel 初始化完成")
-
-      appDelegate.localizeMenuTitles()
-
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-        appDelegate.localizeMenuTitles()
-      }
+    configureChannelsIfNeeded()
+    configureChannelsIfNeeded()
+    localizeMenuTitles()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+      self.localizeMenuTitles()
     }
+  }
+
+  func configureChannelsIfNeeded(with controller: FlutterViewController? = nil) {
+    guard !channelsConfigured else {
+      return
+    }
+    let flutterController: FlutterViewController?
+    if let controller {
+      flutterController = controller
+    } else {
+      flutterController = mainFlutterWindow?.contentViewController as? FlutterViewController
+    }
+    guard let controller = flutterController else {
+      return
+    }
+
+    hotKeyChannel = FlutterMethodChannel(
+      name: "com.aimessoft.misuzumusic/hotkeys",
+      binaryMessenger: controller.engine.binaryMessenger
+    )
+
+    windowChannel = FlutterMethodChannel(
+      name: "com.aimessoft.misuzumusic/macos_window",
+      binaryMessenger: controller.engine.binaryMessenger
+    )
+    windowChannel?.setMethodCallHandler(handleWindowChannel)
+
+    channelsConfigured = true
+    NSLog("✅ macOS MethodChannels 初始化完成")
   }
 
   private func handleWindowChannel(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -109,6 +118,7 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   private func applyTransparentStyle(to window: NSWindow) {
+    NSLog("[Misuzu][Transparent] Applying styles to window title=\(window.title) number=\(window.windowNumber)")
     window.isOpaque = false
     window.backgroundColor = .clear
     window.hasShadow = false
