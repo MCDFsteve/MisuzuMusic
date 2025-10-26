@@ -316,6 +316,12 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
           PointerDeviceKind.trackpad,
         },
       ),
+      builder: (context, child) {
+        return ColoredBox(
+          color: Colors.transparent,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: GestureDetector(
         onPanStart: (_) => WindowManagerPlus.current.startDragging(),
         child: Scaffold(
@@ -346,7 +352,11 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         break;
     }
 
-    return content;
+    return Container(
+      color: Colors.transparent,
+      alignment: Alignment.center,
+      child: content,
+    );
   }
 
   Widget _buildMessage(String text) {

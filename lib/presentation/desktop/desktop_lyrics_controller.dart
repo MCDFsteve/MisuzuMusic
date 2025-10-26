@@ -49,7 +49,6 @@ class DesktopLyricsController {
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<LyricsState>? _lyricsSubscription;
 
-  Timer? _positionUpdateTimer;
   bool _initialized = false;
 
   late final _LyricsWindowListener _windowListener;
@@ -182,7 +181,6 @@ class DesktopLyricsController {
     await _trackSubscription?.cancel();
     await _positionSubscription?.cancel();
     await _lyricsSubscription?.cancel();
-    _positionUpdateTimer?.cancel();
     await _lyricsCubit.close();
     if (_listenerRegistered) {
       WindowManagerPlus.removeGlobalListener(_windowListener);
@@ -261,13 +259,10 @@ class DesktopLyricsController {
       return;
     }
 
-    _positionDirty = !_windowReady;
-    if (_positionUpdateTimer == null) {
-      _positionUpdateTimer = Timer(const Duration(milliseconds: 120), () {
-        _positionUpdateTimer?.cancel();
-        _positionUpdateTimer = null;
-        unawaited(_pushPosition());
-      });
+    if (_windowReady) {
+      unawaited(_pushPosition());
+    } else {
+      _positionDirty = true;
     }
   }
 
@@ -313,10 +308,12 @@ class DesktopLyricsController {
       await WindowManagerPlus.current.invokeMethodToWindow(
         _lyricsWindowId!,
         'desktop_lyrics_position',
-        <String, dynamic>{
-          'position': positionMs,
-          if (activeIndex != null) 'activeIndex': activeIndex,
-        },
+        activeIndex == null
+            ? positionMs
+            : <String, dynamic>{
+                'position': positionMs,
+                'activeIndex': activeIndex,
+              },
       );
     } catch (error) {
       _log('❌ 推送播放进度失败: $error');
@@ -329,8 +326,6 @@ class DesktopLyricsController {
     _windowReady = false;
     _stateDirty = false;
     _positionDirty = false;
-    _positionUpdateTimer?.cancel();
-    _positionUpdateTimer = null;
     if (isWindowOpenNotifier.value) {
       isWindowOpenNotifier.value = false;
     }
