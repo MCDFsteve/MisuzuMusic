@@ -19,23 +19,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: 更新 pubspec.yaml 版本号
+        shell: python
         run: |
-          python <<'PY'
-import os
-import re
-from pathlib import Path
+          import os
+          import re
+          from pathlib import Path
 
-target = Path('pubspec.yaml')
-if not target.exists():
-    raise SystemExit('pubspec.yaml 不存在，无法更新版本号')
-text = target.read_text(encoding='utf-8')
-next_version = os.environ['NEXT_VERSION']
-new_text, replaced = re.subn(r'^(version:\s*)([0-9]+\.[0-9]+\.[0-9]+)', f"\\g<1>{next_version}", text, flags=re.MULTILINE)
-if replaced == 0:
-    raise SystemExit('未能定位 version 字段，更新失败')
-target.write_text(new_text, encoding='utf-8')
-print(f"版本号已更新到 {next_version}")
-PY
+          target = Path('pubspec.yaml')
+          if not target.exists():
+              raise SystemExit('pubspec.yaml 不存在，无法更新版本号')
+          text = target.read_text(encoding='utf-8')
+          next_version = os.environ['NEXT_VERSION']
+          new_text, replaced = re.subn(r'^(version:\s*)([0-9]+\.[0-9]+\.[0-9]+)', f"\\g<1>{next_version}", text, flags=re.MULTILINE)
+          if replaced == 0:
+              raise SystemExit('未能定位 version 字段，更新失败')
+          target.write_text(new_text, encoding='utf-8')
+          print(f"版本号已更新到 {next_version}")
       - name: 提交版本号更新
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
