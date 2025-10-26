@@ -38,5 +38,5 @@ jobs:
       - name: 提交版本号更新
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: chore: bump version to ${{ inputs.next_version }}
+          commit_message: "chore: bump version to ${{ inputs.next_version }}"
           file_pattern: pubspec.yaml
