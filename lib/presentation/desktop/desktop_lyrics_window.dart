@@ -6,6 +6,8 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager_plus/window_manager_plus.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -79,6 +81,14 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
   Duration _position = Duration.zero;
   bool _showTranslation = true;
   int _activeIndex = -1;
+  bool _isLocked = false;
+  bool _controlsVisible = false;
+  bool _lockPointerInside = false;
+  bool _mousePassThroughEnabled = false;
+  bool _lockHotspotChecking = false;
+  Timer? _controlsVisibilityTimer;
+  Timer? _lockHotspotWatcher;
+  final FocusNode _keyboardFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -104,11 +114,25 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         debugPrintStack(stackTrace: stackTrace);
       }
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _keyboardFocusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
     WindowManagerPlus.current.removeListener(this);
+    _controlsVisibilityTimer?.cancel();
+    _lockHotspotWatcher?.cancel();
+    if (_mousePassThroughEnabled || _isLocked) {
+      unawaited(
+        WindowManagerPlus.current.setIgnoreMouseEvents(false),
+      );
+    }
+    _keyboardFocusNode.dispose();
     unawaited(
       WindowManagerPlus.current.invokeMethodToWindow(
         0,
@@ -352,11 +376,38 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: GestureDetector(
-        onPanStart: (_) => WindowManagerPlus.current.startDragging(),
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: _buildBody(),
+      home: MouseRegion(
+        onEnter: (_) => _handlePointerActivity(),
+        onHover: (_) => _handlePointerActivity(),
+        onExit: (_) => _handlePointerExit(),
+        opaque: false,
+        child: RawKeyboardListener(
+          focusNode: _keyboardFocusNode,
+          onKey: _handleKeyEvent,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onPanStart: (_) {
+              if (!_isLocked) {
+                WindowManagerPlus.current.startDragging();
+              }
+            },
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned.fill(child: _buildBody()),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: _buildLockButton(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -387,6 +438,201 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
       alignment: Alignment.center,
       child: content,
     );
+  }
+
+  Widget _buildLockButton() {
+    final bool shouldShow = _controlsVisible || _isLocked;
+    return IgnorePointer(
+      ignoring: !shouldShow,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 180),
+        opacity: shouldShow ? 1.0 : 0.0,
+        child: MouseRegion(
+          onEnter: (_) => _handleLockPointerChange(true),
+          onExit: (_) => _handleLockPointerChange(false),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => unawaited(_toggleLock()),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.32),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.4),
+                  width: 1,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 7,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isLocked ? Icons.lock : Icons.lock_open,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isLocked ? '窗口已锁' : '窗口可拖动',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handlePointerActivity() {
+    _controlsVisibilityTimer?.cancel();
+    if (!_controlsVisible && mounted) {
+      setState(() => _controlsVisible = true);
+    }
+    if (_isLocked) {
+      return;
+    }
+    _controlsVisibilityTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted || _isLocked) {
+        return;
+      }
+      setState(() => _controlsVisible = false);
+    });
+  }
+
+  void _handlePointerExit() {
+    if (_isLocked) {
+      return;
+    }
+    _controlsVisibilityTimer?.cancel();
+    if (_controlsVisible && mounted) {
+      setState(() => _controlsVisible = false);
+    }
+  }
+
+  void _handleLockPointerChange(bool inside) {
+    _lockPointerInside = inside;
+    if (_isLocked) {
+      unawaited(_setMousePassThrough(!inside));
+    }
+  }
+
+  Future<void> _toggleLock() async {
+    final bool nextLocked = !_isLocked;
+    setState(() {
+      _isLocked = nextLocked;
+      _controlsVisible = true;
+    });
+
+    if (nextLocked) {
+      _startLockHotspotWatcher();
+      await _setMousePassThrough(!_lockPointerInside);
+    } else {
+      _lockPointerInside = false;
+      _stopLockHotspotWatcher();
+      await _setMousePassThrough(false);
+      _handlePointerActivity();
+    }
+  }
+
+  Future<void> _setMousePassThrough(bool enabled) async {
+    if (_mousePassThroughEnabled == enabled) {
+      return;
+    }
+    _mousePassThroughEnabled = enabled;
+    try {
+      await WindowManagerPlus.current
+          .setIgnoreMouseEvents(enabled, forward: true);
+    } catch (error, stackTrace) {
+      debugPrint('更新窗口穿透状态失败: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  void _startLockHotspotWatcher() {
+    _lockHotspotWatcher ??=
+        Timer.periodic(const Duration(milliseconds: 200), (_) {
+      unawaited(_evaluateLockHotspot());
+    });
+  }
+
+  void _stopLockHotspotWatcher() {
+    _lockHotspotWatcher?.cancel();
+    _lockHotspotWatcher = null;
+  }
+
+  Future<void> _evaluateLockHotspot() async {
+    if (!_isLocked || _lockHotspotChecking) {
+      return;
+    }
+    _lockHotspotChecking = true;
+    try {
+      final Offset cursor = await screenRetriever.getCursorScreenPoint();
+      final Rect bounds = await WindowManagerPlus.current.getBounds();
+
+      final bool insideHorizontal =
+          cursor.dx >= bounds.left && cursor.dx <= bounds.right;
+      final bool insideVertical =
+          cursor.dy >= bounds.top && cursor.dy <= bounds.bottom;
+
+      if (!(insideHorizontal && insideVertical)) {
+        if (!_lockPointerInside) {
+          await _setMousePassThrough(true);
+        }
+        if (_controlsVisible && mounted) {
+          setState(() => _controlsVisible = false);
+        }
+        return;
+      }
+
+      const double hotspotHeight = 72;
+      final bool inHotspot = cursor.dy <= bounds.top + hotspotHeight;
+
+      if (inHotspot) {
+        if (!_controlsVisible && mounted) {
+          setState(() => _controlsVisible = true);
+        }
+        if (!_lockPointerInside) {
+          await _setMousePassThrough(false);
+        }
+      } else if (!_lockPointerInside) {
+        await _setMousePassThrough(true);
+        if (_controlsVisible && mounted) {
+          setState(() => _controlsVisible = false);
+        }
+      }
+    } catch (error, stackTrace) {
+      debugPrint('检测锁定热点失败: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      _lockHotspotChecking = false;
+    }
+  }
+
+  void _handleKeyEvent(RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) {
+      return;
+    }
+
+    final bool unlockShortcut =
+        (event.isControlPressed || event.isMetaPressed) &&
+        event.logicalKey == LogicalKeyboardKey.keyL;
+    final bool escapeUnlock =
+        event.logicalKey == LogicalKeyboardKey.escape && _isLocked;
+
+    if (unlockShortcut || escapeUnlock) {
+      unawaited(_toggleLock());
+    }
   }
 
   Widget _buildMessage(String text) {

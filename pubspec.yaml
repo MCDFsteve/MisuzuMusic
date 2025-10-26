@@ -69,6 +69,7 @@ dependencies:
   webdav_client: ^1.1.11
   http: ^1.2.1
   url_launcher: ^6.3.1
+  screen_retriever: ^0.2.0
 
 dev_dependencies:
   flutter_test:
