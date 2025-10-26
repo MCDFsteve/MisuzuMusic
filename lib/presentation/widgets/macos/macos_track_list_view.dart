@@ -119,7 +119,11 @@ class MacOSTrackListView extends StatelessWidget {
     }
 
     final actions = <MacosContextMenuAction>[]..addAll(customActions);
-    if (hasAdd) {
+    final isNetworkSong =
+        track.sourceType == TrackSourceType.netease ||
+        track.filePath.startsWith('netease://');
+    final allowLocalAdd = hasAdd && !isNetworkSong;
+    if (allowLocalAdd) {
       actions.add(
         MacosContextMenuAction(
           label: '添加到歌单',

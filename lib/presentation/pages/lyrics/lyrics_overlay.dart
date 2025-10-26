@@ -714,7 +714,7 @@ class _DesktopLyricsWindowButton extends StatelessWidget {
         final Widget button = _HoverGlyphButton(
           enabled: true,
           onPressed: controller.toggleWindow,
-          icon: Icons.lyrics,
+          icon: Icons.lyrics_outlined,
           size: 25,
           baseColor: iconColor,
           hoverColor: baseColor,

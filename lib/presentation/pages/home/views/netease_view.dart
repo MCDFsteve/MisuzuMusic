@@ -151,7 +151,7 @@ class _NeteaseViewState extends State<NeteaseView> {
     }
     return CollectionOverviewGrid(
       itemCount: state.playlists.length,
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 24,vertical: 24),
       scrollbarMargin: EdgeInsets.zero,
       itemBuilder: (context, tileWidth, index) {
         final playlist = state.playlists[index];
