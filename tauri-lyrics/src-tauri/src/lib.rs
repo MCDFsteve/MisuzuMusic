@@ -52,17 +52,6 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
 
-                #[cfg(target_os = "macos")]
-                {
-                    use window_vibrancy::apply_vibrancy;
-                    let _ = apply_vibrancy(
-                        &window,
-                        window_vibrancy::NSVisualEffectMaterial::HudWindow,
-                        None,
-                        None,
-                    );
-                }
-
                 #[cfg(target_os = "windows")]
                 {
                     use window_vibrancy::{apply_accent, AccentState};

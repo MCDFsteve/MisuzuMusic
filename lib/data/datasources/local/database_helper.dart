@@ -359,23 +359,35 @@ class DatabaseHelper {
 
       final ftsTokens = <String>{...tokens, ...kanaVariants};
 
+      // FTS5搜索 - 只对不包含特殊字符的token进行搜索
       if (ftsTokens.isNotEmpty) {
-        final ftsQuery = ftsTokens.map((token) => '$token*').join(' ');
-        final ftsResults = await db.rawQuery(
-          '''
-          SELECT tracks.* FROM tracks
-          JOIN tracks_fts ON tracks.rowid = tracks_fts.rowid
-          WHERE tracks_fts MATCH ?
-          ORDER BY tracks.title COLLATE NOCASE
-        ''',
-          [ftsQuery],
-        );
+        final validFtsTokens = ftsTokens
+            .where((token) => _isValidFtsToken(token))
+            .toList();
 
-        for (final rawRow in ftsResults) {
-          final row = Map<String, dynamic>.from(rawRow);
-          final key = extractRowKey(row);
-          if (seenKeys.add(key)) {
-            combinedResults.add(row);
+        if (validFtsTokens.isNotEmpty) {
+          final ftsQuery = validFtsTokens.map((token) => '"$token"*').join(' ');
+          try {
+            final ftsResults = await db.rawQuery(
+              '''
+              SELECT tracks.* FROM tracks
+              JOIN tracks_fts ON tracks.rowid = tracks_fts.rowid
+              WHERE tracks_fts MATCH ?
+              ORDER BY tracks.title COLLATE NOCASE
+            ''',
+              [ftsQuery],
+            );
+
+            for (final rawRow in ftsResults) {
+              final row = Map<String, dynamic>.from(rawRow);
+              final key = extractRowKey(row);
+              if (seenKeys.add(key)) {
+                combinedResults.add(row);
+              }
+            }
+          } catch (e) {
+            // 如果FTS查询还是失败，跳过FTS搜索，只使用LIKE搜索
+            print('FTS搜索失败，跳过: $e');
           }
         }
       }
@@ -466,5 +478,23 @@ class DatabaseHelper {
         'Failed to delete database: ${e.toString()}',
       );
     }
+  }
+
+  /// 检查token是否适合用于FTS5搜索
+  /// FTS5中的特殊字符包括: " ( ) { } [ ] : ; , . + - * / < > = ! @ # $ % ^ & | \ ~
+  bool _isValidFtsToken(String token) {
+    if (token.isEmpty) return false;
+
+    // FTS5特殊字符列表
+    const specialChars = r'''\"(){}[]:;,.+-*/<>=!@#$%^&|\~''';
+
+    // 检查是否包含特殊字符
+    for (int i = 0; i < token.length; i++) {
+      if (specialChars.contains(token[i])) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

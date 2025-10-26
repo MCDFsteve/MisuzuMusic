@@ -21,84 +21,130 @@
         pointer-events: none;
       }
       main {
-        text-align: center;
-        padding: 18px 28px;
-        backdrop-filter: blur(24px) saturate(140%);
-        background: rgba(12, 12, 18, 0.42);
-        border-radius: 20px;
-        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+        width: 100vw;
+        height: 100vh;
+        background: transparent;
         pointer-events: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      h1 {
-        font-size: 18px;
-        letter-spacing: 0.08em;
-        margin: 0 0 6px;
-        opacity: 0.72;
-      }
-      #track-meta {
-        font-size: 14px;
-        margin-bottom: 18px;
-        opacity: 0.65;
-      }
-      #active-line {
-        font-size: 32px;
-        font-weight: 800;
-        margin: 0 0 12px;
-        letter-spacing: 0.02em;
-        text-shadow: 0 6px 18px rgba(0, 0, 0, 0.58);
-      }
-      #next-line {
-        font-size: 20px;
-        opacity: 0.45;
+      #lyrics-canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+        background: transparent;
       }
     </style>
   </head>
   <body>
     <main data-tauri-drag-region>
-      <h1>Misuzu Lyrics</h1>
-      <div id="track-meta">等待从 Flutter 主程序接收歌词数据…</div>
-      <div id="active-line"></div>
-      <div id="next-line"></div>
+      <canvas id="lyrics-canvas"></canvas>
     </main>
     <script type="module">
-      const trackMeta = document.getElementById('track-meta');
-      const activeLine = document.getElementById('active-line');
-      const nextLine = document.getElementById('next-line');
+      const canvas = document.getElementById('lyrics-canvas');
+      const ctx = canvas?.getContext('2d');
+      const DEFAULT_LINE = '歌词加载中';
+      let currentLine = DEFAULT_LINE;
 
-      const formatMeta = (payload) => {
-        const title = payload?.title ?? '未知曲目';
-        const artist = payload?.artist ?? '未知歌手';
-        return `${title} · ${artist}`;
-      };
+      if (!canvas || !ctx) {
+        const fallback = document.createElement('div');
+        fallback.textContent = DEFAULT_LINE;
+        fallback.style.cssText = `
+          font-size: 48px;
+          font-weight: 700;
+          color: #ffffff;
+          text-align: center;
+          width: 100%;
+          pointer-events: auto;
+          text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        `;
+        document.body.innerHTML = '';
+        document.body.appendChild(fallback);
+        console.error('无法初始化 Canvas 渲染环境');
+      } else {
+        const resizeCanvas = () => {
+          const dpr = window.devicePixelRatio || 1;
+          const width = window.innerWidth;
+          const height = window.innerHeight;
 
-      const render = (payload) => {
-        if (!payload) {
-          trackMeta.textContent = '等待从 Flutter 主程序接收歌词数据…';
-          activeLine.textContent = '';
-          nextLine.textContent = '';
-          return;
-        }
+          canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        canvas.width = Math.max(1, Math.floor(width * dpr));
+        canvas.height = Math.max(1, Math.floor(height * dpr));
 
-        trackMeta.textContent = formatMeta(payload);
-        activeLine.textContent = payload?.active_line ?? '—';
-        nextLine.textContent = payload?.next_line ?? '';
-      };
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
 
-      async function init() {
-        try {
-          const tauri = await import('tauri://api');
-          const payload = await tauri.invoke('get_lyrics_state');
-          render(payload);
+        return { width, height };
+        };
 
-          await tauri.event.listen('lyrics:update', ({ payload }) => {
+        const drawLine = (text = '—') => {
+          const { width, height } = resizeCanvas();
+          ctx.clearRect(0, 0, width, height);
+
+          const content = text || '—';
+          const maxWidth = width * 0.88;
+          let fontSize = Math.min(width, height) * 0.2;
+          fontSize = Math.max(fontSize, 24);
+
+          const fontStack = "'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif";
+          const setFont = () => {
+            ctx.font = `900 ${fontSize}px ${fontStack}`;
+          };
+
+          setFont();
+          while (ctx.measureText(content).width > maxWidth && fontSize > 28) {
+            fontSize -= 2;
+            setFont();
+          }
+
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+          ctx.shadowBlur = fontSize * 0.2;
+
+          ctx.lineWidth = Math.max(fontSize * 0.12, 3);
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+          ctx.strokeText(content, width / 2, height / 2);
+
+          ctx.shadowBlur = fontSize * 0.05;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(content, width / 2, height / 2);
+        };
+
+        const resolveLine = (payload) => {
+          const text = payload?.active_line?.trim();
+          return text && text.length ? text : DEFAULT_LINE;
+        };
+
+        const render = (payload) => {
+          currentLine = resolveLine(payload);
+          drawLine(currentLine);
+        };
+
+        async function init() {
+          try {
+            const tauri = await import('tauri://api');
+            drawLine(currentLine);
+            const payload = await tauri.invoke('get_lyrics_state');
             render(payload);
-          });
-        } catch (error) {
-          console.error('初始化 Tauri 接口失败:', error);
-        }
-      }
 
-      init();
+            await tauri.event.listen('lyrics:update', ({ payload }) => {
+              render(payload);
+            });
+          } catch (error) {
+            console.error('初始化 Tauri 接口失败:', error);
+            drawLine(DEFAULT_LINE);
+          }
+        }
+
+        window.addEventListener('resize', () => drawLine(currentLine));
+        init();
+      }
     </script>
   </body>
 </html>
