@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <title>Misuzu Lyrics Helper</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: transparent;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+      main {
+        text-align: center;
+        padding: 18px 28px;
+        backdrop-filter: blur(24px) saturate(140%);
+        background: rgba(12, 12, 18, 0.42);
+        border-radius: 20px;
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+        pointer-events: auto;
+      }
+      h1 {
+        font-size: 18px;
+        letter-spacing: 0.08em;
+        margin: 0 0 6px;
+        opacity: 0.72;
+      }
+      #track-meta {
+        font-size: 14px;
+        margin-bottom: 18px;
+        opacity: 0.65;
+      }
+      #active-line {
+        font-size: 32px;
+        font-weight: 800;
+        margin: 0 0 12px;
+        letter-spacing: 0.02em;
+        text-shadow: 0 6px 18px rgba(0, 0, 0, 0.58);
+      }
+      #next-line {
+        font-size: 20px;
+        opacity: 0.45;
+      }
+    </style>
+  </head>
+  <body>
+    <main data-tauri-drag-region>
+      <h1>Misuzu Lyrics</h1>
+      <div id="track-meta">等待从 Flutter 主程序接收歌词数据…</div>
+      <div id="active-line"></div>
+      <div id="next-line"></div>
+    </main>
+    <script type="module">
+      const trackMeta = document.getElementById('track-meta');
+      const activeLine = document.getElementById('active-line');
+      const nextLine = document.getElementById('next-line');
+
+      const formatMeta = (payload) => {
+        const title = payload?.title ?? '未知曲目';
+        const artist = payload?.artist ?? '未知歌手';
+        return `${title} · ${artist}`;
+      };
+
+      const render = (payload) => {
+        if (!payload) {
+          trackMeta.textContent = '等待从 Flutter 主程序接收歌词数据…';
+          activeLine.textContent = '';
+          nextLine.textContent = '';
+          return;
+        }
+
+        trackMeta.textContent = formatMeta(payload);
+        activeLine.textContent = payload?.active_line ?? '—';
+        nextLine.textContent = payload?.next_line ?? '';
+      };
+
+      async function init() {
+        try {
+          const tauri = await import('tauri://api');
+          const payload = await tauri.invoke('get_lyrics_state');
+          render(payload);
+
+          await tauri.event.listen('lyrics:update', ({ payload }) => {
+            render(payload);
+          });
+        } catch (error) {
+          console.error('初始化 Tauri 接口失败:', error);
+        }
+      }
+
+      init();
+    </script>
+  </body>
+</html>

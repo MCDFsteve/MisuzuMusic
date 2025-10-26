@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' show Random;
 import 'dart:typed_data';
 
 import 'package:just_audio/just_audio.dart' hide PlayerState;
@@ -58,6 +59,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   PlayMode _playMode = PlayMode.repeatAll;
   double _volume = 1.0;
   DateTime _lastPositionPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
+
+  // Shuffle management
+  List<int> _shuffleIndexes = [];  // 洗牌后的索引列表
+  int _shufflePosition = 0;        // 当前在洗牌列表中的位置
 
   StreamSubscription? _playerStateSubscription;
   StreamSubscription? _positionSubscription;
@@ -435,6 +440,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       ..addAll(tracks);
     _notifyQueueChanged();
 
+    // 重置洗牌状态
+    _shuffleIndexes.clear();
+    _shufflePosition = 0;
+
     if (_queue.isEmpty) {
       _currentIndex = 0;
       await _clearPersistedQueue();
@@ -506,7 +515,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         await play(_queue[_currentIndex]);
         break;
       case PlayMode.shuffle:
+        print('🔀 Shuffle: skipToNext() 调用');
         _currentIndex = _getRandomIndex();
+        print('🔀 Shuffle: skipToNext() 获得索引: $_currentIndex');
         await _persistQueueState();
         await play(_queue[_currentIndex]);
         break;
@@ -531,7 +542,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         await play(_queue[_currentIndex]);
         break;
       case PlayMode.shuffle:
-        _currentIndex = _getRandomIndex();
+        print('🔀 Shuffle: skipToPrevious() 调用');
+        _currentIndex = _getPreviousShuffleIndex();
+        print('🔀 Shuffle: skipToPrevious() 获得索引: $_currentIndex');
         await _persistQueueState();
         await play(_queue[_currentIndex]);
         break;
@@ -551,12 +564,91 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   int _getRandomIndex() {
     if (_queue.length <= 1) return 0;
 
-    int newIndex;
-    do {
-      newIndex = DateTime.now().millisecondsSinceEpoch % _queue.length;
-    } while (newIndex == _currentIndex);
+    print('🔀 Shuffle: _getRandomIndex() 调用 - 当前位置: $_shufflePosition, 列表长度: ${_shuffleIndexes.length}');
 
-    return newIndex;
+    // 如果洗牌列表为空，重新生成洗牌列表
+    if (_shuffleIndexes.isEmpty) {
+      print('🔀 Shuffle: 洗牌列表为空，生成新列表');
+      _generateShuffleOrder();
+    }
+
+    // 如果已播放完，重新生成洗牌列表
+    if (_shufflePosition >= _shuffleIndexes.length) {
+      print('🔀 Shuffle: 洗牌列表播放完毕，重新生成');
+      _generateShuffleOrder();
+    }
+
+    // 从洗牌列表中获取下一个索引
+    final nextIndex = _shuffleIndexes[_shufflePosition];
+    print('🔀 Shuffle: 获取索引 $nextIndex (位置 $_shufflePosition)');
+    _shufflePosition++;
+    print('🔀 Shuffle: 位置递增到 $_shufflePosition');
+
+    return nextIndex;
+  }
+
+  int _getPreviousShuffleIndex() {
+    if (_queue.length <= 1) return 0;
+
+    print('🔀 Shuffle: _getPreviousShuffleIndex() 调用 - 当前位置: $_shufflePosition, 列表长度: ${_shuffleIndexes.length}');
+
+    // 如果洗牌列表为空，先生成洗牌列表
+    if (_shuffleIndexes.isEmpty) {
+      print('🔀 Shuffle: 洗牌列表为空，生成新列表');
+      _generateShuffleOrder();
+      _shufflePosition = _shuffleIndexes.length; // 设置到末尾
+      print('🔀 Shuffle: 设置位置到末尾: $_shufflePosition');
+    }
+
+    // 如果可以回退
+    if (_shufflePosition > 1) {
+      print('🔀 Shuffle: 可以回退，从位置 $_shufflePosition');
+      _shufflePosition -= 2; // 回退到上一个位置
+      final prevIndex = _shuffleIndexes[_shufflePosition];
+      print('🔀 Shuffle: 回退到位置 $_shufflePosition，获取索引 $prevIndex');
+      _shufflePosition++; // 恢复位置，为下次前进做准备
+      print('🔀 Shuffle: 恢复位置到 $_shufflePosition');
+      return prevIndex;
+    } else {
+      print('🔀 Shuffle: 无法回退（位置: $_shufflePosition），重新生成洗牌列表');
+      // 如果已经是第一首，重新生成洗牌列表并从最后开始
+      _generateShuffleOrder();
+      _shufflePosition = _shuffleIndexes.length - 1;
+      final lastIndex = _shuffleIndexes[_shufflePosition];
+      print('🔀 Shuffle: 从最后开始，位置 $_shufflePosition，索引 $lastIndex');
+      _shufflePosition++; // 设置为下一个位置
+      print('🔀 Shuffle: 设置位置到 $_shufflePosition');
+      return lastIndex;
+    }
+  }
+
+  // 生成洗牌顺序的函数
+  void _generateShuffleOrder() {
+    if (_queue.isEmpty) return;
+
+    print('🔀 Shuffle: 生成洗牌列表，队列长度: ${_queue.length}，当前播放索引: $_currentIndex');
+
+    // 创建索引列表，但排除当前正在播放的歌曲
+    _shuffleIndexes = <int>[];
+    for (int i = 0; i < _queue.length; i++) {
+      if (i != _currentIndex) {
+        _shuffleIndexes.add(i);
+      }
+    }
+
+    print('🔀 Shuffle: 排除当前歌曲后的列表: $_shuffleIndexes');
+
+    // Fisher-Yates 洗牌算法
+    final random = Random();
+    for (int i = _shuffleIndexes.length - 1; i > 0; i--) {
+      final j = random.nextInt(i + 1);
+      final temp = _shuffleIndexes[i];
+      _shuffleIndexes[i] = _shuffleIndexes[j];
+      _shuffleIndexes[j] = temp;
+    }
+
+    _shufflePosition = 0;
+    print('🔀 Shuffle: 最终洗牌列表: $_shuffleIndexes，重置位置到: $_shufflePosition');
   }
 
   @override
