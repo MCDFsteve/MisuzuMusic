@@ -144,6 +144,8 @@ class _NeteaseViewState extends State<NeteaseView> {
     }
     return CollectionOverviewGrid(
       itemCount: state.playlists.length,
+      padding: EdgeInsets.zero,
+      scrollbarMargin: EdgeInsets.zero,
       itemBuilder: (context, tileWidth, index) {
         final playlist = state.playlists[index];
         final subtitle = playlist.description?.trim().isNotEmpty == true
@@ -268,64 +270,17 @@ class _NeteaseViewState extends State<NeteaseView> {
       }
     }
 
-    var selectedId = playlists.first.id;
-    final result = await showMacosAlertDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          return MacosAlertDialog(
-            appIcon: const MacosIcon(CupertinoIcons.cloud),
-            title: const Text('添加到网易云歌单', locale: Locale('zh-Hans', 'zh')),
-            message: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('选择目标歌单', locale: Locale('zh-Hans', 'zh')),
-                const SizedBox(height: 12),
-                MacosPopupButton<int>(
-                  value: selectedId,
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() {
-                        selectedId = value;
-                      });
-                    }
-                  },
-                  items: [
-                    for (final playlist in playlists)
-                      MacosPopupMenuItem<int>(
-                        value: playlist.id,
-                        child: Text(
-                          playlist.name,
-                          locale: const Locale('zh-Hans', 'zh'),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-            primaryButton: PushButton(
-              controlSize: ControlSize.large,
-              onPressed: () => Navigator.of(ctx).pop(selectedId),
-              child: const Text('添加', locale: Locale('zh-Hans', 'zh')),
-            ),
-            secondaryButton: PushButton(
-              controlSize: ControlSize.large,
-              secondary: true,
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('取消', locale: Locale('zh-Hans', 'zh')),
-            ),
-          );
-        },
-      ),
+    final selectedId = await _showNeteasePlaylistSelectionSheet(
+      context,
+      playlists: playlists,
+      initialId: playlists.first.id,
     );
 
-    if (!mounted || result is! int) {
+    if (!mounted || selectedId == null) {
       return;
     }
 
-    final error = await cubit.addTrackToPlaylist(result, track);
+    final error = await cubit.addTrackToPlaylist(selectedId, track);
     if (!mounted) {
       return;
     }
@@ -334,6 +289,179 @@ class _NeteaseViewState extends State<NeteaseView> {
     } else {
       _showToast(error, isError: true);
     }
+  }
+}
+
+Future<int?> _showNeteasePlaylistSelectionSheet(
+  BuildContext context, {
+  required List<NeteasePlaylist> playlists,
+  required int initialId,
+}) {
+  return showPlaylistModalDialog<int>(
+    context: context,
+    builder: (_) => _NeteasePlaylistSelectionSheet(
+      playlists: playlists,
+      initialId: initialId,
+    ),
+  );
+}
+
+class _NeteasePlaylistSelectionSheet extends StatefulWidget {
+  const _NeteasePlaylistSelectionSheet({
+    required this.playlists,
+    required this.initialId,
+  });
+
+  final List<NeteasePlaylist> playlists;
+  final int initialId;
+
+  @override
+  State<_NeteasePlaylistSelectionSheet> createState() =>
+      _NeteasePlaylistSelectionSheetState();
+}
+
+class _NeteasePlaylistSelectionSheetState
+    extends State<_NeteasePlaylistSelectionSheet> {
+  late int? _selectedId = widget.initialId;
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playlists = widget.playlists;
+    final macTheme = MacosTheme.of(context);
+    final isDark = macTheme.brightness == Brightness.dark;
+
+    final body = ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 300),
+      child: MacosScrollbar(
+        controller: _controller,
+        child: ListView.separated(
+          controller: _controller,
+          shrinkWrap: true,
+          itemCount: playlists.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final playlist = playlists[index];
+            return _NeteasePlaylistEntryTile(
+              playlist: playlist,
+              isDark: isDark,
+              selectedId: _selectedId,
+              onSelected: () {
+                setState(() {
+                  _selectedId = playlist.id;
+                });
+              },
+            );
+          },
+        ),
+      ),
+    );
+
+    final actions = <Widget>[
+      _SheetActionButton.secondary(
+        label: '取消',
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      _SheetActionButton.primary(
+        label: '添加',
+        onPressed: _selectedId == null
+            ? null
+            : () => Navigator.of(context).pop(_selectedId),
+      ),
+    ];
+
+    return _PlaylistModalScaffold(
+      title: '添加到网易云歌单',
+      body: body,
+      actions: actions,
+      maxWidth: 360,
+      contentSpacing: 14,
+      actionsSpacing: 14,
+    );
+  }
+}
+
+class _NeteasePlaylistEntryTile extends StatelessWidget {
+  const _NeteasePlaylistEntryTile({
+    required this.playlist,
+    required this.isDark,
+    required this.selectedId,
+    required this.onSelected,
+  });
+
+  final NeteasePlaylist playlist;
+  final bool isDark;
+  final int? selectedId;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final macTheme = MacosTheme.of(context);
+    final subtitleColor = isDark
+        ? Colors.white.withOpacity(0.65)
+        : Colors.black.withOpacity(0.6);
+    final selected = playlist.id == selectedId;
+
+    return GestureDetector(
+      onTap: onSelected,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withOpacity(0.04)
+              : Colors.black.withOpacity(0.02),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? macTheme.primaryColor.withOpacity(0.6)
+                : macTheme.dividerColor.withOpacity(0.4),
+            width: 0.6,
+          ),
+        ),
+        child: Row(
+          children: [
+            MacosRadioButton<int>(
+              value: playlist.id,
+              groupValue: selectedId,
+              onChanged: (_) => onSelected(),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    playlist.name,
+                    locale: const Locale('zh-Hans', 'zh'),
+                    style: macTheme.typography.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${playlist.trackCount} 首 · ${playlist.playCount} 次播放',
+                    locale: const Locale('zh-Hans', 'zh'),
+                    style: macTheme.typography.caption1.copyWith(
+                      fontSize: 11,
+                      color: subtitleColor,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 class _NeteaseLoginPlaceholder extends StatelessWidget {
