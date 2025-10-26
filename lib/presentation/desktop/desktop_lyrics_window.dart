@@ -74,7 +74,7 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
   bool _showTranslation = true;
   int _activeIndex = -1;
 
-  void _log(String message) {
+  void //_log(String message) {
     debugPrint('🪟 DesktopLyricsWindow: $message');
   }
 
@@ -84,26 +84,26 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     WindowManagerPlus.current.addListener(this);
     final hasInitialLyrics = widget.initialState['lyrics'] != null;
     final initialPosition = widget.initialState['position'];
-    _log('初始化歌词窗口: hasInitialLyrics=$hasInitialLyrics, position=$initialPosition');
+    //_log('初始化歌词窗口: hasInitialLyrics=$hasInitialLyrics, position=$initialPosition');
     _applyInitialState(widget.initialState);
     scheduleMicrotask(() async {
       try {
-        _log('发送 desktop_lyrics_ready');
+        //_log('发送 desktop_lyrics_ready');
         final result = await WindowManagerPlus.current
             .invokeMethodToWindow(0, 'desktop_lyrics_ready');
-        _log('desktop_lyrics_ready 发送完成，返回值: $result');
+        //_log('desktop_lyrics_ready 发送完成，返回值: $result');
       } catch (error, stackTrace) {
-        _log('发送 desktop_lyrics_ready 失败: $error');
+        //_log('发送 desktop_lyrics_ready 失败: $error');
         debugPrintStack(stackTrace: stackTrace);
       }
 
       try {
-        _log('发送 desktop_lyrics_request_state');
+        //_log('发送 desktop_lyrics_request_state');
         final result = await WindowManagerPlus.current
             .invokeMethodToWindow(0, 'desktop_lyrics_request_state');
-        _log('desktop_lyrics_request_state 发送完成，返回值: $result');
+        //_log('desktop_lyrics_request_state 发送完成，返回值: $result');
       } catch (error, stackTrace) {
-        _log('发送 desktop_lyrics_request_state 失败: $error');
+        //_log('发送 desktop_lyrics_request_state 失败: $error');
         debugPrintStack(stackTrace: stackTrace);
       }
     });
@@ -130,16 +130,16 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
       case 'desktop_lyrics_state':
         if (arguments is Map) {
           final map = Map<String, dynamic>.from(arguments as Map);
-          _log('收到状态更新: keys=${map.keys}');
+          //_log('收到状态更新: keys=${map.keys}');
           _applyState(map);
         }
         break;
       case 'desktop_lyrics_position':
-        _log('收到位置更新: $arguments');
+        //_log('收到位置更新: $arguments');
         _applyPosition(arguments);
         break;
       default:
-        _log('未处理的事件 -> $eventName');
+        //_log('未处理的事件 -> $eventName');
     }
     return null;
   }
@@ -166,7 +166,7 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
       final Map<String, dynamic>? stateMap =
           payload['lyricsState'] as Map<String, dynamic>?;
       final String? status = stateMap?['status'] as String?;
-      _log('应用状态: lines=${_lines.length}, activeIndex=$activeIndexFromPayload, position=${_position.inMilliseconds}ms, status=$status');
+      //_log('应用状态: lines=${_lines.length}, activeIndex=$activeIndexFromPayload, position=${_position.inMilliseconds}ms, status=$status');
       switch (status) {
         case 'initial':
           _lyricsDescriptor = LyricsStateDescriptor.initial;
@@ -209,12 +209,12 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     }
 
     if (nextPosition == null) {
-      _log('位置负载无法解析，忽略');
+      //_log('位置负载无法解析，忽略');
       return;
     }
 
     if (nextPosition == _position && preferredIndex == null) {
-      _log('位置无变化，忽略');
+      //_log('位置无变化，忽略');
       return;
     }
 
@@ -227,7 +227,7 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
   void _updateActiveIndex({int? preferredIndex}) {
     if (_lines.isEmpty) {
       _activeIndex = -1;
-      _log('没有可用歌词行');
+      //_log('没有可用歌词行');
       return;
     }
 
@@ -235,12 +235,12 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         preferredIndex >= 0 &&
         preferredIndex < _lines.length) {
       _activeIndex = preferredIndex;
-      _log('使用传入 activeIndex=$_activeIndex');
+      //_log('使用传入 activeIndex=$_activeIndex');
       return;
     }
 
     _activeIndex = _findActiveIndex(_position) ?? -1;
-    _log('重新计算 activeIndex=$_activeIndex');
+    //_log('重新计算 activeIndex=$_activeIndex');
   }
 
   int? _findActiveIndex(Duration position) {
@@ -255,13 +255,13 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
           i + 1 < _lines.length ? _lines[i + 1].timestamp : null;
       if (position < current) {
         index = math.max(0, i - 1);
-        _log('position=${position.inMilliseconds} < ${current.inMilliseconds}, 使用 index=$index');
+        //_log('position=${position.inMilliseconds} < ${current.inMilliseconds}, 使用 index=$index');
         break;
       }
       if (next == null || position < next) {
         index = i;
         final nextLabel = next != null ? next.inMilliseconds.toString() : '∞';
-        _log('position=${position.inMilliseconds} 位于区间 [${current.inMilliseconds}, $nextLabel)，使用 index=$index');
+        //_log('position=${position.inMilliseconds} 位于区间 [${current.inMilliseconds}, $nextLabel)，使用 index=$index');
         break;
       }
     }
