@@ -116,7 +116,7 @@ class NeteaseApiClient {
     }
   }
 
-  Future<List<NeteaseTrackModel>> fetchPlaylistTracks({
+  Future<List<NeteaseTrackModel>?> fetchPlaylistTracks({
     required String cookie,
     required int playlistId,
   }) async {
@@ -128,11 +128,11 @@ class NeteaseApiClient {
       );
       final data = response.data;
       if (data is! Map) {
-        return const [];
+        return null;
       }
       final songs = data['songs'];
       if (songs is! List) {
-        return const [];
+        return null;
       }
       return songs
           .whereType<Map>()
@@ -144,7 +144,7 @@ class NeteaseApiClient {
           .toList();
     } catch (e) {
       print('⚠️ NeteaseApiClient: 获取歌单歌曲失败 -> $e');
-      return const [];
+      return null;
     }
   }
 

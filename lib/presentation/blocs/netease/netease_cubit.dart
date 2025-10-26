@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 
 import '../../../core/error/exceptions.dart';
@@ -20,13 +22,12 @@ class NeteaseCubit extends Cubit<NeteaseState> {
     try {
       final session = await _repository.loadSession();
       final playlists = _repository.getCachedPlaylists();
-      final tracks = _repository.getCachedPlaylistTracks();
       emit(
         state.copyWith(
           isInitializing: false,
           session: session,
           playlists: playlists,
-          playlistTracks: tracks,
+          playlistTracks: const {},
         ),
       );
       _hydrated = true;
@@ -79,9 +80,20 @@ class NeteaseCubit extends Cubit<NeteaseState> {
     bool force = false,
   }) async {
     final cached = state.playlistTracks[playlistId];
+
     if (!force && cached != null && cached.isNotEmpty) {
+      // 已有数据时依旧拉取远端刷新，但先返回缓存，提升响应速度。
+      unawaited(_refreshPlaylistInternal(playlistId));
       return cached;
     }
+
+    return _refreshPlaylistInternal(playlistId, fallback: cached);
+  }
+
+  Future<List<Track>> _refreshPlaylistInternal(
+    int playlistId, {
+    List<Track>? fallback,
+  }) async {
     try {
       final tracks = await _repository.fetchPlaylistTracks(playlistId);
       final updated = Map<int, List<Track>>.from(state.playlistTracks)
@@ -89,6 +101,10 @@ class NeteaseCubit extends Cubit<NeteaseState> {
       emit(state.copyWith(playlistTracks: updated));
       return tracks;
     } catch (e) {
+      if (fallback != null && fallback.isNotEmpty) {
+        emit(state.copyWith(errorMessage: e.toString()));
+        return fallback;
+      }
       emit(state.copyWith(errorMessage: e.toString()));
       return const [];
     }

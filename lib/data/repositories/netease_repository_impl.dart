@@ -148,17 +148,21 @@ class NeteaseRepositoryImpl implements NeteaseRepository {
       throw const AuthenticationException('网易云账号未登录');
     }
 
-    if (_cache.playlistTracks.containsKey(playlistId)) {
-      final cachedTracks = _cache.playlistTracks[playlistId] ?? const [];
-      return cachedTracks
-          .map((track) => track.toPlayerTrack(cookie: session.cookie))
-          .toList();
-    }
+    final cachedTracks = _cache.playlistTracks[playlistId];
 
     final tracks = await _apiClient.fetchPlaylistTracks(
       cookie: session.cookie,
       playlistId: playlistId,
     );
+
+    if (tracks == null) {
+      if (cachedTracks == null) {
+        return const [];
+      }
+      return cachedTracks
+          .map((track) => track.toPlayerTrack(cookie: session.cookie))
+          .toList();
+    }
 
     final updatedTracks = Map<int, List<NeteaseTrackModel>>.from(
       _cache.playlistTracks,
@@ -257,22 +261,19 @@ class NeteaseRepositoryImpl implements NeteaseRepository {
       return '添加到网易云歌单失败';
     }
 
+    final cachedTracks = _cache.playlistTracks[playlistId];
+    final exists =
+        cachedTracks?.any((element) => element.id == trackId) ?? false;
+
     final updatedTracks = Map<int, List<NeteaseTrackModel>>.from(
       _cache.playlistTracks,
-    );
-    final trackModels = List<NeteaseTrackModel>.from(
-      updatedTracks[playlistId] ?? const [],
-    );
-    final exists = trackModels.any((element) => element.id == trackId);
-    if (!exists) {
-      trackModels.insert(0, NeteaseTrackModel.fromTrack(track));
-    }
-    updatedTracks[playlistId] = trackModels;
+    )
+      ..remove(playlistId);
 
     final updatedPlaylists = _cache.playlists
         .map(
-          (playlist) => playlist.id == playlistId
-              ? playlist.copyWith(trackCount: trackModels.length)
+          (playlist) => playlist.id == playlistId && !exists
+              ? playlist.copyWith(trackCount: playlist.trackCount + 1)
               : playlist,
         )
         .toList();
