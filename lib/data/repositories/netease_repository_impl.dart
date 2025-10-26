@@ -51,7 +51,7 @@ class NeteaseRepositoryImpl implements NeteaseRepository {
   Future<NeteaseSession> loginWithCookie(String cookie) async {
     final profile = await _apiClient.fetchAccountProfile(cookie);
     if (profile == null) {
-      throw const AuthenticationException('网易云 Cookie 无效或已过期');
+      throw const AuthenticationException('网络歌曲 Cookie 无效或已过期');
     }
     final sessionModel = NeteaseSessionModel(
       cookie: cookie,
@@ -116,7 +116,7 @@ class NeteaseRepositoryImpl implements NeteaseRepository {
     await _ensureLoaded();
     final session = _cache.session;
     if (session == null) {
-      throw const AuthenticationException('网易云账号未登录');
+      throw const AuthenticationException('网络歌曲账号未登录');
     }
     final playlists = await _apiClient.fetchUserPlaylists(
       cookie: session.cookie,
@@ -145,7 +145,7 @@ class NeteaseRepositoryImpl implements NeteaseRepository {
     await _ensureLoaded();
     final session = _cache.session;
     if (session == null) {
-      throw const AuthenticationException('网易云账号未登录');
+      throw const AuthenticationException('网络歌曲账号未登录');
     }
 
     final cachedTracks = _cache.playlistTracks[playlistId];
@@ -180,7 +180,7 @@ class NeteaseRepositoryImpl implements NeteaseRepository {
     await _ensureLoaded();
     final session = _cache.session;
     if (session == null) {
-      throw const AuthenticationException('网易云账号未登录');
+      throw const AuthenticationException('网络歌曲账号未登录');
     }
     final id = int.tryParse(
       track.sourceId ?? track.id.replaceFirst('netease_', ''),
@@ -244,7 +244,7 @@ class NeteaseRepositoryImpl implements NeteaseRepository {
     await _ensureLoaded();
     final session = _cache.session;
     if (session == null) {
-      return '网易云账号未登录';
+      return '网络歌曲账号未登录';
     }
     final trackId = int.tryParse(
       track.sourceId ?? track.id.replaceFirst('netease_', ''),
@@ -258,7 +258,7 @@ class NeteaseRepositoryImpl implements NeteaseRepository {
       trackId: trackId,
     );
     if (!success) {
-      return '添加到网易云歌单失败';
+      return '添加到网络歌曲歌单失败';
     }
 
     final cachedTracks = _cache.playlistTracks[playlistId];

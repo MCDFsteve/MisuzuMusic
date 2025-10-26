@@ -530,28 +530,29 @@ class _LyricsPanel extends StatelessWidget {
               return Stack(
                 children: [
                   Positioned.fill(child: content),
-                  if (desktopLyricsController != null)
-                    Positioned(
-                      bottom: 200,
-                      right: 12,
-                      child: _DesktopLyricsWindowButton(
-                        controller: desktopLyricsController!,
-                        isDarkMode: isDarkMode,
-                      ),
-                    ),
                   // Report Error button (only show for nipaplay source)
                   if (showReportError)
                     Positioned(
-                      bottom: 140,
+                      bottom: 150,
                       right: 12,
                       child: _ReportErrorButton(
                         isDarkMode: isDarkMode,
                         onPressed: onReportError,
                       ),
                     ),
+                  // Desktop lyrics toggle button sits between report & download
+                  if (desktopLyricsController != null)
+                    Positioned(
+                      bottom: 110,
+                      right: 12,
+                      child: _DesktopLyricsWindowButton(
+                        controller: desktopLyricsController!,
+                        isDarkMode: isDarkMode,
+                      ),
+                    ),
                   // Download LRC button
                   Positioned(
-                    bottom: 80, // Above the translation button
+                    bottom: 70,
                     right: 12,
                     child: _DownloadLrcButton(
                       isDarkMode: isDarkMode,
@@ -708,38 +709,18 @@ class _DesktopLyricsWindowButton extends StatelessWidget {
         final Color iconColor = isOpen
             ? baseColor
             : baseColor.withOpacity(isDarkMode ? 0.78 : 0.72);
-        final Color backgroundColor = baseColor.withOpacity(isOpen ? 0.32 : 0.18);
-        final Color borderColor = baseColor.withOpacity(isOpen ? 0.5 : 0.35);
+        final String tooltip = isOpen ? '隐藏桌面歌词' : '显示桌面歌词';
 
-        final Widget button = GestureDetector(
-          onTap: controller.toggleWindow,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: borderColor, width: 1.1),
-              boxShadow: isOpen
-                  ? [
-                      BoxShadow(
-                        color: baseColor.withOpacity(0.2),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : const [],
-            ),
-            child: Icon(
-              Icons.lyrics,
-              color: iconColor,
-              size: 20,
-            ),
-          ),
+        final Widget button = _HoverGlyphButton(
+          enabled: true,
+          onPressed: controller.toggleWindow,
+          icon: Icons.lyrics,
+          size: 25,
+          baseColor: iconColor,
+          hoverColor: baseColor,
+          disabledColor: baseColor.withOpacity(0.38),
         );
 
-        final String tooltip = isOpen ? '隐藏桌面歌词' : '显示桌面歌词';
         return MacosTheme.maybeOf(context) != null
             ? MacosTooltip(message: tooltip, child: button)
             : Tooltip(message: tooltip, child: button);
@@ -795,16 +776,19 @@ class _HoverGlyphButton extends StatefulWidget {
   const _HoverGlyphButton({
     required this.enabled,
     required this.onPressed,
-    required this.assetPath,
     required this.baseColor,
     required this.hoverColor,
     required this.disabledColor,
+    this.assetPath,
+    this.icon,
     this.size = 30,
-  });
+  }) : assert(assetPath != null || icon != null,
+             'assetPath or icon must be provided');
 
   final bool enabled;
   final VoidCallback? onPressed;
-  final String assetPath;
+  final String? assetPath;
+  final IconData? icon;
   final Color baseColor;
   final Color hoverColor;
   final Color disabledColor;
@@ -855,15 +839,22 @@ class _HoverGlyphButtonState extends State<_HoverGlyphButton> {
 
   @override
   Widget build(BuildContext context) {
+    final Widget glyph;
+    if (widget.icon != null) {
+      glyph = Icon(widget.icon, size: widget.size, color: _pressing && _enabled ? widget.hoverColor : _currentColor);
+    } else {
+      glyph = MacosImageIcon(
+        AssetImage(widget.assetPath!),
+        size: widget.size,
+        color: _pressing && _enabled ? widget.hoverColor : _currentColor,
+      );
+    }
+
     final child = AnimatedScale(
       scale: _currentScale,
       duration: const Duration(milliseconds: 140),
       curve: _pressing ? Curves.easeInOut : Curves.easeOutBack,
-      child: MacosImageIcon(
-        AssetImage(widget.assetPath),
-        size: widget.size,
-        color: _pressing && _enabled ? widget.hoverColor : _currentColor,
-      ),
+      child: glyph,
     );
 
     final button = GestureDetector(

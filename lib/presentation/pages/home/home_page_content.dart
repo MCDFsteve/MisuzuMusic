@@ -326,7 +326,7 @@ class _HomePageContentState extends State<HomePageContent> {
           case 2:
             showBackButton = true;
             canNavigateBack = _neteaseCanNavigateBack;
-            backTooltip = '返回网易云歌单列表';
+            backTooltip = '返回网络歌曲歌单列表';
             if (canNavigateBack) {
               onNavigateBack = () =>
                   _neteaseViewKey.currentState?.exitToOverview();
@@ -654,7 +654,7 @@ class _HomePageContentState extends State<HomePageContent> {
       case 1:
         return '歌单';
       case 2:
-        return '网易云音乐';
+        return '网络歌曲';
       case 3:
         return '播放列表';
       case 4:
@@ -706,16 +706,16 @@ class _HomePageContentState extends State<HomePageContent> {
 
   String? _composeNeteaseStatsLabel(NeteaseState state) {
     if (!state.hasSession) {
-      return '未登录网易云';
+      return '未登录网络歌曲';
     }
     final totalTracks = state.playlists.fold<int>(
       0,
       (sum, playlist) => sum + (playlist.trackCount > 0 ? playlist.trackCount : 0),
     );
     if (totalTracks <= 0) {
-      return '网易云歌单';
+      return '网络歌曲歌单';
     }
-    return '网易云共 $totalTracks 首歌曲';
+    return '网络歌曲共 $totalTracks 首歌曲';
   }
 
   Widget _buildLyricsOverlay({required bool isMac}) {

@@ -68,7 +68,7 @@ def fetch_user_account(cookie_value: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="测试网易云音乐登录态接口")
+    parser = argparse.ArgumentParser(description="测试网络歌曲登录态接口")
     parser.add_argument(
         "--cookie",
         dest="cookie",

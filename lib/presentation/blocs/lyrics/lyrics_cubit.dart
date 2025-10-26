@@ -59,7 +59,7 @@ class LyricsCubit extends Cubit<LyricsState> {
       final onlineLyrics = await _loadLyricsFromOnline(track);
       if (isClosed) return;
       if (onlineLyrics != null && onlineLyrics.lines.isNotEmpty) {
-        print('🎼 LyricsCubit: 使用网易云歌词');
+        print('🎼 LyricsCubit: 使用网络歌曲歌词');
         emit(LyricsLoaded(_withSource(onlineLyrics, LyricsSource.netease)));
         return;
       }
@@ -161,7 +161,7 @@ class LyricsCubit extends Cubit<LyricsState> {
   }
 
   bool _needsTranslationUpgrade(Lyrics lyrics, Track track) {
-    // 用户更倾向使用本地/云端提供的歌词，不再额外尝试网易云翻译
+    // 用户更倾向使用本地/云端提供的歌词，不再额外尝试网络歌曲翻译
     return false;
   }
 

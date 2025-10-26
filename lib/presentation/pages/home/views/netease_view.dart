@@ -134,7 +134,7 @@ class _NeteaseViewState extends State<NeteaseView> {
   String _formatPlaylistDetail(NeteasePlaylist playlist) {
     final songsLabel = playlist.trackCount > 0
         ? '${playlist.trackCount} 首'
-        : '网易云歌单';
+        : '网络歌曲歌单';
     return '$songsLabel · 播放 ${_formatPlayCount(playlist.playCount)}';
   }
 
@@ -144,7 +144,7 @@ class _NeteaseViewState extends State<NeteaseView> {
     }
     if (state.playlists.isEmpty) {
       return _NeteaseEmptyMessage(
-        message: '还没有同步网易云歌单',
+        message: '还没有同步网络歌曲歌单',
         actionLabel: '刷新歌单',
         onAction: () => context.read<NeteaseCubit>().refreshPlaylists(),
       );
@@ -157,7 +157,7 @@ class _NeteaseViewState extends State<NeteaseView> {
         final playlist = state.playlists[index];
         final subtitle = playlist.description?.trim().isNotEmpty == true
             ? playlist.description!.trim()
-            : '网易云歌单';
+            : '网络歌曲歌单';
         final detailText = _formatPlaylistDetail(playlist);
         return CollectionSummaryCard(
           title: playlist.name,
@@ -245,7 +245,7 @@ class _NeteaseViewState extends State<NeteaseView> {
     if (track.sourceType == TrackSourceType.netease) {
       return [
         MacosContextMenuAction(
-          label: '添加到网易云歌单…',
+          label: '添加到网络歌曲歌单…',
           icon: CupertinoIcons.cloud_upload,
           onSelected: () => _promptAddTrackToNeteasePlaylist(track),
         ),
@@ -271,7 +271,7 @@ class _NeteaseViewState extends State<NeteaseView> {
       if (!mounted) return;
       playlists = cubit.state.playlists;
       if (playlists.isEmpty) {
-        _showToast('暂无可用的网易云歌单', isError: true);
+        _showToast('暂无可用的网络歌曲歌单', isError: true);
         return;
       }
     }
@@ -291,7 +291,7 @@ class _NeteaseViewState extends State<NeteaseView> {
       return;
     }
     if (error == null) {
-      _showToast('已添加到网易云歌单');
+      _showToast('已添加到网络歌曲歌单');
     } else {
       _showToast(error, isError: true);
     }
@@ -383,7 +383,7 @@ class _NeteasePlaylistSelectionSheetState
     ];
 
     return _PlaylistModalScaffold(
-      title: '添加到网易云歌单',
+      title: '添加到网络歌曲歌单',
       body: body,
       actions: actions,
       maxWidth: 360,
@@ -488,7 +488,7 @@ class _NeteaseLoginPlaceholder extends StatelessWidget {
             color: MacosColors.systemGrayColor,
           ),
           const SizedBox(height: 16),
-          const Text('需要先粘贴网易云 Cookie 才能读取歌单', locale: Locale("zh-Hans", "zh")),
+          const Text('需要先粘贴网络歌曲 Cookie 才能读取歌单', locale: Locale("zh-Hans", "zh")),
           const SizedBox(height: 12),
           PushButton(
             controlSize: ControlSize.large,
@@ -573,13 +573,13 @@ Future<String?> showNeteaseCookieDialog(
     context: context,
     builder: (ctx) => MacosAlertDialog(
       appIcon: const MacosIcon(CupertinoIcons.cloud),
-      title: const Text('粘贴网易云 Cookie', locale: Locale("zh-Hans", "zh")),
+      title: const Text('粘贴网络歌曲 Cookie', locale: Locale("zh-Hans", "zh")),
       message: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '打开 https://music.163.com/ 并登录后，使用浏览器复制包含 MUSIC_U、__csrf 等字段的 Cookie。',
+            '请在网络歌曲网页版登录后，通过浏览器开发者工具复制包含 MUSIC_U、__csrf 等字段的 Cookie。本应用不提供 Cookie 获取渠道，请勿向他人泄露。',
             locale: Locale("zh-Hans", "zh"),
           ),
           const SizedBox(height: 12),

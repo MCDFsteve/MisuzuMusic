@@ -802,7 +802,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         unawaited(_playbackHistoryRepository.updateTrackMetadata(updated));
       }
     } catch (e) {
-      print('⚠️ AudioService: 获取网易云封面失败 -> $e');
+      print('⚠️ AudioService: 获取网络歌曲封面失败 -> $e');
     }
   }
 
@@ -902,7 +902,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         track.filePath.startsWith('netease://')) {
       final playable = await _neteaseRepository.ensureTrackStream(track);
       if (playable == null) {
-        throw const AudioPlaybackException('网易云歌曲暂无法播放');
+        throw const AudioPlaybackException('网络歌曲暂无法播放');
       }
       await _replaceTrackInQueue(track, playable);
       if (identical(track, _currentTrack)) {

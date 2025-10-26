@@ -1425,7 +1425,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       _neteaseArtworkCache[key] = savedPath;
       return savedPath;
     } catch (e) {
-      print('⚠️ MusicLibraryRepository: 网易云封面获取失败 -> $e');
+      print('⚠️ MusicLibraryRepository: 网络歌曲封面获取失败 -> $e');
       _neteaseArtworkCache[key] = null;
       return null;
     }

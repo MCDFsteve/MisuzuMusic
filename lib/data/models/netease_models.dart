@@ -16,7 +16,7 @@ class NeteaseAccountModel {
   factory NeteaseAccountModel.fromJson(Map<String, dynamic> json) {
     return NeteaseAccountModel(
       userId: json['userId'] as int,
-      nickname: json['nickname'] as String? ?? '网易云用户',
+      nickname: json['nickname'] as String? ?? '网络歌曲用户',
       avatarUrl: json['avatarUrl'] as String?,
     );
   }
@@ -91,14 +91,14 @@ class NeteasePlaylistModel {
     final creator = payload['creator'];
     return NeteasePlaylistModel(
       id: (payload['id'] as num).toInt(),
-      name: payload['name'] as String? ?? '网易云歌单',
+      name: payload['name'] as String? ?? '网络歌曲歌单',
       trackCount:
           (payload['trackCount'] as num?)?.toInt() ??
           (payload['tracks'] is List ? (payload['tracks'] as List).length : 0),
       playCount: (payload['playCount'] as num?)?.toInt() ?? 0,
       creatorName: creator is Map && creator['nickname'] is String
           ? creator['nickname'] as String
-          : '网易云用户',
+          : '网络歌曲用户',
       coverUrl: payload['coverImgUrl'] as String?,
       description: payload['description'] as String?,
       updatedAt: payload['updateTime'] is num

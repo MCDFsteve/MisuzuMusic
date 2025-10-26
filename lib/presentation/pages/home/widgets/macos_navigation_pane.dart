@@ -20,7 +20,7 @@ class _MacOSNavigationPane extends StatelessWidget {
   static const _items = <_NavigationItem>[
     _NavigationItem(icon: CupertinoIcons.music_albums_fill, label: '音乐库'),
     _NavigationItem(icon: CupertinoIcons.square_stack_3d_up, label: '歌单'),
-    _NavigationItem(icon: CupertinoIcons.cloud, label: '网易云音乐'),
+    _NavigationItem(icon: CupertinoIcons.cloud, label: '网络歌曲'),
     _NavigationItem(icon: CupertinoIcons.music_note_list, label: '播放列表'),
     _NavigationItem(icon: CupertinoIcons.settings, label: '设置'),
   ];
