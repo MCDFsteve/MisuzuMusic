@@ -6,7 +6,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:window_manager_plus/window_manager_plus.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -48,6 +47,8 @@ Future<void> runDesktopLyricsWindow(
     TitleBarStyle.hidden,
     windowButtonVisibility: false,
   );
+  await WindowManagerPlus.current.setHasShadow(false);
+  await WindowManagerPlus.current.setBackgroundColor(Colors.transparent);
   await WindowManagerPlus.current.setTitle('Misuzu 桌面歌词');
 
   runApp(_DesktopLyricsApp(initialState: initialState));

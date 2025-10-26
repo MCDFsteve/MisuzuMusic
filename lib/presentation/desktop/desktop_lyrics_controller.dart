@@ -29,6 +29,8 @@ class DesktopLyricsController {
 
   final AudioPlayerService _audioPlayerService;
   final LyricsCubit _lyricsCubit;
+  static const MethodChannel _macosWindowChannel =
+      MethodChannel('com.aimessoft.misuzumusic/macos_window');
 
   final ValueNotifier<bool> isWindowOpenNotifier = ValueNotifier<bool>(false);
 
@@ -38,6 +40,7 @@ class DesktopLyricsController {
   bool _windowOpening = false;
   bool _stateDirty = false;
   bool _positionDirty = false;
+  bool _windowTransparencySet = false;
 
   Track? _currentTrack;
   Lyrics? _currentLyrics;
@@ -212,6 +215,7 @@ class DesktopLyricsController {
       case 'desktop_lyrics_ready':
         //_log('收到子窗口就绪事件');
         _windowReady = true;
+        await _ensureWindowTransparency();
         if (_stateDirty) {
           await _pushState(force: true);
         }
@@ -221,6 +225,7 @@ class DesktopLyricsController {
         break;
       case 'desktop_lyrics_request_state':
         //_log('子窗口请求状态同步');
+        await _ensureWindowTransparency();
         await _pushState(force: true);
         await _pushPosition(force: true);
         break;
@@ -330,12 +335,31 @@ class DesktopLyricsController {
     }
   }
 
+  Future<void> _ensureWindowTransparency() async {
+    if (!Platform.isMacOS) {
+      return;
+    }
+    if (_lyricsWindowId == null || !_windowReady || _windowTransparencySet) {
+      return;
+    }
+    try {
+      await _macosWindowChannel.invokeMethod(
+        'setTransparent',
+        <String, dynamic>{'windowId': _lyricsWindowId},
+      );
+      _windowTransparencySet = true;
+    } catch (error) {
+      //_log('⚠️ 设置窗口透明失败: $error');
+    }
+  }
+
   void _resetWindowState() {
     _lyricsWindow = null;
     _lyricsWindowId = null;
     _windowReady = false;
     _stateDirty = false;
     _positionDirty = false;
+    _windowTransparencySet = false;
     if (isWindowOpenNotifier.value) {
       isWindowOpenNotifier.value = false;
     }

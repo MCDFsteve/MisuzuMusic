@@ -330,7 +330,6 @@ class _NeteaseViewState extends State<NeteaseView> {
       return;
     }
     if (error == null) {
-      await cubit.ensurePlaylistTracks(result, force: true);
       _showToast('已添加到网易云歌单');
     } else {
       _showToast(error, isError: true);
