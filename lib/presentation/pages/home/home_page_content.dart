@@ -285,7 +285,7 @@ class _HomePageContentState extends State<HomePageContent> {
         });
       },
       builder: (context, playerState) {
-        final artworkPath = _currentArtworkPath(playerState);
+        final artworkSource = _currentArtworkSources(playerState);
         final currentTrack = _playerTrack(playerState);
         const headerHeight = 76.0;
         final sectionLabel = _currentSectionLabel(_selectedIndex);
@@ -367,10 +367,13 @@ class _HomePageContentState extends State<HomePageContent> {
                           switchOutCurve: Curves.easeIn,
                           transitionBuilder: (child, animation) =>
                               FadeTransition(opacity: animation, child: child),
-                          child: artworkPath != null
+                          child: artworkSource.hasSource
                               ? _BlurredArtworkBackground(
-                                  key: ValueKey<String>(artworkPath),
-                                  artworkPath: artworkPath,
+                                  key: ValueKey<String>(
+                                    artworkSource.cacheKey,
+                                  ),
+                                  artworkPath: artworkSource.localPath,
+                                  remoteImageUrl: artworkSource.remoteUrl,
                                   isDarkMode:
                                       MacosTheme.of(context).brightness ==
                                       Brightness.dark,
@@ -683,14 +686,36 @@ class _HomePageContentState extends State<HomePageContent> {
     return null;
   }
 
-  String? _currentArtworkPath(PlayerBlocState state) {
+  _ArtworkBackgroundSources _currentArtworkSources(
+    PlayerBlocState state,
+  ) {
     final track = _playerTrack(state);
-    final path = track?.artworkPath;
-    if (path == null || path.isEmpty) {
-      return null;
+    if (track == null) {
+      return const _ArtworkBackgroundSources();
     }
-    final file = File(path);
-    return file.existsSync() ? path : null;
+
+    String? localArtworkPath = track.artworkPath;
+    if (localArtworkPath != null && localArtworkPath.isNotEmpty) {
+      final file = File(localArtworkPath);
+      if (!file.existsSync()) {
+        localArtworkPath = null;
+      }
+    }
+
+    String? remoteArtworkUrl;
+    if (track.sourceType == TrackSourceType.netease) {
+      remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+    } else {
+      remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+        track.httpHeaders,
+        thumbnail: false,
+      );
+    }
+
+    return _ArtworkBackgroundSources(
+      localPath: localArtworkPath,
+      remoteUrl: remoteArtworkUrl,
+    );
   }
 
   String? _composeHeaderStatsLabel(MusicLibraryState state) {
@@ -1026,5 +1051,28 @@ class _HomePageContentState extends State<HomePageContent> {
         ),
       );
     }
+  }
+}
+
+class _ArtworkBackgroundSources {
+  const _ArtworkBackgroundSources({this.localPath, this.remoteUrl});
+
+  final String? localPath;
+  final String? remoteUrl;
+
+  bool get hasLocal => localPath != null && localPath!.isNotEmpty;
+
+  bool get hasRemote => remoteUrl != null && remoteUrl!.isNotEmpty;
+
+  bool get hasSource => hasLocal || hasRemote;
+
+  String get cacheKey {
+    if (hasLocal) {
+      return 'local_$localPath';
+    }
+    if (hasRemote) {
+      return 'remote_$remoteUrl';
+    }
+    return 'none';
   }
 }

@@ -48,11 +48,13 @@ Future<void> runDesktopLyricsWindow(
       true,
       visibleOnFullScreen: true,
     );
+    await WindowManagerPlus.current.setAsFrameless();
+  } else {
+    await WindowManagerPlus.current.setTitleBarStyle(
+      TitleBarStyle.hidden,
+      windowButtonVisibility: false,
+    );
   }
-  await WindowManagerPlus.current.setTitleBarStyle(
-    TitleBarStyle.hidden,
-    windowButtonVisibility: false,
-  );
   await WindowManagerPlus.current.setHasShadow(false);
   await WindowManagerPlus.current.setBackgroundColor(Colors.transparent);
   await WindowManagerPlus.current.setTitle('Misuzu 桌面歌词');

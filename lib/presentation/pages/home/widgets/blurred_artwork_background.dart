@@ -3,18 +3,22 @@ part of 'package:misuzu_music/presentation/pages/home_page.dart';
 class _BlurredArtworkBackground extends StatelessWidget {
   const _BlurredArtworkBackground({
     super.key,
-    required this.artworkPath,
+    this.artworkPath,
+    this.remoteImageUrl,
     required this.isDarkMode,
   });
 
-  final String artworkPath;
+  final String? artworkPath;
+  final String? remoteImageUrl;
   final bool isDarkMode;
 
   @override
   Widget build(BuildContext context) {
-    final file = File(artworkPath);
-    if (!file.existsSync()) {
-      return Container(color: MacosTheme.of(context).canvasColor);
+    final fallback = _buildFallbackBackground(context);
+
+    final Widget? baseImage = _buildBaseImage();
+    if (baseImage == null) {
+      return fallback;
     }
 
     final Color overlayStrong;
@@ -30,7 +34,6 @@ class _BlurredArtworkBackground extends StatelessWidget {
       overlayMid = Colors.white.withOpacity(0.28);
       overlayWeak = Colors.white.withOpacity(0.22);
     }
-
     return ClipRect(
       child: Stack(
         fit: StackFit.expand,
@@ -48,7 +51,7 @@ class _BlurredArtworkBackground extends StatelessWidget {
                     : Colors.white.withOpacity(0.28),
                 isDarkMode ? BlendMode.darken : BlendMode.screen,
               ),
-              child: Image.file(file, fit: BoxFit.cover),
+              child: baseImage,
             ),
           ),
           DecoratedBox(
@@ -63,5 +66,28 @@ class _BlurredArtworkBackground extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget? _buildBaseImage() {
+    if (artworkPath != null && artworkPath!.isNotEmpty) {
+      final file = File(artworkPath!);
+      if (file.existsSync()) {
+        return Image.file(file, fit: BoxFit.cover);
+      }
+    }
+
+    if (remoteImageUrl != null && remoteImageUrl!.isNotEmpty) {
+      return Image.network(
+        remoteImageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+      );
+    }
+
+    return null;
+  }
+
+  Widget _buildFallbackBackground(BuildContext context) {
+    return Container(color: MacosTheme.of(context).canvasColor);
   }
 }
