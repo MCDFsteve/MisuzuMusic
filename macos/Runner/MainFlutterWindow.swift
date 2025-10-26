@@ -1,6 +1,6 @@
 import Cocoa
 import FlutterMacOS
-import window_manager_plus
+import window_manager
 
 class MainFlutterWindow: NSWindow {
   override func awakeFromNib() {
@@ -16,7 +16,7 @@ class MainFlutterWindow: NSWindow {
     isMovableByWindowBackground = true
 
     RegisterGeneratedPlugins(registry: flutterViewController)
-    WindowManagerPlusPlugin.RegisterGeneratedPlugins = RegisterGeneratedPlugins
+    WindowManagerPlugin.RegisterGeneratedPlugins = RegisterGeneratedPlugins
 
     if let delegate = NSApp.delegate as? AppDelegate {
       delegate.configureChannelsIfNeeded(with: flutterViewController)

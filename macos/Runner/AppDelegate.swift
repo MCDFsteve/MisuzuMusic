@@ -1,12 +1,9 @@
 import Cocoa
 import FlutterMacOS
-import QuartzCore
-import window_manager_plus
 
 @main
 class AppDelegate: FlutterAppDelegate {
   private var hotKeyChannel: FlutterMethodChannel?
-  private var windowChannel: FlutterMethodChannel?
   private var channelsConfigured = false
   private lazy var menuLocalizationBundle: Bundle = {
     if let path = Bundle.main.path(forResource: "zh-Hans", ofType: "lproj"),
@@ -25,7 +22,6 @@ class AppDelegate: FlutterAppDelegate {
   override func applicationDidFinishLaunching(_ notification: Notification) {
     super.applicationDidFinishLaunching(notification)
 
-    configureChannelsIfNeeded()
     configureChannelsIfNeeded()
     localizeMenuTitles()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -52,174 +48,12 @@ class AppDelegate: FlutterAppDelegate {
       binaryMessenger: controller.engine.binaryMessenger
     )
 
-    windowChannel = FlutterMethodChannel(
-      name: "com.aimessoft.misuzumusic/macos_window",
-      binaryMessenger: controller.engine.binaryMessenger
-    )
-    windowChannel?.setMethodCallHandler(handleWindowChannel)
-
     channelsConfigured = true
     NSLog("✅ macOS MethodChannels 初始化完成")
   }
 
-  private func handleWindowChannel(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    NSLog("[Misuzu][MacOSWindow] method=\(call.method) args=\(String(describing: call.arguments))")
-    switch call.method {
-    case "setTransparent":
-      guard let args = call.arguments as? [String: Any] else {
-        result(FlutterError(code: "invalid_args", message: "Missing arguments", details: nil))
-        return
-      }
-
-      guard let windowId = parseInt64(from: args["windowId"]) else {
-        result(FlutterError(code: "invalid_args", message: "Missing windowId", details: nil))
-        return
-      }
-
-      guard let window = resolveWindow(by: windowId) else {
-        result(FlutterError(code: "window_not_found", message: "Cannot find window for id \(windowId)", details: nil))
-        return
-      }
-
-      applyTransparentStyle(to: window)
-      result(true)
-
-    default:
-      result(FlutterMethodNotImplemented)
-    }
-  }
-
-  private func resolveWindow(by id: Int64) -> NSWindow? {
-    if id == 0 {
-      return mainFlutterWindow
-    }
-
-    if let managerOptional = WindowManagerPlus.windowManagers[id],
-       let manager = managerOptional {
-      return manager.mainWindow
-    }
-
-    return NSApp.windows.first { window in
-      window.windowNumber == Int(id)
-    }
-  }
-
-  private func parseInt64(from value: Any?) -> Int64? {
-    switch value {
-    case let number as NSNumber:
-      return number.int64Value
-    case let intValue as Int:
-      return Int64(intValue)
-    case let int64Value as Int64:
-      return int64Value
-    default:
-      return nil
-    }
-  }
-
-  private func applyTransparentStyle(to window: NSWindow) {
-    NSLog("[Misuzu][Transparent] Applying styles to window title=\(window.title) number=\(window.windowNumber)")
-    if let panel = window as? NSPanel {
-      panel.hidesOnDeactivate = false
-      panel.isFloatingPanel = true
-      panel.level = .floating
-    } else {
-      window.level = .floating
-    }
-    window.collectionBehavior.insert(.canJoinAllSpaces)
-    window.collectionBehavior.insert(.fullScreenAuxiliary)
-    window.isOpaque = false
-    window.backgroundColor = .clear
-    window.hasShadow = false
-    window.titleVisibility = .hidden
-    window.titlebarAppearsTransparent = true
-    window.styleMask.insert(.fullSizeContentView)
-    window.contentView?.alphaValue = 1.0
-
-    makeViewTreeTransparent(window.contentView)
-    makeViewTreeTransparent(window.contentViewController?.view)
-    if let superview = window.contentView?.superview {
-      makeViewTreeTransparent(superview)
-    }
-    scheduleTransparentRefresh(for: window, remaining: 5)
-    logViewHierarchy(for: window)
-  }
-
-  private func makeViewTreeTransparent(_ view: NSView?) {
-    guard let view = view else {
-      return
-    }
-    if view.layer == nil {
-      view.wantsLayer = true
-    }
-    updateLayerTransparency(view.layer)
-    if let effectView = view as? NSVisualEffectView {
-      effectView.material = .fullScreenUI
-      effectView.state = .active
-      effectView.isEmphasized = false
-      effectView.blendingMode = .withinWindow
-    }
-    view.subviews.forEach { makeViewTreeTransparent($0) }
-  }
-
-  private func updateLayerTransparency(_ layer: CALayer?) {
-    guard let layer = layer else {
-      return
-    }
-    layer.isOpaque = false
-    layer.backgroundColor = NSColor.clear.cgColor
-    layer.masksToBounds = false
-    if let metalLayer = layer as? CAMetalLayer {
-      metalLayer.isOpaque = false
-      metalLayer.backgroundColor = NSColor.clear.cgColor
-    }
-    layer.sublayers?.forEach { updateLayerTransparency($0) }
-  }
-
-  private func scheduleTransparentRefresh(for window: NSWindow, remaining: Int) {
-    guard remaining > 0 else {
-      return
-    }
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self, weak window] in
-      guard let self, let window else {
-        return
-      }
-      self.makeViewTreeTransparent(window.contentView)
-      self.makeViewTreeTransparent(window.contentViewController?.view)
-      if let superview = window.contentView?.superview {
-        self.makeViewTreeTransparent(superview)
-      }
-      self.scheduleTransparentRefresh(for: window, remaining: remaining - 1)
-    }
-  }
-
-  private func logViewHierarchy(for window: NSWindow) {
-    #if DEBUG
-    let title = window.title.isEmpty ? "<untitled>" : window.title
-    NSLog("[Misuzu][Transparent] Dump begin for window: \(title)")
-    if let contentView = window.contentView {
-      logView(contentView, indent: "  ")
-    }
-    NSLog("[Misuzu][Transparent] Dump end")
-    #endif
-  }
-
-  private func logView(_ view: NSView, indent: String) {
-    let layerDescription: String
-    if let layer = view.layer {
-      let className = String(describing: type(of: layer))
-      layerDescription = "layer=\(className) opaque=\(layer.isOpaque) bg=\(layer.backgroundColor != nil)"
-    } else {
-      layerDescription = "layer=nil"
-    }
-    NSLog("[Misuzu][Transparent]\(indent)<\(String(describing: type(of: view)))> \(layerDescription)")
-    for subview in view.subviews {
-      logView(subview, indent: indent + "  ")
-    }
-  }
-
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-    return NSApp.windows.filter({ $0 is MainFlutterWindow || $0 is WindowManagerPlusFlutterWindow }).count == 1
+    return true
   }
 
   override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {

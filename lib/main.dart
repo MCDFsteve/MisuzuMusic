@@ -1,14 +1,11 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
-import 'package:window_manager_plus/window_manager_plus.dart';
+import 'package:window_manager/window_manager.dart' as wm;
 
 import 'core/di/dependency_injection.dart';
 import 'core/theme/theme_controller.dart';
-import 'presentation/desktop/desktop_lyrics_controller.dart';
-import 'presentation/desktop/desktop_lyrics_window.dart';
 import 'presentation/pages/home_page.dart';
 
 Future<void> _configureMainWindow() async {
@@ -17,19 +14,19 @@ Future<void> _configureMainWindow() async {
   }
 
   final bool isMacOS = Platform.isMacOS;
-  final windowOptions = WindowOptions(
+  final windowOptions = wm.WindowOptions(
     size: Size(1067, 600),
     minimumSize: Size(1067, 600),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.hidden,
+    titleBarStyle: wm.TitleBarStyle.hidden,
     windowButtonVisibility: isMacOS,
   );
 
-  await WindowManagerPlus.current.waitUntilReadyToShow(windowOptions, () async {
-    await WindowManagerPlus.current.show();
-    await WindowManagerPlus.current.focus();
+  await wm.windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await wm.windowManager.show();
+    await wm.windowManager.focus();
   });
 }
 
@@ -37,37 +34,12 @@ Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final bool isSupportedDesktop = Platform.isMacOS || Platform.isWindows;
-  final int windowId = isSupportedDesktop && args.isNotEmpty
-      ? int.tryParse(args[0]) ?? 0
-      : 0;
-
   if (isSupportedDesktop) {
-    await WindowManagerPlus.ensureInitialized(windowId);
-
-    final List<String> windowArgs = args.length > 1 ? args.sublist(1) : const [];
-    if (windowId != 0 && windowArgs.isNotEmpty && windowArgs.first == 'desktop_lyrics') {
-      final String? rawState = windowArgs.length > 1 ? windowArgs[1] : null;
-      final Map<String, dynamic> initialState;
-      if (rawState == null || rawState.isEmpty) {
-        initialState = const {};
-      } else {
-        final decoded = jsonDecode(rawState);
-        initialState = decoded is Map<String, dynamic>
-            ? Map<String, dynamic>.from(decoded)
-            : const {};
-      }
-      await runDesktopLyricsWindow(windowId, initialState);
-      return;
-    }
-
+    await wm.windowManager.ensureInitialized();
     await _configureMainWindow();
   }
 
   await DependencyInjection.init();
-
-  if (isSupportedDesktop && sl.isRegistered<DesktopLyricsController>()) {
-    await sl<DesktopLyricsController>().init();
-  }
 
   runApp(const MisuzuMusicApp());
 }
@@ -85,7 +57,8 @@ class MisuzuMusicApp extends StatelessWidget {
         final materialBrightness = switch (themeController.themeMode) {
           ThemeMode.dark => Brightness.dark,
           ThemeMode.light => Brightness.light,
-          ThemeMode.system => WidgetsBinding.instance.platformDispatcher.platformBrightness,
+          ThemeMode.system =>
+            WidgetsBinding.instance.platformDispatcher.platformBrightness,
         };
 
         // Windows 平台使用微软雅黑，避免字体显示不一致
@@ -109,13 +82,17 @@ class MisuzuMusicApp extends StatelessWidget {
         // Windows 平台为 MacosThemeData 设置微软雅黑字体
         final macosLightTheme = Platform.isWindows
             ? MacosThemeData.light().copyWith(
-                typography: _createWindowsTypography(MacosThemeData.light().typography),
+                typography: _createWindowsTypography(
+                  MacosThemeData.light().typography,
+                ),
               )
             : MacosThemeData.light();
 
         final macosDarkTheme = Platform.isWindows
             ? MacosThemeData.dark().copyWith(
-                typography: _createWindowsTypography(MacosThemeData.dark().typography),
+                typography: _createWindowsTypography(
+                  MacosThemeData.dark().typography,
+                ),
               )
             : MacosThemeData.dark();
 

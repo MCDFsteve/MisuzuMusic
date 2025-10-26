@@ -32,7 +32,6 @@ import '../storage/storage_path_provider.dart';
 import '../storage/binary_config_store.dart';
 import '../../data/storage/playlist_file_storage.dart';
 import '../../data/storage/netease_session_store.dart';
-import '../../presentation/desktop/desktop_lyrics_controller.dart';
 
 final sl = GetIt.instance;
 
@@ -84,10 +83,7 @@ class DependencyInjection {
       );
 
       sl.registerLazySingleton<NeteaseRepository>(
-        () => NeteaseRepositoryImpl(
-          apiClient: sl(),
-          sessionStore: sl(),
-        ),
+        () => NeteaseRepositoryImpl(apiClient: sl(), sessionStore: sl()),
       );
 
       sl.registerLazySingleton<LyricsRepository>(
@@ -162,18 +158,6 @@ class DependencyInjection {
       sl.registerLazySingleton(() => SaveLyrics(sl()));
       sl.registerLazySingleton(() => FindLyricsFile(sl()));
       sl.registerLazySingleton(() => FetchOnlineLyrics(sl()));
-
-      if (Platform.isMacOS || Platform.isWindows) {
-        sl.registerLazySingleton(
-          () => DesktopLyricsController(
-            audioPlayerService: sl<AudioPlayerService>(),
-            findLyricsFile: sl<FindLyricsFile>(),
-            loadLyricsFromFile: sl<LoadLyricsFromFile>(),
-            fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
-            getLyrics: sl<GetLyrics>(),
-          ),
-        );
-      }
 
       // Initialize services
       print('🚀 初始化服务...');

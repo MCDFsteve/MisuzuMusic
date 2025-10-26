@@ -19,7 +19,6 @@ import '../../widgets/common/hover_glow_overlay.dart';
 import '../../widgets/common/lyrics_display.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
-import '../../desktop/desktop_lyrics_controller.dart';
 
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
@@ -41,7 +40,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late final LyricsCubit _lyricsCubit;
   static bool _lastTranslationPreference = true;
   bool _showTranslation = _lastTranslationPreference;
-  DesktopLyricsController? _desktopLyricsController;
 
   @override
   void initState() {
@@ -54,11 +52,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
       getLyrics: sl<GetLyrics>(),
     )..loadLyricsForTrack(_currentTrack);
-
-    if (sl.isRegistered<DesktopLyricsController>()) {
-      _desktopLyricsController = sl<DesktopLyricsController>();
-      _desktopLyricsController?.updateShowTranslation(_showTranslation);
-    }
   }
 
   @override
@@ -90,7 +83,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _showTranslation = !_showTranslation;
     });
     _lastTranslationPreference = _showTranslation;
-    _desktopLyricsController?.updateShowTranslation(_showTranslation);
   }
 
   Future<void> _reportError() async {
@@ -106,7 +98,10 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             context: context,
             builder: (context) => PlaylistModalScaffold(
               title: '无法打开链接',
-              body: const Text('无法打开浏览器，请手动访问:\nhttps://nipaplay.aimes-soft.com/lyrics_service.php', locale: Locale("zh-Hans", "zh")),
+              body: const Text(
+                '无法打开浏览器，请手动访问:\nhttps://nipaplay.aimes-soft.com/lyrics_service.php',
+                locale: Locale("zh-Hans", "zh"),
+              ),
               actions: [
                 SheetActionButton.primary(
                   label: '确定',
@@ -173,7 +168,10 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             context: context,
             builder: (context) => PlaylistModalScaffold(
               title: '下载成功',
-              body: const Text('LRC歌词文件已保存到您选择的位置',locale: Locale("zh-Hans", "zh"),),
+              body: const Text(
+                'LRC歌词文件已保存到您选择的位置',
+                locale: Locale("zh-Hans", "zh"),
+              ),
               actions: [
                 SheetActionButton.primary(
                   label: '确定',
@@ -189,7 +187,10 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             context: context,
             builder: (context) => PlaylistModalScaffold(
               title: '下载失败',
-              body: const Text('无法保存LRC文件，请检查文件夹权限设置',locale: Locale("zh-Hans", "zh"),),
+              body: const Text(
+                '无法保存LRC文件，请检查文件夹权限设置',
+                locale: Locale("zh-Hans", "zh"),
+              ),
               actions: [
                 SheetActionButton.primary(
                   label: '确定',
@@ -208,7 +209,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           context: context,
           builder: (context) => PlaylistModalScaffold(
             title: '下载出错',
-            body: Text(errorMessage,locale: Locale("zh-Hans", "zh"),),
+            body: Text(errorMessage, locale: Locale("zh-Hans", "zh")),
             actions: [
               SheetActionButton.primary(
                 label: '确定',
@@ -265,7 +266,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             onToggleTranslation: _toggleTranslationVisibility,
             onDownloadLrc: _downloadLrcFile,
             onReportError: _reportError,
-            desktopLyricsController: _desktopLyricsController,
           ),
         ),
       ),
@@ -282,7 +282,6 @@ class _LyricsLayout extends StatelessWidget {
     required this.onToggleTranslation,
     required this.onDownloadLrc,
     required this.onReportError,
-    required this.desktopLyricsController,
   });
 
   final Track track;
@@ -292,7 +291,6 @@ class _LyricsLayout extends StatelessWidget {
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
-  final DesktopLyricsController? desktopLyricsController;
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +340,6 @@ class _LyricsLayout extends StatelessWidget {
                     onToggleTranslation: onToggleTranslation,
                     onDownloadLrc: onDownloadLrc,
                     onReportError: onReportError,
-                    desktopLyricsController: desktopLyricsController,
                   ),
                 ),
               ],
@@ -400,10 +397,11 @@ class _CoverColumn extends StatelessWidget {
     if (track.sourceType == TrackSourceType.netease) {
       remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
     } else {
-      remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
-        track.httpHeaders,
-        thumbnail: false,
-      ) ??
+      remoteArtworkUrl =
+          MysteryLibraryConstants.buildArtworkUrl(
+            track.httpHeaders,
+            thumbnail: false,
+          ) ??
           MysteryLibraryConstants.buildArtworkUrl(
             track.httpHeaders,
             thumbnail: true,
@@ -485,7 +483,6 @@ class _LyricsPanel extends StatelessWidget {
     required this.onToggleTranslation,
     required this.onDownloadLrc,
     required this.onReportError,
-    required this.desktopLyricsController,
   });
 
   final bool isDarkMode;
@@ -495,7 +492,6 @@ class _LyricsPanel extends StatelessWidget {
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
-  final DesktopLyricsController? desktopLyricsController;
 
   @override
   Widget build(BuildContext context) {
@@ -525,12 +521,12 @@ class _LyricsPanel extends StatelessWidget {
                   state is LyricsLoaded && _hasAnyTranslation(state.lyrics);
 
               final bool showReportError =
-                  state is LyricsLoaded && state.lyrics.source == LyricsSource.nipaplay;
+                  state is LyricsLoaded &&
+                  state.lyrics.source == LyricsSource.nipaplay;
 
               return Stack(
                 children: [
                   Positioned.fill(child: content),
-                  // Report Error button (only show for nipaplay source)
                   if (showReportError)
                     Positioned(
                       bottom: 150,
@@ -540,17 +536,6 @@ class _LyricsPanel extends StatelessWidget {
                         onPressed: onReportError,
                       ),
                     ),
-                  // Desktop lyrics toggle button sits between report & download
-                  if (desktopLyricsController != null)
-                    Positioned(
-                      bottom: 110,
-                      right: 12,
-                      child: _DesktopLyricsWindowButton(
-                        controller: desktopLyricsController!,
-                        isDarkMode: isDarkMode,
-                      ),
-                    ),
-                  // Download LRC button
                   Positioned(
                     bottom: 70,
                     right: 12,
@@ -560,7 +545,6 @@ class _LyricsPanel extends StatelessWidget {
                       onPressed: state is LyricsLoaded ? onDownloadLrc : null,
                     ),
                   ),
-                  // Translation toggle button
                   Positioned(
                     bottom: 20,
                     right: 12,
@@ -673,9 +657,19 @@ class _LyricsPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title, locale: Locale("zh-Hans", "zh"),style: titleStyle, textAlign: TextAlign.center),
+              Text(
+                title,
+                locale: Locale("zh-Hans", "zh"),
+                style: titleStyle,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
-              Text(subtitle, locale: Locale("zh-Hans", "zh"),style: subtitleStyle, textAlign: TextAlign.center),
+              Text(
+                subtitle,
+                locale: Locale("zh-Hans", "zh"),
+                style: subtitleStyle,
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -686,45 +680,6 @@ class _LyricsPanel extends StatelessWidget {
   bool _hasAnyTranslation(Lyrics lyrics) {
     return lyrics.lines.any(
       (line) => (line.translatedText ?? '').trim().isNotEmpty,
-    );
-  }
-}
-
-
-class _DesktopLyricsWindowButton extends StatelessWidget {
-  const _DesktopLyricsWindowButton({
-    required this.controller,
-    required this.isDarkMode,
-  });
-
-  final DesktopLyricsController controller;
-  final bool isDarkMode;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: controller.isWindowOpenNotifier,
-      builder: (context, isOpen, _) {
-        final Color baseColor = isDarkMode ? Colors.white : Colors.black87;
-        final Color iconColor = isOpen
-            ? baseColor
-            : baseColor.withOpacity(isDarkMode ? 0.78 : 0.72);
-        final String tooltip = isOpen ? '隐藏桌面歌词' : '显示桌面歌词';
-
-        final Widget button = _HoverGlyphButton(
-          enabled: true,
-          onPressed: controller.toggleWindow,
-          icon: Icons.lyrics_outlined,
-          size: 25,
-          baseColor: iconColor,
-          hoverColor: baseColor,
-          disabledColor: baseColor.withOpacity(0.38),
-        );
-
-        return MacosTheme.maybeOf(context) != null
-            ? MacosTooltip(message: tooltip, child: button)
-            : Tooltip(message: tooltip, child: button);
-      },
     );
   }
 }
@@ -782,8 +737,10 @@ class _HoverGlyphButton extends StatefulWidget {
     this.assetPath,
     this.icon,
     this.size = 30,
-  }) : assert(assetPath != null || icon != null,
-             'assetPath or icon must be provided');
+  }) : assert(
+         assetPath != null || icon != null,
+         'assetPath or icon must be provided',
+       );
 
   final bool enabled;
   final VoidCallback? onPressed;
@@ -841,7 +798,11 @@ class _HoverGlyphButtonState extends State<_HoverGlyphButton> {
   Widget build(BuildContext context) {
     final Widget glyph;
     if (widget.icon != null) {
-      glyph = Icon(widget.icon, size: widget.size, color: _pressing && _enabled ? widget.hoverColor : _currentColor);
+      glyph = Icon(
+        widget.icon,
+        size: widget.size,
+        color: _pressing && _enabled ? widget.hoverColor : _currentColor,
+      );
     } else {
       glyph = MacosImageIcon(
         AssetImage(widget.assetPath!),
@@ -1011,10 +972,7 @@ class _DownloadIconButtonState extends State<_DownloadIconButton> {
 }
 
 class _ReportErrorButton extends StatefulWidget {
-  const _ReportErrorButton({
-    required this.isDarkMode,
-    required this.onPressed,
-  });
+  const _ReportErrorButton({required this.isDarkMode, required this.onPressed});
 
   final bool isDarkMode;
   final VoidCallback onPressed;
@@ -1059,11 +1017,7 @@ class _ReportErrorButtonState extends State<_ReportErrorButton> {
   Widget build(BuildContext context) {
     final child = Transform.scale(
       scale: _currentScale,
-      child: Icon(
-        CupertinoIcons.pencil,
-        size: 25,
-        color: _currentColor,
-      ),
+      child: Icon(CupertinoIcons.pencil, size: 25, color: _currentColor),
     );
 
     final button = GestureDetector(
