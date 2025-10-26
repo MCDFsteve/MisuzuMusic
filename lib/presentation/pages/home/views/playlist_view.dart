@@ -99,7 +99,7 @@ class _PlaylistHistoryList extends StatelessWidget {
             final track = entry.track;
             final playCount = entry.playCount;
             String? remoteArtworkUrl;
-            if (track.sourceType == TrackSourceType.netease) {
+            if (track.isNeteaseTrack) {
               remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
             } else {
               remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(

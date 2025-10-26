@@ -231,3 +231,24 @@ class PlaybackHistoryEntry extends Entity {
     );
   }
 }
+
+extension TrackSourceExtensions on Track {
+  bool get isNeteaseTrack {
+    if (sourceType == TrackSourceType.netease) {
+      return true;
+    }
+    final lowerFilePath = filePath.toLowerCase();
+    if (lowerFilePath.startsWith('netease://')) {
+      return true;
+    }
+    final lowerId = id.toLowerCase();
+    if (lowerId.startsWith('netease_')) {
+      return true;
+    }
+    final lowerSourceId = sourceId?.toLowerCase();
+    if (lowerSourceId != null && lowerSourceId.startsWith('netease')) {
+      return true;
+    }
+    return false;
+  }
+}

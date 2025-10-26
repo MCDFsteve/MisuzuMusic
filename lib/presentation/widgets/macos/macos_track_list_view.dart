@@ -49,7 +49,7 @@ class MacOSTrackListView extends StatelessWidget {
           itemBuilder: (context, index) {
             final track = tracks[index];
             String? remoteArtworkUrl;
-            if (track.sourceType == TrackSourceType.netease) {
+            if (_isNetworkSong(track)) {
               remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
             } else {
               remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
@@ -119,10 +119,8 @@ class MacOSTrackListView extends StatelessWidget {
     }
 
     final actions = <MacosContextMenuAction>[]..addAll(customActions);
-    final isNetworkSong =
-        track.sourceType == TrackSourceType.netease ||
-        track.filePath.startsWith('netease://');
-    final allowLocalAdd = hasAdd && !isNetworkSong;
+    final isNeteaseTrack = track.isNeteaseTrack;
+    final allowLocalAdd = hasAdd && !isNeteaseTrack;
     if (allowLocalAdd) {
       actions.add(
         MacosContextMenuAction(
@@ -130,6 +128,10 @@ class MacOSTrackListView extends StatelessWidget {
           icon: CupertinoIcons.add_circled,
           onSelected: () => onAddToPlaylist?.call(track),
         ),
+      );
+    } else if (isNeteaseTrack) {
+      actions.addAll(
+        additionalActionsBuilder?.call(track) ?? const <MacosContextMenuAction>[],
       );
     }
     if (hasRemove) {
@@ -305,6 +307,8 @@ class MacOSTrackListView extends StatelessWidget {
     );
   }
 }
+
+  bool _isNetworkSong(Track track) => track.isNeteaseTrack;
 
 class _GlassDialogButton extends StatefulWidget {
   const _GlassDialogButton({

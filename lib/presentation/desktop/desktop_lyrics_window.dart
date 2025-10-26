@@ -382,14 +382,17 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
   }
 
   Widget _buildMessage(String text) {
-    return Text(
-      text,
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-      ),
+    final LyricsLine messageLine = LyricsLine(
+      timestamp: Duration.zero,
+      originalText: text,
+      translatedText: null,
+      annotatedTexts: const [],
+    );
+
+    return _OutlinedLyricsLine(
+      line: messageLine,
+      highlighted: true,
+      showTranslation: false,
     );
   }
 

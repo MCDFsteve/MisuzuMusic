@@ -242,7 +242,7 @@ class _NeteaseViewState extends State<NeteaseView> {
   }
 
   List<MacosContextMenuAction> _neteaseContextActions(Track track) {
-    if (track.sourceType == TrackSourceType.netease) {
+    if (track.isNeteaseTrack) {
       return [
         MacosContextMenuAction(
           label: '添加到网络歌曲歌单…',
