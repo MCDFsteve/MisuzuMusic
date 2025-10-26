@@ -4,9 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.tauri.dev",
   "build": {
-    "frontendDist": "../static",
-    "devPath": "../static",
-    "distDir": "../static"
+    "frontendDist": "../static"
   },
   "app": {
     "windows": [
