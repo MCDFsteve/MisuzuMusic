@@ -29,17 +29,27 @@ class ArtworkThumbnail extends StatelessWidget {
     if (artworkPath != null && artworkPath!.isNotEmpty) {
       final file = File(artworkPath!);
       if (file.existsSync()) {
-        return ClipRRect(
-          borderRadius: radius,
-          child: Image.file(
-            file,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                _buildPlaceholder(radius),
-          ),
-        );
+        try {
+          if (file.lengthSync() <= 12) {
+            file.deleteSync();
+          } else {
+            return ClipRRect(
+              borderRadius: radius,
+              child: Image.file(
+                file,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildPlaceholder(radius),
+              ),
+            );
+          }
+        } catch (_) {
+          try {
+            file.deleteSync();
+          } catch (_) {}
+        }
       }
     }
 

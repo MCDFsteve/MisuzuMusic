@@ -4,6 +4,7 @@ import FlutterMacOS
 @main
 class AppDelegate: FlutterAppDelegate {
   private var hotKeyChannel: FlutterMethodChannel?
+  private var channelsConfigured = false
   private lazy var menuLocalizationBundle: Bundle = {
     if let path = Bundle.main.path(forResource: "zh-Hans", ofType: "lproj"),
       let bundle = Bundle(path: path)
@@ -21,27 +22,34 @@ class AppDelegate: FlutterAppDelegate {
   override func applicationDidFinishLaunching(_ notification: Notification) {
     super.applicationDidFinishLaunching(notification)
 
-    DispatchQueue.main.async {
-      guard
-        let appDelegate = NSApp.delegate as? AppDelegate,
-        let controller = appDelegate.mainFlutterWindow?.contentViewController as? FlutterViewController
-      else {
-        return
-      }
-
-      appDelegate.hotKeyChannel = FlutterMethodChannel(
-        name: "com.aimessoft.misuzumusic/hotkeys",
-        binaryMessenger: controller.engine.binaryMessenger
-      )
-
-      NSLog("✅ hotKeyChannel 初始化完成")
-
-      appDelegate.localizeMenuTitles()
-
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-        appDelegate.localizeMenuTitles()
-      }
+    configureChannelsIfNeeded()
+    localizeMenuTitles()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+      self.localizeMenuTitles()
     }
+  }
+
+  func configureChannelsIfNeeded(with controller: FlutterViewController? = nil) {
+    guard !channelsConfigured else {
+      return
+    }
+    let flutterController: FlutterViewController?
+    if let controller {
+      flutterController = controller
+    } else {
+      flutterController = mainFlutterWindow?.contentViewController as? FlutterViewController
+    }
+    guard let controller = flutterController else {
+      return
+    }
+
+    hotKeyChannel = FlutterMethodChannel(
+      name: "com.aimessoft.misuzumusic/hotkeys",
+      binaryMessenger: controller.engine.binaryMessenger
+    )
+
+    channelsConfigured = true
+    NSLog("✅ macOS MethodChannels 初始化完成")
   }
 
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

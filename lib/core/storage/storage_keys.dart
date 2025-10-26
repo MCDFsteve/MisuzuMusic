@@ -12,4 +12,6 @@ class StorageKeys {
   static const libraryDirectories = 'library.directories';
   static const webDavSources = 'library.webdav_sources';
   static const webDavPasswords = 'library.webdav_passwords';
+  static const musicLibrarySortMode = 'library.sortMode';
+  static const playlistSortMode = 'playlist.sortMode';
 }

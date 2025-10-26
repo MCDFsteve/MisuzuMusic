@@ -57,10 +57,14 @@ class MaterialPlayerControlBar extends StatelessWidget {
           duration = playingState.duration;
           final track = playingState.track as Track;
           artworkPath = track.artworkPath;
-          remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
-            track.httpHeaders,
-            thumbnail: true,
-          );
+          if (track.sourceType == TrackSourceType.netease) {
+            remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+          } else {
+            remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+              track.httpHeaders,
+              thumbnail: true,
+            );
+          }
           currentTrack = playingState.track as Track;
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
@@ -91,11 +95,13 @@ class MaterialPlayerControlBar extends StatelessWidget {
               children: [
                 Text(
                   trackTitle,
+                  locale: Locale("zh-Hans", "zh"),
                   style: const TextStyle(fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   trackArtist,
+                  locale: Locale("zh-Hans", "zh"),
                   style: const TextStyle(fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -265,10 +271,12 @@ class MaterialPlayerControlBar extends StatelessWidget {
                   children: [
                     Text(
                       _formatDuration(position),
+                      locale: Locale("zh-Hans", "zh"),
                       style: const TextStyle(fontSize: 12),
                     ),
                     Text(
                       _formatDuration(duration),
+                      locale: Locale("zh-Hans", "zh"),
                       style: const TextStyle(fontSize: 12),
                     ),
                   ],

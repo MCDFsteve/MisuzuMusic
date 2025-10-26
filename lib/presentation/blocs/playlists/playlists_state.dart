@@ -7,6 +7,7 @@ class PlaylistsState extends Equatable {
     this.playlists = const [],
     this.playlistTracks = const {},
     this.errorMessage,
+    this.sortMode = TrackSortMode.titleAZ,
   });
 
   final bool isLoading;
@@ -14,6 +15,7 @@ class PlaylistsState extends Equatable {
   final List<Playlist> playlists;
   final Map<String, List<Track>> playlistTracks;
   final String? errorMessage;
+  final TrackSortMode sortMode;
 
   PlaylistsState copyWith({
     bool? isLoading,
@@ -22,6 +24,7 @@ class PlaylistsState extends Equatable {
     Map<String, List<Track>>? playlistTracks,
     String? errorMessage,
     bool clearError = false,
+    TrackSortMode? sortMode,
   }) {
     return PlaylistsState(
       isLoading: isLoading ?? this.isLoading,
@@ -29,6 +32,7 @@ class PlaylistsState extends Equatable {
       playlists: playlists ?? this.playlists,
       playlistTracks: playlistTracks ?? this.playlistTracks,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      sortMode: sortMode ?? this.sortMode,
     );
   }
 
@@ -39,5 +43,6 @@ class PlaylistsState extends Equatable {
     playlists,
     playlistTracks,
     errorMessage,
+    sortMode,
   ];
 }

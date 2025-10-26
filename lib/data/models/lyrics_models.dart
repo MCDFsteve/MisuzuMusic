@@ -6,6 +6,7 @@ class LyricsModel extends Lyrics {
     required super.trackId,
     required super.lines,
     required super.format,
+    super.source,
   });
 
   factory LyricsModel.fromEntity(Lyrics lyrics) {
@@ -13,6 +14,7 @@ class LyricsModel extends Lyrics {
       trackId: lyrics.trackId,
       lines: lyrics.lines.map((line) => LyricsLineModel.fromEntity(line)).toList(),
       format: lyrics.format,
+      source: lyrics.source,
     );
   }
 
@@ -58,6 +60,7 @@ class LyricsModel extends Lyrics {
       trackId: trackId,
       lines: lines.map((line) => (line as LyricsLineModel).toEntity()).toList(),
       format: format,
+      source: source,
     );
   }
 

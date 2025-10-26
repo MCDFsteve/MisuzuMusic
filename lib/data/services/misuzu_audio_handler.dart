@@ -184,11 +184,20 @@ class MisuzuAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
     if (artworkPath == null || artworkPath.isEmpty) {
       return null;
     }
+
+    // 检查是否是网络URL
+    if (artworkPath.startsWith('http://') || artworkPath.startsWith('https://')) {
+      return Uri.tryParse(artworkPath);
+    }
+
+    // 处理本地文件路径
     final file = File(artworkPath);
     if (file.existsSync()) {
       return Uri.file(file.path);
     }
-    return Uri.tryParse(artworkPath);
+
+    // 如果本地文件不存在，返回null而不是尝试解析可能无效的URI
+    return null;
   }
 
 }

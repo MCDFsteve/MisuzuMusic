@@ -271,7 +271,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
         return null;
       }
 
-      print('🎼 LyricsRepository: 使用网易云歌词 -> songId=$songId');
+      print('🎼 LyricsRepository: 使用网络歌曲歌词 -> songId=$songId');
       _logLyricsPreview(mergedLines);
       await saveLyrics(
         Lyrics(

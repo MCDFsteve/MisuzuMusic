@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Misuzu 音乐服务器</title>
+    <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-core/11.1.0/css/fabric.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            background: #faf9f8;
+            color: #323130;
+        }
+
+        .header {
+            background: #0078d4;
+            color: white;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .header p {
+            margin: 8px 0 0;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .ms-Card {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1.6px 3.6px 0 rgba(0,0,0,0.132), 0 0.3px 0.9px 0 rgba(0,0,0,0.108);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 1.6px 3.6px 0 rgba(0,0,0,0.132);
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .stat-card:hover {
+            box-shadow: 0 3.2px 7.2px 0 rgba(0,0,0,0.132);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #0078d4;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #605e5c;
+            font-size: 14px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .ms-TextField-field {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 12px;
+            border: 1px solid #8a8886;
+            border-radius: 2px;
+            font-size: 14px;
+        }
+
+        .ms-TextField-field:focus {
+            outline: none;
+            border-color: #0078d4;
+            border-width: 2px;
+            padding: 9px 11px;
+        }
+
+        .ms-Button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 2px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .ms-Button--primary {
+            background: #0078d4;
+            color: white;
+        }
+
+        .ms-Button--primary:hover {
+            background: #106ebe;
+        }
+
+        .ms-Button:disabled {
+            background: #f3f2f1;
+            color: #a19f9d;
+            cursor: not-allowed;
+        }
+
+        .tracks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .track-card {
+            background: white;
+            border: 1px solid #edebe9;
+            border-radius: 4px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .track-card:hover {
+            box-shadow: 0 3.2px 7.2px 0 rgba(0,0,0,0.132);
+            border-color: #0078d4;
+        }
+
+        .track-cover {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 2px;
+            object-fit: cover;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #0078d4 0%, #00bcf2 100%);
+        }
+
+        .track-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .track-artist {
+            color: #605e5c;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ms-MessageBar {
+            padding: 12px 16px;
+            border-radius: 2px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .ms-MessageBar.active {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ms-MessageBar--info {
+            background: #f3f2f1;
+            border-left: 4px solid #0078d4;
+        }
+
+        .ms-MessageBar--success {
+            background: #dff6dd;
+            border-left: 4px solid #107c10;
+        }
+
+        .ms-MessageBar--warning {
+            background: #fff4ce;
+            border-left: 4px solid #ffb900;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #605e5c;
+        }
+
+        .ms-Spinner {
+            border: 3px solid #f3f2f1;
+            border-top: 3px solid #0078d4;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .player {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #edebe9;
+            padding: 16px 24px;
+            display: none;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+        }
+
+        .player.active {
+            display: block;
+        }
+
+        .player-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .player-cover {
+            width: 56px;
+            height: 56px;
+            border-radius: 2px;
+            object-fit: cover;
+        }
+
+        .player-info {
+            flex: 1;
+        }
+
+        .player-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .player-artist {
+            color: #605e5c;
+            font-size: 13px;
+        }
+
+        audio {
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body class="ms-Fabric">
+    <div class="header">
+        <h1>🎵 Misuzu 音乐服务器</h1>
+        <p>您的私人音乐流媒体服务</p>
+    </div>
+
+    <div class="container">
+        <div class="ms-MessageBar" id="alert"></div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="tracksCount">-</div>
+                <div class="stat-label">曲目</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="artistsCount">-</div>
+                <div class="stat-label">艺术家</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="albumsCount">-</div>
+                <div class="stat-label">专辑</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="genresCount">-</div>
+                <div class="stat-label">流派</div>
+            </div>
+        </div>
+
+        <div class="ms-Card">
+            <div class="controls">
+                <input type="text" class="ms-TextField-field" id="searchBox" placeholder="搜索曲目、艺术家、专辑...">
+                <button class="ms-Button ms-Button--primary" onclick="searchTracks()">搜索</button>
+                <button class="ms-Button ms-Button--primary" onclick="loadTracks()">刷新</button>
+                <button class="ms-Button ms-Button--primary" id="scanBtn" onclick="startScan()">扫描音乐库</button>
+            </div>
+        </div>
+
+        <div class="ms-Card">
+            <h2 style="margin: 0 0 16px 0;">音乐库</h2>
+            <div class="tracks-grid" id="tracksGrid">
+                <div class="loading">
+                    <div class="ms-Spinner"></div>
+                    <p>正在加载音乐库...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="player" id="player">
+        <div class="player-content">
+            <img class="player-cover" id="playerCover" alt="封面">
+            <div class="player-info">
+                <div class="player-title" id="playerTitle">暂无播放</div>
+                <div class="player-artist" id="playerArtist"></div>
+            </div>
+            <audio id="audioPlayer" controls></audio>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let currentTracks = [];
+        let currentTrack = null;
+
+        async function init() {
+            await loadStats();
+            await loadTracks();
+            setupAudioPlayer();
+            setupSearchBox();
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('tracksCount').textContent = data.data.tracks;
+                    document.getElementById('artistsCount').textContent = data.data.artists;
+                    document.getElementById('albumsCount').textContent = data.data.albums;
+                    document.getElementById('genresCount').textContent = data.data.genres;
+
+                    if (data.data.scanner.isScanning) {
+                        showAlert('正在扫描音乐库...', 'info');
+                        document.getElementById('scanBtn').disabled = true;
+                    }
+                }
+            } catch (error) {
+                console.error('加载统计失败:', error);
+            }
+        }
+
+        async function loadTracks(limit = 200) {
+            try {
+                const response = await fetch(`${API_BASE}/tracks?limit=${limit}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    currentTracks = data.data.tracks;
+                    renderTracks(currentTracks);
+                }
+            } catch (error) {
+                console.error('加载曲目失败:', error);
+                document.getElementById('tracksGrid').innerHTML = '<div class="loading"><p>加载失败</p></div>';
+            }
+        }
+
+        function renderTracks(tracks) {
+            const grid = document.getElementById('tracksGrid');
+
+            if (tracks.length === 0) {
+                grid.innerHTML = '<div class="loading"><p>未找到音乐文件<br><br>请确认音乐库路径配置正确，然后点击"扫描音乐库"按钮</p></div>';
+                return;
+            }
+
+            grid.innerHTML = tracks.map(track => `
+                <div class="track-card" onclick="playTrack('${track.id}')">
+                    <img class="track-cover"
+                         src="${track.thumbnailUrl || track.coverUrl || ''}"
+                         alt="${track.title}"
+                         onerror="this.style.background='linear-gradient(135deg, #0078d4 0%, #00bcf2 100%)'">
+                    <div class="track-title" title="${track.title}">${track.title}</div>
+                    <div class="track-artist" title="${track.artist || '未知艺术家'}">${track.artist || '未知艺术家'}</div>
+                </div>
+            `).join('');
+        }
+
+        async function playTrack(trackId) {
+            try {
+                const track = currentTracks.find(t => t.id === trackId);
+                if (!track) return;
+
+                currentTrack = track;
+
+                const player = document.getElementById('player');
+                const audio = document.getElementById('audioPlayer');
+                const cover = document.getElementById('playerCover');
+                const title = document.getElementById('playerTitle');
+                const artist = document.getElementById('playerArtist');
+
+                audio.src = track.streamUrl;
+                cover.src = track.thumbnailUrl || track.coverUrl || '';
+                title.textContent = track.title;
+                artist.textContent = track.artist || '未知艺术家';
+
+                player.classList.add('active');
+                await audio.play();
+
+                fetch(`${API_BASE}/tracks/${trackId}/play`, { method: 'POST' }).catch(console.error);
+            } catch (error) {
+                console.error('播放失败:', error);
+                showAlert('播放失败', 'warning');
+            }
+        }
+
+        async function searchTracks() {
+            const query = document.getElementById('searchBox').value.trim();
+
+            if (!query) {
+                await loadTracks();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    currentTracks = data.data.tracks;
+                    renderTracks(currentTracks);
+                }
+            } catch (error) {
+                console.error('搜索失败:', error);
+                showAlert('搜索失败', 'warning');
+            }
+        }
+
+        async function startScan() {
+            if (!confirm('开始全量扫描音乐库？这可能需要一些时间。')) {
+                return;
+            }
+
+            try {
+                const btn = document.getElementById('scanBtn');
+                btn.disabled = true;
+                btn.textContent = '正在扫描...';
+
+                const response = await fetch(`${API_BASE}/scan`, { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('音乐库扫描已启动，请稍后刷新页面查看结果', 'success');
+
+                    setTimeout(async () => {
+                        await loadStats();
+                        await loadTracks();
+                        btn.disabled = false;
+                        btn.textContent = '扫描音乐库';
+                    }, 10000);
+                }
+            } catch (error) {
+                console.error('启动扫描失败:', error);
+                showAlert('启动扫描失败', 'warning');
+                document.getElementById('scanBtn').disabled = false;
+                document.getElementById('scanBtn').textContent = '扫描音乐库';
+            }
+        }
+
+        function setupAudioPlayer() {
+            const audio = document.getElementById('audioPlayer');
+
+            audio.addEventListener('ended', () => {
+                const currentIndex = currentTracks.findIndex(t => t.id === currentTrack?.id);
+                if (currentIndex >= 0 && currentIndex < currentTracks.length - 1) {
+                    playTrack(currentTracks[currentIndex + 1].id);
+                }
+            });
+
+            audio.addEventListener('error', (e) => {
+                console.error('播放错误:', e);
+                showAlert('播放出错', 'warning');
+            });
+        }
+
+        function setupSearchBox() {
+            const searchBox = document.getElementById('searchBox');
+            searchBox.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchTracks();
+                }
+            });
+        }
+
+        function showAlert(message, type = 'info') {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `ms-MessageBar ms-MessageBar--${type} active`;
+
+            setTimeout(() => {
+                alert.classList.remove('active');
+            }, 5000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -97,10 +97,29 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
       'trackNumber': track.trackNumber,
       'year': track.year,
       'genre': track.genre,
+      'sourceType': track.sourceType.name,
+      'sourceId': track.sourceId,
+      'remotePath': track.remotePath,
+      'httpHeaders': track.httpHeaders,
+      'contentHash': track.contentHash,
     };
   }
 
   Track _trackFromMap(Map<String, dynamic> map) {
+    final sourceTypeName = map['sourceType'] as String?;
+    final sourceType = sourceTypeName == null
+        ? TrackSourceType.local
+        : TrackSourceType.values.firstWhere(
+            (type) => type.name == sourceTypeName,
+            orElse: () => TrackSourceType.local,
+          );
+    final headers = map['httpHeaders'];
+    Map<String, String>? httpHeaders;
+    if (headers is Map) {
+      httpHeaders = headers.map(
+        (key, value) => MapEntry(key.toString(), value.toString()),
+      );
+    }
     return Track(
       id: map['id'] as String,
       title: map['title'] as String,
@@ -117,6 +136,11 @@ class PlaybackHistoryRepositoryImpl implements PlaybackHistoryRepository {
       trackNumber: (map['trackNumber'] as num?)?.toInt(),
       year: (map['year'] as num?)?.toInt(),
       genre: map['genre'] as String?,
+      sourceType: sourceType,
+      sourceId: map['sourceId'] as String?,
+      remotePath: map['remotePath'] as String?,
+      httpHeaders: httpHeaders,
+      contentHash: map['contentHash'] as String?,
     );
   }
 

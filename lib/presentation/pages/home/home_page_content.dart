@@ -11,7 +11,7 @@ class _HomePageContentState extends State<HomePageContent> {
   int _selectedIndex = 0;
   double _navigationWidth = 200;
 
-  static const double _navMinWidth = 100;
+  static const double _navMinWidth = 80;
   static const double _navMaxWidth = 220;
   String _searchQuery = '';
   String _activeSearchQuery = '';
@@ -23,8 +23,11 @@ class _HomePageContentState extends State<HomePageContent> {
       GlobalKey<_PlaylistsViewState>();
   final GlobalKey<_MusicLibraryViewState> _musicLibraryViewKey =
       GlobalKey<_MusicLibraryViewState>();
+  final GlobalKey<_NeteaseViewState> _neteaseViewKey =
+      GlobalKey<_NeteaseViewState>();
   bool _musicLibraryCanNavigateBack = false;
   bool _playlistsCanNavigateBack = false;
+  bool _neteaseCanNavigateBack = false;
   late final VoidCallback _focusManagerListener;
 
   @override
@@ -72,10 +75,31 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space) {
+    if (!Platform.isWindows) {
       return KeyEventResult.ignored;
     }
-    return KeyEventResult.ignored;
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.space) {
+      return KeyEventResult.ignored;
+    }
+
+    final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
+    if (focusedWidget is EditableText) {
+      return KeyEventResult.ignored;
+    }
+
+    _togglePlayPause();
+    return KeyEventResult.handled;
+  }
+
+  void _togglePlayPause() {
+    final bloc = context.read<PlayerBloc>();
+    final state = bloc.state;
+    if (state is PlayerPlaying) {
+      bloc.add(const PlayerPause());
+    } else if (state is PlayerPaused) {
+      bloc.add(const PlayerResume());
+    }
   }
 
   Future<void> _handleCreatePlaylistFromHeader() async {
@@ -218,7 +242,7 @@ class _HomePageContentState extends State<HomePageContent> {
     messenger?.clearSnackBars();
     messenger?.showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(locale: Locale("zh-Hans", "zh"), message),
         backgroundColor: isError ? Colors.redAccent : Colors.green,
         duration: const Duration(seconds: 3),
       ),
@@ -228,58 +252,57 @@ class _HomePageContentState extends State<HomePageContent> {
   Widget _buildMacOSLayout() {
     return BlocConsumer<PlayerBloc, PlayerBlocState>(
       listener: (context, playerState) {
-        if (!_lyricsVisible) {
-          return;
-        }
+        bool shouldHideLyrics = false;
+        Track? nextTrack = _playerTrack(playerState);
 
         if (playerState is PlayerInitial || playerState is PlayerError) {
-          if (mounted) {
-            setState(() {
-              _lyricsVisible = false;
-              _lyricsActiveTrack = null;
-            });
-          }
-          return;
-        }
-
-        if (playerState is PlayerStopped) {
+          shouldHideLyrics = true;
+          nextTrack = null;
+        } else if (playerState is PlayerStopped) {
           final hasQueuedTracks = playerState.queue.isNotEmpty;
           if (!hasQueuedTracks) {
-            if (mounted) {
-              setState(() {
-                _lyricsVisible = false;
-                _lyricsActiveTrack = null;
-              });
-            }
+            shouldHideLyrics = true;
+            nextTrack = null;
           }
+        }
+
+        if (!mounted) {
           return;
         }
 
-        final track = _playerTrack(playerState);
-        if (track == null) {
+        final bool needsHideUpdate = shouldHideLyrics && _lyricsVisible;
+        final bool trackChanged = _lyricsActiveTrack != nextTrack;
+
+        if (!needsHideUpdate && !trackChanged) {
           return;
         }
 
-        if (_lyricsActiveTrack != track) {
-          if (mounted) {
-            setState(() {
-              _lyricsActiveTrack = track;
-            });
+        setState(() {
+          if (needsHideUpdate) {
+            _lyricsVisible = false;
           }
-        }
+          _lyricsActiveTrack = nextTrack;
+        });
       },
       builder: (context, playerState) {
-        final artworkPath = _currentArtworkPath(playerState);
+        final artworkSource = _currentArtworkSources(playerState);
         final currentTrack = _playerTrack(playerState);
         const headerHeight = 76.0;
         final sectionLabel = _currentSectionLabel(_selectedIndex);
-        final statsLabel = _composeHeaderStatsLabel(
-          context.watch<MusicLibraryBloc>().state,
-        );
+        final MusicLibraryState libraryState =
+            context.watch<MusicLibraryBloc>().state;
+        final NeteaseState neteaseState =
+            context.watch<NeteaseCubit>().state;
+
+        final String? statsLabel = _selectedIndex == 2
+            ? _composeNeteaseStatsLabel(neteaseState)
+            : _composeHeaderStatsLabel(libraryState);
         bool showBackButton = false;
         bool canNavigateBack = false;
         VoidCallback? onNavigateBack;
         String backTooltip = '返回上一层';
+        TrackSortMode? sortMode;
+        ValueChanged<TrackSortMode>? onSortModeChanged;
         final playlistsViewState = _playlistsViewKey.currentState;
         final musicLibraryViewState = _musicLibraryViewKey.currentState;
 
@@ -290,6 +313,15 @@ class _HomePageContentState extends State<HomePageContent> {
             backTooltip = '返回音乐库';
             if (canNavigateBack) {
               onNavigateBack = () => musicLibraryViewState?.exitToOverview();
+              final musicState = context.read<MusicLibraryBloc>().state;
+              if (musicState is MusicLibraryLoaded) {
+                sortMode = musicState.sortMode;
+                onSortModeChanged = (mode) {
+                  context.read<MusicLibraryBloc>().add(
+                    ChangeSortModeEvent(mode),
+                  );
+                };
+              }
             }
             break;
           case 1:
@@ -298,11 +330,26 @@ class _HomePageContentState extends State<HomePageContent> {
             backTooltip = '返回歌单列表';
             if (canNavigateBack) {
               onNavigateBack = () => playlistsViewState?.exitToOverview();
+              sortMode = context.read<PlaylistsCubit>().state.sortMode;
+              onSortModeChanged = (mode) {
+                context.read<PlaylistsCubit>().changeSortMode(mode);
+              };
+            }
+            break;
+          case 2:
+            showBackButton = true;
+            canNavigateBack = _neteaseCanNavigateBack;
+            backTooltip = '返回网络歌曲歌单列表';
+            if (canNavigateBack) {
+              onNavigateBack = () =>
+                  _neteaseViewKey.currentState?.exitToOverview();
             }
             break;
           default:
             showBackButton = false;
         }
+        final bool showCreatePlaylistButton = _selectedIndex == 1;
+        final bool showSelectFolderButton = _selectedIndex == 0;
 
         return MacosWindow(
           titleBar: null,
@@ -320,10 +367,13 @@ class _HomePageContentState extends State<HomePageContent> {
                           switchOutCurve: Curves.easeIn,
                           transitionBuilder: (child, animation) =>
                               FadeTransition(opacity: animation, child: child),
-                          child: artworkPath != null
+                          child: artworkSource.hasSource
                               ? _BlurredArtworkBackground(
-                                  key: ValueKey<String>(artworkPath),
-                                  artworkPath: artworkPath,
+                                  key: ValueKey<String>(
+                                    artworkSource.cacheKey,
+                                  ),
+                                  artworkPath: artworkSource.localPath,
+                                  remoteImageUrl: artworkSource.remoteUrl,
                                   isDarkMode:
                                       MacosTheme.of(context).brightness ==
                                       Brightness.dark,
@@ -393,6 +443,12 @@ class _HomePageContentState extends State<HomePageContent> {
                                         canNavigateBack: canNavigateBack,
                                         onNavigateBack: onNavigateBack,
                                         backTooltip: backTooltip,
+                                        sortMode: sortMode,
+                                        onSortModeChanged: onSortModeChanged,
+                                        showCreatePlaylistButton:
+                                            showCreatePlaylistButton,
+                                        showSelectFolderButton:
+                                            showSelectFolderButton,
                                       ),
                                     ),
                                   ),
@@ -412,25 +468,18 @@ class _HomePageContentState extends State<HomePageContent> {
                                         ),
                                       ),
                                       Positioned.fill(
-                                        child: AnimatedSwitcher(
+                                        child: AnimatedOpacity(
                                           duration: const Duration(
                                             milliseconds: 280,
                                           ),
-                                          switchInCurve: Curves.easeOut,
-                                          switchOutCurve: Curves.easeIn,
-                                          transitionBuilder:
-                                              (child, animation) =>
-                                                  FadeTransition(
-                                                    opacity: animation,
-                                                    child: child,
-                                                  ),
-                                          child: _lyricsVisible
-                                              ? _buildLyricsOverlay(isMac: true)
-                                              : const SizedBox.shrink(
-                                                  key: ValueKey(
-                                                    'lyrics_overlay_mac_empty',
-                                                  ),
-                                                ),
+                                          curve: Curves.easeInOut,
+                                          opacity: _lyricsVisible ? 1 : 0,
+                                          child: IgnorePointer(
+                                            ignoring: !_lyricsVisible,
+                                            child: _buildLyricsOverlay(
+                                              isMac: true,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -485,11 +534,23 @@ class _HomePageContentState extends State<HomePageContent> {
           },
         );
       case 2:
+        return NeteaseView(
+          key: _neteaseViewKey,
+          onAddToPlaylist: _handleAddTrackToPlaylist,
+          onDetailStateChanged: (value) {
+            if (_neteaseCanNavigateBack != value) {
+              setState(() {
+                _neteaseCanNavigateBack = value;
+              });
+            }
+          },
+        );
+      case 3:
         return PlaylistView(
           searchQuery: _activeSearchQuery,
           onAddToPlaylist: _handleAddTrackToPlaylist,
         );
-      case 3:
+      case 4:
         return const SettingsView();
       default:
         return MusicLibraryView(onAddToPlaylist: _handleAddTrackToPlaylist);
@@ -602,8 +663,10 @@ class _HomePageContentState extends State<HomePageContent> {
       case 1:
         return '歌单';
       case 2:
-        return '播放列表';
+        return '网络歌曲';
       case 3:
+        return '播放列表';
+      case 4:
         return '设置';
       default:
         return '音乐库';
@@ -623,14 +686,36 @@ class _HomePageContentState extends State<HomePageContent> {
     return null;
   }
 
-  String? _currentArtworkPath(PlayerBlocState state) {
+  _ArtworkBackgroundSources _currentArtworkSources(
+    PlayerBlocState state,
+  ) {
     final track = _playerTrack(state);
-    final path = track?.artworkPath;
-    if (path == null || path.isEmpty) {
-      return null;
+    if (track == null) {
+      return const _ArtworkBackgroundSources();
     }
-    final file = File(path);
-    return file.existsSync() ? path : null;
+
+    String? localArtworkPath = track.artworkPath;
+    if (localArtworkPath != null && localArtworkPath.isNotEmpty) {
+      final file = File(localArtworkPath);
+      if (!file.existsSync()) {
+        localArtworkPath = null;
+      }
+    }
+
+    String? remoteArtworkUrl;
+    if (track.sourceType == TrackSourceType.netease) {
+      remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+    } else {
+      remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+        track.httpHeaders,
+        thumbnail: false,
+      );
+    }
+
+    return _ArtworkBackgroundSources(
+      localPath: localArtworkPath,
+      remoteUrl: remoteArtworkUrl,
+    );
   }
 
   String? _composeHeaderStatsLabel(MusicLibraryState state) {
@@ -650,16 +735,24 @@ class _HomePageContentState extends State<HomePageContent> {
     return '共 $totalTracks 首歌曲 · ${hours} 小时 ${minutes} 分钟';
   }
 
-  Widget _buildLyricsOverlay({required bool isMac}) {
-    if (!_lyricsVisible) {
-      return const SizedBox.shrink();
+  String? _composeNeteaseStatsLabel(NeteaseState state) {
+    if (!state.hasSession) {
+      return '未登录网络歌曲';
     }
+    final totalTracks = state.playlists.fold<int>(
+      0,
+      (sum, playlist) => sum + (playlist.trackCount > 0 ? playlist.trackCount : 0),
+    );
+    if (totalTracks <= 0) {
+      return '网络歌曲歌单';
+    }
+    return '网络歌曲共 $totalTracks 首歌曲';
+  }
 
+  Widget _buildLyricsOverlay({required bool isMac}) {
     final track = _lyricsActiveTrack;
     if (track == null) {
-      return Center(
-        child: Text('暂无播放', style: Theme.of(context).textTheme.titleMedium),
-      );
+      return const SizedBox.shrink();
     }
 
     final artworkSignature = track.artworkPath?.isNotEmpty == true
@@ -690,7 +783,6 @@ class _HomePageContentState extends State<HomePageContent> {
 
     setState(() {
       _lyricsVisible = false;
-      _lyricsActiveTrack = null;
     });
   }
 
@@ -727,11 +819,11 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     context.read<MusicLibraryBloc>().add(
-          MountMysteryLibraryEvent(
-            code: normalizedCode,
-            baseUri: Uri.parse(MysteryLibraryConstants.defaultBaseUrl),
-          ),
-        );
+      MountMysteryLibraryEvent(
+        code: normalizedCode,
+        baseUri: Uri.parse(MysteryLibraryConstants.defaultBaseUrl),
+      ),
+    );
   }
 
   Future<void> _selectLocalFolder() async {
@@ -749,7 +841,7 @@ class _HomePageContentState extends State<HomePageContent> {
           print('🎵 开始扫描音乐文件夹...');
           context.read<MusicLibraryBloc>().add(ScanDirectoryEvent(result));
 
-          if (defaultTargetPlatform != TargetPlatform.macOS) {
+          if (!prefersMacLikeUi()) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
@@ -760,7 +852,12 @@ class _HomePageContentState extends State<HomePageContent> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(child: Text('正在扫描文件夹: ${result.split('/').last}')),
+                    Expanded(
+                      child: Text(
+                        locale: Locale("zh-Hans", "zh"),
+                        '正在扫描文件夹: ${result.split('/').last}',
+                      ),
+                    ),
                   ],
                 ),
                 duration: const Duration(seconds: 10),
@@ -877,7 +974,7 @@ class _HomePageContentState extends State<HomePageContent> {
     final message = webDavSource == null
         ? '添加了 $tracksAdded 首新歌曲'
         : '添加了 $tracksAdded 首新歌曲\n来源: ${webDavSource.name}';
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
+    if (prefersMacLikeUi()) {
       showMacosAlertDialog(
         context: context,
         builder: (_) => MacosAlertDialog(
@@ -887,17 +984,19 @@ class _HomePageContentState extends State<HomePageContent> {
             size: 64,
           ),
           title: Text(
+            locale: Locale("zh-Hans", "zh"),
             '扫描完成',
             style: MacosTheme.of(context).typography.headline,
           ),
           message: Text(
+            locale: Locale("zh-Hans", "zh"),
             message,
             textAlign: TextAlign.center,
             style: MacosTheme.of(context).typography.body,
           ),
           primaryButton: PushButton(
             controlSize: ControlSize.large,
-            child: const Text('好'),
+            child: const Text(locale: Locale("zh-Hans", "zh"), '好'),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -907,7 +1006,7 @@ class _HomePageContentState extends State<HomePageContent> {
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('✅ 扫描完成！$message'),
+          content: Text(locale: Locale("zh-Hans", "zh"), '✅ 扫描完成！$message'),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
         ),
@@ -916,7 +1015,7 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _showErrorDialog(BuildContext context, String message) {
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
+    if (prefersMacLikeUi()) {
       showMacosAlertDialog(
         context: context,
         builder: (_) => MacosAlertDialog(
@@ -926,17 +1025,19 @@ class _HomePageContentState extends State<HomePageContent> {
             size: 64,
           ),
           title: Text(
+            locale: Locale("zh-Hans", "zh"),
             '发生错误',
             style: MacosTheme.of(context).typography.headline,
           ),
           message: Text(
+            locale: Locale("zh-Hans", "zh"),
             message,
             textAlign: TextAlign.center,
             style: MacosTheme.of(context).typography.body,
           ),
           primaryButton: PushButton(
             controlSize: ControlSize.large,
-            child: const Text('好'),
+            child: const Text(locale: Locale("zh-Hans", "zh"), '好'),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -944,11 +1045,34 @@ class _HomePageContentState extends State<HomePageContent> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ $message'),
+          content: Text(locale: Locale("zh-Hans", "zh"), '❌ $message'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 5),
         ),
       );
     }
+  }
+}
+
+class _ArtworkBackgroundSources {
+  const _ArtworkBackgroundSources({this.localPath, this.remoteUrl});
+
+  final String? localPath;
+  final String? remoteUrl;
+
+  bool get hasLocal => localPath != null && localPath!.isNotEmpty;
+
+  bool get hasRemote => remoteUrl != null && remoteUrl!.isNotEmpty;
+
+  bool get hasSource => hasLocal || hasRemote;
+
+  String get cacheKey {
+    if (hasLocal) {
+      return 'local_$localPath';
+    }
+    if (hasRemote) {
+      return 'remote_$remoteUrl';
+    }
+    return 'none';
   }
 }

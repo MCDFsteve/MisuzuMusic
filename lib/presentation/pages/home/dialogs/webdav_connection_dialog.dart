@@ -49,8 +49,8 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
-    if (isMac) {
+    final isDesktopUi = prefersMacLikeUi();
+    if (isDesktopUi) {
       return MacosAlertDialog(
         appIcon: const MacosIcon(CupertinoIcons.cloud),
         title: const Text('连接到 WebDAV'),

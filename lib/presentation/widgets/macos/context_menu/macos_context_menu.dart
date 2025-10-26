@@ -300,6 +300,7 @@ class _MenuTileState extends State<_MenuTile> {
               Expanded(
                 child: Text(
                   widget.action.label,
+                  locale: Locale("zh-Hans", "zh"),
                   style:
                       Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: textColor,

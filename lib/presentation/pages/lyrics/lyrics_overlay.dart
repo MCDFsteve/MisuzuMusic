@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:misuzu_music/presentation/pages/home_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/services/lrc_export_service.dart';
@@ -84,6 +85,54 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _lastTranslationPreference = _showTranslation;
   }
 
+  Future<void> _reportError() async {
+    const url = 'https://nipaplay.aimes-soft.com/lyrics_service.php';
+    final uri = Uri.parse(url);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          showPlaylistModalDialog(
+            context: context,
+            builder: (context) => PlaylistModalScaffold(
+              title: '无法打开链接',
+              body: const Text(
+                '无法打开浏览器，请手动访问:\nhttps://nipaplay.aimes-soft.com/lyrics_service.php',
+                locale: Locale("zh-Hans", "zh"),
+              ),
+              actions: [
+                SheetActionButton.primary(
+                  label: '确定',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+              maxWidth: 400,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showPlaylistModalDialog(
+          context: context,
+          builder: (context) => PlaylistModalScaffold(
+            title: '打开链接出错',
+            body: Text('打开浏览器时出错: $e', locale: Locale("zh-Hans", "zh")),
+            actions: [
+              SheetActionButton.primary(
+                label: '确定',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+            maxWidth: 400,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _downloadLrcFile() async {
     final lyricsState = _lyricsCubit.state;
     if (lyricsState is! LyricsLoaded || _currentTrack == null) {
@@ -119,7 +168,10 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             context: context,
             builder: (context) => PlaylistModalScaffold(
               title: '下载成功',
-              body: const Text('LRC歌词文件已保存到您选择的位置'),
+              body: const Text(
+                'LRC歌词文件已保存到您选择的位置',
+                locale: Locale("zh-Hans", "zh"),
+              ),
               actions: [
                 SheetActionButton.primary(
                   label: '确定',
@@ -135,7 +187,10 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             context: context,
             builder: (context) => PlaylistModalScaffold(
               title: '下载失败',
-              body: const Text('无法保存LRC文件，请检查文件夹权限设置'),
+              body: const Text(
+                '无法保存LRC文件，请检查文件夹权限设置',
+                locale: Locale("zh-Hans", "zh"),
+              ),
               actions: [
                 SheetActionButton.primary(
                   label: '确定',
@@ -154,7 +209,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           context: context,
           builder: (context) => PlaylistModalScaffold(
             title: '下载出错',
-            body: Text(errorMessage),
+            body: Text(errorMessage, locale: Locale("zh-Hans", "zh")),
             actions: [
               SheetActionButton.primary(
                 label: '确定',
@@ -210,6 +265,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             showTranslation: _showTranslation,
             onToggleTranslation: _toggleTranslationVisibility,
             onDownloadLrc: _downloadLrcFile,
+            onReportError: _reportError,
           ),
         ),
       ),
@@ -225,6 +281,7 @@ class _LyricsLayout extends StatelessWidget {
     required this.showTranslation,
     required this.onToggleTranslation,
     required this.onDownloadLrc,
+    required this.onReportError,
   });
 
   final Track track;
@@ -233,6 +290,7 @@ class _LyricsLayout extends StatelessWidget {
   final bool showTranslation;
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
+  final VoidCallback onReportError;
 
   @override
   Widget build(BuildContext context) {
@@ -281,6 +339,7 @@ class _LyricsLayout extends StatelessWidget {
                     showTranslation: showTranslation,
                     onToggleTranslation: onToggleTranslation,
                     onDownloadLrc: onDownloadLrc,
+                    onReportError: onReportError,
                   ),
                 ),
               ],
@@ -334,14 +393,20 @@ class _CoverColumn extends StatelessWidget {
               ) ??
               const TextStyle(fontSize: 14, color: Colors.black54);
 
-    final remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
-      track.httpHeaders,
-      thumbnail: false,
-    ) ??
-        MysteryLibraryConstants.buildArtworkUrl(
-          track.httpHeaders,
-          thumbnail: true,
-        );
+    String? remoteArtworkUrl;
+    if (track.sourceType == TrackSourceType.netease) {
+      remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+    } else {
+      remoteArtworkUrl =
+          MysteryLibraryConstants.buildArtworkUrl(
+            track.httpHeaders,
+            thumbnail: false,
+          ) ??
+          MysteryLibraryConstants.buildArtworkUrl(
+            track.httpHeaders,
+            thumbnail: true,
+          );
+    }
 
     return Center(
       child: Column(
@@ -386,6 +451,7 @@ class _CoverColumn extends StatelessWidget {
                 Text(
                   track.title,
                   textAlign: TextAlign.center,
+                  locale: Locale("zh-Hans", "zh"),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: titleStyle,
@@ -393,6 +459,7 @@ class _CoverColumn extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   '${track.artist} · ${track.album}',
+                  locale: Locale("zh-Hans", "zh"),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -415,6 +482,7 @@ class _LyricsPanel extends StatelessWidget {
     required this.showTranslation,
     required this.onToggleTranslation,
     required this.onDownloadLrc,
+    required this.onReportError,
   });
 
   final bool isDarkMode;
@@ -423,6 +491,7 @@ class _LyricsPanel extends StatelessWidget {
   final bool showTranslation;
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
+  final VoidCallback onReportError;
 
   @override
   Widget build(BuildContext context) {
@@ -451,12 +520,24 @@ class _LyricsPanel extends StatelessWidget {
               final bool canToggle =
                   state is LyricsLoaded && _hasAnyTranslation(state.lyrics);
 
+              final bool showReportError =
+                  state is LyricsLoaded &&
+                  state.lyrics.source == LyricsSource.nipaplay;
+
               return Stack(
                 children: [
                   Positioned.fill(child: content),
-                  // Download LRC button
+                  if (showReportError)
+                    Positioned(
+                      bottom: 150,
+                      right: 12,
+                      child: _ReportErrorButton(
+                        isDarkMode: isDarkMode,
+                        onPressed: onReportError,
+                      ),
+                    ),
                   Positioned(
-                    bottom: 80, // Above the translation button
+                    bottom: 70,
                     right: 12,
                     child: _DownloadLrcButton(
                       isDarkMode: isDarkMode,
@@ -464,7 +545,6 @@ class _LyricsPanel extends StatelessWidget {
                       onPressed: state is LyricsLoaded ? onDownloadLrc : null,
                     ),
                   ),
-                  // Translation toggle button
                   Positioned(
                     bottom: 20,
                     right: 12,
@@ -577,9 +657,19 @@ class _LyricsPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title, style: titleStyle, textAlign: TextAlign.center),
+              Text(
+                title,
+                locale: Locale("zh-Hans", "zh"),
+                style: titleStyle,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
-              Text(subtitle, style: subtitleStyle, textAlign: TextAlign.center),
+              Text(
+                subtitle,
+                locale: Locale("zh-Hans", "zh"),
+                style: subtitleStyle,
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -628,7 +718,7 @@ class _TranslationToggleButton extends StatelessWidget {
         assetPath: assetPath,
         size: iconSize,
         baseColor: isEnabled
-            ? (isActive ? activeColor : inactiveColor)
+            ? (isActive ? inactiveColor : inactiveColor)
             : disabledColor,
         hoverColor: isEnabled ? activeColor : disabledColor,
         disabledColor: disabledColor,
@@ -641,16 +731,21 @@ class _HoverGlyphButton extends StatefulWidget {
   const _HoverGlyphButton({
     required this.enabled,
     required this.onPressed,
-    required this.assetPath,
     required this.baseColor,
     required this.hoverColor,
     required this.disabledColor,
+    this.assetPath,
+    this.icon,
     this.size = 30,
-  });
+  }) : assert(
+         assetPath != null || icon != null,
+         'assetPath or icon must be provided',
+       );
 
   final bool enabled;
   final VoidCallback? onPressed;
-  final String assetPath;
+  final String? assetPath;
+  final IconData? icon;
   final Color baseColor;
   final Color hoverColor;
   final Color disabledColor;
@@ -701,15 +796,26 @@ class _HoverGlyphButtonState extends State<_HoverGlyphButton> {
 
   @override
   Widget build(BuildContext context) {
+    final Widget glyph;
+    if (widget.icon != null) {
+      glyph = Icon(
+        widget.icon,
+        size: widget.size,
+        color: _pressing && _enabled ? widget.hoverColor : _currentColor,
+      );
+    } else {
+      glyph = MacosImageIcon(
+        AssetImage(widget.assetPath!),
+        size: widget.size,
+        color: _pressing && _enabled ? widget.hoverColor : _currentColor,
+      );
+    }
+
     final child = AnimatedScale(
       scale: _currentScale,
       duration: const Duration(milliseconds: 140),
       curve: _pressing ? Curves.easeInOut : Curves.easeOutBack,
-      child: MacosImageIcon(
-        AssetImage(widget.assetPath),
-        size: widget.size,
-        color: _pressing && _enabled ? widget.hoverColor : _currentColor,
-      ),
+      child: glyph,
     );
 
     final button = GestureDetector(
@@ -861,6 +967,81 @@ class _DownloadIconButtonState extends State<_DownloadIconButton> {
         _setPressing(false);
       },
       child: button,
+    );
+  }
+}
+
+class _ReportErrorButton extends StatefulWidget {
+  const _ReportErrorButton({required this.isDarkMode, required this.onPressed});
+
+  final bool isDarkMode;
+  final VoidCallback onPressed;
+
+  @override
+  State<_ReportErrorButton> createState() => _ReportErrorButtonState();
+}
+
+class _ReportErrorButtonState extends State<_ReportErrorButton> {
+  bool _hovering = false;
+  bool _pressing = false;
+
+  void _setHovering(bool value) {
+    if (_hovering == value) return;
+    setState(() => _hovering = value);
+  }
+
+  void _setPressing(bool value) {
+    if (_pressing == value) return;
+    setState(() => _pressing = value);
+  }
+
+  Color get _currentColor {
+    final Color iconColor = widget.isDarkMode ? Colors.white : Colors.black;
+    if (_hovering) {
+      return iconColor;
+    }
+    return iconColor.withOpacity(0.82);
+  }
+
+  double get _currentScale {
+    if (_pressing) {
+      return 0.95;
+    }
+    if (_hovering) {
+      return 1.05;
+    }
+    return 1.0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Transform.scale(
+      scale: _currentScale,
+      child: Icon(CupertinoIcons.pencil, size: 25, color: _currentColor),
+    );
+
+    final button = GestureDetector(
+      onTap: widget.onPressed,
+      onTapDown: (_) => _setPressing(true),
+      onTapUp: (_) => _setPressing(false),
+      onTapCancel: () => _setPressing(false),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
+        child: SizedBox(width: 30, height: 30, child: Center(child: child)),
+      ),
+    );
+
+    return MacosTooltip(
+      message: '纠错',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => _setHovering(true),
+        onExit: (_) {
+          _setHovering(false);
+          _setPressing(false);
+        },
+        child: button,
+      ),
     );
   }
 }

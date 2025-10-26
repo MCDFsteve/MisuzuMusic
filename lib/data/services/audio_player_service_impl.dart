@@ -12,6 +12,7 @@ import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/repositories/music_library_repository.dart';
+import '../../domain/repositories/netease_repository.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../core/error/exceptions.dart';
 import '../../core/storage/binary_config_store.dart';
@@ -23,6 +24,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     this._configStore,
     this._playbackHistoryRepository,
     this._musicLibraryRepository,
+    this._neteaseRepository,
   ) {
     _initializeStreams();
     _restoreVolume();
@@ -32,6 +34,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   final BinaryConfigStore _configStore;
   final PlaybackHistoryRepository _playbackHistoryRepository;
   final MusicLibraryRepository _musicLibraryRepository;
+  final NeteaseRepository _neteaseRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   // State streams
@@ -204,10 +207,29 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       'trackNumber': track.trackNumber,
       'year': track.year,
       'genre': track.genre,
+      'sourceType': track.sourceType.name,
+      'sourceId': track.sourceId,
+      'remotePath': track.remotePath,
+      'httpHeaders': track.httpHeaders,
+      'contentHash': track.contentHash,
     };
   }
 
   Track _trackFromJson(Map<String, dynamic> json) {
+    final sourceTypeRaw = json['sourceType'] as String?;
+    final sourceType = sourceTypeRaw == null
+        ? TrackSourceType.local
+        : TrackSourceType.values.firstWhere(
+            (value) => value.name == sourceTypeRaw,
+            orElse: () => TrackSourceType.local,
+          );
+    Map<String, String>? headers;
+    final headerRaw = json['httpHeaders'];
+    if (headerRaw is Map) {
+      headers = headerRaw.map(
+        (key, value) => MapEntry(key.toString(), value.toString()),
+      );
+    }
     return Track(
       id: json['id'] as String,
       title: json['title'] as String,
@@ -224,6 +246,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       trackNumber: (json['trackNumber'] as num?)?.toInt(),
       year: (json['year'] as num?)?.toInt(),
       genre: json['genre'] as String?,
+      sourceType: sourceType,
+      sourceId: json['sourceId'] as String?,
+      remotePath: json['remotePath'] as String?,
+      httpHeaders: headers,
+      contentHash: json['contentHash'] as String?,
     );
   }
 
@@ -653,6 +680,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return normalized;
     }
 
+    if (track.sourceType == TrackSourceType.netease ||
+        track.filePath.startsWith('netease://')) {
+      var normalized = track;
+      if (track.sourceType != TrackSourceType.netease) {
+        normalized = track.copyWith(sourceType: TrackSourceType.netease);
+        await _replaceTrackInQueue(track, normalized);
+      }
+      return normalized;
+    }
+
     final originalFile = File(track.filePath);
     if (await originalFile.exists()) {
       return await _ensureLocalArtwork(track);
@@ -765,7 +802,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         unawaited(_playbackHistoryRepository.updateTrackMetadata(updated));
       }
     } catch (e) {
-      print('⚠️ AudioService: 获取网易云封面失败 -> $e');
+      print('⚠️ AudioService: 获取网络歌曲封面失败 -> $e');
     }
   }
 
@@ -799,6 +836,13 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
             a.remotePath == b.remotePath) {
           return true;
         }
+      }
+    }
+    if (a.sourceType == TrackSourceType.netease) {
+      if (a.sourceId != null &&
+          b.sourceId != null &&
+          a.sourceId == b.sourceId) {
+        return true;
       }
     }
     if (a.filePath == b.filePath) return true;
@@ -854,17 +898,34 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return;
     }
 
+    if (track.sourceType == TrackSourceType.netease ||
+        track.filePath.startsWith('netease://')) {
+      final playable = await _neteaseRepository.ensureTrackStream(track);
+      if (playable == null) {
+        throw const AudioPlaybackException('网络歌曲暂无法播放');
+      }
+      await _replaceTrackInQueue(track, playable);
+      if (identical(track, _currentTrack)) {
+        _updateCurrentTrack(playable);
+      }
+      await _audioPlayer.setUrl(
+        playable.filePath,
+        headers: playable.httpHeaders,
+      );
+      return;
+    }
+
     await _audioPlayer.setFilePath(track.filePath);
   }
 
   _MysteryStreamInfo _buildMysteryStreamInfo(Track track) {
     final headers = track.httpHeaders;
-    final baseUrl = headers?[MysteryLibraryConstants.headerBaseUrl] ??
+    final baseUrl =
+        headers?[MysteryLibraryConstants.headerBaseUrl] ??
         MysteryLibraryConstants.defaultBaseUrl;
     final code = headers?[MysteryLibraryConstants.headerCode] ?? 'irigas';
-    final remote = track.remotePath ??
-        _extractMysteryRelativePath(track.filePath) ??
-        '/';
+    final remote =
+        track.remotePath ?? _extractMysteryRelativePath(track.filePath) ?? '/';
     final normalizedRemote = _normalizeRemotePath(remote);
     final baseUri = Uri.parse(baseUrl);
     final uri = baseUri.replace(
@@ -874,6 +935,30 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         'path': normalizedRemote,
       },
     );
+
+    print('🕵️ Mystery: 播放 URL -> ${uri.toString()}');
+
+    unawaited(() async {
+      try {
+        final client = HttpClient();
+        final req = await client.openUrl('GET', uri);
+        req.headers.set(HttpHeaders.rangeHeader, 'bytes=0-1');
+        req.headers.set(HttpHeaders.userAgentHeader, 'MisuzuMusic/1.0');
+        final res = await req.close();
+        final previewBytes = await res.fold<List<int>>([], (prev, element) {
+          prev.addAll(element);
+          return prev;
+        });
+        print(
+          '🕵️ Mystery: 预检状态 -> ${res.statusCode} ${res.reasonPhrase}, '
+          'Content-Type: ${res.headers.value(HttpHeaders.contentTypeHeader)}, '
+          'Bytes: ${previewBytes.length >= 2 ? previewBytes.sublist(0, 2) : previewBytes}',
+        );
+        client.close(force: true);
+      } catch (e) {
+        print('⚠️ Mystery: 预检失败 -> $e');
+      }
+    }());
 
     return _MysteryStreamInfo(
       url: uri,

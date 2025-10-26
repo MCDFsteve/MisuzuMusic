@@ -45,20 +45,30 @@ class Lyrics extends Equatable {
   final String trackId;
   final List<LyricsLine> lines;
   final LyricsFormat format;
+  final LyricsSource source;
 
   const Lyrics({
     required this.trackId,
     required this.lines,
     required this.format,
+    this.source = LyricsSource.unknown,
   });
 
   @override
-  List<Object> get props => [trackId, lines, format];
+  List<Object> get props => [trackId, lines, format, source];
 }
 
 enum LyricsFormat {
   lrc,    // LRC format with timestamps
   text,   // Plain text
+}
+
+enum LyricsSource {
+  nipaplay,   // From nipaplay.aimes-soft.com server
+  netease,    // From Netease Cloud Music
+  local,      // From local file
+  cached,     // From cache
+  unknown,    // Unknown source
 }
 
 // Lyrics display settings

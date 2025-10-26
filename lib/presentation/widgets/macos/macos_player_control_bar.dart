@@ -68,10 +68,14 @@ class MacOSPlayerControlBar extends StatelessWidget {
           volume = playingState.volume;
           final track = playingState.track as Track;
           artworkPath = track.artworkPath;
-          remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
-            track.httpHeaders,
-            thumbnail: true,
-          );
+          if (track.sourceType == TrackSourceType.netease) {
+            remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+          } else {
+            remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+              track.httpHeaders,
+              thumbnail: true,
+            );
+          }
           currentTrack = track;
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
@@ -671,6 +675,7 @@ class _TrackInfoRow extends StatelessWidget {
             children: [
               Text(
                 title,
+                locale: Locale("zh-Hans", "zh"),
                 style: theme.typography.body.copyWith(
                   fontWeight: FontWeight.w500,
                   fontSize: 12,
@@ -681,6 +686,7 @@ class _TrackInfoRow extends StatelessWidget {
               ),
               Text(
                 subtitle,
+                locale: Locale("zh-Hans", "zh"),
                 style: theme.typography.caption1.copyWith(
                   fontSize: 10,
                   color: subtitleColor,

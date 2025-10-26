@@ -16,10 +16,15 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/di/dependency_injection.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/mystery_library_constants.dart';
+import '../../core/storage/binary_config_store.dart';
+import '../../core/widgets/modal_dialog.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
+import '../../domain/entities/netease_entities.dart';
+import '../../core/utils/platform_utils.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/playback_history_repository.dart';
+import '../../domain/repositories/netease_repository.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../domain/usecases/music_usecases.dart';
 import '../../domain/usecases/player_usecases.dart';
@@ -28,6 +33,8 @@ import '../blocs/playback_history/playback_history_cubit.dart';
 import '../blocs/playback_history/playback_history_state.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/playlists/playlists_cubit.dart';
+import '../blocs/netease/netease_cubit.dart';
+import '../blocs/netease/netease_state.dart';
 import '../widgets/common/adaptive_scrollbar.dart';
 import '../widgets/common/artwork_thumbnail.dart';
 import '../widgets/common/library_search_field.dart';
@@ -54,7 +61,10 @@ part 'home/dialogs/library_mount_dialog.dart';
 part 'home/views/music_library_view.dart';
 part 'home/views/playlist_view.dart';
 part 'home/views/playlists_view.dart';
+part 'home/views/netease_view.dart';
 part 'home/sheets/playlist_selection_sheet.dart';
+
+WindowManager get windowManager => WindowManager.instance;
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -73,12 +83,14 @@ class HomePage extends StatelessWidget {
             getLibraryDirectories: sl<GetLibraryDirectories>(),
             scanWebDavDirectory: sl<ScanWebDavDirectory>(),
             mountMysteryLibrary: sl<MountMysteryLibrary>(),
+            unmountMysteryLibrary: sl<UnmountMysteryLibrary>(),
             getWebDavSources: sl<GetWebDavSources>(),
             ensureWebDavTrackMetadata: sl<EnsureWebDavTrackMetadata>(),
             getWebDavPassword: sl<GetWebDavPassword>(),
             removeLibraryDirectory: sl<RemoveLibraryDirectory>(),
             deleteWebDavSource: sl<DeleteWebDavSource>(),
             watchTrackUpdates: sl<WatchTrackUpdates>(),
+            configStore: sl<BinaryConfigStore>(),
           )..add(const LoadAllTracks()),
         ),
         BlocProvider(
@@ -99,12 +111,16 @@ class HomePage extends StatelessWidget {
               PlaybackHistoryCubit(sl<PlaybackHistoryRepository>()),
         ),
         BlocProvider(
-          create: (context) => PlaylistsCubit(sl<MusicLibraryRepository>()),
+          create: (context) => PlaylistsCubit(
+            sl<MusicLibraryRepository>(),
+            sl<BinaryConfigStore>(),
+          ),
+        ),
+        BlocProvider(
+          create: (context) => NeteaseCubit(sl<NeteaseRepository>())..hydrate(),
         ),
       ],
-      child: const _MediaControlShortcutScope(
-        child: HomePageContent(),
-      ),
+      child: const _MediaControlShortcutScope(child: HomePageContent()),
     );
   }
 }
@@ -115,14 +131,20 @@ class _MediaControlShortcutScope extends StatefulWidget {
   final Widget child;
 
   @override
-  State<_MediaControlShortcutScope> createState() => _MediaControlShortcutScopeState();
+  State<_MediaControlShortcutScope> createState() =>
+      _MediaControlShortcutScopeState();
 }
 
-class _MediaControlShortcutScopeState extends State<_MediaControlShortcutScope> {
-  static const MethodChannel _hotKeyChannel = MethodChannel('com.aimessoft.misuzumusic/hotkeys');
+class _MediaControlShortcutScopeState
+    extends State<_MediaControlShortcutScope> {
+  static const MethodChannel _hotKeyChannel = MethodChannel(
+    'com.aimessoft.misuzumusic/hotkeys',
+  );
   static final Map<LogicalKeySet, Intent> _shortcuts = <LogicalKeySet, Intent>{
-    LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious): const _PreviousTrackIntent(),
-    LogicalKeySet(LogicalKeyboardKey.mediaPlayPause): const _TogglePlayPauseIntent(),
+    LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious):
+        const _PreviousTrackIntent(),
+    LogicalKeySet(LogicalKeyboardKey.mediaPlayPause):
+        const _TogglePlayPauseIntent(),
     LogicalKeySet(LogicalKeyboardKey.mediaTrackNext): const _NextTrackIntent(),
     LogicalKeySet(LogicalKeyboardKey.f7): const _PreviousTrackIntent(),
     LogicalKeySet(LogicalKeyboardKey.f8): const _TogglePlayPauseIntent(),
@@ -243,7 +265,8 @@ class _MediaControlShortcutScopeState extends State<_MediaControlShortcutScope> 
   }
 
   void _openSettings() {
-    final contentState = context.findAncestorStateOfType<_HomePageContentState>();
+    final contentState = context
+        .findAncestorStateOfType<_HomePageContentState>();
     contentState?.navigateToSettingsFromMenu();
   }
 

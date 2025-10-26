@@ -16,7 +16,11 @@
       "WebSearch",
       "WebFetch(domain:blog.csdn.net)",
       "WebFetch(domain:jlptsensei.com)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(tree:*)",
+      "Bash(chmod:*)",
+      "Read(//Users/dfsteve/.pub-cache/hosted/pub.dev/**)",
+      "WebFetch(domain:pub.dev)"
     ],
     "deny": [],
     "ask": []

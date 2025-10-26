@@ -21,11 +21,13 @@ class MacOSTrackListView extends StatelessWidget {
     required this.tracks,
     this.onAddToPlaylist,
     this.onRemoveFromPlaylist,
+    this.additionalActionsBuilder,
   });
 
   final List<Track> tracks;
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<Track>? onRemoveFromPlaylist;
+  final List<MacosContextMenuAction> Function(Track track)? additionalActionsBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -46,11 +48,15 @@ class MacOSTrackListView extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final track = tracks[index];
-            final remoteArtworkUrl =
-                MysteryLibraryConstants.buildArtworkUrl(
-              track.httpHeaders,
-              thumbnail: true,
-            );
+            String? remoteArtworkUrl;
+            if (_isNetworkSong(track)) {
+              remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+            } else {
+              remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+                track.httpHeaders,
+                thumbnail: true,
+              );
+            }
             return TrackListTile(
               index: index + 1,
               leading: ArtworkThumbnail(
@@ -84,7 +90,9 @@ class MacOSTrackListView extends StatelessWidget {
         track.sourceType == TrackSourceType.webdav ||
         track.filePath.startsWith('webdav://') ||
         track.sourceType == TrackSourceType.mystery ||
-        track.filePath.startsWith('mystery://');
+        track.filePath.startsWith('mystery://') ||
+        track.sourceType == TrackSourceType.netease ||
+        track.filePath.startsWith('netease://');
 
     if (!isRemoteTrack && !kIsWeb) {
       final file = File(track.filePath);
@@ -103,12 +111,21 @@ class MacOSTrackListView extends StatelessWidget {
   ) async {
     final hasAdd = onAddToPlaylist != null;
     final hasRemove = onRemoveFromPlaylist != null;
-    if (!hasAdd && !hasRemove) {
+    final customActions = additionalActionsBuilder != null
+        ? additionalActionsBuilder!(track)
+        : const <MacosContextMenuAction>[];
+
+    if (!hasAdd && !hasRemove && customActions.isEmpty) {
       return;
     }
 
     final actions = <MacosContextMenuAction>[];
-    if (hasAdd) {
+    if (customActions.isNotEmpty) {
+      actions.addAll(customActions);
+    }
+    final isNeteaseTrack = track.isNeteaseTrack;
+    final allowLocalAdd = hasAdd && !isNeteaseTrack;
+    if (allowLocalAdd) {
       actions.add(
         MacosContextMenuAction(
           label: '添加到歌单',
@@ -229,6 +246,7 @@ class MacOSTrackListView extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(
                     '从歌单移除歌曲？',
+                    locale: Locale("zh-Hans", "zh"),
                     style:
                         theme.textTheme.titleMedium?.copyWith(
                           fontSize: 16,
@@ -245,6 +263,7 @@ class MacOSTrackListView extends StatelessWidget {
                   Text(
                     '“${track.title}” 将从当前歌单移除，但文件和其它歌单不会受到影响。',
                     textAlign: TextAlign.center,
+                    locale: Locale("zh-Hans", "zh"),
                     style:
                         theme.textTheme.bodySmall?.copyWith(
                           color: textColorSecondary,
@@ -288,6 +307,8 @@ class MacOSTrackListView extends StatelessWidget {
     );
   }
 }
+
+  bool _isNetworkSong(Track track) => track.isNeteaseTrack;
 
 class _GlassDialogButton extends StatefulWidget {
   const _GlassDialogButton({
@@ -345,6 +366,7 @@ class _GlassDialogButtonState extends State<_GlassDialogButton> {
           ),
           child: Text(
             widget.label,
+            locale: Locale("zh-Hans", "zh"),
             style:
                 theme.textTheme.bodyMedium?.copyWith(
                   color: textColor,

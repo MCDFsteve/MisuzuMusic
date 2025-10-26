@@ -51,6 +51,11 @@ class DatabaseException extends AppException {
   const DatabaseException(super.message, [super.details]);
 }
 
+// Authentication exceptions
+class AuthenticationException extends AppException {
+  const AuthenticationException(super.message, [super.details]);
+}
+
 // Lyrics processing exceptions
 class LyricsException extends AppException {
   const LyricsException(super.message, [super.details]);

@@ -42,6 +42,7 @@ class FuriganaText extends StatelessWidget {
     if (segments.isEmpty) {
       return Text(
         '',
+        locale: Locale("zh-Hans", "zh"),
         style: effectiveBaseStyle,
         textAlign: textAlign,
         maxLines: maxLines,
@@ -72,6 +73,7 @@ class FuriganaText extends StatelessWidget {
     if (annotatedSegments.isEmpty) {
       return Text(
         buffer.toString(),
+        locale: Locale("zh-Hans", "zh"),
         style: effectiveBaseStyle,
         textAlign: textAlign,
         maxLines: maxLines,

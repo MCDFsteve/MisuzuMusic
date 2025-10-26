@@ -57,6 +57,7 @@ class TrackListTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
+                      locale: Locale("zh-Hans", "zh"),
                       style: _titleStyle(context, isMac),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -64,6 +65,7 @@ class TrackListTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       artistAlbum.trim().isEmpty ? '未知艺术家' : artistAlbum,
+                      locale: Locale("zh-Hans", "zh"),
                       style: _subtitleStyle(context, isMac),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -81,7 +83,7 @@ class TrackListTile extends StatelessWidget {
                         return Row(
                           children: [
                             if (hasDuration)
-                              Text(duration, style: _metaStyle(context, isMac)),
+                              Text(duration, locale: Locale("zh-Hans", "zh"),style: _metaStyle(context, isMac)),
                             if (hasDuration && hasMeta)
                               Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -89,6 +91,7 @@ class TrackListTile extends StatelessWidget {
                                 ),
                                 child: Text(
                                   '|',
+                                  locale: Locale("zh-Hans", "zh"),
                                   style: _metaStyle(context, isMac),
                                 ),
                               ),
@@ -96,6 +99,7 @@ class TrackListTile extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   meta!,
+                                  locale: Locale("zh-Hans", "zh"),
                                   style: _metaStyle(context, isMac),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -126,7 +130,7 @@ class TrackListTile extends StatelessWidget {
             width: 32,
             child: Align(
               alignment: Alignment.centerRight,
-              child: Text(index.toString(), style: _indexStyle(context, isMac)),
+              child: Text(index.toString(),locale: Locale("zh-Hans", "zh"), style: _indexStyle(context, isMac)),
             ),
           ),
         ),

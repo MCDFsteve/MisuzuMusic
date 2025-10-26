@@ -5,7 +5,7 @@ abstract class Entity extends Equatable {
   const Entity();
 }
 
-enum TrackSourceType { local, webdav, mystery }
+enum TrackSourceType { local, webdav, mystery, netease }
 
 // Track entity - represents a music track
 class Track extends Entity {
@@ -229,5 +229,26 @@ class PlaybackHistoryEntry extends Entity {
       playCount: playCount ?? this.playCount,
       fingerprint: fingerprint ?? this.fingerprint,
     );
+  }
+}
+
+extension TrackSourceExtensions on Track {
+  bool get isNeteaseTrack {
+    if (sourceType == TrackSourceType.netease) {
+      return true;
+    }
+    final lowerFilePath = filePath.toLowerCase();
+    if (lowerFilePath.startsWith('netease://')) {
+      return true;
+    }
+    final lowerId = id.toLowerCase();
+    if (lowerId.startsWith('netease_')) {
+      return true;
+    }
+    final lowerSourceId = sourceId?.toLowerCase();
+    if (lowerSourceId != null && lowerSourceId.startsWith('netease')) {
+      return true;
+    }
+    return false;
   }
 }
