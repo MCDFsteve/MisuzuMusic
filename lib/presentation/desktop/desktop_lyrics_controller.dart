@@ -78,13 +78,23 @@ class DesktopLyricsController {
       handleEventFromWindow: _handleRemoteEvent,
       onWindowClosed: _handleWindowClosed,
     );
-    WindowManagerPlus.addGlobalListener(_windowListener);
-    _listenerRegistered = true;
+    try {
+      WindowManagerPlus.current.addListener(_windowListener);
+      _listenerRegistered = true;
+      _log('已注册主窗口监听器 (id=${WindowManagerPlus.current.id})');
+    } catch (error) {
+      _log('⚠️ 无法注册监听器: $error');
+    }
 
-    _trackSubscription =
-        _audioPlayerService.currentTrackStream.listen(_handleTrackChanged);
+    _trackSubscription = _audioPlayerService.currentTrackStream.listen((track) {
+      _log('Track stream event: ${track?.title}');
+      _handleTrackChanged(track);
+    });
     _positionSubscription =
-        _audioPlayerService.positionStream.listen(_handlePositionChanged);
+        _audioPlayerService.positionStream.listen((position) {
+      _log('Position stream event: ${position.inMilliseconds}ms');
+      _handlePositionChanged(position);
+    });
     _lyricsSubscription = _lyricsCubit.stream.listen((state) {
       _lyricsState = state;
       if (state is LyricsLoaded) {
@@ -183,7 +193,7 @@ class DesktopLyricsController {
     await _lyricsSubscription?.cancel();
     await _lyricsCubit.close();
     if (_listenerRegistered) {
-      WindowManagerPlus.removeGlobalListener(_windowListener);
+      WindowManagerPlus.current.removeListener(_windowListener);
       _listenerRegistered = false;
     }
     isWindowOpenNotifier.dispose();
@@ -443,6 +453,7 @@ class _LyricsWindowListener with WindowListener {
     int fromWindowId,
     dynamic arguments,
   ) async {
+    debugPrint('🪟 DesktopLyricsController: Listener 捕获事件 method=$eventName from=$fromWindowId args=$arguments');
     await handleEventFromWindow(eventName, fromWindowId, arguments);
     return null;
   }
