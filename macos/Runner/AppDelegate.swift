@@ -119,6 +119,15 @@ class AppDelegate: FlutterAppDelegate {
 
   private func applyTransparentStyle(to window: NSWindow) {
     NSLog("[Misuzu][Transparent] Applying styles to window title=\(window.title) number=\(window.windowNumber)")
+    if let panel = window as? NSPanel {
+      panel.hidesOnDeactivate = false
+      panel.isFloatingPanel = true
+      panel.level = .floating
+    } else {
+      window.level = .floating
+    }
+    window.collectionBehavior.insert(.canJoinAllSpaces)
+    window.collectionBehavior.insert(.fullScreenAuxiliary)
     window.isOpaque = false
     window.backgroundColor = .clear
     window.hasShadow = false

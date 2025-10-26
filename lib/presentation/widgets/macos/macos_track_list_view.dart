@@ -111,14 +111,18 @@ class MacOSTrackListView extends StatelessWidget {
   ) async {
     final hasAdd = onAddToPlaylist != null;
     final hasRemove = onRemoveFromPlaylist != null;
-    final customActions =
-        additionalActionsBuilder != null ? additionalActionsBuilder!(track) : const <MacosContextMenuAction>[];
+    final customActions = additionalActionsBuilder != null
+        ? additionalActionsBuilder!(track)
+        : const <MacosContextMenuAction>[];
 
     if (!hasAdd && !hasRemove && customActions.isEmpty) {
       return;
     }
 
-    final actions = <MacosContextMenuAction>[]..addAll(customActions);
+    final actions = <MacosContextMenuAction>[];
+    if (customActions.isNotEmpty) {
+      actions.addAll(customActions);
+    }
     final isNeteaseTrack = track.isNeteaseTrack;
     final allowLocalAdd = hasAdd && !isNeteaseTrack;
     if (allowLocalAdd) {
@@ -128,10 +132,6 @@ class MacOSTrackListView extends StatelessWidget {
           icon: CupertinoIcons.add_circled,
           onSelected: () => onAddToPlaylist?.call(track),
         ),
-      );
-    } else if (isNeteaseTrack) {
-      actions.addAll(
-        additionalActionsBuilder?.call(track) ?? const <MacosContextMenuAction>[],
       );
     }
     if (hasRemove) {

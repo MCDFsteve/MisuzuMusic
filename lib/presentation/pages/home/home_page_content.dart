@@ -75,10 +75,31 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space) {
+    if (!Platform.isWindows) {
       return KeyEventResult.ignored;
     }
-    return KeyEventResult.ignored;
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.space) {
+      return KeyEventResult.ignored;
+    }
+
+    final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
+    if (focusedWidget is EditableText) {
+      return KeyEventResult.ignored;
+    }
+
+    _togglePlayPause();
+    return KeyEventResult.handled;
+  }
+
+  void _togglePlayPause() {
+    final bloc = context.read<PlayerBloc>();
+    final state = bloc.state;
+    if (state is PlayerPlaying) {
+      bloc.add(const PlayerPause());
+    } else if (state is PlayerPaused) {
+      bloc.add(const PlayerResume());
+    }
   }
 
   Future<void> _handleCreatePlaylistFromHeader() async {
@@ -231,45 +252,37 @@ class _HomePageContentState extends State<HomePageContent> {
   Widget _buildMacOSLayout() {
     return BlocConsumer<PlayerBloc, PlayerBlocState>(
       listener: (context, playerState) {
-        if (!_lyricsVisible) {
-          return;
-        }
+        bool shouldHideLyrics = false;
+        Track? nextTrack = _playerTrack(playerState);
 
         if (playerState is PlayerInitial || playerState is PlayerError) {
-          if (mounted) {
-            setState(() {
-              _lyricsVisible = false;
-              _lyricsActiveTrack = null;
-            });
-          }
-          return;
-        }
-
-        if (playerState is PlayerStopped) {
+          shouldHideLyrics = true;
+          nextTrack = null;
+        } else if (playerState is PlayerStopped) {
           final hasQueuedTracks = playerState.queue.isNotEmpty;
           if (!hasQueuedTracks) {
-            if (mounted) {
-              setState(() {
-                _lyricsVisible = false;
-                _lyricsActiveTrack = null;
-              });
-            }
+            shouldHideLyrics = true;
+            nextTrack = null;
           }
+        }
+
+        if (!mounted) {
           return;
         }
 
-        final track = _playerTrack(playerState);
-        if (track == null) {
+        final bool needsHideUpdate = shouldHideLyrics && _lyricsVisible;
+        final bool trackChanged = _lyricsActiveTrack != nextTrack;
+
+        if (!needsHideUpdate && !trackChanged) {
           return;
         }
 
-        if (_lyricsActiveTrack != track) {
-          if (mounted) {
-            setState(() {
-              _lyricsActiveTrack = track;
-            });
+        setState(() {
+          if (needsHideUpdate) {
+            _lyricsVisible = false;
           }
-        }
+          _lyricsActiveTrack = nextTrack;
+        });
       },
       builder: (context, playerState) {
         final artworkPath = _currentArtworkPath(playerState);
@@ -452,25 +465,18 @@ class _HomePageContentState extends State<HomePageContent> {
                                         ),
                                       ),
                                       Positioned.fill(
-                                        child: AnimatedSwitcher(
+                                        child: AnimatedOpacity(
                                           duration: const Duration(
                                             milliseconds: 280,
                                           ),
-                                          switchInCurve: Curves.easeOut,
-                                          switchOutCurve: Curves.easeIn,
-                                          transitionBuilder:
-                                              (child, animation) =>
-                                                  FadeTransition(
-                                                    opacity: animation,
-                                                    child: child,
-                                                  ),
-                                          child: _lyricsVisible
-                                              ? _buildLyricsOverlay(isMac: true)
-                                              : const SizedBox.shrink(
-                                                  key: ValueKey(
-                                                    'lyrics_overlay_mac_empty',
-                                                  ),
-                                                ),
+                                          curve: Curves.easeInOut,
+                                          opacity: _lyricsVisible ? 1 : 0,
+                                          child: IgnorePointer(
+                                            ignoring: !_lyricsVisible,
+                                            child: _buildLyricsOverlay(
+                                              isMac: true,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -719,19 +725,9 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Widget _buildLyricsOverlay({required bool isMac}) {
-    if (!_lyricsVisible) {
-      return const SizedBox.shrink();
-    }
-
     final track = _lyricsActiveTrack;
     if (track == null) {
-      return Center(
-        child: Text(
-          locale: Locale("zh-Hans", "zh"),
-          '暂无播放',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     final artworkSignature = track.artworkPath?.isNotEmpty == true
@@ -762,7 +758,6 @@ class _HomePageContentState extends State<HomePageContent> {
 
     setState(() {
       _lyricsVisible = false;
-      _lyricsActiveTrack = null;
     });
   }
 

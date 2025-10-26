@@ -43,6 +43,12 @@ Future<void> runDesktopLyricsWindow(
     await WindowManagerPlus.current.setSkipTaskbar(false);
   }
   await WindowManagerPlus.current.setAlwaysOnTop(true);
+  if (Platform.isMacOS) {
+    await WindowManagerPlus.current.setVisibleOnAllWorkspaces(
+      true,
+      visibleOnFullScreen: true,
+    );
+  }
   await WindowManagerPlus.current.setTitleBarStyle(
     TitleBarStyle.hidden,
     windowButtonVisibility: false,
