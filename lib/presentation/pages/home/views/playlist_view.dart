@@ -98,11 +98,15 @@ class _PlaylistHistoryList extends StatelessWidget {
             final entry = filteredEntries[index];
             final track = entry.track;
             final playCount = entry.playCount;
-            final remoteArtworkUrl =
-                MysteryLibraryConstants.buildArtworkUrl(
-              track.httpHeaders,
-              thumbnail: true,
-            );
+            String? remoteArtworkUrl;
+            if (track.sourceType == TrackSourceType.netease) {
+              remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+            } else {
+              remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+                track.httpHeaders,
+                thumbnail: true,
+              );
+            }
             return TrackListTile(
               index: index + 1,
               leading: ArtworkThumbnail(

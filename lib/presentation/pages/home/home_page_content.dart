@@ -23,8 +23,11 @@ class _HomePageContentState extends State<HomePageContent> {
       GlobalKey<_PlaylistsViewState>();
   final GlobalKey<_MusicLibraryViewState> _musicLibraryViewKey =
       GlobalKey<_MusicLibraryViewState>();
+  final GlobalKey<_NeteaseViewState> _neteaseViewKey =
+      GlobalKey<_NeteaseViewState>();
   bool _musicLibraryCanNavigateBack = false;
   bool _playlistsCanNavigateBack = false;
+  bool _neteaseCanNavigateBack = false;
   late final VoidCallback _focusManagerListener;
 
   @override
@@ -296,7 +299,9 @@ class _HomePageContentState extends State<HomePageContent> {
               if (musicState is MusicLibraryLoaded) {
                 sortMode = musicState.sortMode;
                 onSortModeChanged = (mode) {
-                  context.read<MusicLibraryBloc>().add(ChangeSortModeEvent(mode));
+                  context.read<MusicLibraryBloc>().add(
+                    ChangeSortModeEvent(mode),
+                  );
                 };
               }
             }
@@ -313,9 +318,20 @@ class _HomePageContentState extends State<HomePageContent> {
               };
             }
             break;
+          case 2:
+            showBackButton = true;
+            canNavigateBack = _neteaseCanNavigateBack;
+            backTooltip = '返回网易云歌单列表';
+            if (canNavigateBack) {
+              onNavigateBack = () =>
+                  _neteaseViewKey.currentState?.exitToOverview();
+            }
+            break;
           default:
             showBackButton = false;
         }
+        final bool showCreatePlaylistButton = _selectedIndex == 1;
+        final bool showSelectFolderButton = _selectedIndex == 0;
 
         return MacosWindow(
           titleBar: null,
@@ -408,8 +424,10 @@ class _HomePageContentState extends State<HomePageContent> {
                                         backTooltip: backTooltip,
                                         sortMode: sortMode,
                                         onSortModeChanged: onSortModeChanged,
-                                        showCreatePlaylistButton: _selectedIndex != 0,
-                                        showSelectFolderButton: _selectedIndex != 1,
+                                        showCreatePlaylistButton:
+                                            showCreatePlaylistButton,
+                                        showSelectFolderButton:
+                                            showSelectFolderButton,
                                       ),
                                     ),
                                   ),
@@ -502,11 +520,23 @@ class _HomePageContentState extends State<HomePageContent> {
           },
         );
       case 2:
+        return NeteaseView(
+          key: _neteaseViewKey,
+          onAddToPlaylist: _handleAddTrackToPlaylist,
+          onDetailStateChanged: (value) {
+            if (_neteaseCanNavigateBack != value) {
+              setState(() {
+                _neteaseCanNavigateBack = value;
+              });
+            }
+          },
+        );
+      case 3:
         return PlaylistView(
           searchQuery: _activeSearchQuery,
           onAddToPlaylist: _handleAddTrackToPlaylist,
         );
-      case 3:
+      case 4:
         return const SettingsView();
       default:
         return MusicLibraryView(onAddToPlaylist: _handleAddTrackToPlaylist);
@@ -619,8 +649,10 @@ class _HomePageContentState extends State<HomePageContent> {
       case 1:
         return '歌单';
       case 2:
-        return '播放列表';
+        return '网易云音乐';
       case 3:
+        return '播放列表';
+      case 4:
         return '设置';
       default:
         return '音乐库';

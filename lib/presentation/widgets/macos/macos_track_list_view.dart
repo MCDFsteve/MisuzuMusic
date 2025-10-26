@@ -46,11 +46,15 @@ class MacOSTrackListView extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final track = tracks[index];
-            final remoteArtworkUrl =
-                MysteryLibraryConstants.buildArtworkUrl(
-              track.httpHeaders,
-              thumbnail: true,
-            );
+            String? remoteArtworkUrl;
+            if (track.sourceType == TrackSourceType.netease) {
+              remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+            } else {
+              remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+                track.httpHeaders,
+                thumbnail: true,
+              );
+            }
             return TrackListTile(
               index: index + 1,
               leading: ArtworkThumbnail(
@@ -84,7 +88,9 @@ class MacOSTrackListView extends StatelessWidget {
         track.sourceType == TrackSourceType.webdav ||
         track.filePath.startsWith('webdav://') ||
         track.sourceType == TrackSourceType.mystery ||
-        track.filePath.startsWith('mystery://');
+        track.filePath.startsWith('mystery://') ||
+        track.sourceType == TrackSourceType.netease ||
+        track.filePath.startsWith('netease://');
 
     if (!isRemoteTrack && !kIsWeb) {
       final file = File(track.filePath);

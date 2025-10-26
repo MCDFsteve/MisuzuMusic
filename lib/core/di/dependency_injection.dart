@@ -11,6 +11,7 @@ import '../../data/datasources/local/music_local_datasource_impl.dart';
 import '../../data/datasources/local/lyrics_local_datasource.dart';
 import '../../data/datasources/local/lyrics_local_datasource_impl.dart';
 import '../../data/repositories/music_library_repository_impl.dart';
+import '../../data/repositories/netease_repository_impl.dart';
 import '../../data/repositories/lyrics_repository_impl.dart';
 import '../../data/repositories/playback_history_repository_impl.dart';
 import '../../data/services/audio_player_service_impl.dart';
@@ -19,6 +20,7 @@ import '../../data/services/cloud_playlist_api.dart';
 import '../../data/services/remote_lyrics_api.dart';
 import '../../data/datasources/remote/netease_api_client.dart';
 import '../../domain/repositories/music_library_repository.dart';
+import '../../domain/repositories/netease_repository.dart';
 import '../../domain/repositories/lyrics_repository.dart';
 import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/services/audio_player_service.dart';
@@ -29,6 +31,7 @@ import '../../domain/usecases/lyrics_usecases.dart';
 import '../storage/storage_path_provider.dart';
 import '../storage/binary_config_store.dart';
 import '../../data/storage/playlist_file_storage.dart';
+import '../../data/storage/netease_session_store.dart';
 import '../../presentation/desktop/desktop_lyrics_controller.dart';
 
 final sl = GetIt.instance;
@@ -49,6 +52,7 @@ class DependencyInjection {
       sl.registerSingleton(storagePathProvider);
       sl.registerSingleton(configStore);
       sl.registerLazySingleton(() => PlaylistFileStorage(sl()));
+      sl.registerLazySingleton(() => NeteaseSessionStore(sl()));
 
       // Core
       print('🗄️ 初始化数据库...');
@@ -79,6 +83,13 @@ class DependencyInjection {
         ),
       );
 
+      sl.registerLazySingleton<NeteaseRepository>(
+        () => NeteaseRepositoryImpl(
+          apiClient: sl(),
+          sessionStore: sl(),
+        ),
+      );
+
       sl.registerLazySingleton<LyricsRepository>(
         () => LyricsRepositoryImpl(
           localDataSource: sl(),
@@ -98,6 +109,7 @@ class DependencyInjection {
           sl<BinaryConfigStore>(),
           sl<PlaybackHistoryRepository>(),
           sl<MusicLibraryRepository>(),
+          sl<NeteaseRepository>(),
         ),
       );
 

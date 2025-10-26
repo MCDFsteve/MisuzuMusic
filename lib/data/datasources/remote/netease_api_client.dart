@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../models/netease_models.dart';
 
 class NeteaseApiClient {
   NeteaseApiClient({Dio? dio, String? baseUrl})
@@ -17,6 +18,10 @@ class NeteaseApiClient {
           );
 
   final Dio _dio;
+  static const _userAgent =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+      'AppleWebKit/537.36 (KHTML, like Gecko) '
+      'Chrome/126.0.0.0 Safari/537.36';
 
   Future<String?> fetchSongCoverUrl(int songId) async {
     try {
@@ -42,6 +47,136 @@ class NeteaseApiClient {
       return null;
     } catch (e) {
       print('⚠️ NeteaseApiClient: 获取歌曲封面失败 -> $e');
+      return null;
+    }
+  }
+
+  Options _authOptions(String cookie) {
+    return Options(
+      headers: {
+        'Cookie': cookie,
+        'User-Agent': _userAgent,
+        'Referer': 'https://music.163.com',
+      },
+    );
+  }
+
+  Future<NeteaseAccountModel?> fetchAccountProfile(String cookie) async {
+    try {
+      final response = await _dio.get(
+        '/user/account',
+        options: _authOptions(cookie),
+      );
+      final data = response.data;
+      if (data is! Map) {
+        return null;
+      }
+      final account = data['profile'];
+      if (account is! Map) {
+        return null;
+      }
+      return NeteaseAccountModel.fromJson(
+        Map<String, dynamic>.from(account as Map),
+      );
+    } catch (e) {
+      print('⚠️ NeteaseApiClient: 获取账号信息失败 -> $e');
+      return null;
+    }
+  }
+
+  Future<List<NeteasePlaylistModel>> fetchUserPlaylists({
+    required String cookie,
+    required int userId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/user/playlist',
+        options: _authOptions(cookie),
+        queryParameters: {'uid': userId, 'limit': 200, 'offset': 0},
+      );
+      final data = response.data;
+      if (data is! Map) {
+        return const [];
+      }
+      final playlists = data['playlist'];
+      if (playlists is! List) {
+        return const [];
+      }
+      return playlists
+          .whereType<Map>()
+          .map(
+            (item) => NeteasePlaylistModel.fromApi(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .toList();
+    } catch (e) {
+      print('⚠️ NeteaseApiClient: 获取用户歌单失败 -> $e');
+      return const [];
+    }
+  }
+
+  Future<List<NeteaseTrackModel>> fetchPlaylistTracks({
+    required String cookie,
+    required int playlistId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/playlist/track/all',
+        options: _authOptions(cookie),
+        queryParameters: {'id': playlistId, 'limit': 500, 'offset': 0},
+      );
+      final data = response.data;
+      if (data is! Map) {
+        return const [];
+      }
+      final songs = data['songs'];
+      if (songs is! List) {
+        return const [];
+      }
+      return songs
+          .whereType<Map>()
+          .map(
+            (item) => NeteaseTrackModel.fromApi(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .toList();
+    } catch (e) {
+      print('⚠️ NeteaseApiClient: 获取歌单歌曲失败 -> $e');
+      return const [];
+    }
+  }
+
+  Future<NeteaseTrackStreamInfo?> fetchTrackStream({
+    required String cookie,
+    required int trackId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/song/url/v1',
+        options: _authOptions(cookie),
+        queryParameters: {'id': trackId, 'level': 'standard'},
+      );
+      final data = response.data;
+      if (data is! Map) {
+        return null;
+      }
+      final payload = data['data'];
+      if (payload is! List || payload.isEmpty) {
+        return null;
+      }
+      final first = payload.first;
+      if (first is! Map) {
+        return null;
+      }
+      final url = first['url'] as String?;
+      if (url == null || url.isEmpty) {
+        return null;
+      }
+      return NeteaseTrackStreamInfo(url: url, cookie: cookie);
+    } catch (e) {
+      print('⚠️ NeteaseApiClient: 获取音频地址失败 -> $e');
       return null;
     }
   }

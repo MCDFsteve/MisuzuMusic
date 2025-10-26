@@ -68,10 +68,14 @@ class MacOSPlayerControlBar extends StatelessWidget {
           volume = playingState.volume;
           final track = playingState.track as Track;
           artworkPath = track.artworkPath;
-          remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
-            track.httpHeaders,
-            thumbnail: true,
-          );
+          if (track.sourceType == TrackSourceType.netease) {
+            remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+          } else {
+            remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+              track.httpHeaders,
+              thumbnail: true,
+            );
+          }
           currentTrack = track;
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
