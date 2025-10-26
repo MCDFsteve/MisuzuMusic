@@ -5,6 +5,7 @@ import window_manager_plus
 @main
 class AppDelegate: FlutterAppDelegate {
   private var hotKeyChannel: FlutterMethodChannel?
+  private var windowChannel: FlutterMethodChannel?
   private lazy var menuLocalizationBundle: Bundle = {
     if let path = Bundle.main.path(forResource: "zh-Hans", ofType: "lproj"),
       let bundle = Bundle(path: path)
@@ -35,6 +36,12 @@ class AppDelegate: FlutterAppDelegate {
         binaryMessenger: controller.engine.binaryMessenger
       )
 
+      appDelegate.windowChannel = FlutterMethodChannel(
+        name: "com.aimessoft.misuzumusic/macos_window",
+        binaryMessenger: controller.engine.binaryMessenger
+      )
+      appDelegate.windowChannel?.setMethodCallHandler(appDelegate.handleWindowChannel)
+
       NSLog("✅ hotKeyChannel 初始化完成")
 
       appDelegate.localizeMenuTitles()
@@ -42,6 +49,62 @@ class AppDelegate: FlutterAppDelegate {
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
         appDelegate.localizeMenuTitles()
       }
+    }
+  }
+
+  private func handleWindowChannel(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "setTransparent":
+      guard let args = call.arguments as? [String: Any],
+            let windowId = args["windowId"] as? Int64
+      else {
+        result(FlutterError(code: "invalid_args", message: "Missing windowId", details: nil))
+        return
+      }
+
+      guard let window = resolveWindow(by: windowId) else {
+        result(FlutterError(code: "window_not_found", message: "Cannot find window for id \(windowId)", details: nil))
+        return
+      }
+
+      applyTransparentStyle(to: window)
+      result(true)
+
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func resolveWindow(by id: Int64) -> NSWindow? {
+    if id == 0 {
+      return mainFlutterWindow
+    }
+
+    if let managerOptional = WindowManagerPlus.windowManagers[id],
+       let manager = managerOptional {
+      return manager.mainWindow
+    }
+
+    return NSApp.windows.first { window in
+      window.windowNumber == Int(id)
+    }
+  }
+
+  private func applyTransparentStyle(to window: NSWindow) {
+    window.isOpaque = false
+    window.backgroundColor = .clear
+    window.hasShadow = false
+    window.titleVisibility = .hidden
+    window.titlebarAppearsTransparent = true
+
+    if let contentView = window.contentView {
+      contentView.wantsLayer = true
+      contentView.layer?.backgroundColor = NSColor.clear.cgColor
+    }
+
+    if let view = window.contentViewController?.view {
+      view.wantsLayer = true
+      view.layer?.backgroundColor = NSColor.clear.cgColor
     }
   }
 

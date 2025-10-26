@@ -19,6 +19,9 @@ class _NeteaseViewState extends State<NeteaseView> {
   int? _activePlaylistId;
   bool _promptedForCookie = false;
   bool _dialogVisible = false;
+  String? _toastMessage;
+  bool _toastIsError = false;
+  Timer? _toastTimer;
 
   bool get canNavigateBack => _showPlaylistDetail;
 
@@ -51,12 +54,36 @@ class _NeteaseViewState extends State<NeteaseView> {
   }
 
   @override
+  void dispose() {
+    _toastTimer?.cancel();
+    super.dispose();
+  }
+
+  void _showToast(String message, {bool isError = false}) {
+    _toastTimer?.cancel();
+    setState(() {
+      _toastMessage = message;
+      _toastIsError = isError;
+    });
+    _toastTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() {
+        _toastMessage = null;
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocConsumer<NeteaseCubit, NeteaseState>(
       listener: (context, state) {
         if (!state.isInitializing && !state.hasSession && !_promptedForCookie) {
           _promptForCookie(force: true);
           _promptedForCookie = true;
+        }
+        if (state.errorMessage != null) {
+          _showToast(state.errorMessage!, isError: true);
+          context.read<NeteaseCubit>().clearMessage();
         }
       },
       builder: (context, state) {
@@ -65,12 +92,15 @@ class _NeteaseViewState extends State<NeteaseView> {
         }
 
         final overlay = <Widget>[];
-        if (state.errorMessage != null) {
+        if (_toastMessage != null) {
           overlay.add(
             Positioned(
               bottom: 16,
               right: 16,
-              child: _NeteaseToast(message: state.errorMessage!),
+              child: _NeteaseToast(
+                message: _toastMessage!,
+                isError: _toastIsError,
+              ),
             ),
           );
         }
@@ -154,21 +184,13 @@ class _NeteaseViewState extends State<NeteaseView> {
     if (tracks == null) {
       context.read<NeteaseCubit>().ensurePlaylistTracks(resolvedPlaylist.id);
     }
-
-    final header = _NeteasePlaylistHeader(playlist: resolvedPlaylist);
-    final content = tracks == null
-        ? const Expanded(child: Center(child: ProgressCircle()))
-        : Expanded(
-            child: MacOSTrackListView(
-              tracks: tracks,
-              onAddToPlaylist: widget.onAddToPlaylist,
-            ),
+    final Widget content = tracks == null
+        ? const Center(child: ProgressCircle())
+        : MacOSTrackListView(
+            tracks: tracks,
+            onAddToPlaylist: null,
+            additionalActionsBuilder: _neteaseContextActions,
           );
-
-    final body = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [header, const SizedBox(height: 16), content],
-    );
 
     return Shortcuts(
       shortcuts: <LogicalKeySet, Intent>{
@@ -186,7 +208,7 @@ class _NeteaseViewState extends State<NeteaseView> {
         },
         child: Focus(
           autofocus: true,
-          child: Padding(padding: const EdgeInsets.all(24), child: body),
+          child: content,
         ),
       ),
     );
@@ -210,99 +232,111 @@ class _NeteaseViewState extends State<NeteaseView> {
     }
     return value.toString();
   }
-}
 
-class _NeteasePlaylistHeader extends StatelessWidget {
-  const _NeteasePlaylistHeader({required this.playlist});
+  List<MacosContextMenuAction> _neteaseContextActions(Track track) {
+    if (track.sourceType == TrackSourceType.netease) {
+      return [
+        MacosContextMenuAction(
+          label: '添加到网易云歌单…',
+          icon: CupertinoIcons.cloud_upload,
+          onSelected: () => _promptAddTrackToNeteasePlaylist(track),
+        ),
+      ];
+    }
+    if (widget.onAddToPlaylist == null) {
+      return const [];
+    }
+    return [
+      MacosContextMenuAction(
+        label: '添加到歌单',
+        icon: CupertinoIcons.add_circled,
+        onSelected: () => widget.onAddToPlaylist?.call(track),
+      ),
+    ];
+  }
 
-  final NeteasePlaylist playlist;
+  Future<void> _promptAddTrackToNeteasePlaylist(Track track) async {
+    final cubit = context.read<NeteaseCubit>();
+    List<NeteasePlaylist> playlists = cubit.state.playlists;
+    if (playlists.isEmpty) {
+      await cubit.refreshPlaylists();
+      if (!mounted) return;
+      playlists = cubit.state.playlists;
+      if (playlists.isEmpty) {
+        _showToast('暂无可用的网易云歌单', isError: true);
+        return;
+      }
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final macTheme = MacosTheme.of(context);
-    final titleStyle = macTheme.typography.title2;
-    final subtitleStyle = macTheme.typography.body.copyWith(
-      color: macTheme.typography.body.color?.withOpacity(0.72),
-    );
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _RemoteArtworkPreview(url: playlist.coverUrl),
-        const SizedBox(width: 24),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                playlist.name,
-                locale: Locale("zh-Hans", "zh"),
-                style: titleStyle,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${playlist.trackCount} 首歌曲 · 创建者 ${playlist.creatorName}',
-                locale: Locale("zh-Hans", "zh"),
-                style: subtitleStyle,
-              ),
-              if ((playlist.description ?? '').trim().isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  playlist.description!.trim(),
-                  locale: Locale("zh-Hans", "zh"),
-                  style: subtitleStyle,
+    var selectedId = playlists.first.id;
+    final result = await showMacosAlertDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return MacosAlertDialog(
+            appIcon: const MacosIcon(CupertinoIcons.cloud),
+            title: const Text('添加到网易云歌单', locale: Locale('zh-Hans', 'zh')),
+            message: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('选择目标歌单', locale: Locale('zh-Hans', 'zh')),
+                const SizedBox(height: 12),
+                MacosPopupButton<int>(
+                  value: selectedId,
+                  onChanged: (value) {
+                    if (value != null) {
+                      setDialogState(() {
+                        selectedId = value;
+                      });
+                    }
+                  },
+                  items: [
+                    for (final playlist in playlists)
+                      MacosPopupMenuItem<int>(
+                        value: playlist.id,
+                        child: Text(
+                          playlist.name,
+                          locale: const Locale('zh-Hans', 'zh'),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
                 ),
               ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RemoteArtworkPreview extends StatelessWidget {
-  const _RemoteArtworkPreview({required this.url});
-
-  final String? url;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 180,
-      height: 180,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: MacosColors.controlBackgroundColor,
-        border: Border.all(
-          color: MacosTheme.of(context).dividerColor,
-          width: 0.5,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: url == null
-          ? const Center(
-              child: MacosIcon(
-                CupertinoIcons.music_note,
-                size: 40,
-                color: MacosColors.systemGrayColor,
-              ),
-            )
-          : Image.network(
-              url!,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const Center(
-                child: MacosIcon(
-                  CupertinoIcons.photo,
-                  size: 36,
-                  color: MacosColors.systemGrayColor,
-                ),
-              ),
             ),
+            primaryButton: PushButton(
+              controlSize: ControlSize.large,
+              onPressed: () => Navigator.of(ctx).pop(selectedId),
+              child: const Text('添加', locale: Locale('zh-Hans', 'zh')),
+            ),
+            secondaryButton: PushButton(
+              controlSize: ControlSize.large,
+              secondary: true,
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('取消', locale: Locale('zh-Hans', 'zh')),
+            ),
+          );
+        },
+      ),
     );
+
+    if (!mounted || result is! int) {
+      return;
+    }
+
+    final error = await cubit.addTrackToPlaylist(result, track);
+    if (!mounted) {
+      return;
+    }
+    if (error == null) {
+      await cubit.ensurePlaylistTracks(result, force: true);
+      _showToast('已添加到网易云歌单');
+    } else {
+      _showToast(error, isError: true);
+    }
   }
 }
-
 class _NeteaseLoginPlaceholder extends StatelessWidget {
   const _NeteaseLoginPlaceholder({required this.onTap});
 
@@ -364,9 +398,13 @@ class _NeteaseEmptyMessage extends StatelessWidget {
 }
 
 class _NeteaseToast extends StatelessWidget {
-  const _NeteaseToast({required this.message});
+  const _NeteaseToast({
+    required this.message,
+    this.isError = false,
+  });
 
   final String message;
+  final bool isError;
 
   @override
   Widget build(BuildContext context) {
@@ -376,7 +414,11 @@ class _NeteaseToast extends StatelessWidget {
         filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(color: Colors.black.withOpacity(0.35)),
+          decoration: BoxDecoration(
+            color: isError
+                ? Colors.red.withOpacity(0.65)
+                : Colors.black.withOpacity(0.35),
+          ),
           child: Text(
             message,
             locale: Locale("zh-Hans", "zh"),

@@ -21,11 +21,13 @@ class MacOSTrackListView extends StatelessWidget {
     required this.tracks,
     this.onAddToPlaylist,
     this.onRemoveFromPlaylist,
+    this.additionalActionsBuilder,
   });
 
   final List<Track> tracks;
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<Track>? onRemoveFromPlaylist;
+  final List<MacosContextMenuAction> Function(Track track)? additionalActionsBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -109,11 +111,14 @@ class MacOSTrackListView extends StatelessWidget {
   ) async {
     final hasAdd = onAddToPlaylist != null;
     final hasRemove = onRemoveFromPlaylist != null;
-    if (!hasAdd && !hasRemove) {
+    final customActions =
+        additionalActionsBuilder != null ? additionalActionsBuilder!(track) : const <MacosContextMenuAction>[];
+
+    if (!hasAdd && !hasRemove && customActions.isEmpty) {
       return;
     }
 
-    final actions = <MacosContextMenuAction>[];
+    final actions = <MacosContextMenuAction>[]..addAll(customActions);
     if (hasAdd) {
       actions.add(
         MacosContextMenuAction(

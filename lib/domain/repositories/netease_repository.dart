@@ -11,4 +11,5 @@ abstract class NeteaseRepository {
   Future<Track?> ensureTrackStream(Track track);
   List<NeteasePlaylist> getCachedPlaylists();
   Map<int, List<Track>> getCachedPlaylistTracks();
+  Future<String?> addTrackToPlaylist(int playlistId, Track track);
 }

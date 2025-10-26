@@ -57,7 +57,7 @@ class DesktopLyricsController {
   bool get isWindowOpen => _lyricsWindowId != null;
   bool get _isDesktopPlatform => Platform.isMacOS || Platform.isWindows;
 
-  void //_log(String message) {
+  void _log(String message) {
     debugPrint('🪟 DesktopLyricsController: $message');
   }
 

@@ -181,6 +181,32 @@ class NeteaseApiClient {
     }
   }
 
+  Future<bool> addTrackToPlaylist({
+    required String cookie,
+    required int playlistId,
+    required int trackId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/playlist/tracks',
+        options: _authOptions(cookie),
+        queryParameters: {
+          'op': 'add',
+          'pid': playlistId,
+          'tracks': trackId,
+        },
+      );
+      final data = response.data;
+      if (data is Map && (data['code'] == 200 || data['status'] == 200)) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('⚠️ NeteaseApiClient: 添加歌曲到歌单失败 -> $e');
+      return false;
+    }
+  }
+
   Future<Uint8List?> downloadImage(String url) async {
     try {
       final response = await _dio.get<List<int>>(

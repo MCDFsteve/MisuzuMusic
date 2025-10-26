@@ -53,13 +53,34 @@ class NeteasePlaylist extends Equatable {
 
   @override
   List<Object?> get props => [
-    id,
-    name,
-    trackCount,
-    playCount,
-    creatorName,
-    coverUrl,
-    description,
-    updatedAt,
-  ];
+        id,
+        name,
+        trackCount,
+        playCount,
+        creatorName,
+        coverUrl,
+        description,
+        updatedAt,
+      ];
+
+  NeteasePlaylist copyWith({
+    String? name,
+    int? trackCount,
+    int? playCount,
+    String? creatorName,
+    String? coverUrl,
+    String? description,
+    DateTime? updatedAt,
+  }) {
+    return NeteasePlaylist(
+      id: id,
+      name: name ?? this.name,
+      trackCount: trackCount ?? this.trackCount,
+      playCount: playCount ?? this.playCount,
+      creatorName: creatorName ?? this.creatorName,
+      coverUrl: coverUrl ?? this.coverUrl,
+      description: description ?? this.description,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

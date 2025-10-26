@@ -396,14 +396,19 @@ class _CoverColumn extends StatelessWidget {
               ) ??
               const TextStyle(fontSize: 14, color: Colors.black54);
 
-    final remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
-      track.httpHeaders,
-      thumbnail: false,
-    ) ??
-        MysteryLibraryConstants.buildArtworkUrl(
-          track.httpHeaders,
-          thumbnail: true,
-        );
+    String? remoteArtworkUrl;
+    if (track.sourceType == TrackSourceType.netease) {
+      remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+    } else {
+      remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+        track.httpHeaders,
+        thumbnail: false,
+      ) ??
+          MysteryLibraryConstants.buildArtworkUrl(
+            track.httpHeaders,
+            thumbnail: true,
+          );
+    }
 
     return Center(
       child: Column(

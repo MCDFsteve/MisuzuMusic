@@ -11,7 +11,7 @@ class _HomePageContentState extends State<HomePageContent> {
   int _selectedIndex = 0;
   double _navigationWidth = 200;
 
-  static const double _navMinWidth = 100;
+  static const double _navMinWidth = 80;
   static const double _navMaxWidth = 220;
   String _searchQuery = '';
   String _activeSearchQuery = '';

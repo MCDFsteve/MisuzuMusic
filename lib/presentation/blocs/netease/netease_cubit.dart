@@ -74,9 +74,12 @@ class NeteaseCubit extends Cubit<NeteaseState> {
     }
   }
 
-  Future<List<Track>> ensurePlaylistTracks(int playlistId) async {
+  Future<List<Track>> ensurePlaylistTracks(
+    int playlistId, {
+    bool force = false,
+  }) async {
     final cached = state.playlistTracks[playlistId];
-    if (cached != null && cached.isNotEmpty) {
+    if (!force && cached != null && cached.isNotEmpty) {
       return cached;
     }
     try {
@@ -100,6 +103,36 @@ class NeteaseCubit extends Cubit<NeteaseState> {
         playlistTracks: const {},
       ),
     );
+  }
+
+  Future<String?> addTrackToPlaylist(int playlistId, Track track) async {
+    final message = await _repository.addTrackToPlaylist(playlistId, track);
+    if (message == null) {
+      final tracks = await _repository.fetchPlaylistTracks(playlistId);
+      final updatedTracks = Map<int, List<Track>>.from(state.playlistTracks)
+        ..[playlistId] = tracks;
+      final updatedPlaylists = state.playlists
+          .map(
+            (playlist) => playlist.id == playlistId
+                ? playlist.copyWith(trackCount: tracks.length)
+                : playlist,
+          )
+          .toList();
+      emit(
+        state.copyWith(
+          playlists: updatedPlaylists,
+          playlistTracks: updatedTracks,
+        ),
+      );
+    }
+    if (message != null) {
+      emit(state.copyWith(errorMessage: message));
+    }
+    return message;
+  }
+
+  void clearMessage() {
+    emit(state.copyWith(clearError: true));
   }
 
   String _normalizeCookie(String raw) {

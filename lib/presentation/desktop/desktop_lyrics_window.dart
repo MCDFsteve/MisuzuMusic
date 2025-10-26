@@ -19,7 +19,6 @@ Future<void> runDesktopLyricsWindow(
 ) async {
   WidgetsFlutterBinding.ensureInitialized();
   await WindowManagerPlus.ensureInitialized(windowId);
-  debugPrint('🪟 DesktopLyricsWindow bootstrap: currentId=${WindowManagerPlus.current.id}, windowId=$windowId');
 
   final windowOptions = WindowOptions(
     size: Size(560, 240),
@@ -51,9 +50,7 @@ Future<void> runDesktopLyricsWindow(
   );
   await WindowManagerPlus.current.setTitle('Misuzu 桌面歌词');
 
-  runApp(_DesktopLyricsApp(
-    initialState: initialState,
-  ));
+  runApp(_DesktopLyricsApp(initialState: initialState));
 }
 
 class _DesktopLyricsApp extends StatefulWidget {
@@ -74,36 +71,27 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
   bool _showTranslation = true;
   int _activeIndex = -1;
 
-  void //_log(String message) {
-    debugPrint('🪟 DesktopLyricsWindow: $message');
-  }
-
   @override
   void initState() {
     super.initState();
     WindowManagerPlus.current.addListener(this);
-    final hasInitialLyrics = widget.initialState['lyrics'] != null;
-    final initialPosition = widget.initialState['position'];
-    //_log('初始化歌词窗口: hasInitialLyrics=$hasInitialLyrics, position=$initialPosition');
     _applyInitialState(widget.initialState);
     scheduleMicrotask(() async {
       try {
-        //_log('发送 desktop_lyrics_ready');
-        final result = await WindowManagerPlus.current
-            .invokeMethodToWindow(0, 'desktop_lyrics_ready');
-        //_log('desktop_lyrics_ready 发送完成，返回值: $result');
+        await WindowManagerPlus.current.invokeMethodToWindow(
+          0,
+          'desktop_lyrics_ready',
+        );
       } catch (error, stackTrace) {
-        //_log('发送 desktop_lyrics_ready 失败: $error');
         debugPrintStack(stackTrace: stackTrace);
       }
 
       try {
-        //_log('发送 desktop_lyrics_request_state');
-        final result = await WindowManagerPlus.current
-            .invokeMethodToWindow(0, 'desktop_lyrics_request_state');
-        //_log('desktop_lyrics_request_state 发送完成，返回值: $result');
+        await WindowManagerPlus.current.invokeMethodToWindow(
+          0,
+          'desktop_lyrics_request_state',
+        );
       } catch (error, stackTrace) {
-        //_log('发送 desktop_lyrics_request_state 失败: $error');
         debugPrintStack(stackTrace: stackTrace);
       }
     });
@@ -112,7 +100,12 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
   @override
   void dispose() {
     WindowManagerPlus.current.removeListener(this);
-    unawaited(WindowManagerPlus.current.invokeMethodToWindow(0, 'desktop_lyrics_closed'));
+    unawaited(
+      WindowManagerPlus.current.invokeMethodToWindow(
+        0,
+        'desktop_lyrics_closed',
+      ),
+    );
     super.dispose();
   }
 
@@ -130,16 +123,13 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
       case 'desktop_lyrics_state':
         if (arguments is Map) {
           final map = Map<String, dynamic>.from(arguments as Map);
-          //_log('收到状态更新: keys=${map.keys}');
           _applyState(map);
         }
         break;
       case 'desktop_lyrics_position':
-        //_log('收到位置更新: $arguments');
         _applyPosition(arguments);
         break;
       default:
-        //_log('未处理的事件 -> $eventName');
     }
     return null;
   }
@@ -156,17 +146,18 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     setState(() {
       _lines = _parseLines(payload['lyrics'] as Map?);
       _showTranslation = payload['showTranslation'] as bool? ?? true;
-      final Duration? incomingPosition =
-          _parseDurationMilliseconds(payload['position']);
+      final Duration? incomingPosition = _parseDurationMilliseconds(
+        payload['position'],
+      );
       if (incomingPosition != null) {
         _position = incomingPosition;
       }
-      final int? activeIndexFromPayload =
-          _parseIndex(payload['activeLineIndex']);
+      final int? activeIndexFromPayload = _parseIndex(
+        payload['activeLineIndex'],
+      );
       final Map<String, dynamic>? stateMap =
           payload['lyricsState'] as Map<String, dynamic>?;
       final String? status = stateMap?['status'] as String?;
-      //_log('应用状态: lines=${_lines.length}, activeIndex=$activeIndexFromPayload, position=${_position.inMilliseconds}ms, status=$status');
       switch (status) {
         case 'initial':
           _lyricsDescriptor = LyricsStateDescriptor.initial;
@@ -209,12 +200,10 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     }
 
     if (nextPosition == null) {
-      //_log('位置负载无法解析，忽略');
       return;
     }
 
     if (nextPosition == _position && preferredIndex == null) {
-      //_log('位置无变化，忽略');
       return;
     }
 
@@ -227,7 +216,6 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
   void _updateActiveIndex({int? preferredIndex}) {
     if (_lines.isEmpty) {
       _activeIndex = -1;
-      //_log('没有可用歌词行');
       return;
     }
 
@@ -235,12 +223,10 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         preferredIndex >= 0 &&
         preferredIndex < _lines.length) {
       _activeIndex = preferredIndex;
-      //_log('使用传入 activeIndex=$_activeIndex');
       return;
     }
 
     _activeIndex = _findActiveIndex(_position) ?? -1;
-    //_log('重新计算 activeIndex=$_activeIndex');
   }
 
   int? _findActiveIndex(Duration position) {
@@ -251,17 +237,15 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     int index = _lines.length - 1;
     for (int i = 0; i < _lines.length; i++) {
       final Duration current = _lines[i].timestamp;
-      final Duration? next =
-          i + 1 < _lines.length ? _lines[i + 1].timestamp : null;
+      final Duration? next = i + 1 < _lines.length
+          ? _lines[i + 1].timestamp
+          : null;
       if (position < current) {
         index = math.max(0, i - 1);
-        //_log('position=${position.inMilliseconds} < ${current.inMilliseconds}, 使用 index=$index');
         break;
       }
       if (next == null || position < next) {
         index = i;
-        final nextLabel = next != null ? next.inMilliseconds.toString() : '∞';
-        //_log('position=${position.inMilliseconds} 位于区间 [${current.inMilliseconds}, $nextLabel)，使用 index=$index');
         break;
       }
     }
@@ -278,21 +262,21 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
     }
     return rawLines.map((entry) {
       final map = Map<String, dynamic>.from(entry as Map);
-      final annotated = (map['annotatedTexts'] as List<dynamic>? ?? [])
-          .map((item) {
-            final data = Map<String, dynamic>.from(item as Map);
-            final typeName = data['type'] as String?;
-            final TextType type = TextType.values.firstWhere(
-              (value) => value.name == typeName,
-              orElse: () => TextType.other,
-            );
-            return AnnotatedText(
-              original: data['original'] as String? ?? '',
-              annotation: data['annotation'] as String? ?? '',
-              type: type,
-            );
-          })
-          .toList();
+      final annotated = (map['annotatedTexts'] as List<dynamic>? ?? []).map((
+        item,
+      ) {
+        final data = Map<String, dynamic>.from(item as Map);
+        final typeName = data['type'] as String?;
+        final TextType type = TextType.values.firstWhere(
+          (value) => value.name == typeName,
+          orElse: () => TextType.other,
+        );
+        return AnnotatedText(
+          original: data['original'] as String? ?? '',
+          annotation: data['annotation'] as String? ?? '',
+          type: type,
+        );
+      }).toList();
       return LyricsLine(
         timestamp: Duration(milliseconds: map['timestamp'] as int? ?? 0),
         originalText: map['originalText'] as String? ?? '',
@@ -407,10 +391,7 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: Colors.white, fontSize: 14),
         ),
       ),
     );
@@ -419,8 +400,8 @@ class _DesktopLyricsAppState extends State<_DesktopLyricsApp>
   Widget _buildLyricsContent() {
     final LyricsLine? activeLine =
         _activeIndex >= 0 && _activeIndex < _lines.length
-            ? _lines[_activeIndex]
-            : null;
+        ? _lines[_activeIndex]
+        : null;
 
     return Center(
       child: _OutlinedLyricsLine(
@@ -460,7 +441,7 @@ class _OutlinedLyricsLine extends StatelessWidget {
     final double annotationRatio = 0.42;
 
     final TextStyle fillStyle = TextStyle(
-      color: Colors.black,
+      color: Colors.white,
       fontSize: fontSize,
       fontWeight: FontWeight.w800,
       height: 1.28,
@@ -472,7 +453,7 @@ class _OutlinedLyricsLine extends StatelessWidget {
       foreground: Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
-        ..color = Colors.white
+        ..color = Colors.black.withOpacity(0.75)
         ..strokeJoin = StrokeJoin.round,
     );
 
@@ -480,6 +461,7 @@ class _OutlinedLyricsLine extends StatelessWidget {
       fontSize: fontSize * annotationRatio,
       height: 1.0,
       fontWeight: FontWeight.w600,
+      color: Colors.white,
     );
 
     final TextStyle annotationStrokeStyle = annotationFillStyle.copyWith(
@@ -487,7 +469,7 @@ class _OutlinedLyricsLine extends StatelessWidget {
       foreground: Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = math.max(1.2, strokeWidth * 0.55)
-        ..color = Colors.white
+        ..color = Colors.black.withOpacity(0.65)
         ..strokeJoin = StrokeJoin.round,
     );
 
@@ -531,12 +513,14 @@ class _OutlinedLyricsLine extends StatelessWidget {
         text: mainText,
         fillStyle: fillStyle,
         strokeWidth: strokeWidth,
+        strokeColor: Colors.black.withOpacity(0.75),
         maxLines: highlighted ? 3 : 2,
       );
     }
 
-    final String? translated =
-        showTranslation ? line!.translatedText?.trim() : null;
+    final String? translated = showTranslation
+        ? line!.translatedText?.trim()
+        : null;
     final bool hasTranslation = translated != null && translated!.isNotEmpty;
 
     final List<Widget> children = [original];
@@ -547,12 +531,13 @@ class _OutlinedLyricsLine extends StatelessWidget {
           child: _OutlinedText(
             text: translated!,
             fillStyle: TextStyle(
-              color: Colors.black.withOpacity(highlighted ? 0.85 : 0.6),
+              color: Colors.white.withOpacity(highlighted ? 0.92 : 0.72),
               fontSize: highlighted ? 20 : 16,
               fontWeight: FontWeight.w600,
               height: 1.28,
             ),
             strokeWidth: highlighted ? 3.4 : 2.4,
+            strokeColor: Colors.black.withOpacity(0.5),
             maxLines: 3,
           ),
         ),
@@ -562,10 +547,7 @@ class _OutlinedLyricsLine extends StatelessWidget {
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
       opacity: highlighted ? 1.0 : 0.78,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: children,
-      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
 }
@@ -576,19 +558,21 @@ class _OutlinedText extends StatelessWidget {
     required this.fillStyle,
     required this.strokeWidth,
     required this.maxLines,
+    this.strokeColor,
   });
 
   final String text;
   final TextStyle fillStyle;
   final double strokeWidth;
   final int maxLines;
+  final Color? strokeColor;
 
   @override
   Widget build(BuildContext context) {
     final Paint strokePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
-      ..color = Colors.white
+      ..color = strokeColor ?? Colors.white
       ..strokeJoin = StrokeJoin.round;
 
     final TextStyle strokeStyle = fillStyle.copyWith(

@@ -234,4 +234,54 @@ class NeteaseRepositoryImpl implements NeteaseRepository {
     });
     return result;
   }
+
+  @override
+  Future<String?> addTrackToPlaylist(int playlistId, Track track) async {
+    await _ensureLoaded();
+    final session = _cache.session;
+    if (session == null) {
+      return '网易云账号未登录';
+    }
+    final trackId = int.tryParse(
+      track.sourceId ?? track.id.replaceFirst('netease_', ''),
+    );
+    if (trackId == null) {
+      return '无法识别歌曲 ID';
+    }
+    final success = await _apiClient.addTrackToPlaylist(
+      cookie: session.cookie,
+      playlistId: playlistId,
+      trackId: trackId,
+    );
+    if (!success) {
+      return '添加到网易云歌单失败';
+    }
+
+    final updatedTracks = Map<int, List<NeteaseTrackModel>>.from(
+      _cache.playlistTracks,
+    );
+    final trackModels = List<NeteaseTrackModel>.from(
+      updatedTracks[playlistId] ?? const [],
+    );
+    final exists = trackModels.any((element) => element.id == trackId);
+    if (!exists) {
+      trackModels.insert(0, NeteaseTrackModel.fromTrack(track));
+    }
+    updatedTracks[playlistId] = trackModels;
+
+    final updatedPlaylists = _cache.playlists
+        .map(
+          (playlist) => playlist.id == playlistId
+              ? playlist.copyWith(trackCount: trackModels.length)
+              : playlist,
+        )
+        .toList();
+
+    _cache = _cache.copyWith(
+      playlistTracks: updatedTracks,
+      playlists: updatedPlaylists,
+    );
+    await _persist();
+    return null;
+  }
 }

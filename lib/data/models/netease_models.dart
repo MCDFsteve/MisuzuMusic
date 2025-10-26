@@ -124,6 +124,27 @@ class NeteasePlaylistModel {
     );
   }
 
+  NeteasePlaylistModel copyWith({
+    int? trackCount,
+    int? playCount,
+    String? name,
+    String? creatorName,
+    String? coverUrl,
+    String? description,
+    DateTime? updatedAt,
+  }) {
+    return NeteasePlaylistModel(
+      id: id,
+      name: name ?? this.name,
+      trackCount: trackCount ?? this.trackCount,
+      playCount: playCount ?? this.playCount,
+      creatorName: creatorName ?? this.creatorName,
+      coverUrl: coverUrl ?? this.coverUrl,
+      description: description ?? this.description,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
@@ -193,6 +214,21 @@ class NeteaseTrackModel {
       album: json['album'] as String,
       durationMs: json['durationMs'] as int,
       coverUrl: json['coverUrl'] as String?,
+    );
+  }
+
+  factory NeteaseTrackModel.fromTrack(Track track) {
+    final neteaseId = int.tryParse(
+          track.sourceId ?? track.id.replaceFirst('netease_', ''),
+        ) ??
+        0;
+    return NeteaseTrackModel(
+      id: neteaseId,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      durationMs: track.duration.inMilliseconds,
+      coverUrl: track.httpHeaders?['x-netease-cover'],
     );
   }
 
