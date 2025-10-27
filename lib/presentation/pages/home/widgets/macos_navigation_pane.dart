@@ -50,12 +50,13 @@ class _MacOSNavigationPane extends StatelessWidget {
                   ),
                 ),
               ),
-              child: ListView.separated(
+              child: LazyListView<_NavigationItem>(
+                items: _items,
+                pageSize: _items.length,
+                preloadOffset: 80,
                 padding: const EdgeInsets.fromLTRB(0, 84, 0, 92),
-                itemCount: _items.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 6),
-                itemBuilder: (context, index) {
-                  final item = _items[index];
+                itemBuilder: (context, item, index) {
                   final bool active = selectedIndex == index;
                   return _NavigationTile(
                     item: item,

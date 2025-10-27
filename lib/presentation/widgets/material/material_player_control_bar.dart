@@ -7,6 +7,7 @@ import '../../blocs/player/player_bloc.dart';
 import '../common/artwork_thumbnail.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
+import '../../utils/track_display_utils.dart';
 
 class MaterialPlayerControlBar extends StatelessWidget {
   const MaterialPlayerControlBar({
@@ -50,12 +51,12 @@ class MaterialPlayerControlBar extends StatelessWidget {
 
         if (canControl) {
           final playingState = state as dynamic;
-          trackTitle = playingState.track.title;
-          trackArtist =
-              '${playingState.track.artist} • ${playingState.track.album}';
+          final track = playingState.track as Track;
+          final displayInfo = deriveTrackDisplayInfo(track);
+          trackTitle = displayInfo.title;
+          trackArtist = '${displayInfo.artist} • ${displayInfo.album}';
           position = playingState.position;
           duration = playingState.duration;
-          final track = playingState.track as Track;
           artworkPath = track.artworkPath;
           if (track.sourceType == TrackSourceType.netease) {
             remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
@@ -65,7 +66,7 @@ class MaterialPlayerControlBar extends StatelessWidget {
               thumbnail: true,
             );
           }
-          currentTrack = playingState.track as Track;
+          currentTrack = applyDisplayInfo(track, displayInfo);
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
           }

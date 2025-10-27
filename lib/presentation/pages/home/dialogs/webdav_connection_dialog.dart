@@ -16,10 +16,15 @@ class _WebDavConnectionFormResult {
   final String? displayName;
 }
 
+
 class _WebDavConnectionDialog extends StatefulWidget {
-  const _WebDavConnectionDialog({required this.testConnection});
+  const _WebDavConnectionDialog({
+    required this.testConnection,
+    required this.useModalScaffold,
+  });
 
   final TestWebDavConnection testConnection;
+  final bool useModalScaffold;
 
   @override
   State<_WebDavConnectionDialog> createState() =>
@@ -49,82 +54,80 @@ class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktopUi = prefersMacLikeUi();
-    if (isDesktopUi) {
-      return MacosAlertDialog(
-        appIcon: const MacosIcon(CupertinoIcons.cloud),
-        title: const Text('连接到 WebDAV'),
-        message: SizedBox(
-          width: 360,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _MacosField(
-                label: '服务器地址',
-                placeholder: 'https://example.com/webdav',
-                controller: _urlController,
-                errorText: _urlError,
-                enabled: !_testing,
-              ),
-              const SizedBox(height: 12),
-              _MacosField(
-                label: '用户名 (可选)',
-                controller: _usernameController,
-                enabled: !_testing,
-              ),
-              const SizedBox(height: 12),
-              _MacosField(
-                label: '密码',
-                controller: _passwordController,
-                errorText: _passwordError,
-                obscureText: true,
-                enabled: !_testing,
-              ),
-              const SizedBox(height: 12),
-              _MacosField(
-                label: '自定义名称 (可选)',
-                controller: _displayNameController,
-                enabled: !_testing,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  MacosCheckbox(
-                    value: _ignoreTls,
-                    onChanged: _testing
-                        ? null
-                        : (value) =>
-                              setState(() => _ignoreTls = value ?? false),
-                  ),
-                  const SizedBox(width: 8),
-                  const Flexible(child: Text('忽略 TLS 证书校验')),
-                ],
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  style: MacosTheme.of(
-                    context,
-                  ).typography.body.copyWith(color: MacosColors.systemRedColor),
+    if (widget.useModalScaffold) {
+      return _PlaylistModalScaffold(
+        title: '连接到 WebDAV',
+        maxWidth: 380,
+        contentSpacing: 18,
+        actionsSpacing: 16,
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MacosField(
+              label: '服务器地址',
+              placeholder: 'https://example.com/webdav',
+              controller: _urlController,
+              errorText: _urlError,
+              enabled: !_testing,
+            ),
+            const SizedBox(height: 12),
+            _MacosField(
+              label: '用户名 (可选)',
+              controller: _usernameController,
+              enabled: !_testing,
+            ),
+            const SizedBox(height: 12),
+            _MacosField(
+              label: '密码',
+              controller: _passwordController,
+              errorText: _passwordError,
+              obscureText: true,
+              enabled: !_testing,
+            ),
+            const SizedBox(height: 12),
+            _MacosField(
+              label: '自定义名称 (可选)',
+              controller: _displayNameController,
+              enabled: !_testing,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                MacosCheckbox(
+                  value: _ignoreTls,
+                  onChanged: _testing
+                      ? null
+                      : (value) =>
+                            setState(() => _ignoreTls = value ?? false),
                 ),
+                const SizedBox(width: 8),
+                const Flexible(child: Text('忽略 TLS 证书校验')),
               ],
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: MacosTheme.of(context)
+                    .typography
+                    .body
+                    .copyWith(color: MacosColors.systemRedColor),
+              ),
             ],
+          ],
+        ),
+        actions: [
+          _SheetActionButton.secondary(
+            label: '取消',
+            onPressed: _testing ? null : () => Navigator.of(context).pop(),
           ),
-        ),
-        primaryButton: PushButton(
-          controlSize: ControlSize.large,
-          onPressed: _testing ? null : _onConnect,
-          child: _testing
-              ? const SizedBox(width: 16, height: 16, child: ProgressCircle())
-              : const Text('连接'),
-        ),
-        secondaryButton: PushButton(
-          controlSize: ControlSize.large,
-          onPressed: _testing ? null : () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
+          _SheetActionButton.primary(
+            label: '连接',
+            onPressed: _testing ? null : _onConnect,
+            isBusy: _testing,
+          ),
+        ],
       );
     }
 

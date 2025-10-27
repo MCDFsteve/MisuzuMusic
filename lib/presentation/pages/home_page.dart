@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,6 +19,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/mystery_library_constants.dart';
 import '../../core/storage/binary_config_store.dart';
 import '../../core/widgets/modal_dialog.dart';
+import '../../core/utils/romaji_transliterator.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/entities/netease_entities.dart';
@@ -40,13 +42,17 @@ import '../widgets/common/artwork_thumbnail.dart';
 import '../widgets/common/library_search_field.dart';
 import '../widgets/common/track_list_tile.dart';
 import '../widgets/common/hover_glow_overlay.dart';
+import '../widgets/common/lazy_list_view.dart';
 import '../widgets/macos/collection/collection_overview_grid.dart';
 import '../widgets/macos/collection/collection_summary_card.dart';
 import '../widgets/macos/macos_player_control_bar.dart';
 import '../widgets/macos/macos_track_list_view.dart';
 import '../widgets/macos/context_menu/macos_context_menu.dart';
+import 'package:misuzu_music/presentation/widgets/dialogs/frosted_selection_modal.dart';
 import 'lyrics/lyrics_overlay.dart';
 import 'settings/settings_view.dart';
+import '../utils/track_display_utils.dart';
+import '../../core/utils/track_field_normalizer.dart' show isUnknownMetadataValue;
 
 part 'home/home_page_content.dart';
 part 'home/widgets/macos_glass_header.dart';
@@ -63,6 +69,8 @@ part 'home/views/playlist_view.dart';
 part 'home/views/playlists_view.dart';
 part 'home/views/netease_view.dart';
 part 'home/sheets/playlist_selection_sheet.dart';
+part 'home/views/artist_detail_page.dart';
+part 'home/views/album_detail_page.dart';
 
 WindowManager get windowManager => WindowManager.instance;
 
@@ -140,7 +148,8 @@ class _MediaControlShortcutScopeState
   static const MethodChannel _hotKeyChannel = MethodChannel(
     'com.aimessoft.misuzumusic/hotkeys',
   );
-  static final Map<LogicalKeySet, Intent> _shortcuts = <LogicalKeySet, Intent>{
+  static final Map<LogicalKeySet, Intent> _baseShortcuts =
+      <LogicalKeySet, Intent>{
     LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious):
         const _PreviousTrackIntent(),
     LogicalKeySet(LogicalKeyboardKey.mediaPlayPause):
@@ -272,12 +281,19 @@ class _MediaControlShortcutScopeState
 
   @override
   Widget build(BuildContext context) {
-    if (!Platform.isMacOS) {
+    final shouldHandleShortcuts = Platform.isMacOS || Platform.isWindows;
+    if (!shouldHandleShortcuts) {
       return widget.child;
     }
 
+    final shortcuts = Map<LogicalKeySet, Intent>.from(_baseShortcuts);
+    if (Platform.isWindows) {
+      shortcuts[LogicalKeySet(LogicalKeyboardKey.space)] =
+          const _TogglePlayPauseIntent();
+    }
+
     return Shortcuts(
-      shortcuts: _shortcuts,
+      shortcuts: shortcuts,
       child: Actions(
         actions: <Type, Action<Intent>>{
           _PreviousTrackIntent: CallbackAction<_PreviousTrackIntent>(
@@ -288,6 +304,9 @@ class _MediaControlShortcutScopeState
           ),
           _TogglePlayPauseIntent: CallbackAction<_TogglePlayPauseIntent>(
             onInvoke: (_) {
+              if (Platform.isWindows && _isTextFieldFocused()) {
+                return null;
+              }
               _dispatchToggle();
               return null;
             },
@@ -307,6 +326,12 @@ class _MediaControlShortcutScopeState
         ),
       ),
     );
+  }
+
+  bool _isTextFieldFocused() {
+    final focusNode = FocusManager.instance.primaryFocus;
+    final focusedWidget = focusNode?.context?.widget;
+    return focusedWidget is EditableText;
   }
 }
 

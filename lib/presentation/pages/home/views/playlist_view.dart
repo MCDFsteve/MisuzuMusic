@@ -5,10 +5,14 @@ class PlaylistView extends StatelessWidget {
     super.key,
     required this.searchQuery,
     this.onAddToPlaylist,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final String searchQuery;
   final ValueChanged<Track>? onAddToPlaylist;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +38,8 @@ class PlaylistView extends StatelessWidget {
               entries: state.entries,
               searchQuery: trimmedQuery,
               onAddToPlaylist: onAddToPlaylist,
+              onViewArtist: onViewArtist,
+              onViewAlbum: onViewAlbum,
             );
         }
       },
@@ -46,11 +52,15 @@ class _PlaylistHistoryList extends StatelessWidget {
     required this.entries,
     required this.searchQuery,
     this.onAddToPlaylist,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final List<PlaybackHistoryEntry> entries;
   final String searchQuery;
   final ValueChanged<Track>? onAddToPlaylist;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   Widget build(BuildContext context) {
@@ -68,10 +78,10 @@ class _PlaylistHistoryList extends StatelessWidget {
     final filteredEntries = normalizedQuery == null
         ? entries
         : entries.where((entry) {
-            final track = entry.track;
-            return track.title.toLowerCase().contains(normalizedQuery) ||
-                track.artist.toLowerCase().contains(normalizedQuery) ||
-                track.album.toLowerCase().contains(normalizedQuery);
+            final display = deriveTrackDisplayInfo(entry.track);
+            return display.title.toLowerCase().contains(normalizedQuery) ||
+                display.artist.toLowerCase().contains(normalizedQuery) ||
+                display.album.toLowerCase().contains(normalizedQuery);
           }).toList();
 
     if (filteredEntries.isEmpty) {
@@ -84,19 +94,23 @@ class _PlaylistHistoryList extends StatelessWidget {
     return AdaptiveScrollbar(
       isDarkMode: MacosTheme.of(context).brightness == Brightness.dark,
       builder: (controller) {
-        return ListView.separated(
+        return LazyListView<PlaybackHistoryEntry>(
           controller: controller,
+          items: filteredEntries,
+          pageSize: 100,
+          preloadOffset: 600,
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: filteredEntries.length,
+          cacheExtent: 0,
           separatorBuilder: (context, index) => Divider(
             height: 1,
             thickness: 0.5,
             color: dividerColor,
             indent: 88,
           ),
-          itemBuilder: (context, index) {
-            final entry = filteredEntries[index];
+          itemBuilder: (context, entry, index) {
             final track = entry.track;
+            final displayInfo = deriveTrackDisplayInfo(track);
+            final normalizedTrack = applyDisplayInfo(track, displayInfo);
             final playCount = entry.playCount;
             String? remoteArtworkUrl;
             if (track.isNeteaseTrack) {
@@ -118,14 +132,20 @@ class _PlaylistHistoryList extends StatelessWidget {
                 borderColor: dividerColor,
                 placeholder: artworkPlaceholder,
               ),
-              title: track.title,
-              artistAlbum: '${track.artist} • ${track.album}',
+              title: displayInfo.title,
+              artistAlbum: '${displayInfo.artist} • ${displayInfo.album}',
               duration: _formatDuration(track.duration),
               meta: '${_formatPlayedAt(entry.playedAt)} | ${playCount} 次播放',
               onTap: () =>
                   _playTrack(context, track, fingerprint: entry.fingerprint),
               onSecondaryTap: (position) =>
-                  _handleSecondaryTap(context, position, track),
+                  _handleSecondaryTap(
+                    context,
+                    position,
+                    track,
+                    normalizedTrack,
+                    displayInfo,
+                  ),
             );
           },
         );
@@ -136,17 +156,43 @@ class _PlaylistHistoryList extends StatelessWidget {
   Future<void> _handleSecondaryTap(
     BuildContext context,
     Offset globalPosition,
-    Track track,
+    Track originalTrack,
+    Track normalizedTrack,
+    TrackDisplayInfo displayInfo,
   ) async {
     final actions = <MacosContextMenuAction>[];
+    final artistName = displayInfo.artist.trim();
+    final albumName = displayInfo.album.trim();
+    final canViewArtist =
+        onViewArtist != null && artistName.isNotEmpty;
+    final canViewAlbum = onViewAlbum != null && albumName.isNotEmpty;
 
-    if (track.isNeteaseTrack) {
+    if (canViewArtist) {
+      actions.add(
+        MacosContextMenuAction(
+          label: '查看歌手',
+          icon: CupertinoIcons.person_crop_circle,
+          onSelected: () => onViewArtist?.call(normalizedTrack),
+        ),
+      );
+    }
+    if (canViewAlbum) {
+      actions.add(
+        MacosContextMenuAction(
+          label: '查看专辑',
+          icon: CupertinoIcons.music_albums,
+          onSelected: () => onViewAlbum?.call(normalizedTrack),
+        ),
+      );
+    }
+
+    if (originalTrack.isNeteaseTrack) {
       actions.add(
         MacosContextMenuAction(
           label: '添加到网络歌曲歌单…',
           icon: CupertinoIcons.cloud_upload,
           onSelected: () => unawaited(
-            _addTrackToNeteasePlaylist(context, track),
+            _addTrackToNeteasePlaylist(context, originalTrack),
           ),
         ),
       );
@@ -155,7 +201,7 @@ class _PlaylistHistoryList extends StatelessWidget {
         MacosContextMenuAction(
           label: '添加到歌单',
           icon: CupertinoIcons.add_circled,
-          onSelected: () => onAddToPlaylist?.call(track),
+          onSelected: () => onAddToPlaylist?.call(originalTrack),
         ),
       );
     }

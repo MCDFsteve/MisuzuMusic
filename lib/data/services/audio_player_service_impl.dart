@@ -37,6 +37,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   final MusicLibraryRepository _musicLibraryRepository;
   final NeteaseRepository _neteaseRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  static const List<Duration> _windowsPlaybackRetryDelays = <Duration>[
+    Duration(milliseconds: 24),
+    Duration(milliseconds: 80),
+  ];
 
   // State streams
   final BehaviorSubject<PlayerState> _playerStateSubject =
@@ -59,6 +63,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   PlayMode _playMode = PlayMode.repeatAll;
   double _volume = 1.0;
   DateTime _lastPositionPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
+  Duration? _pendingRestorePosition;
+  bool _restoringSession = false;
 
   // Shuffle management
   List<int> _shuffleIndexes = [];  // 洗牌后的索引列表
@@ -102,6 +108,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     _positionSubscription = _audioPlayer.positionStream.listen(
       (position) {
         _positionSubject.add(position);
+        if (_currentTrack == null) {
+          return;
+        }
         unawaited(_persistPosition(position));
       },
       onError: (error) {
@@ -181,9 +190,19 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _configStore.setValue(StorageKeys.playbackQueueIndex, _currentIndex);
   }
 
-  Future<void> _persistPosition(Duration position) async {
+  Future<void> _persistPosition(
+    Duration position, {
+    bool force = false,
+  }) async {
     final now = DateTime.now();
-    if (now.difference(_lastPositionPersistTime).inMilliseconds < 500) {
+    if (!force &&
+        _restoringSession &&
+        _pendingRestorePosition != null &&
+        position.inMilliseconds == 0) {
+      return;
+    }
+    if (!force &&
+        now.difference(_lastPositionPersistTime).inMilliseconds < 500) {
       return;
     }
     _lastPositionPersistTime = now;
@@ -262,6 +281,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> play(Track track, {String? fingerprint}) async {
     try {
+      _restoringSession = false;
+      _pendingRestorePosition = null;
       final playableTrack = await _resolvePlayableTrack(
         track,
         fingerprint: fingerprint,
@@ -271,8 +292,13 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       print('🎵 AudioService: 文件路径 - ${playableTrack.filePath}');
 
       _updateCurrentTrack(playableTrack);
+      _positionSubject.add(Duration.zero);
       await _setAudioSource(playableTrack);
-      await _audioPlayer.play();
+      final playFuture = _audioPlayer.play();
+      if (Platform.isWindows) {
+        unawaited(_ensureWindowsPlaybackStarted(playFuture));
+      }
+      await playFuture;
 
       if (playableTrack.sourceType == TrackSourceType.webdav &&
           playableTrack.sourceId != null &&
@@ -294,7 +320,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         _currentIndex = index;
       }
       await _persistQueueState();
-      await _persistPosition(Duration.zero);
+      if (_restoringSession && _pendingRestorePosition != null) {
+      } else {
+        await _persistPosition(Duration.zero, force: true);
+      }
 
       print('🎵 AudioService: 播放命令执行完成');
       unawaited(_recordPlayback(playableTrack));
@@ -317,6 +346,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
       print('🎵 AudioService: 预加载音轨 - ${playableTrack.title}');
       _updateCurrentTrack(playableTrack);
+      _positionSubject.add(Duration.zero);
       await _setAudioSource(playableTrack);
 
       final index = _queue.indexWhere(
@@ -326,7 +356,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         _currentIndex = index;
       }
       await _persistQueueState();
-      await _persistPosition(Duration.zero);
+      if (_restoringSession && _pendingRestorePosition != null) {
+      } else {
+        await _persistPosition(Duration.zero, force: true);
+      }
     } catch (e) {
       print('❌ AudioService: 预加载音轨失败 - $e');
       if (e is AudioPlaybackException) {
@@ -361,7 +394,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> resume() async {
     try {
-      await _audioPlayer.play();
+      final playFuture = _audioPlayer.play();
+      if (Platform.isWindows) {
+        unawaited(_ensureWindowsPlaybackStarted(playFuture));
+      }
+      await playFuture;
     } catch (e) {
       throw AudioPlaybackException('Failed to resume: ${e.toString()}');
     }
@@ -372,7 +409,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     try {
       await _audioPlayer.stop();
       _updateCurrentTrack(null);
-      await _persistPosition(Duration.zero);
+      _positionSubject.add(Duration.zero);
+      await _persistPosition(Duration.zero, force: true);
     } catch (e) {
       throw AudioPlaybackException('Failed to stop: ${e.toString()}');
     }
@@ -382,7 +420,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   Future<void> seekTo(Duration position) async {
     try {
       await _audioPlayer.seek(position);
-      await _persistPosition(position);
+      _positionSubject.add(position);
+      await _persistPosition(position, force: true);
+      if (_restoringSession && _pendingRestorePosition != null) {
+        final diff =
+            (position - _pendingRestorePosition!).inMilliseconds.abs();
+        if (diff <= 500) {
+          _restoringSession = false;
+          _pendingRestorePosition = null;
+        }
+      }
     } catch (e) {
       throw AudioPlaybackException('Failed to seek: ${e.toString()}');
     }
@@ -711,6 +758,14 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
       final safePositionMs = positionMs < 0 ? 0 : positionMs;
 
+      if (safePositionMs > 0) {
+        _restoringSession = true;
+        _pendingRestorePosition = Duration(milliseconds: safePositionMs);
+      } else {
+        _restoringSession = false;
+        _pendingRestorePosition = null;
+      }
+
       return PlaybackSession(
         queue: queue,
         currentIndex: clampedIndex,
@@ -898,6 +953,40 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     }
   }
 
+  Future<void> _ensureWindowsPlaybackStarted(Future<void> playFuture) async {
+    if (!Platform.isWindows) {
+      return;
+    }
+
+    var playbackCompleted = false;
+    playFuture.whenComplete(() {
+      playbackCompleted = true;
+    });
+
+    for (final delay in _windowsPlaybackRetryDelays) {
+      if (playbackCompleted) {
+        return;
+      }
+
+      await Future<void>.delayed(delay);
+      if (playbackCompleted || _audioPlayer.playing) {
+        return;
+      }
+
+      print('🎧 AudioService: Windows 播放未启动，尝试重新开始');
+      unawaited(
+        _audioPlayer.play().catchError(
+          (error, stackTrace) =>
+              print('⚠️ AudioService: Windows 重新播放失败 -> $error'),
+        ),
+      );
+    }
+
+    if (!playbackCompleted && !_audioPlayer.playing) {
+      print('⚠️ AudioService: Windows 播放仍未开始，已超过重试次数');
+    }
+  }
+
   void _emitPlayerStateSnapshot() {
     if (_playerStateSubject.isClosed) {
       return;
@@ -971,6 +1060,14 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   }
 
   Future<void> _setAudioSource(Track track) async {
+    if (Platform.isWindows && _audioPlayer.playing) {
+      try {
+        await _audioPlayer.pause();
+      } catch (error) {
+        print('⚠️ AudioService: Windows 切换音轨前暂停失败 -> $error');
+      }
+    }
+
     if (track.sourceType == TrackSourceType.webdav) {
       final streamInfo = await _buildWebDavStreamInfo(track);
       await _audioPlayer.setUrl(

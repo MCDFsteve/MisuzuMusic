@@ -13,21 +13,32 @@ import '../../blocs/player/player_bloc.dart';
 import '../common/adaptive_scrollbar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../common/track_list_tile.dart';
+import '../common/lazy_list_view.dart';
 import 'context_menu/macos_context_menu.dart';
+import '../../utils/track_display_utils.dart';
 
 class MacOSTrackListView extends StatelessWidget {
   const MacOSTrackListView({
     super.key,
     required this.tracks,
+    this.queueTracks,
     this.onAddToPlaylist,
     this.onRemoveFromPlaylist,
     this.additionalActionsBuilder,
+    this.onTrackSelected,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final List<Track> tracks;
+  final List<Track>? queueTracks;
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<Track>? onRemoveFromPlaylist;
-  final List<MacosContextMenuAction> Function(Track track)? additionalActionsBuilder;
+  final List<MacosContextMenuAction> Function(Track track)?
+  additionalActionsBuilder;
+  final ValueChanged<Track>? onTrackSelected;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   Widget build(BuildContext context) {
@@ -36,18 +47,22 @@ class MacOSTrackListView extends StatelessWidget {
     return AdaptiveScrollbar(
       isDarkMode: isDarkMode,
       builder: (controller) {
-        return ListView.separated(
+        return LazyListView<Track>(
           controller: controller,
+          items: tracks,
+          pageSize: 120,
+          preloadOffset: 800,
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: tracks.length,
+          cacheExtent: 0,
           separatorBuilder: (context, index) => Divider(
             height: 1,
             thickness: 0.5,
             color: MacosTheme.of(context).dividerColor,
             indent: 88,
           ),
-          itemBuilder: (context, index) {
-            final track = tracks[index];
+          itemBuilder: (context, track, index) {
+            final displayInfo = deriveTrackDisplayInfo(track);
+            final normalizedTrack = applyDisplayInfo(track, displayInfo);
             String? remoteArtworkUrl;
             if (_isNetworkSong(track)) {
               remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
@@ -72,12 +87,23 @@ class MacOSTrackListView extends StatelessWidget {
                   size: 20,
                 ),
               ),
-              title: track.title,
-              artistAlbum: '${track.artist} • ${track.album}',
+              title: displayInfo.title,
+              artistAlbum: '${displayInfo.artist} • ${displayInfo.album}',
               duration: _formatDuration(track.duration),
-              onTap: () => _handleTrackTap(context, track, index),
-              onSecondaryTap: (position) =>
-                  _handleSecondaryTap(context, position, track),
+              onTap: () {
+                if (onTrackSelected != null) {
+                  onTrackSelected!(normalizedTrack);
+                } else {
+                  _handleTrackTap(context, track, index);
+                }
+              },
+              onSecondaryTap: (position) => _handleSecondaryTap(
+                context,
+                position,
+                track,
+                normalizedTrack,
+                displayInfo,
+              ),
             );
           },
         );
@@ -101,36 +127,70 @@ class MacOSTrackListView extends StatelessWidget {
       }
     }
 
-    context.read<PlayerBloc>().add(PlayerSetQueue(tracks, startIndex: index));
+    final playbackQueue = queueTracks ?? tracks;
+    final queueIndex = playbackQueue.indexWhere((item) => item.id == track.id);
+    final effectiveIndex = queueIndex >= 0 ? queueIndex : index;
+
+    context.read<PlayerBloc>().add(
+      PlayerSetQueue(playbackQueue, startIndex: effectiveIndex),
+    );
   }
 
   Future<void> _handleSecondaryTap(
     BuildContext context,
     Offset globalPosition,
-    Track track,
+    Track originalTrack,
+    Track normalizedTrack,
+    TrackDisplayInfo displayInfo,
   ) async {
     final hasAdd = onAddToPlaylist != null;
     final hasRemove = onRemoveFromPlaylist != null;
     final customActions = additionalActionsBuilder != null
-        ? additionalActionsBuilder!(track)
+        ? additionalActionsBuilder!(originalTrack)
         : const <MacosContextMenuAction>[];
+    final artistName = displayInfo.artist.trim();
+    final albumName = displayInfo.album.trim();
+    final canViewArtist = onViewArtist != null && artistName.isNotEmpty;
+    final canViewAlbum = onViewAlbum != null && albumName.isNotEmpty;
 
-    if (!hasAdd && !hasRemove && customActions.isEmpty) {
+    if (!hasAdd &&
+        !hasRemove &&
+        customActions.isEmpty &&
+        !canViewArtist &&
+        !canViewAlbum) {
       return;
     }
 
     final actions = <MacosContextMenuAction>[];
+    if (canViewArtist) {
+      actions.add(
+        MacosContextMenuAction(
+          label: '查看歌手',
+          icon: CupertinoIcons.person_crop_circle,
+          onSelected: () => onViewArtist?.call(normalizedTrack),
+        ),
+      );
+    }
+    if (canViewAlbum) {
+      actions.add(
+        MacosContextMenuAction(
+          label: '查看专辑',
+          icon: CupertinoIcons.music_albums,
+          onSelected: () => onViewAlbum?.call(normalizedTrack),
+        ),
+      );
+    }
     if (customActions.isNotEmpty) {
       actions.addAll(customActions);
     }
-    final isNeteaseTrack = track.isNeteaseTrack;
+    final isNeteaseTrack = originalTrack.isNeteaseTrack;
     final allowLocalAdd = hasAdd && !isNeteaseTrack;
     if (allowLocalAdd) {
       actions.add(
         MacosContextMenuAction(
           label: '添加到歌单',
           icon: CupertinoIcons.add_circled,
-          onSelected: () => onAddToPlaylist?.call(track),
+          onSelected: () => onAddToPlaylist?.call(originalTrack),
         ),
       );
     }
@@ -139,7 +199,7 @@ class MacOSTrackListView extends StatelessWidget {
         MacosContextMenuAction(
           label: '从歌单删除',
           icon: CupertinoIcons.minus_circle,
-          onSelected: () => _confirmRemoveTrack(context, track),
+          onSelected: () => _confirmRemoveTrack(context, originalTrack),
           destructive: true,
         ),
       );
@@ -308,7 +368,7 @@ class MacOSTrackListView extends StatelessWidget {
   }
 }
 
-  bool _isNetworkSong(Track track) => track.isNeteaseTrack;
+bool _isNetworkSong(Track track) => track.isNeteaseTrack;
 
 class _GlassDialogButton extends StatefulWidget {
   const _GlassDialogButton({

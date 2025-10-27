@@ -79,6 +79,58 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
       case TrackSortMode.addedOldest:
         sorted.sort((a, b) => a.dateAdded.compareTo(b.dateAdded));
         break;
+      case TrackSortMode.artistAZ:
+        sorted.sort((a, b) {
+          final artistCompare = a.artist
+              .toLowerCase()
+              .compareTo(b.artist.toLowerCase());
+          if (artistCompare != 0) {
+            return artistCompare;
+          }
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        });
+        break;
+      case TrackSortMode.artistZA:
+        sorted.sort((a, b) {
+          final artistCompare = b.artist
+              .toLowerCase()
+              .compareTo(a.artist.toLowerCase());
+          if (artistCompare != 0) {
+            return artistCompare;
+          }
+          return b.title.toLowerCase().compareTo(a.title.toLowerCase());
+        });
+        break;
+      case TrackSortMode.albumAZ:
+        sorted.sort((a, b) {
+          final albumCompare = a.album
+              .toLowerCase()
+              .compareTo(b.album.toLowerCase());
+          if (albumCompare != 0) {
+            return albumCompare;
+          }
+          final trackCompare = (a.trackNumber ?? 0).compareTo(b.trackNumber ?? 0);
+          if (trackCompare != 0) {
+            return trackCompare;
+          }
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        });
+        break;
+      case TrackSortMode.albumZA:
+        sorted.sort((a, b) {
+          final albumCompare = b.album
+              .toLowerCase()
+              .compareTo(a.album.toLowerCase());
+          if (albumCompare != 0) {
+            return albumCompare;
+          }
+          final trackCompare = (b.trackNumber ?? 0).compareTo(a.trackNumber ?? 0);
+          if (trackCompare != 0) {
+            return trackCompare;
+          }
+          return b.title.toLowerCase().compareTo(a.title.toLowerCase());
+        });
+        break;
     }
 
     return sorted;

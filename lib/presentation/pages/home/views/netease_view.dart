@@ -5,10 +5,16 @@ class NeteaseView extends StatefulWidget {
     super.key,
     this.onAddToPlaylist,
     this.onDetailStateChanged,
+    this.searchQuery = '',
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
+  final String searchQuery;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   State<NeteaseView> createState() => _NeteaseViewState();
@@ -17,11 +23,11 @@ class NeteaseView extends StatefulWidget {
 class _NeteaseViewState extends State<NeteaseView> {
   bool _showPlaylistDetail = false;
   int? _activePlaylistId;
-  bool _promptedForCookie = false;
   bool _dialogVisible = false;
   String? _toastMessage;
   bool _toastIsError = false;
   Timer? _toastTimer;
+  bool _hadSession = false;
 
   bool get canNavigateBack => _showPlaylistDetail;
 
@@ -36,8 +42,72 @@ class _NeteaseViewState extends State<NeteaseView> {
     _notifyDetailState();
   }
 
+  void prepareForLogout() {
+    final bool wasDetail = _showPlaylistDetail;
+    final bool hadToast = _toastMessage != null;
+    _dialogVisible = false;
+    _toastTimer?.cancel();
+    _toastTimer = null;
+
+    if (!(hadToast || wasDetail)) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      if (wasDetail) {
+        _showPlaylistDetail = false;
+        _activePlaylistId = null;
+      }
+      if (hadToast) {
+        _toastMessage = null;
+        _toastIsError = false;
+      }
+    });
+
+    if (wasDetail) {
+      _notifyDetailState();
+    }
+  }
+
+  void openPlaylistById(int playlistId) {
+    setState(() {
+      _showPlaylistDetail = true;
+      _activePlaylistId = playlistId;
+    });
+    _notifyDetailState();
+    context.read<NeteaseCubit>().ensurePlaylistTracks(playlistId);
+  }
+
   void _notifyDetailState() {
     widget.onDetailStateChanged?.call(_showPlaylistDetail);
+  }
+
+  bool _matchesPlaylist(NeteasePlaylist playlist, String query) {
+    final lowerQuery = query.toLowerCase();
+    if (lowerQuery.isEmpty) {
+      return true;
+    }
+    final name = playlist.name.toLowerCase();
+    if (name.contains(lowerQuery)) {
+      return true;
+    }
+    final description = playlist.description?.toLowerCase() ?? '';
+    return description.contains(lowerQuery);
+  }
+
+  bool _matchesTrack(Track track, String query) {
+    final lowerQuery = query.toLowerCase();
+    if (lowerQuery.isEmpty) {
+      return true;
+    }
+    final display = deriveTrackDisplayInfo(track);
+    return display.title.toLowerCase().contains(lowerQuery) ||
+        display.artist.toLowerCase().contains(lowerQuery) ||
+        display.album.toLowerCase().contains(lowerQuery);
   }
 
   Future<void> _promptForCookie({bool force = false}) async {
@@ -77,10 +147,10 @@ class _NeteaseViewState extends State<NeteaseView> {
   Widget build(BuildContext context) {
     return BlocConsumer<NeteaseCubit, NeteaseState>(
       listener: (context, state) {
-        if (!state.isInitializing && !state.hasSession && !_promptedForCookie) {
-          _promptForCookie(force: true);
-          _promptedForCookie = true;
+        if (_hadSession && !state.hasSession) {
+          prepareForLogout();
         }
+        _hadSession = state.hasSession;
         if (state.errorMessage != null) {
           _showToast(state.errorMessage!, isError: true);
           context.read<NeteaseCubit>().clearMessage();
@@ -149,12 +219,26 @@ class _NeteaseViewState extends State<NeteaseView> {
         onAction: () => context.read<NeteaseCubit>().refreshPlaylists(),
       );
     }
+    final query = widget.searchQuery.trim();
+    final hasQuery = query.isNotEmpty;
+    final playlists = hasQuery
+        ? state.playlists
+            .where((playlist) => _matchesPlaylist(playlist, query))
+            .toList()
+        : state.playlists;
+
+    if (hasQuery && playlists.isEmpty) {
+      return const _PlaylistMessage(
+        icon: CupertinoIcons.search,
+        message: '未找到匹配的歌单',
+      );
+    }
     return CollectionOverviewGrid(
-      itemCount: state.playlists.length,
+      itemCount: playlists.length,
       padding: const EdgeInsets.symmetric(horizontal: 24,vertical: 24),
       scrollbarMargin: EdgeInsets.zero,
       itemBuilder: (context, tileWidth, index) {
-        final playlist = state.playlists[index];
+        final playlist = playlists[index];
         final subtitle = playlist.description?.trim().isNotEmpty == true
             ? playlist.description!.trim()
             : '网络歌曲歌单';
@@ -192,13 +276,31 @@ class _NeteaseViewState extends State<NeteaseView> {
     if (tracks == null) {
       context.read<NeteaseCubit>().ensurePlaylistTracks(resolvedPlaylist.id);
     }
-    final Widget content = tracks == null
-        ? const Center(child: ProgressCircle())
-        : MacOSTrackListView(
-            tracks: tracks,
-            onAddToPlaylist: null,
-            additionalActionsBuilder: _neteaseContextActions,
-          );
+    final query = widget.searchQuery.trim();
+    final hasQuery = query.isNotEmpty;
+
+    final Widget content;
+    if (tracks == null) {
+      content = const Center(child: ProgressCircle());
+    } else {
+      final filteredTracks = hasQuery
+          ? tracks.where((track) => _matchesTrack(track, query)).toList()
+          : tracks;
+      if (hasQuery && filteredTracks.isEmpty) {
+        content = const _PlaylistMessage(
+          icon: CupertinoIcons.search,
+          message: '歌单中未找到匹配的歌曲',
+        );
+      } else {
+        content = MacOSTrackListView(
+          tracks: filteredTracks,
+          onAddToPlaylist: null,
+          additionalActionsBuilder: _neteaseContextActions,
+          onViewArtist: widget.onViewArtist,
+          onViewAlbum: widget.onViewAlbum,
+        );
+      }
+    }
 
     return Shortcuts(
       shortcuts: <LogicalKeySet, Intent>{
@@ -223,12 +325,7 @@ class _NeteaseViewState extends State<NeteaseView> {
   }
 
   void _openPlaylist(NeteasePlaylist playlist) {
-    setState(() {
-      _showPlaylistDetail = true;
-      _activePlaylistId = playlist.id;
-    });
-    _notifyDetailState();
-    context.read<NeteaseCubit>().ensurePlaylistTracks(playlist.id);
+    openPlaylistById(playlist.id);
   }
 
   String _formatPlayCount(int value) {
@@ -347,13 +444,15 @@ class _NeteasePlaylistSelectionSheetState
       constraints: const BoxConstraints(maxHeight: 300),
       child: MacosScrollbar(
         controller: _controller,
-        child: ListView.separated(
+        child: LazyListView<NeteasePlaylist>(
           controller: _controller,
           shrinkWrap: true,
-          itemCount: playlists.length,
+          items: playlists,
+          pageSize: 40,
+          preloadOffset: 120,
+          cacheExtent: 0,
           separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final playlist = playlists[index];
+          itemBuilder: (context, playlist, index) {
             return _NeteasePlaylistEntryTile(
               playlist: playlist,
               isDark: isDark,
@@ -569,41 +668,87 @@ Future<String?> showNeteaseCookieDialog(
   bool force = false,
 }) {
   final controller = TextEditingController();
-  return showMacosAlertDialog(
+
+  if (prefersMacLikeUi()) {
+    return showPlaylistModalDialog<String?>(
+      context: context,
+      barrierDismissible: !force,
+      builder: (ctx) {
+        return PlaylistModalScaffold(
+          title: '粘贴网络歌曲 Cookie',
+          maxWidth: 420,
+          contentSpacing: 16,
+          actionsSpacing: 16,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '请在网络歌曲网页版登录后，通过浏览器开发者工具复制包含 MUSIC_U、__csrf 等字段的 Cookie。本应用不提供 Cookie 获取渠道，请勿向他人泄露。',
+                locale: Locale("zh-Hans", "zh"),
+              ),
+              const SizedBox(height: 12),
+              MacosTextField(
+                controller: controller,
+                minLines: 3,
+                maxLines: 6,
+                placeholder: 'MUSIC_U=...; __csrf=...;',
+              ),
+            ],
+          ),
+          actions: [
+            if (!force)
+              SheetActionButton.secondary(
+                label: '取消',
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            SheetActionButton.primary(
+              label: '确认',
+              onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  return showDialog<String?>(
     context: context,
-    builder: (ctx) => MacosAlertDialog(
-      appIcon: const MacosIcon(CupertinoIcons.cloud),
-      title: const Text('粘贴网络歌曲 Cookie', locale: Locale("zh-Hans", "zh")),
-      message: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '请在网络歌曲网页版登录后，通过浏览器开发者工具复制包含 MUSIC_U、__csrf 等字段的 Cookie。本应用不提供 Cookie 获取渠道，请勿向他人泄露。',
-            locale: Locale("zh-Hans", "zh"),
-          ),
-          const SizedBox(height: 12),
-          MacosTextField(
-            controller: controller,
-            minLines: 3,
-            maxLines: 6,
-            placeholder: 'MUSIC_U=...; __csrf=...;',
-          ),
-        ],
-      ),
-      primaryButton: PushButton(
-        controlSize: ControlSize.large,
-        onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-        child: const Text('确认', locale: Locale("zh-Hans", "zh")),
-      ),
-      secondaryButton: force
-          ? PushButton(
-              controlSize: ControlSize.large,
-              secondary: true,
+    barrierDismissible: !force,
+    builder: (ctx) {
+      return AlertDialog(
+        title: const Text('粘贴网络歌曲 Cookie', locale: Locale("zh-Hans", "zh")),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '请在网络歌曲网页版登录后，通过浏览器开发者工具复制包含 MUSIC_U、__csrf 等字段的 Cookie。本应用不提供 Cookie 获取渠道，请勿向他人泄露。',
+              locale: Locale("zh-Hans", "zh"),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              minLines: 3,
+              maxLines: 6,
+              decoration: const InputDecoration(
+                hintText: 'MUSIC_U=...; __csrf=...;',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (!force)
+            TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('取消', locale: Locale("zh-Hans", "zh")),
-            )
-          : null,
-    ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('确认', locale: Locale("zh-Hans", "zh")),
+          ),
+        ],
+      );
+    },
   );
 }

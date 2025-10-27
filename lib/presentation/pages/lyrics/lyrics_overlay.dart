@@ -19,6 +19,7 @@ import '../../widgets/common/hover_glow_overlay.dart';
 import '../../widgets/common/lyrics_display.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
+import '../../utils/track_display_utils.dart';
 
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
@@ -294,6 +295,10 @@ class _LyricsLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedTrack = applyDisplayInfo(
+      track,
+      deriveTrackDisplayInfo(track),
+    );
     final EdgeInsets contentPadding = EdgeInsets.zero;
 
     return Container(
@@ -317,7 +322,7 @@ class _LyricsLayout extends StatelessWidget {
                 Expanded(
                   flex: 10,
                   child: _CoverColumn(
-                    track: track,
+                    track: normalizedTrack,
                     coverSize: coverSize,
                     isMac: isMac,
                   ),
@@ -335,7 +340,7 @@ class _LyricsLayout extends StatelessWidget {
                   child: _LyricsPanel(
                     isDarkMode: isDarkMode,
                     scrollController: lyricsScrollController,
-                    track: track,
+                    track: normalizedTrack,
                     showTranslation: showTranslation,
                     onToggleTranslation: onToggleTranslation,
                     onDownloadLrc: onDownloadLrc,

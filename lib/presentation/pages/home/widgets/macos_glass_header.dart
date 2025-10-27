@@ -1,6 +1,6 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
-class _MacOSGlassHeader extends StatelessWidget {
+class _MacOSGlassHeader extends StatefulWidget {
   const _MacOSGlassHeader({
     required this.height,
     required this.sectionLabel,
@@ -9,6 +9,9 @@ class _MacOSGlassHeader extends StatelessWidget {
     required this.onSearchChanged,
     required this.onSelectMusicFolder,
     required this.onCreatePlaylist,
+    required this.searchSuggestions,
+    required this.onSearchPreviewChanged,
+    required this.onSuggestionSelected,
     this.showBackButton = false,
     this.canNavigateBack = false,
     this.onNavigateBack,
@@ -17,6 +20,11 @@ class _MacOSGlassHeader extends StatelessWidget {
     this.onSortModeChanged,
     this.showCreatePlaylistButton = true,
     this.showSelectFolderButton = true,
+    this.onInteract,
+    this.showLogoutButton = false,
+    this.logoutEnabled = true,
+    this.onLogout,
+    this.logoutTooltip = '退出登录',
   });
 
   final double height;
@@ -24,6 +32,9 @@ class _MacOSGlassHeader extends StatelessWidget {
   final String? statsLabel;
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
+  final ValueChanged<String>? onSearchPreviewChanged;
+  final List<LibrarySearchSuggestion> searchSuggestions;
+  final ValueChanged<LibrarySearchSuggestion>? onSuggestionSelected;
   final VoidCallback onSelectMusicFolder;
   final VoidCallback onCreatePlaylist;
   final bool showBackButton;
@@ -34,8 +45,81 @@ class _MacOSGlassHeader extends StatelessWidget {
   final ValueChanged<TrackSortMode>? onSortModeChanged;
   final bool showCreatePlaylistButton;
   final bool showSelectFolderButton;
+  final VoidCallback? onInteract;
+  final bool showLogoutButton;
+  final bool logoutEnabled;
+  final VoidCallback? onLogout;
+  final String logoutTooltip;
 
-  Future<void> _handleDoubleTap() async {
+  @override
+  State<_MacOSGlassHeader> createState() => _MacOSGlassHeaderState();
+}
+
+class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
+  Duration? _lastPrimaryTapTime;
+  Offset? _lastPrimaryTapPosition;
+  bool _dragRequested = false;
+  bool _suppressDragUntilUp = false;
+
+  static const Duration _doubleClickTimeout = Duration(milliseconds: 300);
+  static const double _doubleClickDistanceSquared = 36;
+  static const double _dragHandleHeight = 20.0;
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (event.kind != PointerDeviceKind.mouse ||
+        event.buttons != kPrimaryMouseButton) {
+      return;
+    }
+
+    final previousTime = _lastPrimaryTapTime;
+    final previousPosition = _lastPrimaryTapPosition;
+    final currentTime = event.timeStamp;
+
+    _dragRequested = false;
+
+    final bool isDoubleClick = previousTime != null &&
+        previousPosition != null &&
+        (currentTime - previousTime) <= _doubleClickTimeout &&
+        (event.localPosition - previousPosition).distanceSquared <=
+            _doubleClickDistanceSquared;
+
+    if (isDoubleClick) {
+      _suppressDragUntilUp = true;
+      unawaited(_toggleWindowMaximize());
+    } else {
+      _suppressDragUntilUp = false;
+    }
+
+    _lastPrimaryTapTime = currentTime;
+    _lastPrimaryTapPosition = event.localPosition;
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (_suppressDragUntilUp ||
+        _dragRequested ||
+        event.kind != PointerDeviceKind.mouse ||
+        event.buttons != kPrimaryMouseButton) {
+      return;
+    }
+
+    _dragRequested = true;
+    unawaited(windowManager.startDragging());
+  }
+
+  void _resetPointerState() {
+    _dragRequested = false;
+    _suppressDragUntilUp = false;
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    _resetPointerState();
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    _resetPointerState();
+  }
+
+  Future<void> _toggleWindowMaximize() async {
     if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
       return;
     }
@@ -59,6 +143,8 @@ class _MacOSGlassHeader extends StatelessWidget {
     final double backIconSize = isWindows ? 14 : 20;
     final double actionSpacing = isWindows ? 4 : 8;
 
+    void handleInteraction() => widget.onInteract?.call();
+
     final frostedColor = theme.canvasColor.withOpacity(
       isDarkMode ? 0.35 : 0.36,
     );
@@ -67,7 +153,7 @@ class _MacOSGlassHeader extends StatelessWidget {
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
         child: Container(
-          height: height,
+          height: widget.height,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
             color: frostedColor,
@@ -78,144 +164,208 @@ class _MacOSGlassHeader extends StatelessWidget {
               ),
             ),
           ),
-          child: Row(
+          child: Stack(
             children: [
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Misuzu Music',
-                      locale: Locale("zh-Hans", "zh"),
-                      style: theme.typography.title2.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: textColor,
-                      ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Misuzu Music',
+                          locale: Locale("zh-Hans", "zh"),
+                          style: theme.typography.title2.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: widget.sectionLabel),
+                              if (widget.statsLabel != null) ...[
+                                TextSpan(text: '  |  '),
+                                TextSpan(text: widget.statsLabel),
+                              ],
+                            ],
+                            style: theme.typography.caption1.copyWith(
+                              color: textColor.withOpacity(0.68),
+                            ),
+                          ),
+                          locale: Locale("zh-Hans", "zh"),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(text: sectionLabel),
-                          if (statsLabel != null) ...[
-                            TextSpan(text: '  |  '),
-                            TextSpan(text: statsLabel),
+                  ),
+                  Flexible(
+                    flex: 3,
+                    child: Padding(
+                      padding: EdgeInsets.only(right: isWindows ? 8 : 12),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(minWidth: 100, maxWidth: 320),
+                              child: LibrarySearchField(
+                                query: widget.searchQuery,
+                                onQueryChanged: widget.onSearchChanged,
+                                onPreviewChanged: widget.onSearchPreviewChanged,
+                                suggestions: widget.searchSuggestions,
+                                onSuggestionSelected: widget.onSuggestionSelected,
+                                onInteract: handleInteraction,
+                              ),
+                            ),
                           ],
-                        ],
-                        style: theme.typography.caption1.copyWith(
-                          color: textColor.withOpacity(0.68),
                         ),
                       ),
-                      locale: Locale("zh-Hans", "zh"),
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                ),
-              ),
-              Flexible(
-                flex: 3,
-                child: Padding(
-                  padding: EdgeInsets.only(right: isWindows ? 8 : 12),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 100, maxWidth: 320),
-                      child: LibrarySearchField(
-                        query: searchQuery,
-                        onQueryChanged: onSearchChanged,
+                  ),
+                  if (widget.showBackButton)
+                    _HeaderTooltip(
+                      useMacStyle: !isWindows,
+                      message: widget.backTooltip,
+                      child: _HeaderIconButton(
+                        baseColor: widget.canNavigateBack
+                            ? textColor.withOpacity(0.72)
+                            : textColor.withOpacity(0.24),
+                        hoverColor: textColor,
+                        icon: CupertinoIcons.left_chevron,
+                        onPressed: widget.canNavigateBack
+                            ? () {
+                                handleInteraction();
+                                widget.onNavigateBack?.call();
+                              }
+                            : null,
+                        size: actionButtonSize,
+                        iconSize: backIconSize,
+                        enabled: widget.canNavigateBack,
+                        isWindowsStyle: isWindows,
                       ),
                     ),
-                  ),
-                ),
-              ),
-              if (showBackButton)
-                _HeaderTooltip(
-                  useMacStyle: !isWindows,
-                  message: backTooltip,
-                  child: _HeaderIconButton(
-                    baseColor: canNavigateBack
-                        ? textColor.withOpacity(0.72)
-                        : textColor.withOpacity(0.24),
-                    hoverColor: textColor,
-                    icon: CupertinoIcons.left_chevron,
-                    onPressed: canNavigateBack ? onNavigateBack : null,
-                    size: actionButtonSize,
-                    iconSize: backIconSize,
-                    enabled: canNavigateBack,
-                    isWindowsStyle: isWindows,
-                  ),
-                ),
-              if (showBackButton && sortMode != null && onSortModeChanged != null)
-                Padding(
-                  padding: EdgeInsets.only(left: actionSpacing),
-                  child: _HeaderTooltip(
-                    useMacStyle: !isWindows,
-                    message: '切换排序方式',
-                    child: _SortModeButton(
-                      sortMode: sortMode!,
-                      onSortModeChanged: onSortModeChanged!,
-                      textColor: textColor,
-                      enabled: canNavigateBack,
-                      size: actionButtonSize,
-                      iconSize: backIconSize,
-                      isWindowsStyle: isWindows,
+                  if (widget.showBackButton &&
+                      widget.sortMode != null &&
+                      widget.onSortModeChanged != null)
+                    Padding(
+                      padding: EdgeInsets.only(left: actionSpacing),
+                      child: _HeaderTooltip(
+                        useMacStyle: !isWindows,
+                        message: '切换排序方式',
+                        child: _SortModeButton(
+                          sortMode: widget.sortMode!,
+                          onSortModeChanged: (mode) {
+                            handleInteraction();
+                            widget.onSortModeChanged!(mode);
+                          },
+                          textColor: textColor,
+                          enabled: widget.canNavigateBack,
+                          size: actionButtonSize,
+                          iconSize: backIconSize,
+                          isWindowsStyle: isWindows,
+                        ),
+                      ),
                     ),
+                  if (widget.showBackButton) SizedBox(width: actionSpacing),
+                  if (!widget.showBackButton && widget.showLogoutButton)
+                    SizedBox(width: actionSpacing),
+                  if (widget.showLogoutButton)
+                    _HeaderTooltip(
+                      useMacStyle: !isWindows,
+                      message: widget.logoutTooltip,
+                      child: _HeaderIconButton(
+                        baseColor: widget.logoutEnabled
+                            ? textColor.withOpacity(0.72)
+                            : textColor.withOpacity(0.24),
+                        hoverColor: textColor,
+                        size: actionButtonSize,
+                        iconSize: primaryIconSize,
+                        icon: CupertinoIcons.square_arrow_left,
+                        onPressed: widget.logoutEnabled
+                            ? () {
+                                handleInteraction();
+                                widget.onLogout?.call();
+                              }
+                            : null,
+                        enabled: widget.logoutEnabled,
+                        isWindowsStyle: isWindows,
+                      ),
+                    ),
+                  if (widget.showLogoutButton &&
+                      (widget.showCreatePlaylistButton ||
+                          widget.showSelectFolderButton))
+                    SizedBox(width: actionSpacing),
+                  if (widget.showCreatePlaylistButton)
+                    _HeaderTooltip(
+                      useMacStyle: !isWindows,
+                      message: '新建歌单',
+                      child: _HeaderIconButton(
+                        baseColor: textColor.withOpacity(0.72),
+                        hoverColor: textColor,
+                        size: actionButtonSize,
+                        iconSize: primaryIconSize,
+                        icon: CupertinoIcons.add,
+                        onPressed: () {
+                          handleInteraction();
+                          widget.onCreatePlaylist();
+                        },
+                        isWindowsStyle: isWindows,
+                      ),
+                    ),
+                  if (widget.showCreatePlaylistButton &&
+                      widget.showSelectFolderButton)
+                    SizedBox(width: actionSpacing),
+                  if (widget.showSelectFolderButton)
+                    _HeaderTooltip(
+                      useMacStyle: !isWindows,
+                      message: '选择音乐文件夹',
+                      child: _HeaderIconButton(
+                        baseColor: textColor.withOpacity(0.72),
+                        hoverColor: textColor,
+                        size: actionButtonSize,
+                        iconSize: primaryIconSize,
+                        icon: CupertinoIcons.folder,
+                        onPressed: () {
+                          handleInteraction();
+                          widget.onSelectMusicFolder();
+                        },
+                        isWindowsStyle: isWindows,
+                      ),
+                    ),
+                  if (isWindows) ...[
+                    const SizedBox(width: 8),
+                    _VerticalSeparator(color: textColor.withOpacity(0.18)),
+                    const SizedBox(width: 8),
+                    _WindowsWindowControls(isDarkMode: isDarkMode),
+                  ],
+                ],
+              ),
+              if (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: _dragHandleHeight,
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: _handlePointerDown,
+                    onPointerMove: _handlePointerMove,
+                    onPointerUp: _handlePointerUp,
+                    onPointerCancel: _handlePointerCancel,
+                    child: const SizedBox.expand(),
                   ),
                 ),
-              if (showBackButton) SizedBox(width: actionSpacing),
-              if (showCreatePlaylistButton)
-                _HeaderTooltip(
-                  useMacStyle: !isWindows,
-                  message: '新建歌单',
-                  child: _HeaderIconButton(
-                    baseColor: textColor.withOpacity(0.72),
-                    hoverColor: textColor,
-                    size: actionButtonSize,
-                    iconSize: primaryIconSize,
-                    icon: CupertinoIcons.add,
-                    onPressed: onCreatePlaylist,
-                    isWindowsStyle: isWindows,
-                  ),
-                ),
-              if (showCreatePlaylistButton && showSelectFolderButton)
-                SizedBox(width: actionSpacing),
-              if (showSelectFolderButton)
-                _HeaderTooltip(
-                  useMacStyle: !isWindows,
-                  message: '选择音乐文件夹',
-                  child: _HeaderIconButton(
-                    baseColor: textColor.withOpacity(0.72),
-                    hoverColor: textColor,
-                    size: actionButtonSize,
-                    iconSize: primaryIconSize,
-                    icon: CupertinoIcons.folder,
-                    onPressed: onSelectMusicFolder,
-                    isWindowsStyle: isWindows,
-                  ),
-                ),
-              if (isWindows) ...[
-                const SizedBox(width: 8),
-                _VerticalSeparator(color: textColor.withOpacity(0.18)),
-                const SizedBox(width: 8),
-                _WindowsWindowControls(isDarkMode: isDarkMode),
-              ],
             ],
           ),
         ),
       ),
     );
 
-    final draggable =
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
-        ? DragToMoveArea(child: headerContent)
-        : headerContent;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onDoubleTap: _handleDoubleTap,
-      child: draggable,
-    );
+    return headerContent;
   }
 }
 
@@ -696,6 +846,14 @@ class _SortModeButtonState extends State<_SortModeButton> {
         return CupertinoIcons.clock;
       case TrackSortMode.addedOldest:
         return CupertinoIcons.time;
+      case TrackSortMode.artistAZ:
+        return CupertinoIcons.person_crop_circle_badge_checkmark;
+      case TrackSortMode.artistZA:
+        return CupertinoIcons.person_crop_circle_badge_minus;
+      case TrackSortMode.albumAZ:
+        return CupertinoIcons.square_stack_3d_up;
+      case TrackSortMode.albumZA:
+        return CupertinoIcons.square_stack_3d_down_dottedline;
     }
   }
 

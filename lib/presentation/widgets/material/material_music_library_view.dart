@@ -5,9 +5,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
+import '../../blocs/music_library/music_library_bloc.dart';
 import '../common/adaptive_scrollbar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../common/track_list_tile.dart';
+import '../common/lazy_list_view.dart';
+import '../../utils/track_display_utils.dart';
 
 class MaterialMusicLibraryView extends StatelessWidget {
   final List<Track> tracks;
@@ -33,7 +36,8 @@ class MaterialMusicLibraryView extends StatelessWidget {
           child: Row(
             children: [
               Text(
-                '${tracks.length} 首歌曲, ${artists.length} 位艺术家, ${albums.length} 张专辑',locale: Locale("zh-Hans", "zh"),
+                '${tracks.length} 首歌曲, ${artists.length} 位艺术家, ${albums.length} 张专辑',
+                locale: Locale("zh-Hans", "zh"),
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
@@ -41,7 +45,10 @@ class MaterialMusicLibraryView extends StatelessWidget {
               const Spacer(),
               if (searchQuery?.isNotEmpty == true)
                 Chip(
-                  label: Text('搜索: $searchQuery',locale: Locale("zh-Hans", "zh"),),
+                  label: Text(
+                    '搜索: $searchQuery',
+                    locale: Locale("zh-Hans", "zh"),
+                  ),
                   deleteIcon: const Icon(Icons.close, size: 18),
                   onDeleted: () {
                     // Clear search
@@ -56,23 +63,27 @@ class MaterialMusicLibraryView extends StatelessWidget {
           child: AdaptiveScrollbar(
             isDarkMode: Theme.of(context).brightness == Brightness.dark,
             builder: (controller) {
-              return ListView.separated(
+              return LazyListView<Track>(
                 controller: controller,
+                items: tracks,
+                pageSize: 120,
+                preloadOffset: 800,
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: tracks.length,
+                cacheExtent: 0,
                 separatorBuilder: (context, index) => Divider(
                   height: 1,
                   thickness: 0.5,
                   color: Theme.of(context).dividerColor,
                   indent: 88,
                 ),
-                itemBuilder: (context, index) {
-                  final track = tracks[index];
+                itemBuilder: (context, track, index) {
+                  final displayInfo = deriveTrackDisplayInfo(track);
+                  final normalizedTrack = applyDisplayInfo(track, displayInfo);
                   final remoteArtworkUrl =
                       MysteryLibraryConstants.buildArtworkUrl(
-                    track.httpHeaders,
-                    thumbnail: true,
-                  );
+                        track.httpHeaders,
+                        thumbnail: true,
+                      );
                   return TrackListTile(
                     index: index + 1,
                     leading: ArtworkThumbnail(
@@ -80,26 +91,27 @@ class MaterialMusicLibraryView extends StatelessWidget {
                       remoteImageUrl: remoteArtworkUrl,
                       size: 48,
                       borderRadius: BorderRadius.circular(4),
-                      backgroundColor:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       borderColor: Theme.of(context).dividerColor,
                       placeholder: Icon(
                         Icons.music_note,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    title: track.title,
-                    artistAlbum: '${track.artist} • ${track.album}',
+                    title: displayInfo.title,
+                    artistAlbum: '${displayInfo.artist} • ${displayInfo.album}',
                     duration: _formatDuration(track.duration),
                     onTap: () {
-                      print('🎵 Material点击歌曲: ${track.title}');
+                      print('🎵 Material点击歌曲: ${displayInfo.title}');
                       print('🎵 文件路径: ${track.filePath}');
                       print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
                       final isRemoteTrack =
                           track.sourceType == TrackSourceType.webdav ||
-                              track.filePath.startsWith('webdav://') ||
-                              track.sourceType == TrackSourceType.mystery ||
-                              track.filePath.startsWith('mystery://');
+                          track.filePath.startsWith('webdav://') ||
+                          track.sourceType == TrackSourceType.mystery ||
+                          track.filePath.startsWith('mystery://');
 
                       if (isRemoteTrack) {
                         print('🎵 WebDAV 音轨，直接尝试远程播放');
@@ -116,8 +128,38 @@ class MaterialMusicLibraryView extends StatelessWidget {
                         }
                       }
 
+                      List<Track> playbackQueue = tracks;
+                      int queueIndex = index;
+
+                      if (searchQuery?.isNotEmpty == true) {
+                        final blocState = context
+                            .read<MusicLibraryBloc>()
+                            .state;
+                        if (blocState is MusicLibraryLoaded &&
+                            blocState.allTracks.isNotEmpty) {
+                          final fullIndex = blocState.allTracks.indexWhere(
+                            (element) => element.id == track.id,
+                          );
+                          if (fullIndex != -1) {
+                            playbackQueue = blocState.allTracks;
+                            queueIndex = fullIndex;
+                          }
+                        }
+                      }
+
+                      final normalizedQueue = playbackQueue
+                          .map(
+                            (t) => t.id == track.id
+                                ? normalizedTrack
+                                : applyDisplayInfo(
+                                    t,
+                                    deriveTrackDisplayInfo(t),
+                                  ),
+                          )
+                          .toList();
+
                       context.read<PlayerBloc>().add(
-                        PlayerSetQueue(tracks, startIndex: index),
+                        PlayerSetQueue(normalizedQueue, startIndex: queueIndex),
                       );
                     },
                   );

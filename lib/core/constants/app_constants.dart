@@ -68,6 +68,10 @@ enum TrackSortMode {
   titleZA,
   addedNewest,
   addedOldest,
+  artistAZ,
+  artistZA,
+  albumAZ,
+  albumZA,
 }
 
 extension TrackSortModeExtension on TrackSortMode {
@@ -81,6 +85,14 @@ extension TrackSortModeExtension on TrackSortMode {
         return '添加时间（从新到旧）';
       case TrackSortMode.addedOldest:
         return '添加时间（从旧到新）';
+      case TrackSortMode.artistAZ:
+        return '歌手名（A-Z）';
+      case TrackSortMode.artistZA:
+        return '歌手名（Z-A）';
+      case TrackSortMode.albumAZ:
+        return '专辑名（A-Z）';
+      case TrackSortMode.albumZA:
+        return '专辑名（Z-A）';
     }
   }
 

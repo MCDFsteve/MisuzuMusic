@@ -5,10 +5,14 @@ class MusicLibraryView extends StatefulWidget {
     super.key,
     this.onAddToPlaylist,
     this.onDetailStateChanged,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   State<MusicLibraryView> createState() => _MusicLibraryViewState();
@@ -110,7 +114,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     MusicLibraryLoaded state,
   ) {
     final localSummaries = <_DirectorySummaryData>[];
-    final localTracks = state.tracks
+    final localTracks = state.allTracks
         .where((track) => track.sourceType == TrackSourceType.local)
         .toList();
 
@@ -156,7 +160,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
 
     final remoteSummaries = <_DirectorySummaryData>[];
     for (final source in state.webDavSources) {
-      final remoteTracks = state.tracks
+      final remoteTracks = state.allTracks
           .where(
             (track) =>
                 track.sourceType == TrackSourceType.webdav &&
@@ -186,7 +190,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     final Map<String, String> mysteryDisplayNames = {};
     final Map<String, String?> mysteryCodes = {};
 
-    for (final track in state.tracks) {
+    for (final track in state.allTracks) {
       if (track.sourceType != TrackSourceType.mystery) {
         continue;
       }
@@ -198,10 +202,9 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       mysteryGroups.putIfAbsent(sourceId, () => <Track>[]).add(track);
       if (!mysteryDisplayNames.containsKey(sourceId)) {
         final code = headers?[MysteryLibraryConstants.headerCode];
-        final displayName = headers?[MysteryLibraryConstants.headerDisplayName] ??
-            (code != null && code.isNotEmpty
-                ? '神秘代码 $code'
-                : '神秘音乐库');
+        final displayName =
+            headers?[MysteryLibraryConstants.headerDisplayName] ??
+            (code != null && code.isNotEmpty ? '神秘代码 $code' : '神秘音乐库');
         mysteryDisplayNames[sourceId] = displayName;
         mysteryCodes[sourceId] = code;
       }
@@ -227,7 +230,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       );
     });
 
-    final allPreviewTrack = _findPreviewTrack(state.tracks);
+    final allPreviewTrack = _findPreviewTrack(state.allTracks);
     final allHasArtwork =
         allPreviewTrack != null && _hasArtwork(allPreviewTrack);
     final allSummary = _DirectorySummaryData(
@@ -235,7 +238,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       displayName: '全部歌曲',
       directoryPath: null,
       previewTrack: allPreviewTrack,
-      totalTracks: state.tracks.length,
+      totalTracks: state.allTracks.length,
       hasArtwork: allHasArtwork,
     );
 
@@ -275,53 +278,71 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     final title = isWebDav
         ? '移除 WebDAV 音乐库'
         : isMystery
-            ? '卸载神秘音乐库'
-            : '移除音乐文件夹';
+        ? '卸载神秘音乐库'
+        : '移除音乐文件夹';
     final message = isWebDav
         ? '确定要移除 "$name" 吗？移除后将不再同步该 WebDAV 源的歌曲。'
         : isMystery
-            ? '确定要卸载 "$name" 吗？卸载后将移除该神秘代码导入的所有歌曲。'
-            : '确定要移除 "$name" 目录吗？这将从音乐库中移除该目录中的所有歌曲。';
+        ? '确定要卸载 "$name" 吗？卸载后将移除该神秘代码导入的所有歌曲。'
+        : '确定要移除 "$name" 目录吗？这将从音乐库中移除该目录中的所有歌曲。';
 
-    bool? confirmed;
-    if (prefersMacLikeUi()) {
-      confirmed = await showMacosAlertDialog<bool>(
-        context: context,
-        builder: (context) => MacosAlertDialog(
-          appIcon: const MacosIcon(CupertinoIcons.exclamationmark_triangle),
-          title: Text(title,locale: Locale("zh-Hans", "zh"),),
-          message: Text(message,locale: Locale("zh-Hans", "zh"),),
-          primaryButton: PushButton(
-            controlSize: ControlSize.large,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('移除',locale: Locale("zh-Hans", "zh"),),
-          ),
-          secondaryButton: PushButton(
-            controlSize: ControlSize.large,
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消',locale: Locale("zh-Hans", "zh"),),
-          ),
-        ),
-      );
-    } else {
-      confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(title,locale: Locale("zh-Hans", "zh"),),
-          content: Text(message,locale: Locale("zh-Hans", "zh"),),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消',locale: Locale("zh-Hans", "zh"),),
+    final confirmed = prefersMacLikeUi()
+        ? await showPlaylistModalDialog<bool>(
+            context: context,
+            builder: (_) => PlaylistModalScaffold(
+              title: title,
+              maxWidth: 360,
+              body: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isWebDav
+                        ? CupertinoIcons.cloud
+                        : CupertinoIcons.exclamationmark_triangle,
+                    size: 52,
+                    color: isWebDav
+                        ? MacosColors.systemBlueColor
+                        : CupertinoColors.systemYellow,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    message,
+                    locale: Locale("zh-Hans", "zh"),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              actions: [
+                SheetActionButton.secondary(
+                  label: '取消',
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+                SheetActionButton.primary(
+                  label: '移除',
+                  onPressed: () => Navigator.of(context).pop(true),
+                ),
+              ],
+              contentSpacing: 16,
+              actionsSpacing: 14,
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('移除',locale: Locale("zh-Hans", "zh"),),
+          )
+        : await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(title, locale: Locale("zh-Hans", "zh")),
+              content: Text(message, locale: Locale("zh-Hans", "zh")),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('取消', locale: Locale("zh-Hans", "zh")),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('移除', locale: Locale("zh-Hans", "zh")),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
-    }
+          );
 
     if (confirmed != true) {
       return;
@@ -348,7 +369,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
               children: [
                 ProgressCircle(),
                 SizedBox(height: 16),
-                Text('正在加载音乐库...',locale: Locale("zh-Hans", "zh"),),
+                Text('正在加载音乐库...', locale: Locale("zh-Hans", "zh")),
               ],
             ),
           );
@@ -365,7 +386,11 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   color: CupertinoColors.systemRed,
                 ),
                 const SizedBox(height: 16),
-                Text('加载失败', locale: Locale("zh-Hans", "zh"),style: MacosTheme.of(context).typography.title1),
+                Text(
+                  '加载失败',
+                  locale: Locale("zh-Hans", "zh"),
+                  style: MacosTheme.of(context).typography.title1,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   state.message,
@@ -381,7 +406,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   onPressed: () {
                     context.read<MusicLibraryBloc>().add(const LoadAllTracks());
                   },
-                  child: const Text('重试',locale: Locale("zh-Hans", "zh"),),
+                  child: const Text('重试', locale: Locale("zh-Hans", "zh")),
                 ),
               ],
             ),
@@ -389,7 +414,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
         }
 
         if (state is MusicLibraryLoaded) {
-          if (state.tracks.isEmpty) {
+          if (state.allTracks.isEmpty) {
             return _PlaylistMessage(
               icon: CupertinoIcons.music_albums,
               message: '音乐库为空',
@@ -438,20 +463,20 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                 final subtitle = summary.isWebDav
                     ? '${summary.webDavSource!.baseUrl}${summary.webDavSource!.rootPath}'
                     : summary.isMystery
-                        ? '神秘代码: ${summary.mysteryCode ?? summary.displayName}'
-                        : (summary.directoryPath == null ||
-                                summary.directoryPath!.isEmpty
-                            ? '所有目录'
-                            : p.normalize(summary.directoryPath!));
+                    ? '神秘代码: ${summary.mysteryCode ?? summary.displayName}'
+                    : (summary.directoryPath == null ||
+                              summary.directoryPath!.isEmpty
+                          ? '所有目录'
+                          : p.normalize(summary.directoryPath!));
                 final gradient = summary.isRemote
                     ? [const Color(0xFF2F3542), const Color(0xFF1E272E)]
                     : null;
 
                 final remoteArtworkUrl =
                     MysteryLibraryConstants.buildArtworkUrl(
-                  summary.previewTrack?.httpHeaders,
-                  thumbnail: true,
-                );
+                      summary.previewTrack?.httpHeaders,
+                      thumbnail: true,
+                    );
 
                 return CollectionSummaryCard(
                   title: summary.displayName,
@@ -463,8 +488,8 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   fallbackIcon: summary.isWebDav
                       ? CupertinoIcons.cloud
                       : summary.isMystery
-                          ? CupertinoIcons.music_note
-                          : CupertinoIcons.folder_solid,
+                      ? CupertinoIcons.music_note
+                      : CupertinoIcons.folder_solid,
                   gradientColors: gradient,
                   onTap: () {
                     setState(() {
@@ -481,10 +506,10 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   contextMenuLabel: summary.isAll
                       ? null
                       : (summary.isWebDav
-                          ? '移除 WebDAV 音乐库'
-                          : summary.isMystery
-                              ? '卸载神秘音乐库'
-                              : '移除音乐库'),
+                            ? '移除 WebDAV 音乐库'
+                            : summary.isMystery
+                            ? '卸载神秘音乐库'
+                            : '移除音乐库'),
                 );
               },
             );
@@ -510,9 +535,16 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   return _isTrackInDirectory(track, key);
                 }).toList();
 
+          final queueTracks = hasActiveSearch
+              ? state.allTracks
+              : filteredTracks;
+
           final listWidget = MacOSTrackListView(
             tracks: filteredTracks,
+            queueTracks: queueTracks,
             onAddToPlaylist: widget.onAddToPlaylist,
+            onViewArtist: widget.onViewArtist,
+            onViewAlbum: widget.onViewAlbum,
           );
 
           if (_activeFilterKey != null) {

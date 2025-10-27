@@ -17,6 +17,19 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
   String? _localError;
   final ScrollController _scrollController = ScrollController();
 
+  String? _latestCreatedPlaylistId(List<Playlist> playlists) {
+    if (playlists.isEmpty) {
+      return null;
+    }
+    var latest = playlists.first;
+    for (final playlist in playlists.skip(1)) {
+      if (playlist.createdAt.isAfter(latest.createdAt)) {
+        latest = playlist;
+      }
+    }
+    return latest.id;
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -33,7 +46,11 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
 
     if (_selectedPlaylistId != null &&
         playlists.every((element) => element.id != _selectedPlaylistId)) {
-      _selectedPlaylistId = playlists.isNotEmpty ? playlists.first.id : null;
+      _selectedPlaylistId = _latestCreatedPlaylistId(playlists);
+    }
+
+    if (_selectedPlaylistId == null && playlists.isNotEmpty) {
+      _selectedPlaylistId = _latestCreatedPlaylistId(playlists);
     }
 
     final body = playlists.isEmpty
@@ -158,14 +175,16 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
           constraints: const BoxConstraints(maxHeight: 240),
           child: MacosScrollbar(
             controller: _scrollController,
-            child: ListView.separated(
+            child: LazyListView<Playlist>(
               controller: _scrollController,
               shrinkWrap: true,
               primary: false,
-              itemCount: playlists.length,
+              items: playlists,
+              pageSize: 40,
+              preloadOffset: 120,
+              cacheExtent: 0,
               separatorBuilder: (_, __) => const SizedBox(height: 6),
-              itemBuilder: (context, index) {
-                final playlist = playlists[index];
+              itemBuilder: (context, playlist, index) {
                 return _PlaylistEntryTile(
                   playlist: playlist,
                   isDark: isDark,

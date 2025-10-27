@@ -12,6 +12,7 @@ import '../common/artwork_thumbnail.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
+import '../../utils/track_display_utils.dart';
 
 const double _muteThreshold = 0.005;
 const double _defaultRestoreVolume = 0.6;
@@ -60,13 +61,13 @@ class MacOSPlayerControlBar extends StatelessWidget {
 
         if (canControl) {
           final playingState = state as dynamic;
-          trackTitle = playingState.track.title;
-          trackArtist =
-              '${playingState.track.artist} — ${playingState.track.album}';
+          final track = playingState.track as Track;
+          final displayInfo = deriveTrackDisplayInfo(track);
+          trackTitle = displayInfo.title;
+          trackArtist = '${displayInfo.artist} — ${displayInfo.album}';
           position = playingState.position;
           duration = playingState.duration;
           volume = playingState.volume;
-          final track = playingState.track as Track;
           artworkPath = track.artworkPath;
           if (track.sourceType == TrackSourceType.netease) {
             remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
@@ -76,7 +77,7 @@ class MacOSPlayerControlBar extends StatelessWidget {
               thumbnail: true,
             );
           }
-          currentTrack = track;
+          currentTrack = applyDisplayInfo(track, displayInfo);
           if (duration.inMilliseconds > 0) {
             progress = position.inMilliseconds / duration.inMilliseconds;
           }

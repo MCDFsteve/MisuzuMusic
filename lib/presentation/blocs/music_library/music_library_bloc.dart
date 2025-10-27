@@ -56,10 +56,7 @@ class MountMysteryLibraryEvent extends MusicLibraryEvent {
   final Uri baseUri;
   final String code;
 
-  const MountMysteryLibraryEvent({
-    required this.baseUri,
-    required this.code,
-  });
+  const MountMysteryLibraryEvent({required this.baseUri, required this.code});
 
   @override
   List<Object> get props => [baseUri, code];
@@ -136,6 +133,7 @@ class MusicLibraryScanning extends MusicLibraryState {
 
 class MusicLibraryLoaded extends MusicLibraryState {
   final List<Track> tracks;
+  final List<Track> allTracks;
   final List<Artist> artists;
   final List<Album> albums;
   final String? searchQuery;
@@ -145,6 +143,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
 
   const MusicLibraryLoaded({
     required this.tracks,
+    required this.allTracks,
     required this.artists,
     required this.albums,
     required this.libraryDirectories,
@@ -156,6 +155,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
   @override
   List<Object?> get props => [
     tracks,
+    allTracks,
     artists,
     albums,
     libraryDirectories,
@@ -166,6 +166,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
 
   MusicLibraryLoaded copyWith({
     List<Track>? tracks,
+    List<Track>? allTracks,
     List<Artist>? artists,
     List<Album>? albums,
     List<String>? libraryDirectories,
@@ -175,6 +176,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
   }) {
     return MusicLibraryLoaded(
       tracks: tracks ?? this.tracks,
+      allTracks: allTracks ?? this.allTracks,
       artists: artists ?? this.artists,
       albums: albums ?? this.albums,
       libraryDirectories: libraryDirectories ?? this.libraryDirectories,
@@ -227,6 +229,8 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
   final DeleteWebDavSource _deleteWebDavSource;
   final WatchTrackUpdates _watchTrackUpdates;
   final BinaryConfigStore _configStore;
+
+  List<Track> _allTracksCache = const [];
 
   StreamSubscription<Track>? _trackUpdateSubscription;
 
@@ -288,19 +292,45 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       return;
     }
 
-    final index = currentState.tracks.indexWhere((item) => item.id == track.id);
-    if (index == -1) {
+    final visibleIndex = currentState.tracks.indexWhere(
+      (item) => item.id == track.id,
+    );
+    final allIndex = currentState.allTracks.indexWhere(
+      (item) => item.id == track.id,
+    );
+
+    if (visibleIndex == -1 && allIndex == -1) {
       return;
     }
 
-    final existing = currentState.tracks[index];
-    if (existing == track) {
+    final hasVisibleChange =
+        visibleIndex != -1 && currentState.tracks[visibleIndex] != track;
+    final hasAllChange =
+        allIndex != -1 && currentState.allTracks[allIndex] != track;
+
+    if (!hasVisibleChange && !hasAllChange) {
       return;
     }
 
-    final updatedTracks = List<Track>.from(currentState.tracks);
-    updatedTracks[index] = track;
-    emit(currentState.copyWith(tracks: updatedTracks));
+    final updatedTracks = hasVisibleChange
+        ? List<Track>.from(currentState.tracks)
+        : currentState.tracks;
+    final updatedAllTracks = hasAllChange
+        ? List<Track>.from(currentState.allTracks)
+        : currentState.allTracks;
+
+    if (hasVisibleChange && visibleIndex != -1) {
+      updatedTracks[visibleIndex] = track;
+    }
+    if (hasAllChange && allIndex != -1) {
+      updatedAllTracks[allIndex] = track;
+    }
+
+    _allTracksCache = updatedAllTracks;
+
+    emit(
+      currentState.copyWith(tracks: updatedTracks, allTracks: updatedAllTracks),
+    );
   }
 
   Future<void> _onLoadAllTracks(
@@ -319,7 +349,9 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
 
       // 加载保存的排序模式
       await _configStore.init();
-      final sortModeString = _configStore.getValue<String>(StorageKeys.musicLibrarySortMode);
+      final sortModeString = _configStore.getValue<String>(
+        StorageKeys.musicLibrarySortMode,
+      );
       final sortMode = TrackSortModeExtension.fromStorageString(sortModeString);
 
       final visibleTracks = _filterVisibleTracks(tracks);
@@ -333,9 +365,12 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
         '🎵 BLoC: 加载完成 - ${sortedTracks.length} 首可用歌曲, 隐藏 $hiddenCount 首, ${artists.length} 位艺术家, ${albums.length} 张专辑',
       );
 
+      _allTracksCache = sortedTracks;
+
       emit(
         MusicLibraryLoaded(
           tracks: sortedTracks,
+          allTracks: _allTracksCache,
           artists: artists,
           albums: albums,
           libraryDirectories: directories,
@@ -410,19 +445,29 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
         final directories = await _getLibraryDirectories();
         final webDavSources = await _getWebDavSources();
 
+        final currentState = state;
+        final currentSortMode = currentState is MusicLibraryLoaded
+            ? currentState.sortMode
+            : TrackSortMode.titleAZ;
+
         final visibleTracks = _filterVisibleTracks(refreshedTracks);
+        final sortedVisibleTracks = _sortTracks(visibleTracks, currentSortMode);
         final hiddenCount = refreshedTracks.length - visibleTracks.length;
         if (hiddenCount > 0) {
           print('🌐 BLoC: 补齐后仍有 $hiddenCount 首 WebDAV 音轨缺少元数据，继续等待');
         }
 
+        _allTracksCache = sortedVisibleTracks;
+
         emit(
           MusicLibraryLoaded(
-            tracks: visibleTracks,
+            tracks: sortedVisibleTracks,
+            allTracks: _allTracksCache,
             artists: refreshedArtists,
             albums: refreshedAlbums,
             libraryDirectories: directories,
             webDavSources: webDavSources,
+            sortMode: currentSortMode,
           ),
         );
       } else {
@@ -519,14 +564,24 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
 
       print('🔍 BLoC: 搜索完成 - 找到 ${tracks.length} 首歌曲');
 
+      final currentState = state;
+      final currentSortMode = currentState is MusicLibraryLoaded
+          ? currentState.sortMode
+          : TrackSortMode.titleAZ;
+      final effectiveAllTracks = currentState is MusicLibraryLoaded
+          ? currentState.allTracks
+          : _allTracksCache;
+
       emit(
         MusicLibraryLoaded(
           tracks: visibleTracks,
+          allTracks: effectiveAllTracks,
           artists: artists,
           albums: albums,
           libraryDirectories: directories,
           webDavSources: webDavSources,
           searchQuery: event.query,
+          sortMode: currentSortMode,
         ),
       );
     } catch (e) {
@@ -723,12 +778,21 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       event.sortMode.toStorageString(),
     );
 
-    // 对当前tracks重新排序
-    final sortedTracks = _sortTracks(currentState.tracks, event.sortMode);
-    emit(currentState.copyWith(
-      tracks: sortedTracks,
-      sortMode: event.sortMode,
-    ));
+    // 对当前显示列表和完整列表重新排序
+    final sortedVisibleTracks = _sortTracks(
+      currentState.tracks,
+      event.sortMode,
+    );
+    final sortedAllTracks = _sortTracks(currentState.allTracks, event.sortMode);
+    _allTracksCache = sortedAllTracks;
+
+    emit(
+      currentState.copyWith(
+        tracks: sortedVisibleTracks,
+        allTracks: sortedAllTracks,
+        sortMode: event.sortMode,
+      ),
+    );
   }
 
   List<Track> _sortTracks(List<Track> tracks, TrackSortMode sortMode) {
@@ -736,16 +800,76 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
 
     switch (sortMode) {
       case TrackSortMode.titleAZ:
-        sorted.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        sorted.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
         break;
       case TrackSortMode.titleZA:
-        sorted.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        sorted.sort(
+          (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()),
+        );
         break;
       case TrackSortMode.addedNewest:
         sorted.sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
         break;
       case TrackSortMode.addedOldest:
         sorted.sort((a, b) => a.dateAdded.compareTo(b.dateAdded));
+        break;
+      case TrackSortMode.artistAZ:
+        sorted.sort((a, b) {
+          final artistCompare = a.artist.toLowerCase().compareTo(
+            b.artist.toLowerCase(),
+          );
+          if (artistCompare != 0) {
+            return artistCompare;
+          }
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        });
+        break;
+      case TrackSortMode.artistZA:
+        sorted.sort((a, b) {
+          final artistCompare = b.artist.toLowerCase().compareTo(
+            a.artist.toLowerCase(),
+          );
+          if (artistCompare != 0) {
+            return artistCompare;
+          }
+          return b.title.toLowerCase().compareTo(a.title.toLowerCase());
+        });
+        break;
+      case TrackSortMode.albumAZ:
+        sorted.sort((a, b) {
+          final albumCompare = a.album.toLowerCase().compareTo(
+            b.album.toLowerCase(),
+          );
+          if (albumCompare != 0) {
+            return albumCompare;
+          }
+          final trackCompare = (a.trackNumber ?? 0).compareTo(
+            b.trackNumber ?? 0,
+          );
+          if (trackCompare != 0) {
+            return trackCompare;
+          }
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        });
+        break;
+      case TrackSortMode.albumZA:
+        sorted.sort((a, b) {
+          final albumCompare = b.album.toLowerCase().compareTo(
+            a.album.toLowerCase(),
+          );
+          if (albumCompare != 0) {
+            return albumCompare;
+          }
+          final trackCompare = (b.trackNumber ?? 0).compareTo(
+            a.trackNumber ?? 0,
+          );
+          if (trackCompare != 0) {
+            return trackCompare;
+          }
+          return b.title.toLowerCase().compareTo(a.title.toLowerCase());
+        });
         break;
     }
 
