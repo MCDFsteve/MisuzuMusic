@@ -37,6 +37,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   final MusicLibraryRepository _musicLibraryRepository;
   final NeteaseRepository _neteaseRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  static const List<Duration> _windowsPlaybackRetryDelays = <Duration>[
+    Duration(milliseconds: 24),
+    Duration(milliseconds: 80),
+  ];
 
   // State streams
   final BehaviorSubject<PlayerState> _playerStateSubject =
@@ -291,6 +295,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       _positionSubject.add(Duration.zero);
       await _setAudioSource(playableTrack);
       await _audioPlayer.play();
+      await _ensureWindowsPlaybackStarted();
 
       if (playableTrack.sourceType == TrackSourceType.webdav &&
           playableTrack.sourceId != null &&
@@ -387,6 +392,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   Future<void> resume() async {
     try {
       await _audioPlayer.play();
+      await _ensureWindowsPlaybackStarted();
     } catch (e) {
       throw AudioPlaybackException('Failed to resume: ${e.toString()}');
     }
@@ -938,6 +944,50 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       }
     } catch (e) {
       print('⚠️ AudioService: 获取网络歌曲封面失败 -> $e');
+    }
+  }
+
+  Future<void> _ensureWindowsPlaybackStarted() async {
+    if (!Platform.isWindows) {
+      return;
+    }
+
+    if (_audioPlayer.playing) {
+      _syncWindowsPlayingState();
+      return;
+    }
+
+    for (final delay in _windowsPlaybackRetryDelays) {
+      await Future<void>.delayed(delay);
+      if (_audioPlayer.playing) {
+        _syncWindowsPlayingState();
+        return;
+      }
+      try {
+        await _audioPlayer.play();
+      } catch (e) {
+        print('⚠️ AudioService: Windows 补偿播放失败 -> $e');
+        return;
+      }
+      if (_audioPlayer.playing) {
+        _syncWindowsPlayingState();
+        return;
+      }
+    }
+
+    if (_audioPlayer.playing) {
+      _syncWindowsPlayingState();
+    } else {
+      print('⚠️ AudioService: Windows 播放未能自动开始，仍保持暂停');
+    }
+  }
+
+  void _syncWindowsPlayingState() {
+    if (_playerStateSubject.isClosed) {
+      return;
+    }
+    if (_playerStateSubject.value != PlayerState.playing) {
+      _playerStateSubject.add(PlayerState.playing);
     }
   }
 
