@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
 
+import '../common/lazy_list_view.dart';
+
 /// 毛玻璃风格的搜索建议浮层；通过 Overlay 组合时使用。
 class FrostedSearchDropdown extends StatelessWidget {
   const FrostedSearchDropdown({
@@ -63,16 +65,20 @@ class FrostedSearchDropdown extends StatelessWidget {
             padding: padding,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxHeight: maxHeight),
-              child: ListView.separated(
+              child: LazyListView<Widget>(
                 shrinkWrap: true,
+                primary: false,
+                items: children,
+                pageSize: 12,
+                preloadOffset: 60,
                 padding: EdgeInsets.zero,
-                itemBuilder: (context, index) => children[index],
+                cacheExtent: 0,
                 separatorBuilder: (context, index) => Divider(
                   height: 1,
                   thickness: 0.7,
                   color: dividerColor,
                 ),
-                itemCount: children.length,
+                itemBuilder: (context, child, index) => child,
               ),
             ),
           ),

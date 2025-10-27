@@ -175,14 +175,16 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
           constraints: const BoxConstraints(maxHeight: 240),
           child: MacosScrollbar(
             controller: _scrollController,
-            child: ListView.separated(
+            child: LazyListView<Playlist>(
               controller: _scrollController,
               shrinkWrap: true,
               primary: false,
-              itemCount: playlists.length,
+              items: playlists,
+              pageSize: 40,
+              preloadOffset: 120,
+              cacheExtent: 0,
               separatorBuilder: (_, __) => const SizedBox(height: 6),
-              itemBuilder: (context, index) {
-                final playlist = playlists[index];
+              itemBuilder: (context, playlist, index) {
                 return _PlaylistEntryTile(
                   playlist: playlist,
                   isDark: isDark,

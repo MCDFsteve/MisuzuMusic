@@ -41,6 +41,7 @@ import '../widgets/common/artwork_thumbnail.dart';
 import '../widgets/common/library_search_field.dart';
 import '../widgets/common/track_list_tile.dart';
 import '../widgets/common/hover_glow_overlay.dart';
+import '../widgets/common/lazy_list_view.dart';
 import '../widgets/macos/collection/collection_overview_grid.dart';
 import '../widgets/macos/collection/collection_summary_card.dart';
 import '../widgets/macos/macos_player_control_bar.dart';

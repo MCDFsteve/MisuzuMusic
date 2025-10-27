@@ -413,13 +413,15 @@ class _NeteasePlaylistSelectionSheetState
       constraints: const BoxConstraints(maxHeight: 300),
       child: MacosScrollbar(
         controller: _controller,
-        child: ListView.separated(
+        child: LazyListView<NeteasePlaylist>(
           controller: _controller,
           shrinkWrap: true,
-          itemCount: playlists.length,
+          items: playlists,
+          pageSize: 40,
+          preloadOffset: 120,
+          cacheExtent: 0,
           separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final playlist = playlists[index];
+          itemBuilder: (context, playlist, index) {
             return _NeteasePlaylistEntryTile(
               playlist: playlist,
               isDark: isDark,

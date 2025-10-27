@@ -13,6 +13,7 @@ import '../../blocs/player/player_bloc.dart';
 import '../common/adaptive_scrollbar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../common/track_list_tile.dart';
+import '../common/lazy_list_view.dart';
 import 'context_menu/macos_context_menu.dart';
 import '../../utils/track_display_utils.dart';
 
@@ -43,18 +44,20 @@ class MacOSTrackListView extends StatelessWidget {
     return AdaptiveScrollbar(
       isDarkMode: isDarkMode,
       builder: (controller) {
-        return ListView.separated(
+        return LazyListView<Track>(
           controller: controller,
+          items: tracks,
+          pageSize: 120,
+          preloadOffset: 800,
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: tracks.length,
+          cacheExtent: 0,
           separatorBuilder: (context, index) => Divider(
             height: 1,
             thickness: 0.5,
             color: MacosTheme.of(context).dividerColor,
             indent: 88,
           ),
-          itemBuilder: (context, index) {
-            final track = tracks[index];
+          itemBuilder: (context, track, index) {
             final displayInfo = deriveTrackDisplayInfo(track);
             final normalizedTrack = applyDisplayInfo(track, displayInfo);
             String? remoteArtworkUrl;

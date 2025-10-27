@@ -94,18 +94,20 @@ class _PlaylistHistoryList extends StatelessWidget {
     return AdaptiveScrollbar(
       isDarkMode: MacosTheme.of(context).brightness == Brightness.dark,
       builder: (controller) {
-        return ListView.separated(
+        return LazyListView<PlaybackHistoryEntry>(
           controller: controller,
+          items: filteredEntries,
+          pageSize: 100,
+          preloadOffset: 600,
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: filteredEntries.length,
+          cacheExtent: 0,
           separatorBuilder: (context, index) => Divider(
             height: 1,
             thickness: 0.5,
             color: dividerColor,
             indent: 88,
           ),
-          itemBuilder: (context, index) {
-            final entry = filteredEntries[index];
+          itemBuilder: (context, entry, index) {
             final track = entry.track;
             final displayInfo = deriveTrackDisplayInfo(track);
             final normalizedTrack = applyDisplayInfo(track, displayInfo);

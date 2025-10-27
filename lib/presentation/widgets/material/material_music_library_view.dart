@@ -8,6 +8,7 @@ import '../../blocs/player/player_bloc.dart';
 import '../common/adaptive_scrollbar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../common/track_list_tile.dart';
+import '../common/lazy_list_view.dart';
 import '../../utils/track_display_utils.dart';
 
 class MaterialMusicLibraryView extends StatelessWidget {
@@ -57,18 +58,20 @@ class MaterialMusicLibraryView extends StatelessWidget {
           child: AdaptiveScrollbar(
             isDarkMode: Theme.of(context).brightness == Brightness.dark,
             builder: (controller) {
-              return ListView.separated(
+              return LazyListView<Track>(
                 controller: controller,
+                items: tracks,
+                pageSize: 120,
+                preloadOffset: 800,
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: tracks.length,
+                cacheExtent: 0,
                 separatorBuilder: (context, index) => Divider(
                   height: 1,
                   thickness: 0.5,
                   color: Theme.of(context).dividerColor,
                   indent: 88,
                 ),
-                itemBuilder: (context, index) {
-                  final track = tracks[index];
+                itemBuilder: (context, track, index) {
                   final displayInfo = deriveTrackDisplayInfo(track);
                   final normalizedTrack = applyDisplayInfo(track, displayInfo);
                   final remoteArtworkUrl =

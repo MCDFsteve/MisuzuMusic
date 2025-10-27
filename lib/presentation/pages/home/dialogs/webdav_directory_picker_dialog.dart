@@ -170,21 +170,27 @@ class _WebDavDirectoryPickerDialogState
                             locale: const Locale('zh-Hans', 'zh'),
                           ),
                         )
-                      : ListView.builder(
-                          itemCount: _entries.length + (_currentPath == '/' ? 0 : 1),
-                          itemBuilder: (context, index) {
-                            if (_currentPath != '/' && index == 0) {
+                      : LazyListView<WebDavEntry?>(
+                          items: <WebDavEntry?>[
+                            if (_currentPath != '/') null,
+                            ..._entries,
+                          ],
+                          pageSize: 80,
+                          preloadOffset: 240,
+                          cacheExtent: 0,
+                          itemBuilder: (context, entry, index) {
+                            if (entry == null) {
                               return ListTile(
                                 leading: const Icon(Icons.arrow_upward),
                                 title: const Text('..'),
                                 onTap: () => _load(_parentPath(_currentPath)),
                               );
                             }
-                            final entryIndex = _currentPath == '/' ? index : index - 1;
-                            final entry = _entries[entryIndex];
                             return ListTile(
-                              leading: Icon(entry.isDirectory ? Icons.folder : Icons.audiotrack),
-                              title: Text(entry.name, locale: const Locale('zh-Hans', 'zh')),
+                              leading:
+                                  Icon(entry.isDirectory ? Icons.folder : Icons.audiotrack),
+                              title:
+                                  Text(entry.name, locale: const Locale('zh-Hans', 'zh')),
                               onTap: entry.isDirectory ? () => _load(entry.path) : null,
                               subtitle: Text(
                                 entry.path,
@@ -322,14 +328,20 @@ class _DirectoryEntriesView extends StatelessWidget {
     final isDark = macTheme.brightness == Brightness.dark;
     final dividerColor = macTheme.dividerColor.withOpacity(isDark ? 0.35 : 0.28);
 
-    final totalCount = entries.length + (currentPath == '/' ? 0 : 1);
+    final itemList = <WebDavEntry?>[
+      if (currentPath != '/') null,
+      ...entries,
+    ];
 
     return MacosScrollbar(
       controller: controller,
-      child: ListView.separated(
+      child: LazyListView<WebDavEntry?>(
         controller: controller,
+        items: itemList,
+        pageSize: 100,
+        preloadOffset: 360,
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        itemCount: totalCount,
+        cacheExtent: 0,
         separatorBuilder: (_, __) => SizedBox(
           height: 4,
           child: Divider(
@@ -338,8 +350,8 @@ class _DirectoryEntriesView extends StatelessWidget {
             color: dividerColor,
           ),
         ),
-        itemBuilder: (context, index) {
-          if (currentPath != '/' && index == 0) {
+        itemBuilder: (context, entry, index) {
+          if (entry == null) {
             return FrostedOptionTile(
               leading: Icon(
                 CupertinoIcons.arrow_uturn_left,
@@ -354,8 +366,6 @@ class _DirectoryEntriesView extends StatelessWidget {
             );
           }
 
-          final entryIndex = currentPath == '/' ? index : index - 1;
-          final entry = entries[entryIndex];
           final leading = Icon(
             entry.isDirectory
                 ? CupertinoIcons.folder_fill
