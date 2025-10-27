@@ -22,12 +22,14 @@ class MacOSTrackListView extends StatelessWidget {
     this.onAddToPlaylist,
     this.onRemoveFromPlaylist,
     this.additionalActionsBuilder,
+    this.onTrackSelected,
   });
 
   final List<Track> tracks;
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<Track>? onRemoveFromPlaylist;
   final List<MacosContextMenuAction> Function(Track track)? additionalActionsBuilder;
+  final ValueChanged<Track>? onTrackSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +77,13 @@ class MacOSTrackListView extends StatelessWidget {
               title: track.title,
               artistAlbum: '${track.artist} • ${track.album}',
               duration: _formatDuration(track.duration),
-              onTap: () => _handleTrackTap(context, track, index),
+              onTap: () {
+                if (onTrackSelected != null) {
+                  onTrackSelected!(track);
+                } else {
+                  _handleTrackTap(context, track, index);
+                }
+              },
               onSecondaryTap: (position) =>
                   _handleSecondaryTap(context, position, track),
             );

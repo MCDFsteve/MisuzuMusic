@@ -125,15 +125,20 @@ class _MacOSGlassHeader extends StatelessWidget {
                   padding: EdgeInsets.only(right: isWindows ? 8 : 12),
                   child: Align(
                     alignment: Alignment.centerRight,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 100, maxWidth: 320),
-                      child: LibrarySearchField(
-                        query: searchQuery,
-                        onQueryChanged: onSearchChanged,
-                        onPreviewChanged: onSearchPreviewChanged,
-                        suggestions: searchSuggestions,
-                        onSuggestionSelected: onSuggestionSelected,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 100, maxWidth: 320),
+                          child: LibrarySearchField(
+                            query: searchQuery,
+                            onQueryChanged: onSearchChanged,
+                            onPreviewChanged: onSearchPreviewChanged,
+                            suggestions: searchSuggestions,
+                            onSuggestionSelected: onSuggestionSelected,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

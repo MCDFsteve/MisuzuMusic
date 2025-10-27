@@ -18,6 +18,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/mystery_library_constants.dart';
 import '../../core/storage/binary_config_store.dart';
 import '../../core/widgets/modal_dialog.dart';
+import '../../core/utils/romaji_transliterator.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/entities/netease_entities.dart';
@@ -64,6 +65,8 @@ part 'home/views/playlist_view.dart';
 part 'home/views/playlists_view.dart';
 part 'home/views/netease_view.dart';
 part 'home/sheets/playlist_selection_sheet.dart';
+part 'home/views/artist_detail_page.dart';
+part 'home/views/album_detail_page.dart';
 
 WindowManager get windowManager => WindowManager.instance;
 

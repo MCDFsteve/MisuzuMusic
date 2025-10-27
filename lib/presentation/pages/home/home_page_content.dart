@@ -648,10 +648,43 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _handleSearchSuggestionTapped(LibrarySearchSuggestion suggestion) {
-    final value = suggestion.value;
-    final trimmed = value.trim();
     _searchDebounce?.cancel();
+    debugPrint('[HomeContent] Handle suggestion type=${suggestion.type} value=${suggestion.value} payload=${suggestion.payload.runtimeType}');
 
+    switch (suggestion.type) {
+      case LibrarySearchSuggestionType.track:
+        final track = suggestion.payload is Track ? suggestion.payload as Track : null;
+        if (track == null) {
+          _triggerSearchFallback(suggestion.value);
+          return;
+        }
+        debugPrint('[HomeContent] Playing track suggestion ${track.title}');
+        _playTrackAndShowLyrics(track);
+        break;
+      case LibrarySearchSuggestionType.artist:
+        final artist = suggestion.payload is Artist ? suggestion.payload as Artist : null;
+        if (artist == null) {
+          _triggerSearchFallback(suggestion.value);
+          return;
+        }
+        debugPrint('[HomeContent] Open artist detail ${artist.name}');
+        _openArtistDetail(artist);
+        break;
+      case LibrarySearchSuggestionType.album:
+        final album = suggestion.payload is Album ? suggestion.payload as Album : null;
+        if (album == null) {
+          _triggerSearchFallback(suggestion.value);
+          return;
+        }
+        debugPrint('[HomeContent] Open album detail ${album.title}');
+        _openAlbumDetail(album);
+        break;
+    }
+  }
+
+  void _triggerSearchFallback(String value) {
+    final trimmed = value.trim();
+    debugPrint('[HomeContent] Fallback search triggered for "$trimmed"');
     setState(() {
       _searchQuery = value;
       _activeSearchQuery = trimmed;
@@ -661,10 +694,9 @@ class _HomePageContentState extends State<HomePageContent> {
     final bloc = context.read<MusicLibraryBloc>();
     if (trimmed.isEmpty) {
       bloc.add(const LoadAllTracks());
-      return;
+    } else {
+      bloc.add(SearchTracksEvent(trimmed));
     }
-
-    bloc.add(SearchTracksEvent(trimmed));
   }
 
   List<LibrarySearchSuggestion> _buildSearchSuggestions(String query) {
@@ -678,14 +710,30 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     final lower = query.toLowerCase();
+    final kanaVariants = RomajiTransliterator.toKanaVariants(query);
+    final searchTerms = <String>{lower}
+      ..addAll(kanaVariants)
+      ..addAll(kanaVariants.map((e) => e.toLowerCase()))
+      ..removeWhere((element) => element.isEmpty);
+
+    bool matchesField(String text) {
+      final lowerText = text.toLowerCase();
+      for (final term in searchTerms) {
+        if (term.isEmpty) continue;
+        if (lowerText.contains(term) || text.contains(term)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     final suggestions = <LibrarySearchSuggestion>[];
 
     Track? trackMatch;
     for (final track in state.tracks) {
-      final title = track.title.toLowerCase();
-      final artist = track.artist.toLowerCase();
-      final album = track.album.toLowerCase();
-      if (title.contains(lower) || artist.contains(lower) || album.contains(lower)) {
+      if (matchesField(track.title) ||
+          matchesField(track.artist) ||
+          matchesField(track.album)) {
         trackMatch = track;
         break;
       }
@@ -697,13 +745,14 @@ class _HomePageContentState extends State<HomePageContent> {
           label: '歌曲：${trackMatch.title}',
           description: '${trackMatch.artist} • ${trackMatch.album}',
           type: LibrarySearchSuggestionType.track,
+          payload: trackMatch,
         ),
       );
     }
 
     Artist? artistMatch;
     for (final artist in state.artists) {
-      if (artist.name.toLowerCase().contains(lower)) {
+      if (matchesField(artist.name)) {
         artistMatch = artist;
         break;
       }
@@ -715,14 +764,14 @@ class _HomePageContentState extends State<HomePageContent> {
           label: '歌手：${artistMatch.name}',
           description: '共 ${artistMatch.trackCount} 首歌曲',
           type: LibrarySearchSuggestionType.artist,
+          payload: artistMatch,
         ),
       );
     }
 
     Album? albumMatch;
     for (final album in state.albums) {
-      if (album.title.toLowerCase().contains(lower) ||
-          album.artist.toLowerCase().contains(lower)) {
+      if (matchesField(album.title) || matchesField(album.artist)) {
         albumMatch = album;
         break;
       }
@@ -734,6 +783,7 @@ class _HomePageContentState extends State<HomePageContent> {
           label: '专辑：${albumMatch.title}',
           description: '${albumMatch.artist} • ${albumMatch.trackCount} 首',
           type: LibrarySearchSuggestionType.album,
+          payload: albumMatch,
         ),
       );
     }
@@ -744,11 +794,102 @@ class _HomePageContentState extends State<HomePageContent> {
           value: query,
           label: '搜索“$query”',
           description: '在全部内容中继续查找',
+          type: LibrarySearchSuggestionType.track,
         ),
       );
     }
 
     return suggestions.take(3).toList(growable: false);
+  }
+
+  void _playTrackAndShowLyrics(Track track) {
+    debugPrint('[HomeContent] _playTrackAndShowLyrics -> ${track.title}');
+    final musicState = context.read<MusicLibraryBloc>().state;
+    if (musicState is MusicLibraryLoaded) {
+      final allTracks = List<Track>.from(musicState.tracks);
+      final foundIndex = allTracks.indexWhere((t) => t.id == track.id);
+      if (foundIndex != -1) {
+        context.read<PlayerBloc>().add(
+              PlayerSetQueue(allTracks, startIndex: foundIndex, autoPlay: true),
+            );
+      } else {
+        context.read<PlayerBloc>().add(PlayerSetQueue([track], startIndex: 0));
+      }
+    } else {
+      context.read<PlayerBloc>().add(PlayerSetQueue([track], startIndex: 0));
+    }
+
+    setState(() {
+      _lyricsVisible = true;
+      _lyricsActiveTrack = track;
+      _searchSuggestions = const [];
+      _searchQuery = '';
+      _activeSearchQuery = '';
+    });
+  }
+
+  void _openArtistDetail(Artist artist) {
+    debugPrint('[HomeContent] _openArtistDetail ${artist.name}');
+    final state = context.read<MusicLibraryBloc>().state;
+    if (state is! MusicLibraryLoaded) {
+      debugPrint('[HomeContent] Artist detail aborted: library not loaded');
+      return;
+    }
+    final tracks = state.tracks.where((track) => track.artist == artist.name).toList();
+    if (tracks.isEmpty) {
+      _showErrorDialog(context, '未找到该歌手的歌曲');
+      debugPrint('[HomeContent] Artist detail aborted: no tracks');
+      return;
+    }
+
+    setState(() => _searchSuggestions = const []);
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ArtistDetailPage(
+          artist: artist,
+          tracks: tracks,
+          onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
+        ),
+      ),
+    );
+  }
+
+  void _openAlbumDetail(Album album) {
+    debugPrint('[HomeContent] _openAlbumDetail ${album.title}');
+    final state = context.read<MusicLibraryBloc>().state;
+    if (state is! MusicLibraryLoaded) {
+      debugPrint('[HomeContent] Album detail aborted: library not loaded');
+      return;
+    }
+    final tracks = state.tracks
+        .where((track) => track.album == album.title && track.artist == album.artist)
+        .toList()
+      ..sort((a, b) {
+        final trackCompare = (a.trackNumber ?? 0).compareTo(b.trackNumber ?? 0);
+        if (trackCompare != 0) {
+          return trackCompare;
+        }
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      });
+
+    if (tracks.isEmpty) {
+      _showErrorDialog(context, '未找到该专辑的歌曲');
+      debugPrint('[HomeContent] Album detail aborted: no tracks');
+      return;
+    }
+
+    setState(() => _searchSuggestions = const []);
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AlbumDetailPage(
+          album: album,
+          tracks: tracks,
+          onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
+        ),
+      ),
+    );
   }
 
   void _handleNavigationChange(int index) {

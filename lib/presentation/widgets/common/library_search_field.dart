@@ -13,12 +13,14 @@ class LibrarySearchSuggestion {
     required this.label,
     this.description,
     this.type = LibrarySearchSuggestionType.track,
+    this.payload,
   });
 
   final String value;
   final String label;
   final String? description;
   final LibrarySearchSuggestionType type;
+  final Object? payload;
 
   IconData get icon {
     switch (type) {
@@ -63,6 +65,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
   final LayerLink _overlayLink = LayerLink();
   OverlayEntry? _suggestionOverlay;
   final GlobalKey _fieldKey = GlobalKey();
+  final GlobalKey _dropdownKey = GlobalKey();
 
   @override
   void initState() {
@@ -140,6 +143,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
 
   void _handleSuggestionSelected(LibrarySearchSuggestion suggestion) {
     _setControllerText(suggestion.value);
+    debugPrint('[SearchField] Suggestion tapped: ${suggestion.type} -> ${suggestion.value}');
     widget.onSuggestionSelected?.call(suggestion);
     _focusNode.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -243,7 +247,16 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
               children: [
                 Listener(
                   behavior: HitTestBehavior.translucent,
-                  onPointerDown: (_) {
+                  onPointerDown: (event) {
+                    final dropdownBox =
+                        _dropdownKey.currentContext?.findRenderObject() as RenderBox?;
+                    if (dropdownBox != null) {
+                      final topLeft = dropdownBox.localToGlobal(Offset.zero);
+                      final rect = dropdownBox.paintBounds.shift(topLeft);
+                      if (rect.contains(event.position)) {
+                        return;
+                      }
+                    }
                     if (_focusNode.hasFocus) {
                       _focusNode.unfocus();
                     }
@@ -258,6 +271,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
                   child: SizedBox(
                     width: width,
                     child: FrostedSearchDropdown(
+                      key: _dropdownKey,
                       children: widget.suggestions
                           .map(
                             (suggestion) => FrostedSearchOption(
@@ -267,7 +281,10 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
                               title: suggestion.label,
                               subtitle: suggestion.description,
                               icon: suggestion.icon,
-                              onTap: () => _handleSuggestionSelected(suggestion),
+                              onTap: () {
+                                debugPrint('[SearchField] Option onTap -> ${suggestion.value}');
+                                _handleSuggestionSelected(suggestion);
+                              },
                             ),
                           )
                           .toList(),
