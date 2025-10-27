@@ -21,6 +21,7 @@ class MacOSTrackListView extends StatelessWidget {
   const MacOSTrackListView({
     super.key,
     required this.tracks,
+    this.queueTracks,
     this.onAddToPlaylist,
     this.onRemoveFromPlaylist,
     this.additionalActionsBuilder,
@@ -30,9 +31,11 @@ class MacOSTrackListView extends StatelessWidget {
   });
 
   final List<Track> tracks;
+  final List<Track>? queueTracks;
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<Track>? onRemoveFromPlaylist;
-  final List<MacosContextMenuAction> Function(Track track)? additionalActionsBuilder;
+  final List<MacosContextMenuAction> Function(Track track)?
+  additionalActionsBuilder;
   final ValueChanged<Track>? onTrackSelected;
   final ValueChanged<Track>? onViewArtist;
   final ValueChanged<Track>? onViewAlbum;
@@ -94,14 +97,13 @@ class MacOSTrackListView extends StatelessWidget {
                   _handleTrackTap(context, track, index);
                 }
               },
-              onSecondaryTap: (position) =>
-                  _handleSecondaryTap(
-                    context,
-                    position,
-                    track,
-                    normalizedTrack,
-                    displayInfo,
-                  ),
+              onSecondaryTap: (position) => _handleSecondaryTap(
+                context,
+                position,
+                track,
+                normalizedTrack,
+                displayInfo,
+              ),
             );
           },
         );
@@ -125,7 +127,13 @@ class MacOSTrackListView extends StatelessWidget {
       }
     }
 
-    context.read<PlayerBloc>().add(PlayerSetQueue(tracks, startIndex: index));
+    final playbackQueue = queueTracks ?? tracks;
+    final queueIndex = playbackQueue.indexWhere((item) => item.id == track.id);
+    final effectiveIndex = queueIndex >= 0 ? queueIndex : index;
+
+    context.read<PlayerBloc>().add(
+      PlayerSetQueue(playbackQueue, startIndex: effectiveIndex),
+    );
   }
 
   Future<void> _handleSecondaryTap(
@@ -142,8 +150,7 @@ class MacOSTrackListView extends StatelessWidget {
         : const <MacosContextMenuAction>[];
     final artistName = displayInfo.artist.trim();
     final albumName = displayInfo.album.trim();
-    final canViewArtist =
-        onViewArtist != null && artistName.isNotEmpty;
+    final canViewArtist = onViewArtist != null && artistName.isNotEmpty;
     final canViewAlbum = onViewAlbum != null && albumName.isNotEmpty;
 
     if (!hasAdd &&
@@ -361,7 +368,7 @@ class MacOSTrackListView extends StatelessWidget {
   }
 }
 
-  bool _isNetworkSong(Track track) => track.isNeteaseTrack;
+bool _isNetworkSong(Track track) => track.isNeteaseTrack;
 
 class _GlassDialogButton extends StatefulWidget {
   const _GlassDialogButton({

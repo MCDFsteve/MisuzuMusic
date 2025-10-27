@@ -244,9 +244,8 @@ class _HomePageContentState extends State<HomePageContent> {
 
     if (openAfterCreate) {
       await playlistsCubit.ensurePlaylistTracks(playlistId!, force: true);
-      final hasTracks = playlistsCubit.state.playlistTracks[playlistId!]
-              ?.isNotEmpty ??
-          false;
+      final hasTracks =
+          playlistsCubit.state.playlistTracks[playlistId!]?.isNotEmpty ?? false;
       if (!hasTracks) {
         return playlistId;
       }
@@ -351,10 +350,10 @@ class _HomePageContentState extends State<HomePageContent> {
         final currentTrack = _playerTrack(playerState);
         const headerHeight = 76.0;
         final sectionLabel = _currentSectionLabel(_selectedIndex);
-        final MusicLibraryState libraryState =
-            context.watch<MusicLibraryBloc>().state;
-        final NeteaseState neteaseState =
-            context.watch<NeteaseCubit>().state;
+        final MusicLibraryState libraryState = context
+            .watch<MusicLibraryBloc>()
+            .state;
+        final NeteaseState neteaseState = context.watch<NeteaseCubit>().state;
 
         final String? statsLabel = _selectedIndex == 2
             ? _composeNeteaseStatsLabel(neteaseState)
@@ -437,9 +436,7 @@ class _HomePageContentState extends State<HomePageContent> {
                               FadeTransition(opacity: animation, child: child),
                           child: artworkSource.hasSource
                               ? _BlurredArtworkBackground(
-                                  key: ValueKey<String>(
-                                    artworkSource.cacheKey,
-                                  ),
+                                  key: ValueKey<String>(artworkSource.cacheKey),
                                   artworkPath: artworkSource.localPath,
                                   remoteImageUrl: artworkSource.remoteUrl,
                                   isDarkMode:
@@ -517,16 +514,16 @@ class _HomePageContentState extends State<HomePageContent> {
                                       Positioned.fill(
                                         child: Offstage(
                                           offstage: _lyricsVisible,
-                                      child: KeyedSubtree(
-                                        key: ValueKey(
-                                          _hasActiveDetail
-                                              ? 'mac_detail_content'
-                                              : 'mac_main_content',
+                                          child: KeyedSubtree(
+                                            key: ValueKey(
+                                              _hasActiveDetail
+                                                  ? 'mac_detail_content'
+                                                  : 'mac_main_content',
+                                            ),
+                                            child: _buildMainContent(),
+                                          ),
                                         ),
-                                        child: _buildMainContent(),
                                       ),
-                                    ),
-                                  ),
                                       Positioned.fill(
                                         child: AnimatedOpacity(
                                           duration: const Duration(
@@ -588,10 +585,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
     final librarySection = IndexedStack(
       index: _hasActiveDetail ? 1 : 0,
-      children: [
-        libraryView,
-        detailContent,
-      ],
+      children: [libraryView, detailContent],
     );
 
     final playlistsSection = PlaylistsView(
@@ -642,10 +636,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
     final int safeIndex = _selectedIndex.clamp(0, pages.length - 1);
 
-    return IndexedStack(
-      index: safeIndex,
-      children: pages,
-    );
+    return IndexedStack(index: safeIndex, children: pages);
   }
 
   Widget _buildDetailContent() {
@@ -707,13 +698,8 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   List<Track> _normalizedLibraryTracks(MusicLibraryLoaded library) {
-    return library.tracks
-        .map(
-          (track) => applyDisplayInfo(
-            track,
-            deriveTrackDisplayInfo(track),
-          ),
-        )
+    return library.allTracks
+        .map((track) => applyDisplayInfo(track, deriveTrackDisplayInfo(track)))
         .toList(growable: false);
   }
 
@@ -771,9 +757,11 @@ class _HomePageContentState extends State<HomePageContent> {
     final lowerArtist = artistName.toLowerCase();
     final normalizedTracks = _normalizedLibraryTracks(library);
     final albumTracks = normalizedTracks
-        .where((t) =>
-            t.album.trim().toLowerCase() == lowerAlbum &&
-            t.artist.trim().toLowerCase() == lowerArtist)
+        .where(
+          (t) =>
+              t.album.trim().toLowerCase() == lowerAlbum &&
+              t.artist.trim().toLowerCase() == lowerArtist,
+        )
         .toList();
 
     if (albumTracks.isEmpty) {
@@ -828,8 +816,9 @@ class _HomePageContentState extends State<HomePageContent> {
 
     _searchDebounce?.cancel();
 
-    final suggestions =
-        trimmed.isEmpty ? const <LibrarySearchSuggestion>[] : _buildSearchSuggestions(trimmed);
+    final suggestions = trimmed.isEmpty
+        ? const <LibrarySearchSuggestion>[]
+        : _buildSearchSuggestions(trimmed);
 
     setState(() {
       _searchQuery = value;
@@ -888,11 +877,15 @@ class _HomePageContentState extends State<HomePageContent> {
 
   void _handleSearchSuggestionTapped(LibrarySearchSuggestion suggestion) {
     _searchDebounce?.cancel();
-    debugPrint('[HomeContent] Handle suggestion type=${suggestion.type} value=${suggestion.value} payload=${suggestion.payload.runtimeType}');
+    debugPrint(
+      '[HomeContent] Handle suggestion type=${suggestion.type} value=${suggestion.value} payload=${suggestion.payload.runtimeType}',
+    );
 
     switch (suggestion.type) {
       case LibrarySearchSuggestionType.track:
-        final track = suggestion.payload is Track ? suggestion.payload as Track : null;
+        final track = suggestion.payload is Track
+            ? suggestion.payload as Track
+            : null;
         if (track == null) {
           _triggerSearchFallback(suggestion.value);
           return;
@@ -901,7 +894,9 @@ class _HomePageContentState extends State<HomePageContent> {
         _playTrackAndShowLyrics(track);
         break;
       case LibrarySearchSuggestionType.artist:
-        final artist = suggestion.payload is Artist ? suggestion.payload as Artist : null;
+        final artist = suggestion.payload is Artist
+            ? suggestion.payload as Artist
+            : null;
         if (artist == null) {
           _triggerSearchFallback(suggestion.value);
           return;
@@ -910,7 +905,9 @@ class _HomePageContentState extends State<HomePageContent> {
         _openArtistDetail(artist);
         break;
       case LibrarySearchSuggestionType.album:
-        final album = suggestion.payload is Album ? suggestion.payload as Album : null;
+        final album = suggestion.payload is Album
+            ? suggestion.payload as Album
+            : null;
         if (album == null) {
           _triggerSearchFallback(suggestion.value);
           return;
@@ -1193,12 +1190,12 @@ class _HomePageContentState extends State<HomePageContent> {
     _clearActiveDetail();
     final musicState = context.read<MusicLibraryBloc>().state;
     if (musicState is MusicLibraryLoaded) {
-      final allTracks = List<Track>.from(musicState.tracks);
+      final allTracks = List<Track>.from(musicState.allTracks);
       final foundIndex = allTracks.indexWhere((t) => t.id == track.id);
       if (foundIndex != -1) {
         context.read<PlayerBloc>().add(
-              PlayerSetQueue(allTracks, startIndex: foundIndex, autoPlay: true),
-            );
+          PlayerSetQueue(allTracks, startIndex: foundIndex, autoPlay: true),
+        );
       } else {
         context.read<PlayerBloc>().add(PlayerSetQueue([track], startIndex: 0));
       }
@@ -1218,14 +1215,18 @@ class _HomePageContentState extends State<HomePageContent> {
   void _openArtistDetail(Artist artist) {
     debugPrint('[HomeContent] _openArtistDetail ${artist.name}');
     final blocState = context.read<MusicLibraryBloc>().state;
-    final MusicLibraryLoaded? effectiveState =
-        blocState is MusicLibraryLoaded ? blocState : _cachedLibraryState;
+    final MusicLibraryLoaded? effectiveState = blocState is MusicLibraryLoaded
+        ? blocState
+        : _cachedLibraryState;
     if (effectiveState == null) {
-      debugPrint('[HomeContent] Artist detail aborted: library not loaded, cache=${_cachedLibraryState != null}');
+      debugPrint(
+        '[HomeContent] Artist detail aborted: library not loaded, cache=${_cachedLibraryState != null}',
+      );
       return;
     }
-    final tracks =
-        effectiveState.tracks.where((track) => track.artist == artist.name).toList();
+    final tracks = effectiveState.tracks
+        .where((track) => track.artist == artist.name)
+        .toList();
     if (tracks.isEmpty) {
       _showErrorDialog(context, '未找到该歌手的歌曲');
       debugPrint('[HomeContent] Artist detail aborted: no tracks');
@@ -1237,22 +1238,31 @@ class _HomePageContentState extends State<HomePageContent> {
   void _openAlbumDetail(Album album) {
     debugPrint('[HomeContent] _openAlbumDetail ${album.title}');
     final blocState = context.read<MusicLibraryBloc>().state;
-    final MusicLibraryLoaded? effectiveState =
-        blocState is MusicLibraryLoaded ? blocState : _cachedLibraryState;
+    final MusicLibraryLoaded? effectiveState = blocState is MusicLibraryLoaded
+        ? blocState
+        : _cachedLibraryState;
     if (effectiveState == null) {
-      debugPrint('[HomeContent] Album detail aborted: library not loaded, cache=${_cachedLibraryState != null}');
+      debugPrint(
+        '[HomeContent] Album detail aborted: library not loaded, cache=${_cachedLibraryState != null}',
+      );
       return;
     }
-    final tracks = effectiveState.tracks
-        .where((track) => track.album == album.title && track.artist == album.artist)
-        .toList()
-      ..sort((a, b) {
-        final trackCompare = (a.trackNumber ?? 0).compareTo(b.trackNumber ?? 0);
-        if (trackCompare != 0) {
-          return trackCompare;
-        }
-        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-      });
+    final tracks =
+        effectiveState.tracks
+            .where(
+              (track) =>
+                  track.album == album.title && track.artist == album.artist,
+            )
+            .toList()
+          ..sort((a, b) {
+            final trackCompare = (a.trackNumber ?? 0).compareTo(
+              b.trackNumber ?? 0,
+            );
+            if (trackCompare != 0) {
+              return trackCompare;
+            }
+            return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+          });
 
     if (tracks.isEmpty) {
       _showErrorDialog(context, '未找到该专辑的歌曲');
@@ -1314,9 +1324,7 @@ class _HomePageContentState extends State<HomePageContent> {
     return null;
   }
 
-  _ArtworkBackgroundSources _currentArtworkSources(
-    PlayerBlocState state,
-  ) {
+  _ArtworkBackgroundSources _currentArtworkSources(PlayerBlocState state) {
     final track = _playerTrack(state);
     if (track == null) {
       return const _ArtworkBackgroundSources();
@@ -1351,8 +1359,8 @@ class _HomePageContentState extends State<HomePageContent> {
       return null;
     }
 
-    final totalTracks = state.tracks.length;
-    final totalDuration = state.tracks.fold<Duration>(
+    final totalTracks = state.allTracks.length;
+    final totalDuration = state.allTracks.fold<Duration>(
       Duration.zero,
       (previousValue, track) => previousValue + track.duration,
     );
@@ -1369,7 +1377,8 @@ class _HomePageContentState extends State<HomePageContent> {
     }
     final totalTracks = state.playlists.fold<int>(
       0,
-      (sum, playlist) => sum + (playlist.trackCount > 0 ? playlist.trackCount : 0),
+      (sum, playlist) =>
+          sum + (playlist.trackCount > 0 ? playlist.trackCount : 0),
     );
     if (totalTracks <= 0) {
       return '网络歌曲歌单';
