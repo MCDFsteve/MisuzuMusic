@@ -20,6 +20,7 @@ class _MacOSGlassHeader extends StatelessWidget {
     this.onSortModeChanged,
     this.showCreatePlaylistButton = true,
     this.showSelectFolderButton = true,
+    this.onInteract,
   });
 
   final double height;
@@ -40,6 +41,7 @@ class _MacOSGlassHeader extends StatelessWidget {
   final ValueChanged<TrackSortMode>? onSortModeChanged;
   final bool showCreatePlaylistButton;
   final bool showSelectFolderButton;
+  final VoidCallback? onInteract;
 
   Future<void> _handleDoubleTap() async {
     if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
@@ -64,6 +66,8 @@ class _MacOSGlassHeader extends StatelessWidget {
     final double primaryIconSize = isWindows ? 16 : 22;
     final double backIconSize = isWindows ? 14 : 20;
     final double actionSpacing = isWindows ? 4 : 8;
+
+    void handleInteraction() => onInteract?.call();
 
     final frostedColor = theme.canvasColor.withOpacity(
       isDarkMode ? 0.35 : 0.36,
@@ -136,6 +140,7 @@ class _MacOSGlassHeader extends StatelessWidget {
                             onPreviewChanged: onSearchPreviewChanged,
                             suggestions: searchSuggestions,
                             onSuggestionSelected: onSuggestionSelected,
+                            onInteract: handleInteraction,
                           ),
                         ),
                       ],
@@ -153,7 +158,12 @@ class _MacOSGlassHeader extends StatelessWidget {
                         : textColor.withOpacity(0.24),
                     hoverColor: textColor,
                     icon: CupertinoIcons.left_chevron,
-                    onPressed: canNavigateBack ? onNavigateBack : null,
+                    onPressed: canNavigateBack
+                        ? () {
+                            handleInteraction();
+                            onNavigateBack?.call();
+                          }
+                        : null,
                     size: actionButtonSize,
                     iconSize: backIconSize,
                     enabled: canNavigateBack,
@@ -168,7 +178,10 @@ class _MacOSGlassHeader extends StatelessWidget {
                     message: '切换排序方式',
                     child: _SortModeButton(
                       sortMode: sortMode!,
-                      onSortModeChanged: onSortModeChanged!,
+                      onSortModeChanged: (mode) {
+                        handleInteraction();
+                        onSortModeChanged!(mode);
+                      },
                       textColor: textColor,
                       enabled: canNavigateBack,
                       size: actionButtonSize,
@@ -188,7 +201,10 @@ class _MacOSGlassHeader extends StatelessWidget {
                     size: actionButtonSize,
                     iconSize: primaryIconSize,
                     icon: CupertinoIcons.add,
-                    onPressed: onCreatePlaylist,
+                    onPressed: () {
+                      handleInteraction();
+                      onCreatePlaylist();
+                    },
                     isWindowsStyle: isWindows,
                   ),
                 ),
@@ -204,7 +220,10 @@ class _MacOSGlassHeader extends StatelessWidget {
                     size: actionButtonSize,
                     iconSize: primaryIconSize,
                     icon: CupertinoIcons.folder,
-                    onPressed: onSelectMusicFolder,
+                    onPressed: () {
+                      handleInteraction();
+                      onSelectMusicFolder();
+                    },
                     isWindowsStyle: isWindows,
                   ),
                 ),
@@ -220,8 +239,7 @@ class _MacOSGlassHeader extends StatelessWidget {
       ),
     );
 
-    final draggable =
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
+    final draggable = (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
         ? DragToMoveArea(child: headerContent)
         : headerContent;
 

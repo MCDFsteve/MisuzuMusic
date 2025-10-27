@@ -507,6 +507,7 @@ class _HomePageContentState extends State<HomePageContent> {
                                       showCreatePlaylistButton,
                                   showSelectFolderButton:
                                       showSelectFolderButton,
+                                  onInteract: _handleHeaderInteraction,
                                 ),
                                 Expanded(
                                   child: Stack(
@@ -1415,6 +1416,16 @@ class _HomePageContentState extends State<HomePageContent> {
         _lyricsVisible = true;
         _lyricsActiveTrack = track;
       });
+      return;
+    }
+
+    setState(() {
+      _lyricsVisible = false;
+    });
+  }
+
+  void _handleHeaderInteraction() {
+    if (!_lyricsVisible) {
       return;
     }
 

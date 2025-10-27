@@ -45,6 +45,7 @@ class LibrarySearchField extends StatefulWidget {
     this.onPreviewChanged,
     this.suggestions = const [],
     this.onSuggestionSelected,
+    this.onInteract,
   });
 
   final String query;
@@ -53,6 +54,7 @@ class LibrarySearchField extends StatefulWidget {
   final ValueChanged<String>? onPreviewChanged;
   final List<LibrarySearchSuggestion> suggestions;
   final ValueChanged<LibrarySearchSuggestion>? onSuggestionSelected;
+  final VoidCallback? onInteract;
 
   @override
   State<LibrarySearchField> createState() => _LibrarySearchFieldState();
@@ -111,6 +113,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
     if (mounted) {
       if (_focusNode.hasFocus) {
         _focusController.forward();
+        widget.onInteract?.call();
       } else {
         _focusController.reverse();
       }
@@ -132,6 +135,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
       _ignoreNextChange = false;
       return;
     }
+    widget.onInteract?.call();
     widget.onPreviewChanged?.call(value);
     if (value.isEmpty) {
       widget.onQueryChanged('');
@@ -140,11 +144,13 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
   }
 
   void _handleSubmitted(String value) {
+    widget.onInteract?.call();
     widget.onQueryChanged(value.trim());
     _removeSuggestionOverlay();
   }
 
   void _handleSuggestionSelected(LibrarySearchSuggestion suggestion) {
+    widget.onInteract?.call();
     _setControllerText(suggestion.value);
     debugPrint('[SearchField] Suggestion tapped: ${suggestion.type} -> ${suggestion.value}');
     widget.onSuggestionSelected?.call(suggestion);
