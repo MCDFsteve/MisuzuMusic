@@ -782,41 +782,6 @@ class _HomePageContentState extends State<HomePageContent> {
         debugPrint('[HomeContent] Open album detail ${album.title}');
         _openAlbumDetail(album);
         break;
-      case LibrarySearchSuggestionType.playlist:
-        final playlist = suggestion.payload is Playlist ? suggestion.payload as Playlist : null;
-        if (playlist == null) {
-          _triggerSearchFallback(suggestion.value);
-          return;
-        }
-        debugPrint('[HomeContent] Open playlist suggestion ${playlist.name}');
-        setState(() {
-          _selectedIndex = 1;
-          _searchQuery = suggestion.value;
-          _activeSearchQuery = suggestion.value;
-          _searchSuggestions = const [];
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _playlistsViewKey.currentState?.openPlaylistById(playlist.id);
-        });
-        break;
-      case LibrarySearchSuggestionType.neteasePlaylist:
-        final neteasePlaylist =
-            suggestion.payload is NeteasePlaylist ? suggestion.payload as NeteasePlaylist : null;
-        if (neteasePlaylist == null) {
-          _triggerSearchFallback(suggestion.value);
-          return;
-        }
-        debugPrint('[HomeContent] Open netease playlist suggestion ${neteasePlaylist.name}');
-        setState(() {
-          _selectedIndex = 2;
-          _searchQuery = suggestion.value;
-          _activeSearchQuery = suggestion.value;
-          _searchSuggestions = const [];
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _neteaseViewKey.currentState?.openPlaylistById(neteasePlaylist.id);
-        });
-        break;
     }
   }
 
@@ -864,218 +829,202 @@ class _HomePageContentState extends State<HomePageContent> {
     final playlistsState = context.read<PlaylistsCubit>().state;
     final neteaseState = context.read<NeteaseCubit>().state;
 
+    final bool onPlaylists = _selectedIndex == 1;
+    final bool onNetease = _selectedIndex == 2;
+    final bool onLibrary = _selectedIndex == 0;
+
     final List<LibrarySearchSuggestion> prioritized = [];
-    final List<LibrarySearchSuggestion> secondary = [];
-    final Set<String> seenKeys = {};
+    final List<LibrarySearchSuggestion> fallback = [];
+    final Set<String> seen = {};
+
+    String suggestionKey(LibrarySearchSuggestion suggestion) {
+      final payload = suggestion.payload;
+      if (payload is Track) {
+        return 'track:${payload.id}';
+      }
+      if (payload is Artist) {
+        return 'artist:${payload.name}';
+      }
+      if (payload is Album) {
+        return 'album:${payload.title}-${payload.artist}';
+      }
+      return '${suggestion.type.name}:${suggestion.value}:${suggestion.description ?? ''}';
+    }
 
     void addSuggestion(
       LibrarySearchSuggestion suggestion, {
       bool prioritize = false,
     }) {
-      final payloadKey = suggestion.payload == null
-          ? ''
-          : suggestion.payload.hashCode.toString();
-      final key = '${suggestion.type.name}::${suggestion.value}::$payloadKey';
-      if (seenKeys.contains(key)) {
+      final key = suggestionKey(suggestion);
+      if (!seen.add(key)) {
         return;
       }
-      seenKeys.add(key);
       if (prioritize) {
         prioritized.add(suggestion);
       } else {
-        secondary.add(suggestion);
+        fallback.add(suggestion);
       }
     }
 
-    bool containsInText(String? text) =>
-        text != null && text.isNotEmpty && matchesField(text);
+    void addTrackSuggestion(
+      Track track, {
+      String? description,
+      bool prioritize = false,
+    }) {
+      addSuggestion(
+        LibrarySearchSuggestion(
+          value: track.title,
+          label: '歌曲：${track.title}',
+          description: description ?? '${track.artist} • ${track.album}',
+          type: LibrarySearchSuggestionType.track,
+          payload: track,
+        ),
+        prioritize: prioritize,
+      );
+    }
 
-    if (_selectedIndex == 1 || _selectedIndex == 0) {
-      // Prioritize local playlist matches when viewing playlists or the library overview.
+    void addArtistSuggestion(Artist artist, {bool prioritize = false}) {
+      addSuggestion(
+        LibrarySearchSuggestion(
+          value: artist.name,
+          label: '歌手：${artist.name}',
+          description: '共 ${artist.trackCount} 首歌曲',
+          type: LibrarySearchSuggestionType.artist,
+          payload: artist,
+        ),
+        prioritize: prioritize,
+      );
+    }
+
+    void addAlbumSuggestion(Album album, {bool prioritize = false}) {
+      addSuggestion(
+        LibrarySearchSuggestion(
+          value: album.title,
+          label: '专辑：${album.title}',
+          description: '${album.artist} • ${album.trackCount} 首',
+          type: LibrarySearchSuggestionType.album,
+          payload: album,
+        ),
+        prioritize: prioritize,
+      );
+    }
+
+    Playlist? findPlaylist(String id) {
       for (final playlist in playlistsState.playlists) {
-        if (!containsInText(playlist.name) &&
-            !containsInText(playlist.description?.trim())) {
-          continue;
-        }
-        addSuggestion(
-          LibrarySearchSuggestion(
-            value: playlist.name,
-            label: '歌单：${playlist.name}',
-            description: '共 ${playlist.trackIds.length} 首',
-            type: LibrarySearchSuggestionType.playlist,
-            payload: playlist,
-          ),
-          prioritize: true,
-        );
-        if (prioritized.length >= 2) {
-          break;
-        }
+        if (playlist.id == id) return playlist;
       }
+      return null;
+    }
 
-      if (prioritized.length < 2) {
-        Track? playlistTrackMatch;
-        Playlist? playlistMatchSource;
-        outerLoop:
-        for (final entry in playlistsState.playlistTracks.entries) {
-          final tracks = entry.value;
-          for (final track in tracks) {
-            if (matchesField(track.title) ||
-                matchesField(track.artist) ||
-                matchesField(track.album)) {
-              playlistTrackMatch = track;
-              for (final playlist in playlistsState.playlists) {
-                if (playlist.id == entry.key) {
-                  playlistMatchSource = playlist;
-                  break;
-                }
-              }
-              break outerLoop;
-            }
+    NeteasePlaylist? findNeteasePlaylist(int id) {
+      for (final playlist in neteaseState.playlists) {
+        if (playlist.id == id) return playlist;
+      }
+      return null;
+    }
+
+    void collectPlaylistTracks({required bool prioritize, int maxResults = 3}) {
+      if (playlistsState.playlistTracks.isEmpty) {
+        return;
+      }
+      int added = 0;
+      for (final entry in playlistsState.playlistTracks.entries) {
+        final playlist = findPlaylist(entry.key);
+        final tracks = entry.value;
+        if (tracks.isEmpty) continue;
+        for (final track in tracks) {
+          if (!matchesField(track.title) &&
+              !matchesField(track.artist) &&
+              !matchesField(track.album)) {
+            continue;
           }
-        }
-        if (playlistTrackMatch != null) {
-          addSuggestion(
-            LibrarySearchSuggestion(
-              value: playlistTrackMatch.title,
-              label: '歌曲：${playlistTrackMatch.title}',
-              description: playlistMatchSource == null
-                  ? playlistTrackMatch.artist
-                  : '${playlistMatchSource.name} · ${playlistTrackMatch.artist}',
-              type: LibrarySearchSuggestionType.track,
-              payload: playlistTrackMatch,
-            ),
-            prioritize: true,
+          final contextLabel = playlist == null
+              ? track.artist
+              : '${playlist.name} • ${track.artist}';
+          addTrackSuggestion(
+            track,
+            description: contextLabel,
+            prioritize: prioritize,
           );
+          added++;
+          if (added >= maxResults) {
+            return;
+          }
         }
       }
     }
 
-    if (_selectedIndex == 2 || _selectedIndex == 0) {
-      for (final playlist in neteaseState.playlists) {
-        if (!containsInText(playlist.name) &&
-            !containsInText(playlist.description?.trim())) {
-          continue;
-        }
-        addSuggestion(
-          LibrarySearchSuggestion(
-            value: playlist.name,
-            label: '网络歌单：${playlist.name}',
-            description: '共 ${playlist.trackCount} 首',
-            type: LibrarySearchSuggestionType.neteasePlaylist,
-            payload: playlist,
-          ),
-          prioritize: true,
-        );
-        if (prioritized.length >= 3) {
-          break;
-        }
+    void collectNeteaseTracks({required bool prioritize, int maxResults = 3}) {
+      if (neteaseState.playlistTracks.isEmpty) {
+        return;
       }
-
-      if (prioritized.length < 3) {
-        Track? neteaseTrackMatch;
-        NeteasePlaylist? neteaseMatchSource;
-        outerLoop:
-        for (final entry in neteaseState.playlistTracks.entries) {
-          final tracks = entry.value;
-          for (final track in tracks) {
-            if (matchesField(track.title) ||
-                matchesField(track.artist) ||
-                matchesField(track.album)) {
-              neteaseTrackMatch = track;
-              for (final playlist in neteaseState.playlists) {
-                if (playlist.id == entry.key) {
-                  neteaseMatchSource = playlist;
-                  break;
-                }
-              }
-              break outerLoop;
-            }
+      int added = 0;
+      for (final entry in neteaseState.playlistTracks.entries) {
+        final playlist = findNeteasePlaylist(entry.key);
+        final tracks = entry.value;
+        if (tracks.isEmpty) continue;
+        for (final track in tracks) {
+          if (!matchesField(track.title) &&
+              !matchesField(track.artist) &&
+              !matchesField(track.album)) {
+            continue;
+          }
+          final contextLabel = playlist == null
+              ? track.artist
+              : '${playlist.name} • ${track.artist}';
+          addTrackSuggestion(
+            track,
+            description: contextLabel,
+            prioritize: prioritize,
+          );
+          added++;
+          if (added >= maxResults) {
+            return;
           }
         }
-        if (neteaseTrackMatch != null) {
-          addSuggestion(
-            LibrarySearchSuggestion(
-              value: neteaseTrackMatch.title,
-              label: '歌曲：${neteaseTrackMatch.title}',
-              description: neteaseMatchSource == null
-                  ? neteaseTrackMatch.artist
-                  : '${neteaseMatchSource.name} · ${neteaseTrackMatch.artist}',
-              type: LibrarySearchSuggestionType.track,
-              payload: neteaseTrackMatch,
-            ),
-            prioritize: true,
-          );
-        }
       }
+    }
+
+    if (onPlaylists) {
+      collectPlaylistTracks(prioritize: true);
+    }
+    if (onNetease) {
+      collectNeteaseTracks(prioritize: true);
     }
 
     if (libraryState is MusicLibraryLoaded) {
-      Track? trackMatch;
       for (final track in libraryState.tracks) {
         if (matchesField(track.title) ||
             matchesField(track.artist) ||
             matchesField(track.album)) {
-          trackMatch = track;
+          addTrackSuggestion(track, prioritize: onLibrary);
           break;
         }
       }
-      if (trackMatch != null) {
-        addSuggestion(
-          LibrarySearchSuggestion(
-            value: trackMatch.title,
-            label: '歌曲：${trackMatch.title}',
-            description: '${trackMatch.artist} • ${trackMatch.album}',
-            type: LibrarySearchSuggestionType.track,
-            payload: trackMatch,
-          ),
-          prioritize: _selectedIndex == 0,
-        );
-      }
 
-      Artist? artistMatch;
       for (final artist in libraryState.artists) {
         if (matchesField(artist.name)) {
-          artistMatch = artist;
+          addArtistSuggestion(artist, prioritize: onLibrary);
           break;
         }
-      }
-      if (artistMatch != null) {
-        addSuggestion(
-          LibrarySearchSuggestion(
-            value: artistMatch.name,
-            label: '歌手：${artistMatch.name}',
-            description: '共 ${artistMatch.trackCount} 首歌曲',
-            type: LibrarySearchSuggestionType.artist,
-            payload: artistMatch,
-          ),
-          prioritize: _selectedIndex == 0,
-        );
       }
 
-      Album? albumMatch;
       for (final album in libraryState.albums) {
         if (matchesField(album.title) || matchesField(album.artist)) {
-          albumMatch = album;
+          addAlbumSuggestion(album, prioritize: onLibrary);
           break;
         }
-      }
-      if (albumMatch != null) {
-        addSuggestion(
-          LibrarySearchSuggestion(
-            value: albumMatch.title,
-            label: '专辑：${albumMatch.title}',
-            description: '${albumMatch.artist} • ${albumMatch.trackCount} 首',
-            type: LibrarySearchSuggestionType.album,
-            payload: albumMatch,
-          ),
-          prioritize: _selectedIndex == 0,
-        );
       }
     }
 
-    List<LibrarySearchSuggestion> combined() => [...prioritized, ...secondary];
+    if (!onPlaylists) {
+      collectPlaylistTracks(prioritize: false, maxResults: 2);
+    }
+    if (!onNetease) {
+      collectNeteaseTracks(prioritize: false, maxResults: 2);
+    }
 
-    var results = combined();
+    final results = [...prioritized, ...fallback];
     if (results.length < 3) {
       addSuggestion(
         LibrarySearchSuggestion(
@@ -1086,7 +1035,7 @@ class _HomePageContentState extends State<HomePageContent> {
         ),
         prioritize: results.isEmpty,
       );
-      results = combined();
+      return [...prioritized, ...fallback].take(3).toList(growable: false);
     }
 
     return results.take(3).toList(growable: false);
