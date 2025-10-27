@@ -294,8 +294,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       _updateCurrentTrack(playableTrack);
       _positionSubject.add(Duration.zero);
       await _setAudioSource(playableTrack);
-      await _audioPlayer.play();
-      await _ensureWindowsPlaybackStarted();
+      final playFuture = _audioPlayer.play();
+      if (Platform.isWindows) {
+        unawaited(_ensureWindowsPlaybackStarted(playFuture));
+      }
+      await playFuture;
 
       if (playableTrack.sourceType == TrackSourceType.webdav &&
           playableTrack.sourceId != null &&
@@ -391,8 +394,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> resume() async {
     try {
-      await _audioPlayer.play();
-      await _ensureWindowsPlaybackStarted();
+      final playFuture = _audioPlayer.play();
+      if (Platform.isWindows) {
+        unawaited(_ensureWindowsPlaybackStarted(playFuture));
+      }
+      await playFuture;
     } catch (e) {
       throw AudioPlaybackException('Failed to resume: ${e.toString()}');
     }
@@ -947,47 +953,37 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     }
   }
 
-  Future<void> _ensureWindowsPlaybackStarted() async {
+  Future<void> _ensureWindowsPlaybackStarted(Future<void> playFuture) async {
     if (!Platform.isWindows) {
       return;
     }
 
-    if (_audioPlayer.playing) {
-      _syncWindowsPlayingState();
-      return;
-    }
+    var playbackCompleted = false;
+    playFuture.whenComplete(() {
+      playbackCompleted = true;
+    });
 
     for (final delay in _windowsPlaybackRetryDelays) {
+      if (playbackCompleted) {
+        return;
+      }
+
       await Future<void>.delayed(delay);
-      if (_audioPlayer.playing) {
-        _syncWindowsPlayingState();
+      if (playbackCompleted || _audioPlayer.playing) {
         return;
       }
-      try {
-        await _audioPlayer.play();
-      } catch (e) {
-        print('⚠️ AudioService: Windows 补偿播放失败 -> $e');
-        return;
-      }
-      if (_audioPlayer.playing) {
-        _syncWindowsPlayingState();
-        return;
-      }
+
+      print('🎧 AudioService: Windows 播放未启动，尝试重新开始');
+      unawaited(
+        _audioPlayer.play().catchError(
+          (error, stackTrace) =>
+              print('⚠️ AudioService: Windows 重新播放失败 -> $error'),
+        ),
+      );
     }
 
-    if (_audioPlayer.playing) {
-      _syncWindowsPlayingState();
-    } else {
-      print('⚠️ AudioService: Windows 播放未能自动开始，仍保持暂停');
-    }
-  }
-
-  void _syncWindowsPlayingState() {
-    if (_playerStateSubject.isClosed) {
-      return;
-    }
-    if (_playerStateSubject.value != PlayerState.playing) {
-      _playerStateSubject.add(PlayerState.playing);
+    if (!playbackCompleted && !_audioPlayer.playing) {
+      print('⚠️ AudioService: Windows 播放仍未开始，已超过重试次数');
     }
   }
 
