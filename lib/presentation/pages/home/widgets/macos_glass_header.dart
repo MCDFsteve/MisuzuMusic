@@ -56,14 +56,79 @@ class _MacOSGlassHeader extends StatefulWidget {
 }
 
 class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
-  Duration? _lastPrimaryTapTime;
-  Offset? _lastPrimaryTapPosition;
+  final GlobalKey _searchRegionKey = GlobalKey();
+  final GlobalKey _backButtonKey = GlobalKey();
+  final GlobalKey _sortButtonKey = GlobalKey();
+  final GlobalKey _logoutButtonKey = GlobalKey();
+  final GlobalKey _createPlaylistButtonKey = GlobalKey();
+  final GlobalKey _selectFolderButtonKey = GlobalKey();
+  final GlobalKey _windowsControlsKey = GlobalKey();
+
+  Duration? _lastPrimaryTapUpTime;
+  Offset? _lastPrimaryTapUpGlobalPosition;
   bool _dragRequested = false;
   bool _suppressDragUntilUp = false;
+  bool _pointerStartedOverInteractive = false;
+  Offset? _initialPointerPosition;
+  bool _pendingDoubleClick = false;
 
-  static const Duration _doubleClickTimeout = Duration(milliseconds: 300);
-  static const double _doubleClickDistanceSquared = 36;
-  static const double _dragHandleHeight = 20.0;
+  static const Duration _doubleClickTimeout = Duration(milliseconds: 500);
+  static const double _doubleClickDistanceSquared = 144;
+  static const double _dragInitiateDistanceSquared = 16;
+
+  Widget _wrapInteractiveRegion({
+    required Widget child,
+    required GlobalKey key,
+  }) {
+    return KeyedSubtree(
+      key: key,
+      child: child,
+    );
+  }
+
+  Iterable<GlobalKey> get _activeInteractiveRegionKeys sync* {
+    yield _searchRegionKey;
+    if (widget.showBackButton) {
+      yield _backButtonKey;
+      if (widget.sortMode != null && widget.onSortModeChanged != null) {
+        yield _sortButtonKey;
+      }
+    }
+    if (widget.showLogoutButton) {
+      yield _logoutButtonKey;
+    }
+    if (widget.showCreatePlaylistButton) {
+      yield _createPlaylistButtonKey;
+    }
+    if (widget.showSelectFolderButton) {
+      yield _selectFolderButtonKey;
+    }
+    if (Platform.isWindows) {
+      yield _windowsControlsKey;
+    }
+  }
+
+  bool _isPointWithinInteractiveRegion(Offset globalPosition) {
+    for (final key in _activeInteractiveRegionKeys) {
+      final context = key.currentContext;
+      if (context == null) {
+        continue;
+      }
+      final renderObject = context.findRenderObject();
+      if (renderObject is! RenderBox) {
+        continue;
+      }
+      final Offset local = renderObject.globalToLocal(globalPosition);
+      final Size size = renderObject.size;
+      if (local.dx >= 0 &&
+          local.dy >= 0 &&
+          local.dx <= size.width &&
+          local.dy <= size.height) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   void _handlePointerDown(PointerDownEvent event) {
     if (event.kind != PointerDeviceKind.mouse ||
@@ -71,47 +136,100 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
       return;
     }
 
-    final previousTime = _lastPrimaryTapTime;
-    final previousPosition = _lastPrimaryTapPosition;
-    final currentTime = event.timeStamp;
+    final bool startedOverInteractive =
+        _isPointWithinInteractiveRegion(event.position);
+    _pointerStartedOverInteractive = startedOverInteractive;
+    if (startedOverInteractive) {
+      _pendingDoubleClick = false;
+      _suppressDragUntilUp = false;
+      _initialPointerPosition = null;
+      return;
+    }
+
+    _initialPointerPosition = event.position;
+
+    final previousTime = _lastPrimaryTapUpTime;
+    final previousGlobalPosition = _lastPrimaryTapUpGlobalPosition;
 
     _dragRequested = false;
 
-    final bool isDoubleClick = previousTime != null &&
-        previousPosition != null &&
-        (currentTime - previousTime) <= _doubleClickTimeout &&
-        (event.localPosition - previousPosition).distanceSquared <=
+    final bool isPotentialDoubleClick = previousTime != null &&
+        previousGlobalPosition != null &&
+        (event.timeStamp - previousTime) <= _doubleClickTimeout &&
+        (event.position - previousGlobalPosition).distanceSquared <=
             _doubleClickDistanceSquared;
 
-    if (isDoubleClick) {
-      _suppressDragUntilUp = true;
-      unawaited(_toggleWindowMaximize());
-    } else {
-      _suppressDragUntilUp = false;
-    }
-
-    _lastPrimaryTapTime = currentTime;
-    _lastPrimaryTapPosition = event.localPosition;
+    _pendingDoubleClick = isPotentialDoubleClick;
+    _suppressDragUntilUp = isPotentialDoubleClick;
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
     if (_suppressDragUntilUp ||
         _dragRequested ||
+        _pointerStartedOverInteractive ||
         event.kind != PointerDeviceKind.mouse ||
         event.buttons != kPrimaryMouseButton) {
       return;
     }
 
+    final startPosition = _initialPointerPosition;
+    if (startPosition != null) {
+      final double distanceSquared =
+          (event.position - startPosition).distanceSquared;
+      if (distanceSquared < _dragInitiateDistanceSquared) {
+        return;
+      }
+    }
+
     _dragRequested = true;
+    _pendingDoubleClick = false;
+    _initialPointerPosition = null;
     unawaited(windowManager.startDragging());
   }
 
   void _resetPointerState() {
     _dragRequested = false;
     _suppressDragUntilUp = false;
+    _pointerStartedOverInteractive = false;
+    _initialPointerPosition = null;
+    _pendingDoubleClick = false;
   }
 
   void _handlePointerUp(PointerUpEvent event) {
+    if (event.kind != PointerDeviceKind.mouse) {
+      _resetPointerState();
+      return;
+    }
+
+    if (_pointerStartedOverInteractive) {
+      _pendingDoubleClick = false;
+      _lastPrimaryTapUpTime = null;
+      _lastPrimaryTapUpGlobalPosition = null;
+      _resetPointerState();
+      return;
+    }
+
+    final bool isDoubleClick = _pendingDoubleClick &&
+        !_dragRequested &&
+        _lastPrimaryTapUpTime != null &&
+        _lastPrimaryTapUpGlobalPosition != null &&
+        (event.timeStamp - _lastPrimaryTapUpTime!) <= _doubleClickTimeout &&
+        (event.position - _lastPrimaryTapUpGlobalPosition!).distanceSquared <=
+            _doubleClickDistanceSquared;
+
+    if (isDoubleClick) {
+      unawaited(_toggleWindowMaximize());
+    }
+
+    if (_dragRequested) {
+      _lastPrimaryTapUpTime = null;
+      _lastPrimaryTapUpGlobalPosition = null;
+    } else {
+      _lastPrimaryTapUpTime = event.timeStamp;
+      _lastPrimaryTapUpGlobalPosition = event.position;
+    }
+    _pendingDoubleClick = false;
+
     _resetPointerState();
   }
 
@@ -164,9 +282,13 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
               ),
             ),
           ),
-          child: Stack(
-            children: [
-              Row(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: _handlePointerDown,
+            onPointerMove: _handlePointerMove,
+            onPointerUp: _handlePointerUp,
+            onPointerCancel: _handlePointerCancel,
+            child: Row(
                 children: [
                   Expanded(
                     child: Column(
@@ -210,15 +332,18 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(minWidth: 100, maxWidth: 320),
-                              child: LibrarySearchField(
-                                query: widget.searchQuery,
-                                onQueryChanged: widget.onSearchChanged,
-                                onPreviewChanged: widget.onSearchPreviewChanged,
-                                suggestions: widget.searchSuggestions,
-                                onSuggestionSelected: widget.onSuggestionSelected,
-                                onInteract: handleInteraction,
+                            _wrapInteractiveRegion(
+                              key: _searchRegionKey,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(minWidth: 100, maxWidth: 320),
+                                child: LibrarySearchField(
+                                  query: widget.searchQuery,
+                                  onQueryChanged: widget.onSearchChanged,
+                                  onPreviewChanged: widget.onSearchPreviewChanged,
+                                  suggestions: widget.searchSuggestions,
+                                  onSuggestionSelected: widget.onSuggestionSelected,
+                                  onInteract: handleInteraction,
+                                ),
                               ),
                             ),
                           ],
@@ -230,22 +355,25 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                     _HeaderTooltip(
                       useMacStyle: !isWindows,
                       message: widget.backTooltip,
-                      child: _HeaderIconButton(
-                        baseColor: widget.canNavigateBack
-                            ? textColor.withOpacity(0.72)
-                            : textColor.withOpacity(0.24),
-                        hoverColor: textColor,
-                        icon: CupertinoIcons.left_chevron,
-                        onPressed: widget.canNavigateBack
-                            ? () {
-                                handleInteraction();
-                                widget.onNavigateBack?.call();
-                              }
-                            : null,
-                        size: actionButtonSize,
-                        iconSize: backIconSize,
-                        enabled: widget.canNavigateBack,
-                        isWindowsStyle: isWindows,
+                      child: _wrapInteractiveRegion(
+                        key: _backButtonKey,
+                        child: _HeaderIconButton(
+                          baseColor: widget.canNavigateBack
+                              ? textColor.withOpacity(0.72)
+                              : textColor.withOpacity(0.24),
+                          hoverColor: textColor,
+                          icon: CupertinoIcons.left_chevron,
+                          onPressed: widget.canNavigateBack
+                              ? () {
+                                  handleInteraction();
+                                  widget.onNavigateBack?.call();
+                                }
+                              : null,
+                          size: actionButtonSize,
+                          iconSize: backIconSize,
+                          enabled: widget.canNavigateBack,
+                          isWindowsStyle: isWindows,
+                        ),
                       ),
                     ),
                   if (widget.showBackButton &&
@@ -256,17 +384,20 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                       child: _HeaderTooltip(
                         useMacStyle: !isWindows,
                         message: '切换排序方式',
-                        child: _SortModeButton(
-                          sortMode: widget.sortMode!,
-                          onSortModeChanged: (mode) {
-                            handleInteraction();
-                            widget.onSortModeChanged!(mode);
-                          },
-                          textColor: textColor,
-                          enabled: widget.canNavigateBack,
-                          size: actionButtonSize,
-                          iconSize: backIconSize,
-                          isWindowsStyle: isWindows,
+                        child: _wrapInteractiveRegion(
+                          key: _sortButtonKey,
+                          child: _SortModeButton(
+                            sortMode: widget.sortMode!,
+                            onSortModeChanged: (mode) {
+                              handleInteraction();
+                              widget.onSortModeChanged!(mode);
+                            },
+                            textColor: textColor,
+                            enabled: widget.canNavigateBack,
+                            size: actionButtonSize,
+                            iconSize: backIconSize,
+                            isWindowsStyle: isWindows,
+                          ),
                         ),
                       ),
                     ),
@@ -277,22 +408,25 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                     _HeaderTooltip(
                       useMacStyle: !isWindows,
                       message: widget.logoutTooltip,
-                      child: _HeaderIconButton(
-                        baseColor: widget.logoutEnabled
-                            ? textColor.withOpacity(0.72)
-                            : textColor.withOpacity(0.24),
-                        hoverColor: textColor,
-                        size: actionButtonSize,
-                        iconSize: primaryIconSize,
-                        icon: CupertinoIcons.square_arrow_left,
-                        onPressed: widget.logoutEnabled
-                            ? () {
-                                handleInteraction();
-                                widget.onLogout?.call();
-                              }
-                            : null,
-                        enabled: widget.logoutEnabled,
-                        isWindowsStyle: isWindows,
+                      child: _wrapInteractiveRegion(
+                        key: _logoutButtonKey,
+                        child: _HeaderIconButton(
+                          baseColor: widget.logoutEnabled
+                              ? textColor.withOpacity(0.72)
+                              : textColor.withOpacity(0.24),
+                          hoverColor: textColor,
+                          size: actionButtonSize,
+                          iconSize: primaryIconSize,
+                          icon: CupertinoIcons.square_arrow_left,
+                          onPressed: widget.logoutEnabled
+                              ? () {
+                                  handleInteraction();
+                                  widget.onLogout?.call();
+                                }
+                              : null,
+                          enabled: widget.logoutEnabled,
+                          isWindowsStyle: isWindows,
+                        ),
                       ),
                     ),
                   if (widget.showLogoutButton &&
@@ -303,17 +437,20 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                     _HeaderTooltip(
                       useMacStyle: !isWindows,
                       message: '新建歌单',
-                      child: _HeaderIconButton(
-                        baseColor: textColor.withOpacity(0.72),
-                        hoverColor: textColor,
-                        size: actionButtonSize,
-                        iconSize: primaryIconSize,
-                        icon: CupertinoIcons.add,
-                        onPressed: () {
-                          handleInteraction();
-                          widget.onCreatePlaylist();
-                        },
-                        isWindowsStyle: isWindows,
+                      child: _wrapInteractiveRegion(
+                        key: _createPlaylistButtonKey,
+                        child: _HeaderIconButton(
+                          baseColor: textColor.withOpacity(0.72),
+                          hoverColor: textColor,
+                          size: actionButtonSize,
+                          iconSize: primaryIconSize,
+                          icon: CupertinoIcons.add,
+                          onPressed: () {
+                            handleInteraction();
+                            widget.onCreatePlaylist();
+                          },
+                          isWindowsStyle: isWindows,
+                        ),
                       ),
                     ),
                   if (widget.showCreatePlaylistButton &&
@@ -323,43 +460,33 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                     _HeaderTooltip(
                       useMacStyle: !isWindows,
                       message: '选择音乐文件夹',
-                      child: _HeaderIconButton(
-                        baseColor: textColor.withOpacity(0.72),
-                        hoverColor: textColor,
-                        size: actionButtonSize,
-                        iconSize: primaryIconSize,
-                        icon: CupertinoIcons.folder,
-                        onPressed: () {
-                          handleInteraction();
-                          widget.onSelectMusicFolder();
-                        },
-                        isWindowsStyle: isWindows,
+                      child: _wrapInteractiveRegion(
+                        key: _selectFolderButtonKey,
+                        child: _HeaderIconButton(
+                          baseColor: textColor.withOpacity(0.72),
+                          hoverColor: textColor,
+                          size: actionButtonSize,
+                          iconSize: primaryIconSize,
+                          icon: CupertinoIcons.folder,
+                          onPressed: () {
+                            handleInteraction();
+                            widget.onSelectMusicFolder();
+                          },
+                          isWindowsStyle: isWindows,
+                        ),
                       ),
                     ),
                   if (isWindows) ...[
                     const SizedBox(width: 8),
                     _VerticalSeparator(color: textColor.withOpacity(0.18)),
                     const SizedBox(width: 8),
-                    _WindowsWindowControls(isDarkMode: isDarkMode),
+                    _wrapInteractiveRegion(
+                      key: _windowsControlsKey,
+                      child: _WindowsWindowControls(isDarkMode: isDarkMode),
+                    ),
                   ],
                 ],
               ),
-              if (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: _dragHandleHeight,
-                  child: Listener(
-                    behavior: HitTestBehavior.translucent,
-                    onPointerDown: _handlePointerDown,
-                    onPointerMove: _handlePointerMove,
-                    onPointerUp: _handlePointerUp,
-                    onPointerCancel: _handlePointerCancel,
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-            ],
           ),
         ),
       ),
