@@ -251,9 +251,10 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
                     final dropdownBox =
                         _dropdownKey.currentContext?.findRenderObject() as RenderBox?;
                     if (dropdownBox != null) {
-                      final topLeft = dropdownBox.localToGlobal(Offset.zero);
-                      final rect = dropdownBox.paintBounds.shift(topLeft);
-                      if (rect.contains(event.position)) {
+                      final localPosition = dropdownBox.globalToLocal(event.position);
+                      final localBounds = Offset.zero & dropdownBox.size;
+                      debugPrint('[SearchField] Pointer local=$localPosition bounds=${dropdownBox.size}');
+                      if (localBounds.contains(localPosition)) {
                         return;
                       }
                     }

@@ -134,7 +134,13 @@ class _FrostedSearchOptionState extends State<FrostedSearchOption> {
       onExit: (_) => _updateHover(false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
+        onTapDown: (_) => debugPrint('[SearchField] Gesture onTapDown -> ${widget.title}'),
+        onTapUp: (_) => debugPrint('[SearchField] Gesture onTapUp -> ${widget.title}'),
+        onTapCancel: () => debugPrint('[SearchField] Gesture onTapCancel -> ${widget.title}'),
+        onTap: () {
+          debugPrint('[SearchField] Gesture onTap -> ${widget.title}');
+          widget.onTap?.call();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           curve: Curves.easeOutCubic,
