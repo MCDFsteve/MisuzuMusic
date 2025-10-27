@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart' as cupertino;
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart' as macos_ui;
@@ -239,14 +241,106 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
   OverlayEntry _buildSuggestionOverlay() {
     return OverlayEntry(
       builder: (context) {
-        final useDesktopUi = prefersMacLikeUi();
         final fieldBox =
             _fieldKey.currentContext?.findRenderObject() as RenderBox?;
-        final width = fieldBox?.size.width ?? 260;
-        final height = fieldBox?.size.height ?? 40;
-        if (!_shouldShowSuggestions) {
+        final overlayBox =
+            Overlay.of(context, rootOverlay: true)?.context.findRenderObject()
+                as RenderBox?;
+        final Size overlaySize = overlayBox?.size ??
+            MediaQuery.maybeOf(context)?.size ??
+            Size.zero;
+        const double screenPadding = 12.0;
+        const double verticalGap = 6.0;
+        const double defaultDropdownMaxHeight = 280.0;
+
+        final Size fieldSize = fieldBox?.size ?? const Size(260, 40);
+        final double fieldHeight = fieldSize.height;
+
+        double dropdownWidth = fieldSize.width;
+        double horizontalOffset = 0;
+        double dropdownMaxHeight = defaultDropdownMaxHeight;
+        bool showBelow = true;
+
+        Offset fieldTopLeft = Offset.zero;
+        if (fieldBox != null) {
+          fieldTopLeft = overlayBox != null
+              ? fieldBox.localToGlobal(Offset.zero, ancestor: overlayBox)
+              : fieldBox.localToGlobal(Offset.zero);
+        }
+
+        final bool canMeasureOverlay = fieldBox != null &&
+            overlaySize.width.isFinite &&
+            overlaySize.height.isFinite &&
+            overlaySize.width > 0 &&
+            overlaySize.height > 0;
+
+        if (canMeasureOverlay) {
+          final double maxAllowedWidth =
+              overlaySize.width - screenPadding * 2;
+
+          if (maxAllowedWidth.isFinite && maxAllowedWidth > 0) {
+            dropdownWidth = math.min(dropdownWidth, maxAllowedWidth);
+            if (dropdownWidth <= 0) {
+              dropdownWidth = maxAllowedWidth;
+            }
+          }
+
+          if (overlaySize.width > screenPadding * 2) {
+            final double minLeft = screenPadding;
+            final double maxRight = overlaySize.width - screenPadding;
+
+            double dropdownLeft = fieldTopLeft.dx + horizontalOffset;
+            double dropdownRight = dropdownLeft + dropdownWidth;
+
+            if (dropdownRight > maxRight) {
+              final double overflow = dropdownRight - maxRight;
+              horizontalOffset -= overflow;
+              dropdownLeft -= overflow;
+              dropdownRight -= overflow;
+            }
+
+            if (dropdownLeft < minLeft) {
+              final double overflow = minLeft - dropdownLeft;
+              horizontalOffset += overflow;
+              dropdownLeft += overflow;
+              dropdownRight += overflow;
+
+              if (dropdownRight > maxRight) {
+                final double availableWidth = maxRight - minLeft;
+                if (availableWidth > 0) {
+                  dropdownWidth = math.min(dropdownWidth, availableWidth);
+                  horizontalOffset = minLeft - fieldTopLeft.dx;
+                }
+              }
+            }
+          }
+
+          final double availableBelow = overlaySize.height -
+              (fieldTopLeft.dy + fieldHeight + verticalGap + screenPadding);
+          final double availableAbove =
+              fieldTopLeft.dy - verticalGap - screenPadding;
+          final double clampedBelow = math.max(availableBelow, 0);
+          final double clampedAbove = math.max(availableAbove, 0);
+
+          if (clampedBelow >= clampedAbove) {
+            dropdownMaxHeight =
+                math.min(defaultDropdownMaxHeight, clampedBelow);
+            showBelow = true;
+          } else {
+            dropdownMaxHeight =
+                math.min(defaultDropdownMaxHeight, clampedAbove);
+            showBelow = false;
+          }
+        }
+
+        if (!_shouldShowSuggestions ||
+            !dropdownWidth.isFinite ||
+            dropdownWidth <= 0 ||
+            !dropdownMaxHeight.isFinite ||
+            dropdownMaxHeight <= 0) {
           return const SizedBox.shrink();
         }
+
         return Positioned.fill(
           child: Listener(
             behavior: HitTestBehavior.translucent,
@@ -289,34 +383,38 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
                 setState(() => _pointerInsideDropdown = false);
               }
             },
-            child: IgnorePointer(
-              ignoring: false,
-              child: CompositedTransformFollower(
-                link: _overlayLink,
-                showWhenUnlinked: false,
-                offset: Offset(0, height + 6),
-                targetAnchor: Alignment.topLeft,
-                child: SizedBox(
-                  width: width,
-                  child: FrostedSearchDropdown(
-                    key: _dropdownKey,
-                    children: widget.suggestions
-                        .map(
-                          (suggestion) => FrostedSearchOption(
-                            key: ValueKey(
-                              'search_option_${suggestion.type.name}_${suggestion.value}',
-                            ),
-                            title: suggestion.label,
-                            subtitle: suggestion.description,
-                            icon: suggestion.icon,
-                            onTap: () {
-                              debugPrint('[SearchField] Option onTap -> ${suggestion.value}');
-                              _handleSuggestionSelected(suggestion);
-                            },
+            child: CustomSingleChildLayout(
+              delegate: _SearchDropdownLayoutDelegate(
+                fieldTopLeft: fieldTopLeft,
+                horizontalOffset: horizontalOffset,
+                fieldHeight: fieldHeight,
+                dropdownWidth: dropdownWidth,
+                dropdownMaxHeight: dropdownMaxHeight,
+                showBelow: showBelow,
+                verticalGap: verticalGap,
+                screenPadding: screenPadding,
+              ),
+              child: SizedBox(
+                width: dropdownWidth,
+                child: FrostedSearchDropdown(
+                  key: _dropdownKey,
+                  maxHeight: dropdownMaxHeight,
+                  children: widget.suggestions
+                      .map(
+                        (suggestion) => FrostedSearchOption(
+                          key: ValueKey(
+                            'search_option_${suggestion.type.name}_${suggestion.value}',
                           ),
-                        )
-                        .toList(),
-                  ),
+                          title: suggestion.label,
+                          subtitle: suggestion.description,
+                          icon: suggestion.icon,
+                          onTap: () {
+                            debugPrint('[SearchField] Option onTap -> ${suggestion.value}');
+                            _handleSuggestionSelected(suggestion);
+                          },
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
             ),
@@ -324,6 +422,114 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
         );
       },
     );
+  }
+}
+
+class _SearchDropdownLayoutDelegate extends SingleChildLayoutDelegate {
+  const _SearchDropdownLayoutDelegate({
+    required this.fieldTopLeft,
+    required this.horizontalOffset,
+    required this.fieldHeight,
+    required this.dropdownWidth,
+    required this.dropdownMaxHeight,
+    required this.showBelow,
+    required this.verticalGap,
+    required this.screenPadding,
+  });
+
+  final Offset fieldTopLeft;
+  final double horizontalOffset;
+  final double fieldHeight;
+  final double dropdownWidth;
+  final double dropdownMaxHeight;
+  final bool showBelow;
+  final double verticalGap;
+  final double screenPadding;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    double resolvedWidth = dropdownWidth;
+    if (!resolvedWidth.isFinite || resolvedWidth <= 0) {
+      final double fallback = constraints.maxWidth.isFinite &&
+              constraints.maxWidth > 0
+          ? constraints.maxWidth
+          : 260.0;
+      resolvedWidth = math.max(fallback, 1.0);
+    } else if (constraints.maxWidth.isFinite &&
+        constraints.maxWidth > 0 &&
+        resolvedWidth > constraints.maxWidth) {
+      resolvedWidth = constraints.maxWidth;
+    }
+
+    double resolvedMaxHeight = dropdownMaxHeight;
+    if (!resolvedMaxHeight.isFinite || resolvedMaxHeight <= 0) {
+      resolvedMaxHeight = constraints.maxHeight.isFinite &&
+              constraints.maxHeight > 0
+          ? constraints.maxHeight
+          : 280.0;
+    } else if (constraints.maxHeight.isFinite &&
+        constraints.maxHeight > 0 &&
+        resolvedMaxHeight > constraints.maxHeight) {
+      resolvedMaxHeight = constraints.maxHeight;
+    }
+
+    resolvedMaxHeight = math.max(resolvedMaxHeight, 1.0);
+
+    return BoxConstraints(
+      minWidth: resolvedWidth,
+      maxWidth: resolvedWidth,
+      minHeight: 0,
+      maxHeight: resolvedMaxHeight,
+    );
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    double left = fieldTopLeft.dx + horizontalOffset;
+    if (size.width.isFinite && size.width > 0) {
+      final double minLeft = screenPadding;
+      final double maxLeft = size.width - screenPadding - childSize.width;
+      if (maxLeft >= minLeft) {
+        left = left.clamp(minLeft, maxLeft);
+      } else {
+        left = minLeft;
+      }
+    }
+
+    double top;
+    if (showBelow) {
+      top = fieldTopLeft.dy + fieldHeight + verticalGap;
+      if (size.height.isFinite && size.height > 0) {
+        final double maxTop = size.height - screenPadding - childSize.height;
+        top = math.min(top, maxTop);
+      }
+    } else {
+      top = fieldTopLeft.dy - verticalGap - childSize.height;
+      if (size.height.isFinite && size.height > 0) {
+        top = math.max(top, screenPadding);
+      }
+    }
+
+    if (!left.isFinite) {
+      left = 0;
+    }
+    if (!top.isFinite) {
+      top = 0;
+    }
+
+    return Offset(left, top);
+  }
+
+  @override
+  bool shouldRelayout(covariant _SearchDropdownLayoutDelegate oldDelegate) {
+    return fieldTopLeft != oldDelegate.fieldTopLeft ||
+        horizontalOffset != oldDelegate.horizontalOffset ||
+        fieldHeight != oldDelegate.fieldHeight ||
+        dropdownWidth != oldDelegate.dropdownWidth ||
+        dropdownMaxHeight != oldDelegate.dropdownMaxHeight ||
+        showBelow != oldDelegate.showBelow ||
+        verticalGap != oldDelegate.verticalGap ||
+        screenPadding != oldDelegate.screenPadding;
   }
 }
 
