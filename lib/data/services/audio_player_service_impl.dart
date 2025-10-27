@@ -105,7 +105,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       (position) {
         _positionSubject.add(position);
         if (_currentTrack == null) {
-          print('💾 AudioService: 忽略位置更新（当前没有音轨）');
           return;
         }
         unawaited(_persistPosition(position));
@@ -196,7 +195,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         _restoringSession &&
         _pendingRestorePosition != null &&
         position.inMilliseconds == 0) {
-      print('💾 AudioService: 忽略 0 进度写入（正在恢复会话）');
       return;
     }
     if (!force &&
@@ -204,9 +202,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return;
     }
     _lastPositionPersistTime = now;
-    print(
-      '💾 AudioService: 保存播放进度 -> ${position.inMilliseconds}ms (force=$force)',
-    );
     await _configStore.setValue(
       StorageKeys.playbackPosition,
       position.inMilliseconds,
@@ -318,7 +313,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       }
       await _persistQueueState();
       if (_restoringSession && _pendingRestorePosition != null) {
-        print('💾 AudioService: 跳过存储 0 进度（正在恢复会话）');
       } else {
         await _persistPosition(Duration.zero, force: true);
       }
@@ -355,7 +349,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       }
       await _persistQueueState();
       if (_restoringSession && _pendingRestorePosition != null) {
-        print('💾 AudioService: 跳过存储 0 进度（正在恢复会话）');
       } else {
         await _persistPosition(Duration.zero, force: true);
       }
@@ -421,9 +414,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         final diff =
             (position - _pendingRestorePosition!).inMilliseconds.abs();
         if (diff <= 500) {
-          print(
-            '💾 AudioService: 恢复进度完成 (${position.inMilliseconds}ms)',
-          );
           _restoringSession = false;
           _pendingRestorePosition = null;
         }
@@ -732,9 +722,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
           (_configStore.getValue<dynamic>(StorageKeys.playbackPosition) as num?)
               ?.toInt() ??
           0;
-      print(
-        '💾 AudioService: 加载上次会话 -> 队列${queue.length}首, 索引=$savedIndex, 进度=${positionMs}ms',
-      );
       final savedMode = _configStore.getValue<String>(StorageKeys.playMode);
       final playMode = savedMode != null
           ? () {
@@ -762,7 +749,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       if (safePositionMs > 0) {
         _restoringSession = true;
         _pendingRestorePosition = Duration(milliseconds: safePositionMs);
-        print('💾 AudioService: 准备恢复进度 ${safePositionMs}ms');
       } else {
         _restoringSession = false;
         _pendingRestorePosition = null;

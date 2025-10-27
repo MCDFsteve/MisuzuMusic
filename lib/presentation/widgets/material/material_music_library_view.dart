@@ -70,6 +70,7 @@ class MaterialMusicLibraryView extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final track = tracks[index];
                   final displayInfo = deriveTrackDisplayInfo(track);
+                  final normalizedTrack = applyDisplayInfo(track, displayInfo);
                   final remoteArtworkUrl =
                       MysteryLibraryConstants.buildArtworkUrl(
                     track.httpHeaders,
@@ -118,8 +119,19 @@ class MaterialMusicLibraryView extends StatelessWidget {
                         }
                       }
 
+                      final normalizedQueue = tracks
+                          .map(
+                            (t) => t.id == track.id
+                                ? normalizedTrack
+                                : applyDisplayInfo(
+                                    t,
+                                    deriveTrackDisplayInfo(t),
+                                  ),
+                          )
+                          .toList();
+
                       context.read<PlayerBloc>().add(
-                        PlayerSetQueue(tracks, startIndex: index),
+                        PlayerSetQueue(normalizedQueue, startIndex: index),
                       );
                     },
                   );

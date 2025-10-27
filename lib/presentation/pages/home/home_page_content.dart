@@ -706,6 +706,17 @@ class _HomePageContentState extends State<HomePageContent> {
     return _cachedLibraryState;
   }
 
+  List<Track> _normalizedLibraryTracks(MusicLibraryLoaded library) {
+    return library.tracks
+        .map(
+          (track) => applyDisplayInfo(
+            track,
+            deriveTrackDisplayInfo(track),
+          ),
+        )
+        .toList(growable: false);
+  }
+
   void _viewTrackArtist(Track track) {
     final name = track.artist.trim();
     if (name.isEmpty) {
@@ -720,7 +731,8 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     final lowerName = name.toLowerCase();
-    final artistTracks = library.tracks
+    final normalizedTracks = _normalizedLibraryTracks(library);
+    final artistTracks = normalizedTracks
         .where((t) => t.artist.trim().toLowerCase() == lowerName)
         .toList();
     if (artistTracks.isEmpty) {
@@ -728,13 +740,14 @@ class _HomePageContentState extends State<HomePageContent> {
       return;
     }
 
-    final artist = library.artists.firstWhere(
-      (a) => a.name.trim().toLowerCase() == lowerName,
-      orElse: () => Artist(
-        name: name,
-        trackCount: artistTracks.length,
-        artworkPath: artistTracks.first.artworkPath,
-      ),
+    final artworkTrack = artistTracks.lastWhere(
+      (t) => t.artworkPath != null && t.artworkPath!.isNotEmpty,
+      orElse: () => artistTracks.first,
+    );
+    final artist = Artist(
+      name: name,
+      trackCount: artistTracks.length,
+      artworkPath: artworkTrack.artworkPath,
     );
 
     _showArtistDetail(artist, artistTracks);
@@ -756,7 +769,8 @@ class _HomePageContentState extends State<HomePageContent> {
 
     final lowerAlbum = albumName.toLowerCase();
     final lowerArtist = artistName.toLowerCase();
-    final albumTracks = library.tracks
+    final normalizedTracks = _normalizedLibraryTracks(library);
+    final albumTracks = normalizedTracks
         .where((t) =>
             t.album.trim().toLowerCase() == lowerAlbum &&
             t.artist.trim().toLowerCase() == lowerArtist)
@@ -767,27 +781,34 @@ class _HomePageContentState extends State<HomePageContent> {
       return;
     }
 
-    final album = library.albums.firstWhere(
-      (a) =>
-          a.title.trim().toLowerCase() == lowerAlbum &&
-          a.artist.trim().toLowerCase() == lowerArtist,
-      orElse: () {
-        final totalDuration = albumTracks.fold<Duration>(
-          Duration.zero,
-          (prev, item) => prev + item.duration,
-        );
-        return Album(
-          title: albumName,
-          artist: artistName.isEmpty ? albumTracks.first.artist : artistName,
-          trackCount: albumTracks.length,
-          year: null,
-          artworkPath: albumTracks.first.artworkPath,
-          totalDuration: totalDuration,
-        );
-      },
+    final sortedTracks = List<Track>.from(albumTracks)
+      ..sort((a, b) {
+        final trackCompare = (a.trackNumber ?? 0).compareTo(b.trackNumber ?? 0);
+        if (trackCompare != 0) {
+          return trackCompare;
+        }
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      });
+
+    final Duration totalDuration = sortedTracks.fold<Duration>(
+      Duration.zero,
+      (prev, item) => prev + item.duration,
+    );
+    final artworkTrack = sortedTracks.lastWhere(
+      (t) => t.artworkPath != null && t.artworkPath!.isNotEmpty,
+      orElse: () => sortedTracks.first,
+    );
+    final safeArtist = artistName.isEmpty ? 'Unknown Artist' : artistName;
+    final album = Album(
+      title: albumName,
+      artist: safeArtist,
+      trackCount: sortedTracks.length,
+      year: sortedTracks.first.year,
+      artworkPath: artworkTrack.artworkPath,
+      totalDuration: totalDuration,
     );
 
-    _showAlbumDetail(album, albumTracks);
+    _showAlbumDetail(album, sortedTracks);
   }
 
   void navigateToSettingsFromMenu() {

@@ -86,7 +86,7 @@ class MacOSTrackListView extends StatelessWidget {
               duration: _formatDuration(track.duration),
               onTap: () {
                 if (onTrackSelected != null) {
-                  onTrackSelected!(track);
+                  onTrackSelected!(normalizedTrack);
                 } else {
                   _handleTrackTap(context, track, index);
                 }
