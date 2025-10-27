@@ -78,10 +78,10 @@ class _PlaylistHistoryList extends StatelessWidget {
     final filteredEntries = normalizedQuery == null
         ? entries
         : entries.where((entry) {
-            final track = entry.track;
-            return track.title.toLowerCase().contains(normalizedQuery) ||
-                track.artist.toLowerCase().contains(normalizedQuery) ||
-                track.album.toLowerCase().contains(normalizedQuery);
+            final display = deriveTrackDisplayInfo(entry.track);
+            return display.title.toLowerCase().contains(normalizedQuery) ||
+                display.artist.toLowerCase().contains(normalizedQuery) ||
+                display.album.toLowerCase().contains(normalizedQuery);
           }).toList();
 
     if (filteredEntries.isEmpty) {
@@ -107,6 +107,8 @@ class _PlaylistHistoryList extends StatelessWidget {
           itemBuilder: (context, index) {
             final entry = filteredEntries[index];
             final track = entry.track;
+            final displayInfo = deriveTrackDisplayInfo(track);
+            final normalizedTrack = applyDisplayInfo(track, displayInfo);
             final playCount = entry.playCount;
             String? remoteArtworkUrl;
             if (track.isNeteaseTrack) {
@@ -128,14 +130,20 @@ class _PlaylistHistoryList extends StatelessWidget {
                 borderColor: dividerColor,
                 placeholder: artworkPlaceholder,
               ),
-              title: track.title,
-              artistAlbum: '${track.artist} • ${track.album}',
+              title: displayInfo.title,
+              artistAlbum: '${displayInfo.artist} • ${displayInfo.album}',
               duration: _formatDuration(track.duration),
               meta: '${_formatPlayedAt(entry.playedAt)} | ${playCount} 次播放',
               onTap: () =>
                   _playTrack(context, track, fingerprint: entry.fingerprint),
               onSecondaryTap: (position) =>
-                  _handleSecondaryTap(context, position, track),
+                  _handleSecondaryTap(
+                    context,
+                    position,
+                    track,
+                    normalizedTrack,
+                    displayInfo,
+                  ),
             );
           },
         );
@@ -146,11 +154,13 @@ class _PlaylistHistoryList extends StatelessWidget {
   Future<void> _handleSecondaryTap(
     BuildContext context,
     Offset globalPosition,
-    Track track,
+    Track originalTrack,
+    Track normalizedTrack,
+    TrackDisplayInfo displayInfo,
   ) async {
     final actions = <MacosContextMenuAction>[];
-    final artistName = track.artist.trim();
-    final albumName = track.album.trim();
+    final artistName = displayInfo.artist.trim();
+    final albumName = displayInfo.album.trim();
     final canViewArtist =
         onViewArtist != null && artistName.isNotEmpty;
     final canViewAlbum = onViewAlbum != null && albumName.isNotEmpty;
@@ -160,7 +170,7 @@ class _PlaylistHistoryList extends StatelessWidget {
         MacosContextMenuAction(
           label: '查看歌手',
           icon: CupertinoIcons.person_crop_circle,
-          onSelected: () => onViewArtist?.call(track),
+          onSelected: () => onViewArtist?.call(normalizedTrack),
         ),
       );
     }
@@ -169,18 +179,18 @@ class _PlaylistHistoryList extends StatelessWidget {
         MacosContextMenuAction(
           label: '查看专辑',
           icon: CupertinoIcons.music_albums,
-          onSelected: () => onViewAlbum?.call(track),
+          onSelected: () => onViewAlbum?.call(normalizedTrack),
         ),
       );
     }
 
-    if (track.isNeteaseTrack) {
+    if (originalTrack.isNeteaseTrack) {
       actions.add(
         MacosContextMenuAction(
           label: '添加到网络歌曲歌单…',
           icon: CupertinoIcons.cloud_upload,
           onSelected: () => unawaited(
-            _addTrackToNeteasePlaylist(context, track),
+            _addTrackToNeteasePlaylist(context, originalTrack),
           ),
         ),
       );
@@ -189,7 +199,7 @@ class _PlaylistHistoryList extends StatelessWidget {
         MacosContextMenuAction(
           label: '添加到歌单',
           icon: CupertinoIcons.add_circled,
-          onSelected: () => onAddToPlaylist?.call(track),
+          onSelected: () => onAddToPlaylist?.call(originalTrack),
         ),
       );
     }

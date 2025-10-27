@@ -49,6 +49,8 @@ import '../widgets/macos/context_menu/macos_context_menu.dart';
 import 'package:misuzu_music/presentation/widgets/dialogs/frosted_selection_modal.dart';
 import 'lyrics/lyrics_overlay.dart';
 import 'settings/settings_view.dart';
+import '../utils/track_display_utils.dart';
+import '../../core/utils/track_field_normalizer.dart' show isUnknownMetadataValue;
 
 part 'home/home_page_content.dart';
 part 'home/widgets/macos_glass_header.dart';

@@ -16,6 +16,7 @@ import '../../core/error/exceptions.dart';
 import '../../core/storage/binary_config_store.dart';
 import '../../core/storage/storage_keys.dart';
 import '../../core/constants/mystery_library_constants.dart';
+import '../../core/utils/track_field_normalizer.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/repositories/music_library_repository.dart';
@@ -1235,15 +1236,26 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       // Read metadata
       final metadata = await readMetadata(file, getImage: true);
 
-      final title = metadata?.title ?? path.basenameWithoutExtension(file.path);
-      final artist = metadata?.artist ?? 'Unknown Artist';
-      final album = metadata?.album ?? 'Unknown Album';
+      final fileName = path.basenameWithoutExtension(file.path);
+      final rawTitle = metadata?.title ?? fileName;
+      final rawArtist = metadata?.artist ?? 'Unknown Artist';
+      final rawAlbum = metadata?.album ?? 'Unknown Album';
       final duration = metadata?.duration ?? Duration.zero;
       final year = metadata?.year?.year;
       final trackNumber = metadata?.trackNumber;
       final genre = metadata?.genres?.isNotEmpty == true
           ? metadata!.genres!.first
           : null;
+
+      final normalized = normalizeTrackFields(
+        title: rawTitle,
+        artist: rawArtist,
+        album: rawAlbum,
+        fallbackFileName: fileName,
+      );
+      final title = normalized.title;
+      final artist = normalized.artist;
+      final album = normalized.album;
 
       String? artworkPath = await _saveArtwork(
         metadata,
@@ -1277,11 +1289,19 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       print('Error reading metadata for ${file.path}: $e');
 
       // Fallback: create track with filename only
-      return TrackModel(
-        id: existingTrack?.id ?? _uuid.v4(),
-        title: path.basenameWithoutExtension(file.path),
+      final fileName = path.basenameWithoutExtension(file.path);
+      final normalized = normalizeTrackFields(
+        title: fileName,
         artist: existingTrack?.artist ?? 'Unknown Artist',
         album: existingTrack?.album ?? 'Unknown Album',
+        fallbackFileName: fileName,
+      );
+
+      return TrackModel(
+        id: existingTrack?.id ?? _uuid.v4(),
+        title: normalized.title,
+        artist: normalized.artist,
+        album: normalized.album,
         filePath: file.path,
         duration: existingTrack?.duration ?? Duration.zero,
         dateAdded: existingTrack?.dateAdded ?? DateTime.now(),

@@ -8,6 +8,7 @@ import '../../blocs/player/player_bloc.dart';
 import '../common/adaptive_scrollbar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../common/track_list_tile.dart';
+import '../../utils/track_display_utils.dart';
 
 class MaterialMusicLibraryView extends StatelessWidget {
   final List<Track> tracks;
@@ -68,6 +69,7 @@ class MaterialMusicLibraryView extends StatelessWidget {
                 ),
                 itemBuilder: (context, index) {
                   final track = tracks[index];
+                  final displayInfo = deriveTrackDisplayInfo(track);
                   final remoteArtworkUrl =
                       MysteryLibraryConstants.buildArtworkUrl(
                     track.httpHeaders,
@@ -88,11 +90,11 @@ class MaterialMusicLibraryView extends StatelessWidget {
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    title: track.title,
-                    artistAlbum: '${track.artist} • ${track.album}',
+                    title: displayInfo.title,
+                    artistAlbum: '${displayInfo.artist} • ${displayInfo.album}',
                     duration: _formatDuration(track.duration),
                     onTap: () {
-                      print('🎵 Material点击歌曲: ${track.title}');
+                      print('🎵 Material点击歌曲: ${displayInfo.title}');
                       print('🎵 文件路径: ${track.filePath}');
                       print('🎵 添加队列 ${tracks.length} 首歌曲，从索引 $index 开始播放');
                       final isRemoteTrack =

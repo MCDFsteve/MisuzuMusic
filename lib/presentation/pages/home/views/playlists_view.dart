@@ -59,9 +59,10 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     if (lowerQuery.isEmpty) {
       return true;
     }
-    return track.title.toLowerCase().contains(lowerQuery) ||
-        track.artist.toLowerCase().contains(lowerQuery) ||
-        track.album.toLowerCase().contains(lowerQuery);
+    final display = deriveTrackDisplayInfo(track);
+    return display.title.toLowerCase().contains(lowerQuery) ||
+        display.artist.toLowerCase().contains(lowerQuery) ||
+        display.album.toLowerCase().contains(lowerQuery);
   }
 
   Future<void> _editPlaylist(Playlist playlist) async {
@@ -314,14 +315,14 @@ class _PlaylistsViewState extends State<PlaylistsView> {
               message: '歌单中未找到匹配的歌曲',
             );
           } else {
-        content = MacOSTrackListView(
-          tracks: filteredTracks,
-          onAddToPlaylist: widget.onAddToPlaylist,
-          onRemoveFromPlaylist: (track) =>
-              _removeTrackFromPlaylist(playlist.id, track),
-          onViewArtist: widget.onViewArtist,
-          onViewAlbum: widget.onViewAlbum,
-        );
+            content = MacOSTrackListView(
+              tracks: filteredTracks,
+              onAddToPlaylist: widget.onAddToPlaylist,
+              onRemoveFromPlaylist: (track) =>
+                  _removeTrackFromPlaylist(playlist.id, track),
+              onViewArtist: widget.onViewArtist,
+              onViewAlbum: widget.onViewAlbum,
+            );
           }
         }
 

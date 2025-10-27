@@ -986,19 +986,24 @@ class _HomePageContentState extends State<HomePageContent> {
       String? description,
       bool prioritize = false,
     }) {
+      final display = deriveTrackDisplayInfo(track);
+      final normalizedTrack = applyDisplayInfo(track, display);
       addSuggestion(
         LibrarySearchSuggestion(
-          value: track.title,
-          label: '歌曲：${track.title}',
-          description: description ?? '${track.artist} • ${track.album}',
+          value: display.title,
+          label: '歌曲：${display.title}',
+          description: description ?? '${display.artist} • ${display.album}',
           type: LibrarySearchSuggestionType.track,
-          payload: track,
+          payload: normalizedTrack,
         ),
         prioritize: prioritize,
       );
     }
 
     void addArtistSuggestion(Artist artist, {bool prioritize = false}) {
+      if (isUnknownMetadataValue(artist.name)) {
+        return;
+      }
       addSuggestion(
         LibrarySearchSuggestion(
           value: artist.name,
@@ -1012,6 +1017,9 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     void addAlbumSuggestion(Album album, {bool prioritize = false}) {
+      if (isUnknownMetadataValue(album.title)) {
+        return;
+      }
       addSuggestion(
         LibrarySearchSuggestion(
           value: album.title,
@@ -1048,14 +1056,15 @@ class _HomePageContentState extends State<HomePageContent> {
         final tracks = entry.value;
         if (tracks.isEmpty) continue;
         for (final track in tracks) {
-          if (!matchesField(track.title) &&
-              !matchesField(track.artist) &&
-              !matchesField(track.album)) {
+          final display = deriveTrackDisplayInfo(track);
+          if (!matchesField(display.title) &&
+              !matchesField(display.artist) &&
+              !matchesField(display.album)) {
             continue;
           }
           final contextLabel = playlist == null
-              ? track.artist
-              : '${playlist.name} • ${track.artist}';
+              ? display.artist
+              : '${playlist.name} • ${display.artist}';
           addTrackSuggestion(
             track,
             description: contextLabel,
@@ -1079,14 +1088,15 @@ class _HomePageContentState extends State<HomePageContent> {
         final tracks = entry.value;
         if (tracks.isEmpty) continue;
         for (final track in tracks) {
-          if (!matchesField(track.title) &&
-              !matchesField(track.artist) &&
-              !matchesField(track.album)) {
+          final display = deriveTrackDisplayInfo(track);
+          if (!matchesField(display.title) &&
+              !matchesField(display.artist) &&
+              !matchesField(display.album)) {
             continue;
           }
           final contextLabel = playlist == null
-              ? track.artist
-              : '${playlist.name} • ${track.artist}';
+              ? display.artist
+              : '${playlist.name} • ${display.artist}';
           addTrackSuggestion(
             track,
             description: contextLabel,
@@ -1109,9 +1119,10 @@ class _HomePageContentState extends State<HomePageContent> {
 
     if (libraryState is MusicLibraryLoaded) {
       for (final track in libraryState.tracks) {
-        if (matchesField(track.title) ||
-            matchesField(track.artist) ||
-            matchesField(track.album)) {
+        final display = deriveTrackDisplayInfo(track);
+        if (matchesField(display.title) ||
+            matchesField(display.artist) ||
+            matchesField(display.album)) {
           addTrackSuggestion(track, prioritize: onLibrary);
           break;
         }

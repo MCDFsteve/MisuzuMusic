@@ -73,9 +73,10 @@ class _NeteaseViewState extends State<NeteaseView> {
     if (lowerQuery.isEmpty) {
       return true;
     }
-    return track.title.toLowerCase().contains(lowerQuery) ||
-        track.artist.toLowerCase().contains(lowerQuery) ||
-        track.album.toLowerCase().contains(lowerQuery);
+    final display = deriveTrackDisplayInfo(track);
+    return display.title.toLowerCase().contains(lowerQuery) ||
+        display.artist.toLowerCase().contains(lowerQuery) ||
+        display.album.toLowerCase().contains(lowerQuery);
   }
 
   Future<void> _promptForCookie({bool force = false}) async {
