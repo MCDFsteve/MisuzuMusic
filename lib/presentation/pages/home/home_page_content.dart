@@ -178,7 +178,9 @@ class _HomePageContentState extends State<HomePageContent> {
       }
 
       await playlistsCubit.ensurePlaylistTracks(newId, force: true);
-      if (openAfterCreate) {
+      final hasTracks =
+          playlistsCubit.state.playlistTracks[newId]?.isNotEmpty ?? false;
+      if (openAfterCreate && hasTracks) {
         _navigateToPlaylistView(newId);
       }
       return newId;
@@ -239,6 +241,13 @@ class _HomePageContentState extends State<HomePageContent> {
     _showOperationSnackBar(successMessage);
 
     if (openAfterCreate) {
+      await playlistsCubit.ensurePlaylistTracks(playlistId!, force: true);
+      final hasTracks = playlistsCubit.state.playlistTracks[playlistId!]
+              ?.isNotEmpty ??
+          false;
+      if (!hasTracks) {
+        return playlistId;
+      }
       _navigateToPlaylistView(playlistId!);
     }
     return playlistId;
