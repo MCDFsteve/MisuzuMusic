@@ -454,29 +454,27 @@ class _HomePageContentState extends State<HomePageContent> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          GestureDetector(
+                          Listener(
                             behavior: HitTestBehavior.opaque,
-                            onTap: _lyricsVisible
-                                ? () => _toggleLyrics(playerState)
-                                : null,
-                            child: AbsorbPointer(
-                              absorbing: _lyricsVisible,
-                              child: _MacOSNavigationPane(
-                                width: _navigationWidth,
-                                collapsed: _navigationWidth <= 112,
-                                selectedIndex: _selectedIndex,
-                                onSelect: _handleNavigationChange,
-                                onResize: (width) {
-                                  if (_lyricsVisible) return;
-                                  setState(() {
-                                    _navigationWidth = width.clamp(
-                                      _navMinWidth,
-                                      _navMaxWidth,
-                                    );
-                                  });
-                                },
-                                enabled: !_lyricsVisible,
-                              ),
+                            onPointerDown: (_) => _dismissLyricsOverlay(),
+                            child: _MacOSNavigationPane(
+                              width: _navigationWidth,
+                              collapsed: _navigationWidth <= 112,
+                              selectedIndex: _selectedIndex,
+                              onSelect: (index) {
+                                _dismissLyricsOverlay();
+                                _handleNavigationChange(index);
+                              },
+                              onResize: (width) {
+                                _dismissLyricsOverlay();
+                                setState(() {
+                                  _navigationWidth = width.clamp(
+                                    _navMinWidth,
+                                    _navMaxWidth,
+                                  );
+                                });
+                              },
+                              enabled: true,
                             ),
                           ),
                           Expanded(
@@ -507,7 +505,7 @@ class _HomePageContentState extends State<HomePageContent> {
                                       showCreatePlaylistButton,
                                   showSelectFolderButton:
                                       showSelectFolderButton,
-                                  onInteract: _handleHeaderInteraction,
+                                  onInteract: _dismissLyricsOverlay,
                                 ),
                                 Expanded(
                                   child: Stack(
@@ -1274,6 +1272,8 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _handleNavigationChange(int index) {
+    _dismissLyricsOverlay();
+
     if (_selectedIndex == index) {
       return;
     }
@@ -1424,7 +1424,7 @@ class _HomePageContentState extends State<HomePageContent> {
     });
   }
 
-  void _handleHeaderInteraction() {
+  void _dismissLyricsOverlay() {
     if (!_lyricsVisible) {
       return;
     }
