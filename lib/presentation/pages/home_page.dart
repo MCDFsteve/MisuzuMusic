@@ -45,6 +45,7 @@ import '../widgets/macos/collection/collection_summary_card.dart';
 import '../widgets/macos/macos_player_control_bar.dart';
 import '../widgets/macos/macos_track_list_view.dart';
 import '../widgets/macos/context_menu/macos_context_menu.dart';
+import 'package:misuzu_music/presentation/widgets/dialogs/frosted_selection_modal.dart';
 import 'lyrics/lyrics_overlay.dart';
 import 'settings/settings_view.dart';
 
