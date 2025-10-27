@@ -7,7 +7,13 @@ import 'package:macos_ui/macos_ui.dart' as macos_ui;
 import '../../../core/utils/platform_utils.dart';
 import '../dialogs/frosted_search_dropdown.dart';
 
-enum LibrarySearchSuggestionType { track, artist, album }
+enum LibrarySearchSuggestionType {
+  track,
+  artist,
+  album,
+  playlist,
+  neteasePlaylist,
+}
 
 class LibrarySearchSuggestion {
   const LibrarySearchSuggestion({
@@ -32,6 +38,10 @@ class LibrarySearchSuggestion {
         return cupertino.CupertinoIcons.person_crop_circle;
       case LibrarySearchSuggestionType.album:
         return cupertino.CupertinoIcons.square_stack_3d_up;
+      case LibrarySearchSuggestionType.playlist:
+        return cupertino.CupertinoIcons.music_note_list;
+      case LibrarySearchSuggestionType.neteasePlaylist:
+        return cupertino.CupertinoIcons.cloud;
     }
   }
 }

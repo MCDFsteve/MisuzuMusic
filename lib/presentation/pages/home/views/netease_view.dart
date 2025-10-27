@@ -38,6 +38,15 @@ class _NeteaseViewState extends State<NeteaseView> {
     _notifyDetailState();
   }
 
+  void openPlaylistById(int playlistId) {
+    setState(() {
+      _showPlaylistDetail = true;
+      _activePlaylistId = playlistId;
+    });
+    _notifyDetailState();
+    context.read<NeteaseCubit>().ensurePlaylistTracks(playlistId);
+  }
+
   void _notifyDetailState() {
     widget.onDetailStateChanged?.call(_showPlaylistDetail);
   }
@@ -278,12 +287,7 @@ class _NeteaseViewState extends State<NeteaseView> {
   }
 
   void _openPlaylist(NeteasePlaylist playlist) {
-    setState(() {
-      _showPlaylistDetail = true;
-      _activePlaylistId = playlist.id;
-    });
-    _notifyDetailState();
-    context.read<NeteaseCubit>().ensurePlaylistTracks(playlist.id);
+    openPlaylistById(playlist.id);
   }
 
   String _formatPlayCount(int value) {
