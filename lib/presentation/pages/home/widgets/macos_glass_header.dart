@@ -1,6 +1,6 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
-class _MacOSGlassHeader extends StatelessWidget {
+class _MacOSGlassHeader extends StatefulWidget {
   const _MacOSGlassHeader({
     required this.height,
     required this.sectionLabel,
@@ -43,7 +43,40 @@ class _MacOSGlassHeader extends StatelessWidget {
   final bool showSelectFolderButton;
   final VoidCallback? onInteract;
 
-  Future<void> _handleDoubleTap() async {
+  @override
+  State<_MacOSGlassHeader> createState() => _MacOSGlassHeaderState();
+}
+
+class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
+  Duration? _lastPrimaryTapTime;
+  Offset? _lastPrimaryTapPosition;
+
+  static const Duration _doubleClickTimeout = Duration(milliseconds: 300);
+  static const double _doubleClickDistanceSquared = 36;
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (event.kind != PointerDeviceKind.mouse ||
+        event.buttons != kPrimaryMouseButton) {
+      return;
+    }
+
+    final previousTime = _lastPrimaryTapTime;
+    final previousPosition = _lastPrimaryTapPosition;
+    final currentTime = event.timeStamp;
+
+    if (previousTime != null &&
+        previousPosition != null &&
+        (currentTime - previousTime) <= _doubleClickTimeout &&
+        (event.localPosition - previousPosition).distanceSquared <=
+            _doubleClickDistanceSquared) {
+      unawaited(_toggleWindowMaximize());
+    }
+
+    _lastPrimaryTapTime = currentTime;
+    _lastPrimaryTapPosition = event.localPosition;
+  }
+
+  Future<void> _toggleWindowMaximize() async {
     if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
       return;
     }
@@ -67,17 +100,28 @@ class _MacOSGlassHeader extends StatelessWidget {
     final double backIconSize = isWindows ? 14 : 20;
     final double actionSpacing = isWindows ? 4 : 8;
 
-    void handleInteraction() => onInteract?.call();
+    void handleInteraction() => widget.onInteract?.call();
 
     final frostedColor = theme.canvasColor.withOpacity(
       isDarkMode ? 0.35 : 0.36,
     );
 
+    Widget wrapWithDragArea(Widget child) {
+      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: _handlePointerDown,
+          child: DragToMoveArea(child: child),
+        );
+      }
+      return child;
+    }
+
     final headerContent = ClipRect(
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
         child: Container(
-          height: height,
+          height: widget.height,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
             color: frostedColor,
@@ -91,36 +135,38 @@ class _MacOSGlassHeader extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Misuzu Music',
-                      locale: Locale("zh-Hans", "zh"),
-                      style: theme.typography.title2.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(text: sectionLabel),
-                          if (statsLabel != null) ...[
-                            TextSpan(text: '  |  '),
-                            TextSpan(text: statsLabel),
-                          ],
-                        ],
-                        style: theme.typography.caption1.copyWith(
-                          color: textColor.withOpacity(0.68),
+                child: wrapWithDragArea(
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Misuzu Music',
+                        locale: Locale("zh-Hans", "zh"),
+                        style: theme.typography.title2.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
                         ),
                       ),
-                      locale: Locale("zh-Hans", "zh"),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(text: widget.sectionLabel),
+                            if (widget.statsLabel != null) ...[
+                              TextSpan(text: '  |  '),
+                              TextSpan(text: widget.statsLabel),
+                            ],
+                          ],
+                          style: theme.typography.caption1.copyWith(
+                            color: textColor.withOpacity(0.68),
+                          ),
+                        ),
+                        locale: Locale("zh-Hans", "zh"),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               Flexible(
@@ -135,11 +181,11 @@ class _MacOSGlassHeader extends StatelessWidget {
                         ConstrainedBox(
                           constraints: const BoxConstraints(minWidth: 100, maxWidth: 320),
                           child: LibrarySearchField(
-                            query: searchQuery,
-                            onQueryChanged: onSearchChanged,
-                            onPreviewChanged: onSearchPreviewChanged,
-                            suggestions: searchSuggestions,
-                            onSuggestionSelected: onSuggestionSelected,
+                            query: widget.searchQuery,
+                            onQueryChanged: widget.onSearchChanged,
+                            onPreviewChanged: widget.onSearchPreviewChanged,
+                            suggestions: widget.searchSuggestions,
+                            onSuggestionSelected: widget.onSuggestionSelected,
                             onInteract: handleInteraction,
                           ),
                         ),
@@ -148,50 +194,52 @@ class _MacOSGlassHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              if (showBackButton)
+              if (widget.showBackButton)
                 _HeaderTooltip(
                   useMacStyle: !isWindows,
-                  message: backTooltip,
+                  message: widget.backTooltip,
                   child: _HeaderIconButton(
-                    baseColor: canNavigateBack
+                    baseColor: widget.canNavigateBack
                         ? textColor.withOpacity(0.72)
                         : textColor.withOpacity(0.24),
                     hoverColor: textColor,
                     icon: CupertinoIcons.left_chevron,
-                    onPressed: canNavigateBack
+                    onPressed: widget.canNavigateBack
                         ? () {
                             handleInteraction();
-                            onNavigateBack?.call();
+                            widget.onNavigateBack?.call();
                           }
                         : null,
                     size: actionButtonSize,
                     iconSize: backIconSize,
-                    enabled: canNavigateBack,
+                    enabled: widget.canNavigateBack,
                     isWindowsStyle: isWindows,
                   ),
                 ),
-              if (showBackButton && sortMode != null && onSortModeChanged != null)
+              if (widget.showBackButton &&
+                  widget.sortMode != null &&
+                  widget.onSortModeChanged != null)
                 Padding(
                   padding: EdgeInsets.only(left: actionSpacing),
                   child: _HeaderTooltip(
                     useMacStyle: !isWindows,
                     message: '切换排序方式',
                     child: _SortModeButton(
-                      sortMode: sortMode!,
+                      sortMode: widget.sortMode!,
                       onSortModeChanged: (mode) {
                         handleInteraction();
-                        onSortModeChanged!(mode);
+                        widget.onSortModeChanged!(mode);
                       },
                       textColor: textColor,
-                      enabled: canNavigateBack,
+                      enabled: widget.canNavigateBack,
                       size: actionButtonSize,
                       iconSize: backIconSize,
                       isWindowsStyle: isWindows,
                     ),
                   ),
                 ),
-              if (showBackButton) SizedBox(width: actionSpacing),
-              if (showCreatePlaylistButton)
+              if (widget.showBackButton) SizedBox(width: actionSpacing),
+              if (widget.showCreatePlaylistButton)
                 _HeaderTooltip(
                   useMacStyle: !isWindows,
                   message: '新建歌单',
@@ -203,14 +251,15 @@ class _MacOSGlassHeader extends StatelessWidget {
                     icon: CupertinoIcons.add,
                     onPressed: () {
                       handleInteraction();
-                      onCreatePlaylist();
+                      widget.onCreatePlaylist();
                     },
                     isWindowsStyle: isWindows,
                   ),
                 ),
-              if (showCreatePlaylistButton && showSelectFolderButton)
+              if (widget.showCreatePlaylistButton &&
+                  widget.showSelectFolderButton)
                 SizedBox(width: actionSpacing),
-              if (showSelectFolderButton)
+              if (widget.showSelectFolderButton)
                 _HeaderTooltip(
                   useMacStyle: !isWindows,
                   message: '选择音乐文件夹',
@@ -222,7 +271,7 @@ class _MacOSGlassHeader extends StatelessWidget {
                     icon: CupertinoIcons.folder,
                     onPressed: () {
                       handleInteraction();
-                      onSelectMusicFolder();
+                      widget.onSelectMusicFolder();
                     },
                     isWindowsStyle: isWindows,
                   ),
@@ -239,15 +288,7 @@ class _MacOSGlassHeader extends StatelessWidget {
       ),
     );
 
-    final draggable = (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
-        ? DragToMoveArea(child: headerContent)
-        : headerContent;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onDoubleTap: _handleDoubleTap,
-      child: draggable,
-    );
+    return headerContent;
   }
 }
 
