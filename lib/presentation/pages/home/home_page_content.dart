@@ -62,7 +62,6 @@ class _HomePageContentState extends State<HomePageContent> {
       autofocus: true,
       skipTraversal: true,
       focusNode: _shortcutFocusNode,
-      onKeyEvent: _handleKeyEvent,
       child: BlocListener<MusicLibraryBloc, MusicLibraryState>(
         listener: (context, state) {
           if (state is MusicLibraryLoaded) {
@@ -80,34 +79,6 @@ class _HomePageContentState extends State<HomePageContent> {
         child: _buildMacOSLayout(),
       ),
     );
-  }
-
-  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    if (!Platform.isWindows) {
-      return KeyEventResult.ignored;
-    }
-    if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.space) {
-      return KeyEventResult.ignored;
-    }
-
-    final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
-    if (focusedWidget is EditableText) {
-      return KeyEventResult.ignored;
-    }
-
-    _togglePlayPause();
-    return KeyEventResult.handled;
-  }
-
-  void _togglePlayPause() {
-    final bloc = context.read<PlayerBloc>();
-    final state = bloc.state;
-    if (state is PlayerPlaying) {
-      bloc.add(const PlayerPause());
-    } else if (state is PlayerPaused) {
-      bloc.add(const PlayerResume());
-    }
   }
 
   bool get _hasActiveDetail =>

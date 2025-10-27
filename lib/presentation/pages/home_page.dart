@@ -148,7 +148,8 @@ class _MediaControlShortcutScopeState
   static const MethodChannel _hotKeyChannel = MethodChannel(
     'com.aimessoft.misuzumusic/hotkeys',
   );
-  static final Map<LogicalKeySet, Intent> _shortcuts = <LogicalKeySet, Intent>{
+  static final Map<LogicalKeySet, Intent> _baseShortcuts =
+      <LogicalKeySet, Intent>{
     LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious):
         const _PreviousTrackIntent(),
     LogicalKeySet(LogicalKeyboardKey.mediaPlayPause):
@@ -280,12 +281,19 @@ class _MediaControlShortcutScopeState
 
   @override
   Widget build(BuildContext context) {
-    if (!Platform.isMacOS) {
+    final shouldHandleShortcuts = Platform.isMacOS || Platform.isWindows;
+    if (!shouldHandleShortcuts) {
       return widget.child;
     }
 
+    final shortcuts = Map<LogicalKeySet, Intent>.from(_baseShortcuts);
+    if (Platform.isWindows) {
+      shortcuts[LogicalKeySet(LogicalKeyboardKey.space)] =
+          const _TogglePlayPauseIntent();
+    }
+
     return Shortcuts(
-      shortcuts: _shortcuts,
+      shortcuts: shortcuts,
       child: Actions(
         actions: <Type, Action<Intent>>{
           _PreviousTrackIntent: CallbackAction<_PreviousTrackIntent>(
@@ -296,6 +304,9 @@ class _MediaControlShortcutScopeState
           ),
           _TogglePlayPauseIntent: CallbackAction<_TogglePlayPauseIntent>(
             onInvoke: (_) {
+              if (Platform.isWindows && _isTextFieldFocused()) {
+                return null;
+              }
               _dispatchToggle();
               return null;
             },
@@ -315,6 +326,12 @@ class _MediaControlShortcutScopeState
         ),
       ),
     );
+  }
+
+  bool _isTextFieldFocused() {
+    final focusNode = FocusManager.instance.primaryFocus;
+    final focusedWidget = focusNode?.context?.widget;
+    return focusedWidget is EditableText;
   }
 }
 

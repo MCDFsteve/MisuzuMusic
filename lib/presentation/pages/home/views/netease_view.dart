@@ -23,7 +23,6 @@ class NeteaseView extends StatefulWidget {
 class _NeteaseViewState extends State<NeteaseView> {
   bool _showPlaylistDetail = false;
   int? _activePlaylistId;
-  bool _promptedForCookie = false;
   bool _dialogVisible = false;
   String? _toastMessage;
   bool _toastIsError = false;
@@ -46,7 +45,6 @@ class _NeteaseViewState extends State<NeteaseView> {
   void prepareForLogout() {
     final bool wasDetail = _showPlaylistDetail;
     final bool hadToast = _toastMessage != null;
-    _promptedForCookie = false;
     _dialogVisible = false;
     _toastTimer?.cancel();
     _toastTimer = null;
@@ -153,10 +151,6 @@ class _NeteaseViewState extends State<NeteaseView> {
           prepareForLogout();
         }
         _hadSession = state.hasSession;
-        if (!state.isInitializing && !state.hasSession && !_promptedForCookie) {
-          _promptForCookie(force: true);
-          _promptedForCookie = true;
-        }
         if (state.errorMessage != null) {
           _showToast(state.errorMessage!, isError: true);
           context.read<NeteaseCubit>().clearMessage();
