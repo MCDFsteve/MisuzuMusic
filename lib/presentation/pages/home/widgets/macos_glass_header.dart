@@ -69,9 +69,11 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
   bool _dragRequested = false;
   bool _suppressDragUntilUp = false;
   bool _pointerStartedOverInteractive = false;
+  Offset? _initialPointerPosition;
 
   static const Duration _doubleClickTimeout = Duration(milliseconds: 300);
   static const double _doubleClickDistanceSquared = 36;
+  static const double _dragInitiateDistanceSquared = 16;
 
   Widget _wrapInteractiveRegion({
     required Widget child,
@@ -142,6 +144,8 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
       return;
     }
 
+    _initialPointerPosition = event.position;
+
     final previousTime = _lastPrimaryTapTime;
     final previousPosition = _lastPrimaryTapPosition;
     final currentTime = event.timeStamp;
@@ -174,7 +178,17 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
       return;
     }
 
+    final startPosition = _initialPointerPosition;
+    if (startPosition != null) {
+      final double distanceSquared =
+          (event.position - startPosition).distanceSquared;
+      if (distanceSquared < _dragInitiateDistanceSquared) {
+        return;
+      }
+    }
+
     _dragRequested = true;
+    _initialPointerPosition = null;
     unawaited(windowManager.startDragging());
   }
 
@@ -182,6 +196,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
     _dragRequested = false;
     _suppressDragUntilUp = false;
     _pointerStartedOverInteractive = false;
+    _initialPointerPosition = null;
   }
 
   void _handlePointerUp(PointerUpEvent event) {
