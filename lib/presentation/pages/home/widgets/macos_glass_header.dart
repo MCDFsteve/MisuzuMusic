@@ -65,7 +65,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
   final GlobalKey _windowsControlsKey = GlobalKey();
 
   Duration? _lastPrimaryTapTime;
-  Offset? _lastPrimaryTapPosition;
+  Offset? _lastPrimaryTapGlobalPosition;
   bool _dragRequested = false;
   bool _suppressDragUntilUp = false;
   bool _pointerStartedOverInteractive = false;
@@ -140,22 +140,22 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
     _pointerStartedOverInteractive = startedOverInteractive;
     if (startedOverInteractive) {
       _lastPrimaryTapTime = null;
-      _lastPrimaryTapPosition = null;
+      _lastPrimaryTapGlobalPosition = null;
       return;
     }
 
     _initialPointerPosition = event.position;
 
     final previousTime = _lastPrimaryTapTime;
-    final previousPosition = _lastPrimaryTapPosition;
+    final previousGlobalPosition = _lastPrimaryTapGlobalPosition;
     final currentTime = event.timeStamp;
 
     _dragRequested = false;
 
     final bool isDoubleClick = previousTime != null &&
-        previousPosition != null &&
+        previousGlobalPosition != null &&
         (currentTime - previousTime) <= _doubleClickTimeout &&
-        (event.localPosition - previousPosition).distanceSquared <=
+        (event.position - previousGlobalPosition).distanceSquared <=
             _doubleClickDistanceSquared;
 
     if (isDoubleClick) {
@@ -166,7 +166,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
     }
 
     _lastPrimaryTapTime = currentTime;
-    _lastPrimaryTapPosition = event.localPosition;
+    _lastPrimaryTapGlobalPosition = event.position;
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
