@@ -5,10 +5,12 @@ class NeteaseView extends StatefulWidget {
     super.key,
     this.onAddToPlaylist,
     this.onDetailStateChanged,
+    this.searchQuery = '',
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
+  final String searchQuery;
 
   @override
   State<NeteaseView> createState() => _NeteaseViewState();
@@ -38,6 +40,29 @@ class _NeteaseViewState extends State<NeteaseView> {
 
   void _notifyDetailState() {
     widget.onDetailStateChanged?.call(_showPlaylistDetail);
+  }
+
+  bool _matchesPlaylist(NeteasePlaylist playlist, String query) {
+    final lowerQuery = query.toLowerCase();
+    if (lowerQuery.isEmpty) {
+      return true;
+    }
+    final name = playlist.name.toLowerCase();
+    if (name.contains(lowerQuery)) {
+      return true;
+    }
+    final description = playlist.description?.toLowerCase() ?? '';
+    return description.contains(lowerQuery);
+  }
+
+  bool _matchesTrack(Track track, String query) {
+    final lowerQuery = query.toLowerCase();
+    if (lowerQuery.isEmpty) {
+      return true;
+    }
+    return track.title.toLowerCase().contains(lowerQuery) ||
+        track.artist.toLowerCase().contains(lowerQuery) ||
+        track.album.toLowerCase().contains(lowerQuery);
   }
 
   Future<void> _promptForCookie({bool force = false}) async {
@@ -149,12 +174,26 @@ class _NeteaseViewState extends State<NeteaseView> {
         onAction: () => context.read<NeteaseCubit>().refreshPlaylists(),
       );
     }
+    final query = widget.searchQuery.trim();
+    final hasQuery = query.isNotEmpty;
+    final playlists = hasQuery
+        ? state.playlists
+            .where((playlist) => _matchesPlaylist(playlist, query))
+            .toList()
+        : state.playlists;
+
+    if (hasQuery && playlists.isEmpty) {
+      return const _PlaylistMessage(
+        icon: CupertinoIcons.search,
+        message: '未找到匹配的歌单',
+      );
+    }
     return CollectionOverviewGrid(
-      itemCount: state.playlists.length,
+      itemCount: playlists.length,
       padding: const EdgeInsets.symmetric(horizontal: 24,vertical: 24),
       scrollbarMargin: EdgeInsets.zero,
       itemBuilder: (context, tileWidth, index) {
-        final playlist = state.playlists[index];
+        final playlist = playlists[index];
         final subtitle = playlist.description?.trim().isNotEmpty == true
             ? playlist.description!.trim()
             : '网络歌曲歌单';
@@ -192,13 +231,29 @@ class _NeteaseViewState extends State<NeteaseView> {
     if (tracks == null) {
       context.read<NeteaseCubit>().ensurePlaylistTracks(resolvedPlaylist.id);
     }
-    final Widget content = tracks == null
-        ? const Center(child: ProgressCircle())
-        : MacOSTrackListView(
-            tracks: tracks,
-            onAddToPlaylist: null,
-            additionalActionsBuilder: _neteaseContextActions,
-          );
+    final query = widget.searchQuery.trim();
+    final hasQuery = query.isNotEmpty;
+
+    final Widget content;
+    if (tracks == null) {
+      content = const Center(child: ProgressCircle());
+    } else {
+      final filteredTracks = hasQuery
+          ? tracks.where((track) => _matchesTrack(track, query)).toList()
+          : tracks;
+      if (hasQuery && filteredTracks.isEmpty) {
+        content = const _PlaylistMessage(
+          icon: CupertinoIcons.search,
+          message: '歌单中未找到匹配的歌曲',
+        );
+      } else {
+        content = MacOSTrackListView(
+          tracks: filteredTracks,
+          onAddToPlaylist: null,
+          additionalActionsBuilder: _neteaseContextActions,
+        );
+      }
+    }
 
     return Shortcuts(
       shortcuts: <LogicalKeySet, Intent>{

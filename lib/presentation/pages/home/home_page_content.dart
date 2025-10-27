@@ -591,6 +591,7 @@ class _HomePageContentState extends State<HomePageContent> {
           });
         }
       },
+      searchQuery: _activeSearchQuery,
     );
 
     final neteaseSection = NeteaseView(
@@ -603,6 +604,7 @@ class _HomePageContentState extends State<HomePageContent> {
           });
         }
       },
+      searchQuery: _activeSearchQuery,
     );
 
     final playlistSection = PlaylistView(

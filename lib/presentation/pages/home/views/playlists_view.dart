@@ -5,10 +5,12 @@ class PlaylistsView extends StatefulWidget {
     super.key,
     this.onAddToPlaylist,
     this.onDetailStateChanged,
+    this.searchQuery = '',
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
+  final String searchQuery;
 
   @override
   State<PlaylistsView> createState() => _PlaylistsViewState();
@@ -33,6 +35,29 @@ class _PlaylistsViewState extends State<PlaylistsView> {
 
   void _notifyDetailState() {
     widget.onDetailStateChanged?.call(_showList);
+  }
+
+  bool _matchesPlaylist(Playlist playlist, String query) {
+    final lowerQuery = query.toLowerCase();
+    if (lowerQuery.isEmpty) {
+      return true;
+    }
+    final name = playlist.name.toLowerCase();
+    if (name.contains(lowerQuery)) {
+      return true;
+    }
+    final description = playlist.description?.toLowerCase() ?? '';
+    return description.contains(lowerQuery);
+  }
+
+  bool _matchesTrack(Track track, String query) {
+    final lowerQuery = query.toLowerCase();
+    if (lowerQuery.isEmpty) {
+      return true;
+    }
+    return track.title.toLowerCase().contains(lowerQuery) ||
+        track.artist.toLowerCase().contains(lowerQuery) ||
+        track.album.toLowerCase().contains(lowerQuery);
   }
 
   Future<void> _editPlaylist(Playlist playlist) async {
@@ -180,6 +205,8 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     return BlocBuilder<PlaylistsCubit, PlaylistsState>(
       builder: (context, state) {
         final playlists = state.playlists;
+        final query = widget.searchQuery.trim();
+        final hasQuery = query.isNotEmpty;
 
         if (_activePlaylistId != null &&
             playlists.every((playlist) => playlist.id != _activePlaylistId)) {
@@ -206,11 +233,23 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           );
         }
 
+        final filteredPlaylists = hasQuery
+            ? playlists
+                .where((playlist) => _matchesPlaylist(playlist, query))
+                .toList()
+            : playlists;
+
         if (!_showList) {
+          if (hasQuery && filteredPlaylists.isEmpty) {
+            return const _PlaylistMessage(
+              icon: CupertinoIcons.search,
+              message: '未找到匹配的歌单',
+            );
+          }
           return CollectionOverviewGrid(
-            itemCount: playlists.length,
+            itemCount: filteredPlaylists.length,
             itemBuilder: (context, tileWidth, index) {
-              final playlist = playlists[index];
+              final playlist = filteredPlaylists[index];
               final subtitle = playlist.description?.trim().isNotEmpty == true
                   ? playlist.description!.trim()
                   : '歌单';
@@ -255,14 +294,30 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           context.read<PlaylistsCubit>().ensurePlaylistTracks(playlist.id);
         }
 
-        final content = isLoading
-            ? const Center(child: ProgressCircle())
-            : MacOSTrackListView(
-                tracks: tracks ?? const [],
-                onAddToPlaylist: widget.onAddToPlaylist,
-                onRemoveFromPlaylist: (track) =>
-                    _removeTrackFromPlaylist(playlist.id, track),
-              );
+        Widget content;
+        if (isLoading) {
+          content = const Center(child: ProgressCircle());
+        } else {
+          final List<Track> filteredTracks = hasQuery
+              ? (tracks ?? const [])
+                  .where((track) => _matchesTrack(track, query))
+                  .toList()
+              : (tracks ?? const []);
+
+          if (hasQuery && filteredTracks.isEmpty) {
+            content = const _PlaylistMessage(
+              icon: CupertinoIcons.search,
+              message: '歌单中未找到匹配的歌曲',
+            );
+          } else {
+            content = MacOSTrackListView(
+              tracks: filteredTracks,
+              onAddToPlaylist: widget.onAddToPlaylist,
+              onRemoveFromPlaylist: (track) =>
+                  _removeTrackFromPlaylist(playlist.id, track),
+            );
+          }
+        }
 
         return Shortcuts(
           shortcuts: <LogicalKeySet, Intent>{
