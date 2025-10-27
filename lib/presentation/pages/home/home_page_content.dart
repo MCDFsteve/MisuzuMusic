@@ -19,6 +19,11 @@ class _HomePageContentState extends State<HomePageContent> {
   Timer? _searchDebounce;
   bool _lyricsVisible = false;
   Track? _lyricsActiveTrack;
+  MusicLibraryLoaded? _cachedLibraryState;
+  Artist? _activeArtistDetail;
+  List<Track> _activeArtistTracks = const [];
+  Album? _activeAlbumDetail;
+  List<Track> _activeAlbumTracks = const [];
   final FocusNode _shortcutFocusNode = FocusNode();
   final GlobalKey<_PlaylistsViewState> _playlistsViewKey =
       GlobalKey<_PlaylistsViewState>();
@@ -101,6 +106,51 @@ class _HomePageContentState extends State<HomePageContent> {
     } else if (state is PlayerPaused) {
       bloc.add(const PlayerResume());
     }
+  }
+
+  bool get _hasActiveDetail =>
+      _activeArtistDetail != null || _activeAlbumDetail != null;
+
+  void _clearActiveDetail() {
+    if (!_hasActiveDetail) {
+      return;
+    }
+    setState(() {
+      _activeArtistDetail = null;
+      _activeArtistTracks = const [];
+      _activeAlbumDetail = null;
+      _activeAlbumTracks = const [];
+    });
+  }
+
+  void _showArtistDetail(Artist artist, List<Track> tracks) {
+    _searchDebounce?.cancel();
+    _musicLibraryViewKey.currentState?.exitToOverview();
+    setState(() {
+      _selectedIndex = 0;
+      _activeArtistDetail = artist;
+      _activeArtistTracks = tracks;
+      _activeAlbumDetail = null;
+      _activeAlbumTracks = const [];
+      _searchSuggestions = const [];
+      _searchQuery = '';
+      _activeSearchQuery = '';
+    });
+  }
+
+  void _showAlbumDetail(Album album, List<Track> tracks) {
+    _searchDebounce?.cancel();
+    _musicLibraryViewKey.currentState?.exitToOverview();
+    setState(() {
+      _selectedIndex = 0;
+      _activeAlbumDetail = album;
+      _activeAlbumTracks = tracks;
+      _activeArtistDetail = null;
+      _activeArtistTracks = const [];
+      _searchSuggestions = const [];
+      _searchQuery = '';
+      _activeSearchQuery = '';
+    });
   }
 
   Future<void> _handleCreatePlaylistFromHeader() async {
@@ -310,18 +360,24 @@ class _HomePageContentState extends State<HomePageContent> {
         switch (_selectedIndex) {
           case 0:
             showBackButton = true;
-            canNavigateBack = _musicLibraryCanNavigateBack;
-            backTooltip = '返回音乐库';
-            if (canNavigateBack) {
-              onNavigateBack = () => musicLibraryViewState?.exitToOverview();
-              final musicState = context.read<MusicLibraryBloc>().state;
-              if (musicState is MusicLibraryLoaded) {
-                sortMode = musicState.sortMode;
-                onSortModeChanged = (mode) {
-                  context.read<MusicLibraryBloc>().add(
-                    ChangeSortModeEvent(mode),
-                  );
-                };
+            if (_hasActiveDetail) {
+              canNavigateBack = true;
+              backTooltip = '返回音乐库';
+              onNavigateBack = _clearActiveDetail;
+            } else {
+              canNavigateBack = _musicLibraryCanNavigateBack;
+              backTooltip = '返回音乐库';
+              if (canNavigateBack) {
+                onNavigateBack = () => musicLibraryViewState?.exitToOverview();
+                final musicState = context.read<MusicLibraryBloc>().state;
+                if (musicState is MusicLibraryLoaded) {
+                  sortMode = musicState.sortMode;
+                  onSortModeChanged = (mode) {
+                    context.read<MusicLibraryBloc>().add(
+                      ChangeSortModeEvent(mode),
+                    );
+                  };
+                }
               }
             }
             break;
@@ -450,14 +506,16 @@ class _HomePageContentState extends State<HomePageContent> {
                                       Positioned.fill(
                                         child: Offstage(
                                           offstage: _lyricsVisible,
-                                          child: KeyedSubtree(
-                                            key: const ValueKey(
-                                              'mac_main_content',
-                                            ),
-                                            child: _buildMainContent(),
-                                          ),
+                                      child: KeyedSubtree(
+                                        key: ValueKey(
+                                          _hasActiveDetail
+                                              ? 'mac_detail_content'
+                                              : 'mac_main_content',
                                         ),
+                                        child: _buildMainContent(),
                                       ),
+                                    ),
+                                  ),
                                       Positioned.fill(
                                         child: AnimatedOpacity(
                                           duration: const Duration(
@@ -501,6 +559,9 @@ class _HomePageContentState extends State<HomePageContent> {
   Widget _buildMainContent() {
     switch (_selectedIndex) {
       case 0:
+        if (_hasActiveDetail) {
+          return _buildDetailContent();
+        }
         return MusicLibraryView(
           key: _musicLibraryViewKey,
           onAddToPlaylist: _handleAddTrackToPlaylist,
@@ -546,6 +607,24 @@ class _HomePageContentState extends State<HomePageContent> {
       default:
         return MusicLibraryView(onAddToPlaylist: _handleAddTrackToPlaylist);
     }
+  }
+
+  Widget _buildDetailContent() {
+    if (_activeArtistDetail != null) {
+      return ArtistDetailView(
+        artist: _activeArtistDetail!,
+        tracks: _activeArtistTracks,
+        onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
+      );
+    }
+    if (_activeAlbumDetail != null) {
+      return AlbumDetailView(
+        album: _activeAlbumDetail!,
+        tracks: _activeAlbumTracks,
+        onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   Future<void> _handleAddTrackToPlaylist(Track track) async {
@@ -628,6 +707,10 @@ class _HomePageContentState extends State<HomePageContent> {
       _searchQuery = '';
       _activeSearchQuery = '';
       _searchSuggestions = const [];
+      _activeArtistDetail = null;
+      _activeArtistTracks = const [];
+      _activeAlbumDetail = null;
+      _activeAlbumTracks = const [];
     });
 
     context.read<MusicLibraryBloc>().add(const LoadAllTracks());
@@ -804,6 +887,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
   void _playTrackAndShowLyrics(Track track) {
     debugPrint('[HomeContent] _playTrackAndShowLyrics -> ${track.title}');
+    _clearActiveDetail();
     final musicState = context.read<MusicLibraryBloc>().state;
     if (musicState is MusicLibraryLoaded) {
       final allTracks = List<Track>.from(musicState.tracks);
@@ -830,39 +914,33 @@ class _HomePageContentState extends State<HomePageContent> {
 
   void _openArtistDetail(Artist artist) {
     debugPrint('[HomeContent] _openArtistDetail ${artist.name}');
-    final state = context.read<MusicLibraryBloc>().state;
-    if (state is! MusicLibraryLoaded) {
-      debugPrint('[HomeContent] Artist detail aborted: library not loaded');
+    final blocState = context.read<MusicLibraryBloc>().state;
+    final MusicLibraryLoaded? effectiveState =
+        blocState is MusicLibraryLoaded ? blocState : _cachedLibraryState;
+    if (effectiveState == null) {
+      debugPrint('[HomeContent] Artist detail aborted: library not loaded, cache=${_cachedLibraryState != null}');
       return;
     }
-    final tracks = state.tracks.where((track) => track.artist == artist.name).toList();
+    final tracks =
+        effectiveState.tracks.where((track) => track.artist == artist.name).toList();
     if (tracks.isEmpty) {
       _showErrorDialog(context, '未找到该歌手的歌曲');
       debugPrint('[HomeContent] Artist detail aborted: no tracks');
       return;
     }
-
-    setState(() => _searchSuggestions = const []);
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ArtistDetailPage(
-          artist: artist,
-          tracks: tracks,
-          onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
-        ),
-      ),
-    );
+    _showArtistDetail(artist, tracks);
   }
 
   void _openAlbumDetail(Album album) {
     debugPrint('[HomeContent] _openAlbumDetail ${album.title}');
-    final state = context.read<MusicLibraryBloc>().state;
-    if (state is! MusicLibraryLoaded) {
-      debugPrint('[HomeContent] Album detail aborted: library not loaded');
+    final blocState = context.read<MusicLibraryBloc>().state;
+    final MusicLibraryLoaded? effectiveState =
+        blocState is MusicLibraryLoaded ? blocState : _cachedLibraryState;
+    if (effectiveState == null) {
+      debugPrint('[HomeContent] Album detail aborted: library not loaded, cache=${_cachedLibraryState != null}');
       return;
     }
-    final tracks = state.tracks
+    final tracks = effectiveState.tracks
         .where((track) => track.album == album.title && track.artist == album.artist)
         .toList()
       ..sort((a, b) {
@@ -878,23 +956,16 @@ class _HomePageContentState extends State<HomePageContent> {
       debugPrint('[HomeContent] Album detail aborted: no tracks');
       return;
     }
-
-    setState(() => _searchSuggestions = const []);
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AlbumDetailPage(
-          album: album,
-          tracks: tracks,
-          onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
-        ),
-      ),
-    );
+    _showAlbumDetail(album, tracks);
   }
 
   void _handleNavigationChange(int index) {
     if (_selectedIndex == index) {
       return;
+    }
+
+    if (_hasActiveDetail) {
+      _clearActiveDetail();
     }
 
     final bool shouldResetSearch =

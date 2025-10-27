@@ -19,37 +19,65 @@ class ArtistDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = MacosTheme.of(context);
+    return Scaffold(
+      backgroundColor: theme.canvasColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: theme.typography.body.color,
+        title: Text('歌手：${artist.name}'),
+      ),
+      body: ArtistDetailView(
+        artist: artist,
+        tracks: tracks,
+        onAddToPlaylist: onAddToPlaylist,
+      ),
+    );
+  }
+}
+
+class ArtistDetailView extends StatelessWidget {
+  const ArtistDetailView({
+    super.key,
+    required this.artist,
+    required this.tracks,
+    this.onAddToPlaylist,
+  });
+
+  final Artist artist;
+  final List<Track> tracks;
+  final Future<void> Function(Track track)? onAddToPlaylist;
+
+  Duration get _totalDuration => tracks.fold<Duration>(
+        Duration.zero,
+        (prev, track) => prev + track.duration,
+      );
+
+  @override
+  Widget build(BuildContext context) {
     final duration = _totalDuration;
     final totalMinutes = duration.inMinutes;
     final hour = totalMinutes ~/ 60;
     final minute = totalMinutes % 60;
 
-    return Scaffold(
-      backgroundColor: MacosTheme.of(context).canvasColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: MacosTheme.of(context).typography.body.color,
-        title: Text('歌手：${artist.name}'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
-            child: _ArtistOverviewCard(
-              artist: artist,
-              trackCount: tracks.length,
-              description: '总时长：${hour} 小时 ${minute} 分钟',
-            ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+          child: _ArtistOverviewCard(
+            artist: artist,
+            trackCount: tracks.length,
+            description: '总时长：${hour} 小时 ${minute} 分钟',
           ),
-          Expanded(
-            child: MacOSTrackListView(
-              tracks: tracks,
-              onAddToPlaylist: onAddToPlaylist,
-            ),
+        ),
+        Expanded(
+          child: MacOSTrackListView(
+            tracks: tracks,
+            onAddToPlaylist: onAddToPlaylist,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

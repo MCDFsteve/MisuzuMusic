@@ -24,40 +24,72 @@ class AlbumDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = MacosTheme.of(context);
+    return Scaffold(
+      backgroundColor: theme.canvasColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: theme.typography.body.color,
+        title: Text('专辑：${album.title}'),
+      ),
+      body: AlbumDetailView(
+        album: album,
+        tracks: tracks,
+        onAddToPlaylist: onAddToPlaylist,
+      ),
+    );
+  }
+}
+
+class AlbumDetailView extends StatelessWidget {
+  const AlbumDetailView({
+    super.key,
+    required this.album,
+    required this.tracks,
+    this.onAddToPlaylist,
+  });
+
+  final Album album;
+  final List<Track> tracks;
+  final Future<void> Function(Track track)? onAddToPlaylist;
+
+  Duration get _totalDuration => tracks.fold<Duration>(
+        Duration.zero,
+        (prev, track) => prev + track.duration,
+      );
+
+  Track? get _previewTrack => tracks.isEmpty ? null : tracks.firstWhere(
+        (track) => track.artworkPath != null && track.artworkPath!.isNotEmpty,
+        orElse: () => tracks.first,
+      );
+
+  @override
+  Widget build(BuildContext context) {
     final duration = _totalDuration;
     final minutes = duration.inMinutes;
     final hour = minutes ~/ 60;
     final minute = minutes % 60;
-
     final preview = _previewTrack;
 
-    return Scaffold(
-      backgroundColor: MacosTheme.of(context).canvasColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: MacosTheme.of(context).typography.body.color,
-        title: Text('专辑：${album.title}'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
-            child: _AlbumOverviewCard(
-              album: album,
-              trackCount: tracks.length,
-              description: '总时长：${hour} 小时 ${minute} 分钟',
-              previewTrack: preview,
-            ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+          child: _AlbumOverviewCard(
+            album: album,
+            trackCount: tracks.length,
+            description: '总时长：${hour} 小时 ${minute} 分钟',
+            previewTrack: preview,
           ),
-          Expanded(
-            child: MacOSTrackListView(
-              tracks: tracks,
-              onAddToPlaylist: onAddToPlaylist,
-            ),
+        ),
+        Expanded(
+          child: MacOSTrackListView(
+            tracks: tracks,
+            onAddToPlaylist: onAddToPlaylist,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
