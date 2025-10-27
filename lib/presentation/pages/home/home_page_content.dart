@@ -557,56 +557,74 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Widget _buildMainContent() {
-    switch (_selectedIndex) {
-      case 0:
-        if (_hasActiveDetail) {
-          return _buildDetailContent();
+    final libraryView = MusicLibraryView(
+      key: _musicLibraryViewKey,
+      onAddToPlaylist: _handleAddTrackToPlaylist,
+      onDetailStateChanged: (value) {
+        if (_musicLibraryCanNavigateBack != value) {
+          setState(() {
+            _musicLibraryCanNavigateBack = value;
+          });
         }
-        return MusicLibraryView(
-          key: _musicLibraryViewKey,
-          onAddToPlaylist: _handleAddTrackToPlaylist,
-          onDetailStateChanged: (value) {
-            if (_musicLibraryCanNavigateBack != value) {
-              setState(() {
-                _musicLibraryCanNavigateBack = value;
-              });
-            }
-          },
-        );
-      case 1:
-        return PlaylistsView(
-          key: _playlistsViewKey,
-          onAddToPlaylist: _handleAddTrackToPlaylist,
-          onDetailStateChanged: (value) {
-            if (_playlistsCanNavigateBack != value) {
-              setState(() {
-                _playlistsCanNavigateBack = value;
-              });
-            }
-          },
-        );
-      case 2:
-        return NeteaseView(
-          key: _neteaseViewKey,
-          onAddToPlaylist: _handleAddTrackToPlaylist,
-          onDetailStateChanged: (value) {
-            if (_neteaseCanNavigateBack != value) {
-              setState(() {
-                _neteaseCanNavigateBack = value;
-              });
-            }
-          },
-        );
-      case 3:
-        return PlaylistView(
-          searchQuery: _activeSearchQuery,
-          onAddToPlaylist: _handleAddTrackToPlaylist,
-        );
-      case 4:
-        return const SettingsView();
-      default:
-        return MusicLibraryView(onAddToPlaylist: _handleAddTrackToPlaylist);
-    }
+      },
+    );
+
+    final detailContent = _hasActiveDetail
+        ? _buildDetailContent()
+        : const SizedBox.shrink();
+
+    final librarySection = IndexedStack(
+      index: _hasActiveDetail ? 1 : 0,
+      children: [
+        libraryView,
+        detailContent,
+      ],
+    );
+
+    final playlistsSection = PlaylistsView(
+      key: _playlistsViewKey,
+      onAddToPlaylist: _handleAddTrackToPlaylist,
+      onDetailStateChanged: (value) {
+        if (_playlistsCanNavigateBack != value) {
+          setState(() {
+            _playlistsCanNavigateBack = value;
+          });
+        }
+      },
+    );
+
+    final neteaseSection = NeteaseView(
+      key: _neteaseViewKey,
+      onAddToPlaylist: _handleAddTrackToPlaylist,
+      onDetailStateChanged: (value) {
+        if (_neteaseCanNavigateBack != value) {
+          setState(() {
+            _neteaseCanNavigateBack = value;
+          });
+        }
+      },
+    );
+
+    final playlistSection = PlaylistView(
+      key: ValueKey(_activeSearchQuery),
+      searchQuery: _activeSearchQuery,
+      onAddToPlaylist: _handleAddTrackToPlaylist,
+    );
+
+    final pages = <Widget>[
+      librarySection,
+      playlistsSection,
+      neteaseSection,
+      playlistSection,
+      const SettingsView(),
+    ];
+
+    final int safeIndex = _selectedIndex.clamp(0, pages.length - 1);
+
+    return IndexedStack(
+      index: safeIndex,
+      children: pages,
+    );
   }
 
   Widget _buildDetailContent() {
@@ -962,10 +980,6 @@ class _HomePageContentState extends State<HomePageContent> {
   void _handleNavigationChange(int index) {
     if (_selectedIndex == index) {
       return;
-    }
-
-    if (_hasActiveDetail) {
-      _clearActiveDetail();
     }
 
     final bool shouldResetSearch =

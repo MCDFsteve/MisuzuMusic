@@ -97,6 +97,19 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
     final maxScrollExtent = position.maxScrollExtent;
     final viewportExtent = position.viewportDimension;
 
+    if (viewportExtent <= 0) {
+      if (_isScrollable || force) {
+        setState(() {
+          _isScrollable = false;
+          _thumbExtent = 0;
+          _thumbOffset = 0;
+          _isRailVisible = false;
+        });
+        _hideTimer?.cancel();
+      }
+      return;
+    }
+
     if (maxScrollExtent <= 0) {
       if (_isScrollable || force) {
         setState(() {
@@ -112,8 +125,12 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
 
     final totalExtent = viewportExtent + maxScrollExtent;
     final visibleFraction = (viewportExtent / totalExtent).clamp(0.0, 1.0);
+    final double minThumbExtent = widget.minThumbExtent;
+    final double clampedMin = minThumbExtent <= viewportExtent
+        ? minThumbExtent
+        : viewportExtent;
     final thumbExtent = (visibleFraction * viewportExtent)
-        .clamp(widget.minThumbExtent, viewportExtent);
+        .clamp(clampedMin, viewportExtent);
     final scrollFraction = (position.pixels / maxScrollExtent).clamp(0.0, 1.0);
     final thumbOffset = scrollFraction * (viewportExtent - thumbExtent);
 
