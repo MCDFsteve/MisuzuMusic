@@ -59,6 +59,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   PlayMode _playMode = PlayMode.repeatAll;
   double _volume = 1.0;
   DateTime _lastPositionPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
+  Duration? _pendingRestorePosition;
+  bool _restoringSession = false;
 
   // Shuffle management
   List<int> _shuffleIndexes = [];  // 洗牌后的索引列表
@@ -102,6 +104,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     _positionSubscription = _audioPlayer.positionStream.listen(
       (position) {
         _positionSubject.add(position);
+        if (_currentTrack == null) {
+          print('💾 AudioService: 忽略位置更新（当前没有音轨）');
+          return;
+        }
         unawaited(_persistPosition(position));
       },
       onError: (error) {
@@ -181,12 +187,26 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _configStore.setValue(StorageKeys.playbackQueueIndex, _currentIndex);
   }
 
-  Future<void> _persistPosition(Duration position) async {
+  Future<void> _persistPosition(
+    Duration position, {
+    bool force = false,
+  }) async {
     final now = DateTime.now();
-    if (now.difference(_lastPositionPersistTime).inMilliseconds < 500) {
+    if (!force &&
+        _restoringSession &&
+        _pendingRestorePosition != null &&
+        position.inMilliseconds == 0) {
+      print('💾 AudioService: 忽略 0 进度写入（正在恢复会话）');
+      return;
+    }
+    if (!force &&
+        now.difference(_lastPositionPersistTime).inMilliseconds < 500) {
       return;
     }
     _lastPositionPersistTime = now;
+    print(
+      '💾 AudioService: 保存播放进度 -> ${position.inMilliseconds}ms (force=$force)',
+    );
     await _configStore.setValue(
       StorageKeys.playbackPosition,
       position.inMilliseconds,
@@ -262,6 +282,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> play(Track track, {String? fingerprint}) async {
     try {
+      _restoringSession = false;
+      _pendingRestorePosition = null;
       final playableTrack = await _resolvePlayableTrack(
         track,
         fingerprint: fingerprint,
@@ -271,6 +293,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       print('🎵 AudioService: 文件路径 - ${playableTrack.filePath}');
 
       _updateCurrentTrack(playableTrack);
+      _positionSubject.add(Duration.zero);
       await _setAudioSource(playableTrack);
       await _audioPlayer.play();
 
@@ -294,7 +317,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         _currentIndex = index;
       }
       await _persistQueueState();
-      await _persistPosition(Duration.zero);
+      if (_restoringSession && _pendingRestorePosition != null) {
+        print('💾 AudioService: 跳过存储 0 进度（正在恢复会话）');
+      } else {
+        await _persistPosition(Duration.zero, force: true);
+      }
 
       print('🎵 AudioService: 播放命令执行完成');
       unawaited(_recordPlayback(playableTrack));
@@ -317,6 +344,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
       print('🎵 AudioService: 预加载音轨 - ${playableTrack.title}');
       _updateCurrentTrack(playableTrack);
+      _positionSubject.add(Duration.zero);
       await _setAudioSource(playableTrack);
 
       final index = _queue.indexWhere(
@@ -326,7 +354,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         _currentIndex = index;
       }
       await _persistQueueState();
-      await _persistPosition(Duration.zero);
+      if (_restoringSession && _pendingRestorePosition != null) {
+        print('💾 AudioService: 跳过存储 0 进度（正在恢复会话）');
+      } else {
+        await _persistPosition(Duration.zero, force: true);
+      }
     } catch (e) {
       print('❌ AudioService: 预加载音轨失败 - $e');
       if (e is AudioPlaybackException) {
@@ -372,7 +404,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     try {
       await _audioPlayer.stop();
       _updateCurrentTrack(null);
-      await _persistPosition(Duration.zero);
+      _positionSubject.add(Duration.zero);
+      await _persistPosition(Duration.zero, force: true);
     } catch (e) {
       throw AudioPlaybackException('Failed to stop: ${e.toString()}');
     }
@@ -382,7 +415,19 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   Future<void> seekTo(Duration position) async {
     try {
       await _audioPlayer.seek(position);
-      await _persistPosition(position);
+      _positionSubject.add(position);
+      await _persistPosition(position, force: true);
+      if (_restoringSession && _pendingRestorePosition != null) {
+        final diff =
+            (position - _pendingRestorePosition!).inMilliseconds.abs();
+        if (diff <= 500) {
+          print(
+            '💾 AudioService: 恢复进度完成 (${position.inMilliseconds}ms)',
+          );
+          _restoringSession = false;
+          _pendingRestorePosition = null;
+        }
+      }
     } catch (e) {
       throw AudioPlaybackException('Failed to seek: ${e.toString()}');
     }
@@ -687,6 +732,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
           (_configStore.getValue<dynamic>(StorageKeys.playbackPosition) as num?)
               ?.toInt() ??
           0;
+      print(
+        '💾 AudioService: 加载上次会话 -> 队列${queue.length}首, 索引=$savedIndex, 进度=${positionMs}ms',
+      );
       final savedMode = _configStore.getValue<String>(StorageKeys.playMode);
       final playMode = savedMode != null
           ? () {
@@ -710,6 +758,15 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
           : savedIndex.clamp(0, queue.length - 1);
 
       final safePositionMs = positionMs < 0 ? 0 : positionMs;
+
+      if (safePositionMs > 0) {
+        _restoringSession = true;
+        _pendingRestorePosition = Duration(milliseconds: safePositionMs);
+        print('💾 AudioService: 准备恢复进度 ${safePositionMs}ms');
+      } else {
+        _restoringSession = false;
+        _pendingRestorePosition = null;
+      }
 
       return PlaybackSession(
         queue: queue,
