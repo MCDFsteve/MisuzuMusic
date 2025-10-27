@@ -1060,6 +1060,14 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   }
 
   Future<void> _setAudioSource(Track track) async {
+    if (Platform.isWindows && _audioPlayer.playing) {
+      try {
+        await _audioPlayer.pause();
+      } catch (error) {
+        print('⚠️ AudioService: Windows 切换音轨前暂停失败 -> $error');
+      }
+    }
+
     if (track.sourceType == TrackSourceType.webdav) {
       final streamInfo = await _buildWebDavStreamInfo(track);
       await _audioPlayer.setUrl(
