@@ -21,6 +21,10 @@ class _MacOSGlassHeader extends StatefulWidget {
     this.showCreatePlaylistButton = true,
     this.showSelectFolderButton = true,
     this.onInteract,
+    this.showLogoutButton = false,
+    this.logoutEnabled = true,
+    this.onLogout,
+    this.logoutTooltip = '退出登录',
   });
 
   final double height;
@@ -42,6 +46,10 @@ class _MacOSGlassHeader extends StatefulWidget {
   final bool showCreatePlaylistButton;
   final bool showSelectFolderButton;
   final VoidCallback? onInteract;
+  final bool showLogoutButton;
+  final bool logoutEnabled;
+  final VoidCallback? onLogout;
+  final String logoutTooltip;
 
   @override
   State<_MacOSGlassHeader> createState() => _MacOSGlassHeaderState();
@@ -263,6 +271,34 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                       ),
                     ),
                   if (widget.showBackButton) SizedBox(width: actionSpacing),
+                  if (!widget.showBackButton && widget.showLogoutButton)
+                    SizedBox(width: actionSpacing),
+                  if (widget.showLogoutButton)
+                    _HeaderTooltip(
+                      useMacStyle: !isWindows,
+                      message: widget.logoutTooltip,
+                      child: _HeaderIconButton(
+                        baseColor: widget.logoutEnabled
+                            ? textColor.withOpacity(0.72)
+                            : textColor.withOpacity(0.24),
+                        hoverColor: textColor,
+                        size: actionButtonSize,
+                        iconSize: primaryIconSize,
+                        icon: CupertinoIcons.square_arrow_left,
+                        onPressed: widget.logoutEnabled
+                            ? () {
+                                handleInteraction();
+                                widget.onLogout?.call();
+                              }
+                            : null,
+                        enabled: widget.logoutEnabled,
+                        isWindowsStyle: isWindows,
+                      ),
+                    ),
+                  if (widget.showLogoutButton &&
+                      (widget.showCreatePlaylistButton ||
+                          widget.showSelectFolderButton))
+                    SizedBox(width: actionSpacing),
                   if (widget.showCreatePlaylistButton)
                     _HeaderTooltip(
                       useMacStyle: !isWindows,

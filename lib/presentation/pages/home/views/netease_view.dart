@@ -28,6 +28,7 @@ class _NeteaseViewState extends State<NeteaseView> {
   String? _toastMessage;
   bool _toastIsError = false;
   Timer? _toastTimer;
+  bool _hadSession = false;
 
   bool get canNavigateBack => _showPlaylistDetail;
 
@@ -40,6 +41,38 @@ class _NeteaseViewState extends State<NeteaseView> {
       _activePlaylistId = null;
     });
     _notifyDetailState();
+  }
+
+  void prepareForLogout() {
+    final bool wasDetail = _showPlaylistDetail;
+    final bool hadToast = _toastMessage != null;
+    _promptedForCookie = false;
+    _dialogVisible = false;
+    _toastTimer?.cancel();
+    _toastTimer = null;
+
+    if (!(hadToast || wasDetail)) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      if (wasDetail) {
+        _showPlaylistDetail = false;
+        _activePlaylistId = null;
+      }
+      if (hadToast) {
+        _toastMessage = null;
+        _toastIsError = false;
+      }
+    });
+
+    if (wasDetail) {
+      _notifyDetailState();
+    }
   }
 
   void openPlaylistById(int playlistId) {
@@ -116,6 +149,10 @@ class _NeteaseViewState extends State<NeteaseView> {
   Widget build(BuildContext context) {
     return BlocConsumer<NeteaseCubit, NeteaseState>(
       listener: (context, state) {
+        if (_hadSession && !state.hasSession) {
+          prepareForLogout();
+        }
+        _hadSession = state.hasSession;
         if (!state.isInitializing && !state.hasSession && !_promptedForCookie) {
           _promptForCookie(force: true);
           _promptedForCookie = true;

@@ -364,6 +364,10 @@ class _HomePageContentState extends State<HomePageContent> {
         String backTooltip = '返回上一层';
         TrackSortMode? sortMode;
         ValueChanged<TrackSortMode>? onSortModeChanged;
+        bool showLogoutButton = false;
+        bool logoutEnabled = false;
+        VoidCallback? onLogout;
+        String logoutTooltip = '退出登录';
         final playlistsViewState = _playlistsViewKey.currentState;
         final musicLibraryViewState = _musicLibraryViewKey.currentState;
 
@@ -410,6 +414,15 @@ class _HomePageContentState extends State<HomePageContent> {
             if (canNavigateBack) {
               onNavigateBack = () =>
                   _neteaseViewKey.currentState?.exitToOverview();
+            }
+            if (neteaseState.hasSession) {
+              showLogoutButton = true;
+              logoutEnabled = !neteaseState.isSubmittingCookie;
+              logoutTooltip = '退出网络歌曲登录';
+              onLogout = () {
+                _neteaseViewKey.currentState?.prepareForLogout();
+                context.read<NeteaseCubit>().logout();
+              };
             }
             break;
           default:
@@ -505,6 +518,10 @@ class _HomePageContentState extends State<HomePageContent> {
                                       showCreatePlaylistButton,
                                   showSelectFolderButton:
                                       showSelectFolderButton,
+                                  showLogoutButton: showLogoutButton,
+                                  logoutEnabled: logoutEnabled,
+                                  onLogout: onLogout,
+                                  logoutTooltip: logoutTooltip,
                                   onInteract: _dismissLyricsOverlay,
                                 ),
                                 Expanded(
