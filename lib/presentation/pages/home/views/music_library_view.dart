@@ -5,10 +5,14 @@ class MusicLibraryView extends StatefulWidget {
     super.key,
     this.onAddToPlaylist,
     this.onDetailStateChanged,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   State<MusicLibraryView> createState() => _MusicLibraryViewState();
@@ -531,6 +535,8 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
           final listWidget = MacOSTrackListView(
             tracks: filteredTracks,
             onAddToPlaylist: widget.onAddToPlaylist,
+            onViewArtist: widget.onViewArtist,
+            onViewAlbum: widget.onViewAlbum,
           );
 
           if (_activeFilterKey != null) {

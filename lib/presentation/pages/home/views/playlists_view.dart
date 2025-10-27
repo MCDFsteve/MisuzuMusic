@@ -6,11 +6,15 @@ class PlaylistsView extends StatefulWidget {
     this.onAddToPlaylist,
     this.onDetailStateChanged,
     this.searchQuery = '',
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
   final String searchQuery;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   State<PlaylistsView> createState() => _PlaylistsViewState();
@@ -310,12 +314,14 @@ class _PlaylistsViewState extends State<PlaylistsView> {
               message: '歌单中未找到匹配的歌曲',
             );
           } else {
-            content = MacOSTrackListView(
-              tracks: filteredTracks,
-              onAddToPlaylist: widget.onAddToPlaylist,
-              onRemoveFromPlaylist: (track) =>
-                  _removeTrackFromPlaylist(playlist.id, track),
-            );
+        content = MacOSTrackListView(
+          tracks: filteredTracks,
+          onAddToPlaylist: widget.onAddToPlaylist,
+          onRemoveFromPlaylist: (track) =>
+              _removeTrackFromPlaylist(playlist.id, track),
+          onViewArtist: widget.onViewArtist,
+          onViewAlbum: widget.onViewAlbum,
+        );
           }
         }
 

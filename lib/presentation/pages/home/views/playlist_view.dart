@@ -5,10 +5,14 @@ class PlaylistView extends StatelessWidget {
     super.key,
     required this.searchQuery,
     this.onAddToPlaylist,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final String searchQuery;
   final ValueChanged<Track>? onAddToPlaylist;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +38,8 @@ class PlaylistView extends StatelessWidget {
               entries: state.entries,
               searchQuery: trimmedQuery,
               onAddToPlaylist: onAddToPlaylist,
+              onViewArtist: onViewArtist,
+              onViewAlbum: onViewAlbum,
             );
         }
       },
@@ -46,11 +52,15 @@ class _PlaylistHistoryList extends StatelessWidget {
     required this.entries,
     required this.searchQuery,
     this.onAddToPlaylist,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final List<PlaybackHistoryEntry> entries;
   final String searchQuery;
   final ValueChanged<Track>? onAddToPlaylist;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   Widget build(BuildContext context) {
@@ -139,6 +149,30 @@ class _PlaylistHistoryList extends StatelessWidget {
     Track track,
   ) async {
     final actions = <MacosContextMenuAction>[];
+    final artistName = track.artist.trim();
+    final albumName = track.album.trim();
+    final canViewArtist =
+        onViewArtist != null && artistName.isNotEmpty;
+    final canViewAlbum = onViewAlbum != null && albumName.isNotEmpty;
+
+    if (canViewArtist) {
+      actions.add(
+        MacosContextMenuAction(
+          label: '查看歌手',
+          icon: CupertinoIcons.person_crop_circle,
+          onSelected: () => onViewArtist?.call(track),
+        ),
+      );
+    }
+    if (canViewAlbum) {
+      actions.add(
+        MacosContextMenuAction(
+          label: '查看专辑',
+          icon: CupertinoIcons.music_albums,
+          onSelected: () => onViewAlbum?.call(track),
+        ),
+      );
+    }
 
     if (track.isNeteaseTrack) {
       actions.add(

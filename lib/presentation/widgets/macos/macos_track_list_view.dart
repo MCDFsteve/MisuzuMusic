@@ -23,6 +23,8 @@ class MacOSTrackListView extends StatelessWidget {
     this.onRemoveFromPlaylist,
     this.additionalActionsBuilder,
     this.onTrackSelected,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final List<Track> tracks;
@@ -30,6 +32,8 @@ class MacOSTrackListView extends StatelessWidget {
   final ValueChanged<Track>? onRemoveFromPlaylist;
   final List<MacosContextMenuAction> Function(Track track)? additionalActionsBuilder;
   final ValueChanged<Track>? onTrackSelected;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   Widget build(BuildContext context) {
@@ -122,12 +126,39 @@ class MacOSTrackListView extends StatelessWidget {
     final customActions = additionalActionsBuilder != null
         ? additionalActionsBuilder!(track)
         : const <MacosContextMenuAction>[];
+    final artistName = track.artist.trim();
+    final albumName = track.album.trim();
+    final canViewArtist =
+        onViewArtist != null && artistName.isNotEmpty;
+    final canViewAlbum = onViewAlbum != null && albumName.isNotEmpty;
 
-    if (!hasAdd && !hasRemove && customActions.isEmpty) {
+    if (!hasAdd &&
+        !hasRemove &&
+        customActions.isEmpty &&
+        !canViewArtist &&
+        !canViewAlbum) {
       return;
     }
 
     final actions = <MacosContextMenuAction>[];
+    if (canViewArtist) {
+      actions.add(
+        MacosContextMenuAction(
+          label: '查看歌手',
+          icon: CupertinoIcons.person_crop_circle,
+          onSelected: () => onViewArtist?.call(track),
+        ),
+      );
+    }
+    if (canViewAlbum) {
+      actions.add(
+        MacosContextMenuAction(
+          label: '查看专辑',
+          icon: CupertinoIcons.music_albums,
+          onSelected: () => onViewAlbum?.call(track),
+        ),
+      );
+    }
     if (customActions.isNotEmpty) {
       actions.addAll(customActions);
     }

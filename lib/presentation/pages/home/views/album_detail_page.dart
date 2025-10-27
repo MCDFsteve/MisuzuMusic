@@ -6,11 +6,15 @@ class AlbumDetailPage extends StatelessWidget {
     required this.album,
     required this.tracks,
     this.onAddToPlaylist,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final Album album;
   final List<Track> tracks;
   final Future<void> Function(Track track)? onAddToPlaylist;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   Duration get _totalDuration => tracks.fold<Duration>(
         Duration.zero,
@@ -37,6 +41,8 @@ class AlbumDetailPage extends StatelessWidget {
         album: album,
         tracks: tracks,
         onAddToPlaylist: onAddToPlaylist,
+        onViewArtist: onViewArtist,
+        onViewAlbum: onViewAlbum,
       ),
     );
   }
@@ -48,11 +54,15 @@ class AlbumDetailView extends StatelessWidget {
     required this.album,
     required this.tracks,
     this.onAddToPlaylist,
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final Album album;
   final List<Track> tracks;
   final Future<void> Function(Track track)? onAddToPlaylist;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   Duration get _totalDuration => tracks.fold<Duration>(
         Duration.zero,
@@ -87,6 +97,8 @@ class AlbumDetailView extends StatelessWidget {
           child: MacOSTrackListView(
             tracks: tracks,
             onAddToPlaylist: onAddToPlaylist,
+            onViewArtist: onViewArtist,
+            onViewAlbum: onViewAlbum,
           ),
         ),
       ],

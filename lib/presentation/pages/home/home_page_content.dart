@@ -65,7 +65,9 @@ class _HomePageContentState extends State<HomePageContent> {
       onKeyEvent: _handleKeyEvent,
       child: BlocListener<MusicLibraryBloc, MusicLibraryState>(
         listener: (context, state) {
-          if (state is MusicLibraryScanComplete) {
+          if (state is MusicLibraryLoaded) {
+            _cachedLibraryState = state;
+          } else if (state is MusicLibraryScanComplete) {
             _showScanCompleteDialog(
               context,
               state.tracksAdded,
@@ -576,6 +578,8 @@ class _HomePageContentState extends State<HomePageContent> {
           });
         }
       },
+      onViewArtist: _viewTrackArtist,
+      onViewAlbum: _viewTrackAlbum,
     );
 
     final detailContent = _hasActiveDetail
@@ -601,6 +605,8 @@ class _HomePageContentState extends State<HomePageContent> {
         }
       },
       searchQuery: _activeSearchQuery,
+      onViewArtist: _viewTrackArtist,
+      onViewAlbum: _viewTrackAlbum,
     );
 
     final neteaseSection = NeteaseView(
@@ -614,12 +620,16 @@ class _HomePageContentState extends State<HomePageContent> {
         }
       },
       searchQuery: _activeSearchQuery,
+      onViewArtist: _viewTrackArtist,
+      onViewAlbum: _viewTrackAlbum,
     );
 
     final playlistSection = PlaylistView(
       key: ValueKey(_activeSearchQuery),
       searchQuery: _activeSearchQuery,
       onAddToPlaylist: _handleAddTrackToPlaylist,
+      onViewArtist: _viewTrackArtist,
+      onViewAlbum: _viewTrackAlbum,
     );
 
     final pages = <Widget>[
@@ -644,6 +654,8 @@ class _HomePageContentState extends State<HomePageContent> {
         artist: _activeArtistDetail!,
         tracks: _activeArtistTracks,
         onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
+        onViewArtist: _viewTrackArtist,
+        onViewAlbum: _viewTrackAlbum,
       );
     }
     if (_activeAlbumDetail != null) {
@@ -651,6 +663,8 @@ class _HomePageContentState extends State<HomePageContent> {
         album: _activeAlbumDetail!,
         tracks: _activeAlbumTracks,
         onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
+        onViewArtist: _viewTrackArtist,
+        onViewAlbum: _viewTrackAlbum,
       );
     }
     return const SizedBox.shrink();
@@ -682,6 +696,98 @@ class _HomePageContentState extends State<HomePageContent> {
     } else if (result != null && result.isNotEmpty) {
       await playlistsCubit.ensurePlaylistTracks(result, force: true);
     }
+  }
+
+  MusicLibraryLoaded? _effectiveLibraryState() {
+    final blocState = context.read<MusicLibraryBloc>().state;
+    if (blocState is MusicLibraryLoaded) {
+      return blocState;
+    }
+    return _cachedLibraryState;
+  }
+
+  void _viewTrackArtist(Track track) {
+    final name = track.artist.trim();
+    if (name.isEmpty) {
+      _showOperationSnackBar('该歌曲缺少歌手信息', isError: true);
+      return;
+    }
+
+    final library = _effectiveLibraryState();
+    if (library == null) {
+      _showOperationSnackBar('音乐库尚未加载完成', isError: true);
+      return;
+    }
+
+    final lowerName = name.toLowerCase();
+    final artistTracks = library.tracks
+        .where((t) => t.artist.trim().toLowerCase() == lowerName)
+        .toList();
+    if (artistTracks.isEmpty) {
+      _showOperationSnackBar('音乐库中未找到该歌手', isError: true);
+      return;
+    }
+
+    final artist = library.artists.firstWhere(
+      (a) => a.name.trim().toLowerCase() == lowerName,
+      orElse: () => Artist(
+        name: name,
+        trackCount: artistTracks.length,
+        artworkPath: artistTracks.first.artworkPath,
+      ),
+    );
+
+    _showArtistDetail(artist, artistTracks);
+  }
+
+  void _viewTrackAlbum(Track track) {
+    final albumName = track.album.trim();
+    final artistName = track.artist.trim();
+    if (albumName.isEmpty) {
+      _showOperationSnackBar('该歌曲缺少专辑信息', isError: true);
+      return;
+    }
+
+    final library = _effectiveLibraryState();
+    if (library == null) {
+      _showOperationSnackBar('音乐库尚未加载完成', isError: true);
+      return;
+    }
+
+    final lowerAlbum = albumName.toLowerCase();
+    final lowerArtist = artistName.toLowerCase();
+    final albumTracks = library.tracks
+        .where((t) =>
+            t.album.trim().toLowerCase() == lowerAlbum &&
+            t.artist.trim().toLowerCase() == lowerArtist)
+        .toList();
+
+    if (albumTracks.isEmpty) {
+      _showOperationSnackBar('音乐库中未找到该专辑', isError: true);
+      return;
+    }
+
+    final album = library.albums.firstWhere(
+      (a) =>
+          a.title.trim().toLowerCase() == lowerAlbum &&
+          a.artist.trim().toLowerCase() == lowerArtist,
+      orElse: () {
+        final totalDuration = albumTracks.fold<Duration>(
+          Duration.zero,
+          (prev, item) => prev + item.duration,
+        );
+        return Album(
+          title: albumName,
+          artist: artistName.isEmpty ? albumTracks.first.artist : artistName,
+          trackCount: albumTracks.length,
+          year: null,
+          artworkPath: albumTracks.first.artworkPath,
+          totalDuration: totalDuration,
+        );
+      },
+    );
+
+    _showAlbumDetail(album, albumTracks);
   }
 
   void navigateToSettingsFromMenu() {

@@ -6,11 +6,15 @@ class NeteaseView extends StatefulWidget {
     this.onAddToPlaylist,
     this.onDetailStateChanged,
     this.searchQuery = '',
+    this.onViewArtist,
+    this.onViewAlbum,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
   final String searchQuery;
+  final ValueChanged<Track>? onViewArtist;
+  final ValueChanged<Track>? onViewAlbum;
 
   @override
   State<NeteaseView> createState() => _NeteaseViewState();
@@ -260,6 +264,8 @@ class _NeteaseViewState extends State<NeteaseView> {
           tracks: filteredTracks,
           onAddToPlaylist: null,
           additionalActionsBuilder: _neteaseContextActions,
+          onViewArtist: widget.onViewArtist,
+          onViewAlbum: widget.onViewAlbum,
         );
       }
     }
