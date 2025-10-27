@@ -64,15 +64,16 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
   final GlobalKey _selectFolderButtonKey = GlobalKey();
   final GlobalKey _windowsControlsKey = GlobalKey();
 
-  Duration? _lastPrimaryTapTime;
-  Offset? _lastPrimaryTapGlobalPosition;
+  Duration? _lastPrimaryTapUpTime;
+  Offset? _lastPrimaryTapUpGlobalPosition;
   bool _dragRequested = false;
   bool _suppressDragUntilUp = false;
   bool _pointerStartedOverInteractive = false;
   Offset? _initialPointerPosition;
+  bool _pendingDoubleClick = false;
 
-  static const Duration _doubleClickTimeout = Duration(milliseconds: 300);
-  static const double _doubleClickDistanceSquared = 36;
+  static const Duration _doubleClickTimeout = Duration(milliseconds: 500);
+  static const double _doubleClickDistanceSquared = 144;
   static const double _dragInitiateDistanceSquared = 16;
 
   Widget _wrapInteractiveRegion({
@@ -139,34 +140,27 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
         _isPointWithinInteractiveRegion(event.position);
     _pointerStartedOverInteractive = startedOverInteractive;
     if (startedOverInteractive) {
-      _lastPrimaryTapTime = null;
-      _lastPrimaryTapGlobalPosition = null;
+      _pendingDoubleClick = false;
+      _suppressDragUntilUp = false;
+      _initialPointerPosition = null;
       return;
     }
 
     _initialPointerPosition = event.position;
 
-    final previousTime = _lastPrimaryTapTime;
-    final previousGlobalPosition = _lastPrimaryTapGlobalPosition;
-    final currentTime = event.timeStamp;
+    final previousTime = _lastPrimaryTapUpTime;
+    final previousGlobalPosition = _lastPrimaryTapUpGlobalPosition;
 
     _dragRequested = false;
 
-    final bool isDoubleClick = previousTime != null &&
+    final bool isPotentialDoubleClick = previousTime != null &&
         previousGlobalPosition != null &&
-        (currentTime - previousTime) <= _doubleClickTimeout &&
+        (event.timeStamp - previousTime) <= _doubleClickTimeout &&
         (event.position - previousGlobalPosition).distanceSquared <=
             _doubleClickDistanceSquared;
 
-    if (isDoubleClick) {
-      _suppressDragUntilUp = true;
-      unawaited(_toggleWindowMaximize());
-    } else {
-      _suppressDragUntilUp = false;
-    }
-
-    _lastPrimaryTapTime = currentTime;
-    _lastPrimaryTapGlobalPosition = event.position;
+    _pendingDoubleClick = isPotentialDoubleClick;
+    _suppressDragUntilUp = isPotentialDoubleClick;
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
@@ -188,6 +182,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
     }
 
     _dragRequested = true;
+    _pendingDoubleClick = false;
     _initialPointerPosition = null;
     unawaited(windowManager.startDragging());
   }
@@ -197,9 +192,44 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
     _suppressDragUntilUp = false;
     _pointerStartedOverInteractive = false;
     _initialPointerPosition = null;
+    _pendingDoubleClick = false;
   }
 
   void _handlePointerUp(PointerUpEvent event) {
+    if (event.kind != PointerDeviceKind.mouse) {
+      _resetPointerState();
+      return;
+    }
+
+    if (_pointerStartedOverInteractive) {
+      _pendingDoubleClick = false;
+      _lastPrimaryTapUpTime = null;
+      _lastPrimaryTapUpGlobalPosition = null;
+      _resetPointerState();
+      return;
+    }
+
+    final bool isDoubleClick = _pendingDoubleClick &&
+        !_dragRequested &&
+        _lastPrimaryTapUpTime != null &&
+        _lastPrimaryTapUpGlobalPosition != null &&
+        (event.timeStamp - _lastPrimaryTapUpTime!) <= _doubleClickTimeout &&
+        (event.position - _lastPrimaryTapUpGlobalPosition!).distanceSquared <=
+            _doubleClickDistanceSquared;
+
+    if (isDoubleClick) {
+      unawaited(_toggleWindowMaximize());
+    }
+
+    if (_dragRequested) {
+      _lastPrimaryTapUpTime = null;
+      _lastPrimaryTapUpGlobalPosition = null;
+    } else {
+      _lastPrimaryTapUpTime = event.timeStamp;
+      _lastPrimaryTapUpGlobalPosition = event.position;
+    }
+    _pendingDoubleClick = false;
+
     _resetPointerState();
   }
 
