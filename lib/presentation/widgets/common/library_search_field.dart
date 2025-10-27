@@ -66,6 +66,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
   OverlayEntry? _suggestionOverlay;
   final GlobalKey _fieldKey = GlobalKey();
   final GlobalKey _dropdownKey = GlobalKey();
+  bool _pointerInsideDropdown = false;
 
   @override
   void initState() {
@@ -145,6 +146,9 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
     _setControllerText(suggestion.value);
     debugPrint('[SearchField] Suggestion tapped: ${suggestion.type} -> ${suggestion.value}');
     widget.onSuggestionSelected?.call(suggestion);
+    if (_pointerInsideDropdown) {
+      setState(() => _pointerInsideDropdown = false);
+    }
     _focusNode.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -197,7 +201,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
 
   bool get _shouldShowSuggestions =>
       widget.suggestions.isNotEmpty &&
-      _focusNode.hasFocus &&
+      (_focusNode.hasFocus || _pointerInsideDropdown) &&
       _controller.text.trim().isNotEmpty;
 
   void _scheduleOverlayUpdate() {
@@ -227,6 +231,9 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
   void _removeSuggestionOverlay() {
     _suggestionOverlay?.remove();
     _suggestionOverlay = null;
+    if (_pointerInsideDropdown) {
+      _pointerInsideDropdown = false;
+    }
   }
 
   OverlayEntry _buildSuggestionOverlay() {
@@ -241,58 +248,77 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
           return const SizedBox.shrink();
         }
         return Positioned.fill(
-          child: IgnorePointer(
-            ignoring: false,
-            child: Stack(
-              children: [
-                Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (event) {
-                    final dropdownBox =
-                        _dropdownKey.currentContext?.findRenderObject() as RenderBox?;
-                    if (dropdownBox != null) {
-                      final localPosition = dropdownBox.globalToLocal(event.position);
-                      final localBounds = Offset.zero & dropdownBox.size;
-                      debugPrint('[SearchField] Pointer local=$localPosition bounds=${dropdownBox.size}');
-                      if (localBounds.contains(localPosition)) {
-                        return;
-                      }
-                    }
-                    if (_focusNode.hasFocus) {
-                      _focusNode.unfocus();
-                    }
-                    _removeSuggestionOverlay();
-                  },
-                ),
-                CompositedTransformFollower(
-                  link: _overlayLink,
-                  showWhenUnlinked: false,
-                  offset: Offset(0, height + 6),
-                  targetAnchor: Alignment.topLeft,
-                  child: SizedBox(
-                    width: width,
-                    child: FrostedSearchDropdown(
-                      key: _dropdownKey,
-                      children: widget.suggestions
-                          .map(
-                            (suggestion) => FrostedSearchOption(
-                              key: ValueKey(
-                                'search_option_${suggestion.type.name}_${suggestion.value}',
-                              ),
-                              title: suggestion.label,
-                              subtitle: suggestion.description,
-                              icon: suggestion.icon,
-                              onTap: () {
-                                debugPrint('[SearchField] Option onTap -> ${suggestion.value}');
-                                _handleSuggestionSelected(suggestion);
-                              },
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (event) {
+              final dropdownBox =
+                  _dropdownKey.currentContext?.findRenderObject() as RenderBox?;
+              bool tappedInside = false;
+              if (dropdownBox != null) {
+                final localPosition = dropdownBox.globalToLocal(event.position);
+                final localBounds = Offset.zero & dropdownBox.size;
+                tappedInside = localBounds.contains(localPosition);
+              }
+              if (tappedInside) {
+                if (!_pointerInsideDropdown) {
+                  setState(() => _pointerInsideDropdown = true);
+                }
+                if (!_focusNode.hasFocus) {
+                  _focusNode.requestFocus();
+                }
+                return;
+              }
+              if (_pointerInsideDropdown) {
+                setState(() => _pointerInsideDropdown = false);
+              }
+              if (_focusNode.hasFocus) {
+                _focusNode.unfocus();
+              }
+              _removeSuggestionOverlay();
+            },
+            onPointerUp: (_) {
+              if (_pointerInsideDropdown) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  setState(() => _pointerInsideDropdown = false);
+                });
+              }
+            },
+            onPointerCancel: (_) {
+              if (_pointerInsideDropdown) {
+                setState(() => _pointerInsideDropdown = false);
+              }
+            },
+            child: IgnorePointer(
+              ignoring: false,
+              child: CompositedTransformFollower(
+                link: _overlayLink,
+                showWhenUnlinked: false,
+                offset: Offset(0, height + 6),
+                targetAnchor: Alignment.topLeft,
+                child: SizedBox(
+                  width: width,
+                  child: FrostedSearchDropdown(
+                    key: _dropdownKey,
+                    children: widget.suggestions
+                        .map(
+                          (suggestion) => FrostedSearchOption(
+                            key: ValueKey(
+                              'search_option_${suggestion.type.name}_${suggestion.value}',
                             ),
-                          )
-                          .toList(),
-                    ),
+                            title: suggestion.label,
+                            subtitle: suggestion.description,
+                            icon: suggestion.icon,
+                            onTap: () {
+                              debugPrint('[SearchField] Option onTap -> ${suggestion.value}');
+                              _handleSuggestionSelected(suggestion);
+                            },
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         );
