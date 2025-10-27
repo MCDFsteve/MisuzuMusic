@@ -9,6 +9,9 @@ class _MacOSGlassHeader extends StatelessWidget {
     required this.onSearchChanged,
     required this.onSelectMusicFolder,
     required this.onCreatePlaylist,
+    required this.searchSuggestions,
+    required this.onSearchPreviewChanged,
+    required this.onSuggestionSelected,
     this.showBackButton = false,
     this.canNavigateBack = false,
     this.onNavigateBack,
@@ -24,6 +27,9 @@ class _MacOSGlassHeader extends StatelessWidget {
   final String? statsLabel;
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
+  final ValueChanged<String>? onSearchPreviewChanged;
+  final List<LibrarySearchSuggestion> searchSuggestions;
+  final ValueChanged<LibrarySearchSuggestion>? onSuggestionSelected;
   final VoidCallback onSelectMusicFolder;
   final VoidCallback onCreatePlaylist;
   final bool showBackButton;
@@ -124,6 +130,9 @@ class _MacOSGlassHeader extends StatelessWidget {
                       child: LibrarySearchField(
                         query: searchQuery,
                         onQueryChanged: onSearchChanged,
+                        onPreviewChanged: onSearchPreviewChanged,
+                        suggestions: searchSuggestions,
+                        onSuggestionSelected: onSuggestionSelected,
                       ),
                     ),
                   ),
@@ -696,6 +705,14 @@ class _SortModeButtonState extends State<_SortModeButton> {
         return CupertinoIcons.clock;
       case TrackSortMode.addedOldest:
         return CupertinoIcons.time;
+      case TrackSortMode.artistAZ:
+        return CupertinoIcons.person_crop_circle_badge_checkmark;
+      case TrackSortMode.artistZA:
+        return CupertinoIcons.person_crop_circle_badge_minus;
+      case TrackSortMode.albumAZ:
+        return CupertinoIcons.square_stack_3d_up;
+      case TrackSortMode.albumZA:
+        return CupertinoIcons.square_stack_3d_down_dottedline;
     }
   }
 

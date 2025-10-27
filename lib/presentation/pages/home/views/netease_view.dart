@@ -569,41 +569,87 @@ Future<String?> showNeteaseCookieDialog(
   bool force = false,
 }) {
   final controller = TextEditingController();
-  return showMacosAlertDialog(
+
+  if (prefersMacLikeUi()) {
+    return showPlaylistModalDialog<String?>(
+      context: context,
+      barrierDismissible: !force,
+      builder: (ctx) {
+        return PlaylistModalScaffold(
+          title: '粘贴网络歌曲 Cookie',
+          maxWidth: 420,
+          contentSpacing: 16,
+          actionsSpacing: 16,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '请在网络歌曲网页版登录后，通过浏览器开发者工具复制包含 MUSIC_U、__csrf 等字段的 Cookie。本应用不提供 Cookie 获取渠道，请勿向他人泄露。',
+                locale: Locale("zh-Hans", "zh"),
+              ),
+              const SizedBox(height: 12),
+              MacosTextField(
+                controller: controller,
+                minLines: 3,
+                maxLines: 6,
+                placeholder: 'MUSIC_U=...; __csrf=...;',
+              ),
+            ],
+          ),
+          actions: [
+            if (!force)
+              SheetActionButton.secondary(
+                label: '取消',
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            SheetActionButton.primary(
+              label: '确认',
+              onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  return showDialog<String?>(
     context: context,
-    builder: (ctx) => MacosAlertDialog(
-      appIcon: const MacosIcon(CupertinoIcons.cloud),
-      title: const Text('粘贴网络歌曲 Cookie', locale: Locale("zh-Hans", "zh")),
-      message: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '请在网络歌曲网页版登录后，通过浏览器开发者工具复制包含 MUSIC_U、__csrf 等字段的 Cookie。本应用不提供 Cookie 获取渠道，请勿向他人泄露。',
-            locale: Locale("zh-Hans", "zh"),
-          ),
-          const SizedBox(height: 12),
-          MacosTextField(
-            controller: controller,
-            minLines: 3,
-            maxLines: 6,
-            placeholder: 'MUSIC_U=...; __csrf=...;',
-          ),
-        ],
-      ),
-      primaryButton: PushButton(
-        controlSize: ControlSize.large,
-        onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-        child: const Text('确认', locale: Locale("zh-Hans", "zh")),
-      ),
-      secondaryButton: force
-          ? PushButton(
-              controlSize: ControlSize.large,
-              secondary: true,
+    barrierDismissible: !force,
+    builder: (ctx) {
+      return AlertDialog(
+        title: const Text('粘贴网络歌曲 Cookie', locale: Locale("zh-Hans", "zh")),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '请在网络歌曲网页版登录后，通过浏览器开发者工具复制包含 MUSIC_U、__csrf 等字段的 Cookie。本应用不提供 Cookie 获取渠道，请勿向他人泄露。',
+              locale: Locale("zh-Hans", "zh"),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              minLines: 3,
+              maxLines: 6,
+              decoration: const InputDecoration(
+                hintText: 'MUSIC_U=...; __csrf=...;',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (!force)
+            TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('取消', locale: Locale("zh-Hans", "zh")),
-            )
-          : null,
-    ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('确认', locale: Locale("zh-Hans", "zh")),
+          ),
+        ],
+      );
+    },
   );
 }

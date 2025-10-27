@@ -4,17 +4,50 @@ import 'package:macos_ui/macos_ui.dart' as macos_ui;
 
 import '../../../core/utils/platform_utils.dart';
 
+enum LibrarySearchSuggestionType { track, artist, album }
+
+class LibrarySearchSuggestion {
+  const LibrarySearchSuggestion({
+    required this.value,
+    required this.label,
+    this.description,
+    this.type = LibrarySearchSuggestionType.track,
+  });
+
+  final String value;
+  final String label;
+  final String? description;
+  final LibrarySearchSuggestionType type;
+
+  IconData get icon {
+    switch (type) {
+      case LibrarySearchSuggestionType.track:
+        return cupertino.CupertinoIcons.music_note;
+      case LibrarySearchSuggestionType.artist:
+        return cupertino.CupertinoIcons.person_crop_circle;
+      case LibrarySearchSuggestionType.album:
+        return cupertino.CupertinoIcons.square_stack_3d_up;
+    }
+  }
+}
+
 class LibrarySearchField extends StatefulWidget {
   const LibrarySearchField({
     super.key,
     required this.query,
     required this.onQueryChanged,
     this.placeholder = '搜索歌曲、艺术家或专辑...',
+    this.onPreviewChanged,
+    this.suggestions = const [],
+    this.onSuggestionSelected,
   });
 
   final String query;
   final ValueChanged<String> onQueryChanged;
   final String placeholder;
+  final ValueChanged<String>? onPreviewChanged;
+  final List<LibrarySearchSuggestion> suggestions;
+  final ValueChanged<LibrarySearchSuggestion>? onSuggestionSelected;
 
   @override
   State<LibrarySearchField> createState() => _LibrarySearchFieldState();
@@ -26,6 +59,9 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
   late final FocusNode _focusNode;
   bool _ignoreNextChange = false;
   late final AnimationController _focusController;
+  final LayerLink _overlayLink = LayerLink();
+  OverlayEntry? _suggestionOverlay;
+  final GlobalKey _fieldKey = GlobalKey();
 
   @override
   void initState() {
@@ -51,10 +87,12 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
     if (widget.query != oldWidget.query && widget.query != _controller.text) {
       _setControllerText(widget.query);
     }
+    _scheduleOverlayUpdate();
   }
 
   @override
   void dispose() {
+    _removeSuggestionOverlay();
     _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     _controller.dispose();
@@ -70,6 +108,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
         _focusController.reverse();
       }
       setState(() {});
+      _scheduleOverlayUpdate();
     }
   }
 
@@ -86,40 +125,141 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
       _ignoreNextChange = false;
       return;
     }
+    widget.onPreviewChanged?.call(value);
     if (value.isEmpty) {
       widget.onQueryChanged('');
     }
+    _scheduleOverlayUpdate();
   }
 
   void _handleSubmitted(String value) {
     widget.onQueryChanged(value.trim());
+    _removeSuggestionOverlay();
+  }
+
+  void _handleSuggestionSelected(LibrarySearchSuggestion suggestion) {
+    _setControllerText(suggestion.value);
+    widget.onSuggestionSelected?.call(suggestion);
+    _focusNode.unfocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _removeSuggestionOverlay();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final bool useDesktopUi = prefersMacLikeUi();
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 34, maxHeight: 40),
-      child: useDesktopUi
-          ? _MacSearchField(
-              controller: _controller,
-              focusNode: _focusNode,
-              placeholder: widget.placeholder,
-              onChanged: _handleChanged,
-              onSubmitted: _handleSubmitted,
-              isFocused: _focusNode.hasFocus,
-              focusProgress: _focusController.value,
-            )
-          : _MaterialSearchField(
-              controller: _controller,
-              focusNode: _focusNode,
-              placeholder: widget.placeholder,
-              onChanged: _handleChanged,
-              onSubmitted: _handleSubmitted,
-              isFocused: _focusNode.hasFocus,
-              focusProgress: _focusController.value,
+    _scheduleOverlayUpdate();
+
+    final searchField = LayoutBuilder(
+      builder: (context, constraints) {
+        final input = useDesktopUi
+            ? _MacSearchField(
+                controller: _controller,
+                focusNode: _focusNode,
+                placeholder: widget.placeholder,
+                onChanged: _handleChanged,
+                onSubmitted: _handleSubmitted,
+                isFocused: _focusNode.hasFocus,
+                focusProgress: _focusController.value,
+              )
+            : _MaterialSearchField(
+                controller: _controller,
+                focusNode: _focusNode,
+                placeholder: widget.placeholder,
+                onChanged: _handleChanged,
+                onSubmitted: _handleSubmitted,
+                isFocused: _focusNode.hasFocus,
+                focusProgress: _focusController.value,
+              );
+
+        return CompositedTransformTarget(
+          link: _overlayLink,
+          child: ConstrainedBox(
+            key: _fieldKey,
+            constraints: const BoxConstraints(minHeight: 34, maxHeight: 40),
+            child: input,
+          ),
+        );
+      },
+    );
+
+    return searchField;
+  }
+
+  bool get _shouldShowSuggestions =>
+      widget.suggestions.isNotEmpty &&
+      _focusNode.hasFocus &&
+      _controller.text.trim().isNotEmpty;
+
+  void _scheduleOverlayUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _updateSuggestionOverlay(_shouldShowSuggestions);
+    });
+  }
+
+  void _updateSuggestionOverlay(bool shouldShow) {
+    if (!shouldShow) {
+      _removeSuggestionOverlay();
+      return;
+    }
+    if (_suggestionOverlay == null) {
+      final overlay = Overlay.of(context, rootOverlay: true);
+      if (overlay == null) {
+        return;
+      }
+      _suggestionOverlay = _buildSuggestionOverlay();
+      overlay.insert(_suggestionOverlay!);
+    } else {
+      _suggestionOverlay!.markNeedsBuild();
+    }
+  }
+
+  void _removeSuggestionOverlay() {
+    _suggestionOverlay?.remove();
+    _suggestionOverlay = null;
+  }
+
+  OverlayEntry _buildSuggestionOverlay() {
+    return OverlayEntry(
+      builder: (context) {
+        final useDesktopUi = prefersMacLikeUi();
+        final fieldBox =
+            _fieldKey.currentContext?.findRenderObject() as RenderBox?;
+        final width = fieldBox?.size.width ?? 260;
+        final height = fieldBox?.size.height ?? 40;
+        if (!_shouldShowSuggestions) {
+          return const SizedBox.shrink();
+        }
+        return Positioned.fill(
+          child: Material(
+            type: MaterialType.transparency,
+            child: Stack(
+              children: [
+                CompositedTransformFollower(
+                  link: _overlayLink,
+                  showWhenUnlinked: false,
+                  offset: Offset(0, height + 6),
+                  targetAnchor: Alignment.topLeft,
+                  child: SizedBox(
+                    width: width,
+                    child: _SuggestionList(
+                      suggestions: widget.suggestions,
+                      onSelected: _handleSuggestionSelected,
+                      useDesktopUi: useDesktopUi,
+                      focusNode: _focusNode,
+                    ),
+                  ),
+                ),
+              ],
             ),
+          ),
+        );
+      },
     );
   }
 }
@@ -329,6 +469,188 @@ class _MaterialSearchField extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _SuggestionList extends StatelessWidget {
+  const _SuggestionList({
+    required this.suggestions,
+    required this.onSelected,
+    required this.useDesktopUi,
+    required this.focusNode,
+  });
+
+  final List<LibrarySearchSuggestion> suggestions;
+  final ValueChanged<LibrarySearchSuggestion> onSelected;
+  final bool useDesktopUi;
+  final FocusNode focusNode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final macTheme = useDesktopUi ? macos_ui.MacosTheme.maybeOf(context) : null;
+    final isDark = useDesktopUi
+        ? macTheme?.brightness == Brightness.dark
+        : theme.brightness == Brightness.dark;
+
+    final backgroundColor = useDesktopUi
+        ? (isDark
+            ? Colors.white.withOpacity(0.08)
+            : Colors.white.withOpacity(0.95))
+        : theme.colorScheme.surface;
+    final borderColor = useDesktopUi
+        ? (macTheme?.dividerColor ?? Colors.black12).withOpacity(0.45)
+        : theme.dividerColor.withOpacity(0.4);
+    final shadowColor = Colors.black.withOpacity(isDark ? 0.32 : 0.12);
+
+    return FocusScope(
+      canRequestFocus: false,
+      child: Container(
+        margin: const EdgeInsets.only(top: 6),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: borderColor, width: 0.8),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: suggestions.length,
+          separatorBuilder: (context, index) => Divider(
+            height: 1,
+            thickness: 0.6,
+            color: borderColor.withOpacity(0.6),
+          ),
+          itemBuilder: (context, index) {
+            final suggestion = suggestions[index];
+            return _SuggestionTile(
+              suggestion: suggestion,
+              onSelected: () {
+                focusNode.requestFocus();
+                onSelected(suggestion);
+              },
+              isDark: isDark,
+              useDesktopUi: useDesktopUi,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SuggestionTile extends StatefulWidget {
+  const _SuggestionTile({
+    required this.suggestion,
+    required this.onSelected,
+    required this.isDark,
+    required this.useDesktopUi,
+  });
+
+  final LibrarySearchSuggestion suggestion;
+  final VoidCallback onSelected;
+  final bool isDark;
+  final bool useDesktopUi;
+
+  @override
+  State<_SuggestionTile> createState() => _SuggestionTileState();
+}
+
+class _SuggestionTileState extends State<_SuggestionTile> {
+  bool _hovering = false;
+
+  void _setHovering(bool value) {
+    if (_hovering == value) return;
+    setState(() => _hovering = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final highlightColor = widget.useDesktopUi
+        ? (widget.isDark
+            ? Colors.white.withOpacity(0.12)
+            : Colors.black.withOpacity(0.06))
+        : theme.colorScheme.primary.withOpacity(widget.isDark ? 0.12 : 0.08);
+
+    final textColor = widget.isDark
+        ? Colors.white.withOpacity(0.9)
+        : Colors.black.withOpacity(0.85);
+    final secondaryColor = widget.isDark
+        ? Colors.white.withOpacity(0.65)
+        : Colors.black.withOpacity(0.6);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => _setHovering(true),
+      onExit: (_) => _setHovering(false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onSelected,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutCubic,
+          color: _hovering ? highlightColor : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                widget.suggestion.icon,
+                size: 18,
+                color: secondaryColor,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.suggestion.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      locale: Locale("zh-Hans", "zh"),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                            color: textColor,
+                            fontWeight: FontWeight.w500,
+                          ) ??
+                          TextStyle(
+                            color: textColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                    if (widget.suggestion.description != null)
+                      Text(
+                        widget.suggestion.description!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        locale: Locale("zh-Hans", "zh"),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                              color: secondaryColor,
+                              fontSize: 11,
+                            ) ??
+                            TextStyle(
+                              color: secondaryColor,
+                              fontSize: 11,
+                            ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

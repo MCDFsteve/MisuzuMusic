@@ -15,6 +15,7 @@ class _HomePageContentState extends State<HomePageContent> {
   static const double _navMaxWidth = 220;
   String _searchQuery = '';
   String _activeSearchQuery = '';
+  List<LibrarySearchSuggestion> _searchSuggestions = const [];
   Timer? _searchDebounce;
   bool _lyricsVisible = false;
   Track? _lyricsActiveTrack;
@@ -418,40 +419,30 @@ class _HomePageContentState extends State<HomePageContent> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: _lyricsVisible
-                                      ? () => _toggleLyrics(playerState)
-                                      : null,
-                                  child: AbsorbPointer(
-                                    absorbing: _lyricsVisible,
-                                    child: AnimatedOpacity(
-                                      duration: const Duration(
-                                        milliseconds: 220,
-                                      ),
-                                      opacity: _lyricsVisible ? 0.6 : 1.0,
-                                      child: _MacOSGlassHeader(
-                                        height: headerHeight,
-                                        sectionLabel: sectionLabel,
-                                        statsLabel: statsLabel,
-                                        searchQuery: _searchQuery,
-                                        onSearchChanged: _onSearchQueryChanged,
-                                        onSelectMusicFolder: _selectMusicFolder,
-                                        onCreatePlaylist:
-                                            _handleCreatePlaylistFromHeader,
-                                        showBackButton: showBackButton,
-                                        canNavigateBack: canNavigateBack,
-                                        onNavigateBack: onNavigateBack,
-                                        backTooltip: backTooltip,
-                                        sortMode: sortMode,
-                                        onSortModeChanged: onSortModeChanged,
-                                        showCreatePlaylistButton:
-                                            showCreatePlaylistButton,
-                                        showSelectFolderButton:
-                                            showSelectFolderButton,
-                                      ),
-                                    ),
-                                  ),
+                                _MacOSGlassHeader(
+                                  height: headerHeight,
+                                  sectionLabel: sectionLabel,
+                                  statsLabel: statsLabel,
+                                  searchQuery: _searchQuery,
+                                  onSearchChanged: _onSearchQueryChanged,
+                                  onSearchPreviewChanged:
+                                      _handleSearchPreviewChanged,
+                                  searchSuggestions: _searchSuggestions,
+                                  onSuggestionSelected:
+                                      _handleSearchSuggestionTapped,
+                                  onSelectMusicFolder: _selectMusicFolder,
+                                  onCreatePlaylist:
+                                      _handleCreatePlaylistFromHeader,
+                                  showBackButton: showBackButton,
+                                  canNavigateBack: canNavigateBack,
+                                  onNavigateBack: onNavigateBack,
+                                  backTooltip: backTooltip,
+                                  sortMode: sortMode,
+                                  onSortModeChanged: onSortModeChanged,
+                                  showCreatePlaylistButton:
+                                      showCreatePlaylistButton,
+                                  showSelectFolderButton:
+                                      showSelectFolderButton,
                                 ),
                                 Expanded(
                                   child: Stack(
@@ -602,9 +593,13 @@ class _HomePageContentState extends State<HomePageContent> {
 
     _searchDebounce?.cancel();
 
+    final suggestions =
+        trimmed.isEmpty ? const <LibrarySearchSuggestion>[] : _buildSearchSuggestions(trimmed);
+
     setState(() {
       _searchQuery = value;
       _activeSearchQuery = trimmed;
+      _searchSuggestions = suggestions;
     });
 
     final bloc = context.read<MusicLibraryBloc>();
@@ -615,6 +610,9 @@ class _HomePageContentState extends State<HomePageContent> {
 
     _searchDebounce = Timer(const Duration(milliseconds: 320), () {
       if (!mounted) return;
+      setState(() {
+        _searchSuggestions = const [];
+      });
       context.read<MusicLibraryBloc>().add(SearchTracksEvent(trimmed));
     });
   }
@@ -629,9 +627,128 @@ class _HomePageContentState extends State<HomePageContent> {
     setState(() {
       _searchQuery = '';
       _activeSearchQuery = '';
+      _searchSuggestions = const [];
     });
 
     context.read<MusicLibraryBloc>().add(const LoadAllTracks());
+  }
+
+  void _handleSearchPreviewChanged(String value) {
+    if (!mounted) return;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      if (_searchSuggestions.isNotEmpty) {
+        setState(() => _searchSuggestions = const []);
+      }
+      return;
+    }
+
+    final suggestions = _buildSearchSuggestions(trimmed);
+    setState(() => _searchSuggestions = suggestions);
+  }
+
+  void _handleSearchSuggestionTapped(LibrarySearchSuggestion suggestion) {
+    final value = suggestion.value;
+    final trimmed = value.trim();
+    _searchDebounce?.cancel();
+
+    setState(() {
+      _searchQuery = value;
+      _activeSearchQuery = trimmed;
+      _searchSuggestions = const [];
+    });
+
+    final bloc = context.read<MusicLibraryBloc>();
+    if (trimmed.isEmpty) {
+      bloc.add(const LoadAllTracks());
+      return;
+    }
+
+    bloc.add(SearchTracksEvent(trimmed));
+  }
+
+  List<LibrarySearchSuggestion> _buildSearchSuggestions(String query) {
+    if (query.isEmpty) {
+      return const [];
+    }
+
+    final state = context.read<MusicLibraryBloc>().state;
+    if (state is! MusicLibraryLoaded) {
+      return const [];
+    }
+
+    final lower = query.toLowerCase();
+    final suggestions = <LibrarySearchSuggestion>[];
+
+    Track? trackMatch;
+    for (final track in state.tracks) {
+      final title = track.title.toLowerCase();
+      final artist = track.artist.toLowerCase();
+      final album = track.album.toLowerCase();
+      if (title.contains(lower) || artist.contains(lower) || album.contains(lower)) {
+        trackMatch = track;
+        break;
+      }
+    }
+    if (trackMatch != null) {
+      suggestions.add(
+        LibrarySearchSuggestion(
+          value: trackMatch.title,
+          label: '歌曲：${trackMatch.title}',
+          description: '${trackMatch.artist} • ${trackMatch.album}',
+          type: LibrarySearchSuggestionType.track,
+        ),
+      );
+    }
+
+    Artist? artistMatch;
+    for (final artist in state.artists) {
+      if (artist.name.toLowerCase().contains(lower)) {
+        artistMatch = artist;
+        break;
+      }
+    }
+    if (artistMatch != null) {
+      suggestions.add(
+        LibrarySearchSuggestion(
+          value: artistMatch.name,
+          label: '歌手：${artistMatch.name}',
+          description: '共 ${artistMatch.trackCount} 首歌曲',
+          type: LibrarySearchSuggestionType.artist,
+        ),
+      );
+    }
+
+    Album? albumMatch;
+    for (final album in state.albums) {
+      if (album.title.toLowerCase().contains(lower) ||
+          album.artist.toLowerCase().contains(lower)) {
+        albumMatch = album;
+        break;
+      }
+    }
+    if (albumMatch != null) {
+      suggestions.add(
+        LibrarySearchSuggestion(
+          value: albumMatch.title,
+          label: '专辑：${albumMatch.title}',
+          description: '${albumMatch.artist} • ${albumMatch.trackCount} 首',
+          type: LibrarySearchSuggestionType.album,
+        ),
+      );
+    }
+
+    if (suggestions.length < 3) {
+      suggestions.add(
+        LibrarySearchSuggestion(
+          value: query,
+          label: '搜索“$query”',
+          description: '在全部内容中继续查找',
+        ),
+      );
+    }
+
+    return suggestions.take(3).toList(growable: false);
   }
 
   void _handleNavigationChange(int index) {
@@ -933,11 +1050,24 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<_WebDavConnectionFormResult?> _showWebDavConnectionDialog() {
+    if (prefersMacLikeUi()) {
+      return showPlaylistModalDialog<_WebDavConnectionFormResult>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _WebDavConnectionDialog(
+          testConnection: sl<TestWebDavConnection>(),
+          useModalScaffold: true,
+        ),
+      );
+    }
+
     return showDialog<_WebDavConnectionFormResult>(
       context: context,
       barrierDismissible: false,
-      builder: (context) =>
-          _WebDavConnectionDialog(testConnection: sl<TestWebDavConnection>()),
+      builder: (context) => _WebDavConnectionDialog(
+        testConnection: sl<TestWebDavConnection>(),
+        useModalScaffold: false,
+      ),
     );
   }
 
@@ -975,30 +1105,36 @@ class _HomePageContentState extends State<HomePageContent> {
         ? '添加了 $tracksAdded 首新歌曲'
         : '添加了 $tracksAdded 首新歌曲\n来源: ${webDavSource.name}';
     if (prefersMacLikeUi()) {
-      showMacosAlertDialog(
+      showPlaylistModalDialog<void>(
         context: context,
-        builder: (_) => MacosAlertDialog(
-          appIcon: const MacosIcon(
-            CupertinoIcons.check_mark_circled_solid,
-            color: CupertinoColors.systemGreen,
-            size: 64,
+        barrierDismissible: true,
+        builder: (_) => PlaylistModalScaffold(
+          title: '扫描完成',
+          maxWidth: 360,
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                CupertinoIcons.check_mark_circled_solid,
+                color: CupertinoColors.systemGreen,
+                size: 56,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                locale: Locale("zh-Hans", "zh"),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-          title: Text(
-            locale: Locale("zh-Hans", "zh"),
-            '扫描完成',
-            style: MacosTheme.of(context).typography.headline,
-          ),
-          message: Text(
-            locale: Locale("zh-Hans", "zh"),
-            message,
-            textAlign: TextAlign.center,
-            style: MacosTheme.of(context).typography.body,
-          ),
-          primaryButton: PushButton(
-            controlSize: ControlSize.large,
-            child: const Text(locale: Locale("zh-Hans", "zh"), '好'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
+          actions: [
+            SheetActionButton.primary(
+              label: '好',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+          contentSpacing: 18,
+          actionsSpacing: 12,
         ),
       );
     } else {
@@ -1016,30 +1152,35 @@ class _HomePageContentState extends State<HomePageContent> {
 
   void _showErrorDialog(BuildContext context, String message) {
     if (prefersMacLikeUi()) {
-      showMacosAlertDialog(
+      showPlaylistModalDialog<void>(
         context: context,
-        builder: (_) => MacosAlertDialog(
-          appIcon: const MacosIcon(
-            CupertinoIcons.exclamationmark_triangle_fill,
-            color: CupertinoColors.systemRed,
-            size: 64,
+        builder: (_) => PlaylistModalScaffold(
+          title: '发生错误',
+          maxWidth: 360,
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                CupertinoIcons.exclamationmark_triangle_fill,
+                color: CupertinoColors.systemRed,
+                size: 56,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                locale: Locale("zh-Hans", "zh"),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-          title: Text(
-            locale: Locale("zh-Hans", "zh"),
-            '发生错误',
-            style: MacosTheme.of(context).typography.headline,
-          ),
-          message: Text(
-            locale: Locale("zh-Hans", "zh"),
-            message,
-            textAlign: TextAlign.center,
-            style: MacosTheme.of(context).typography.body,
-          ),
-          primaryButton: PushButton(
-            controlSize: ControlSize.large,
-            child: const Text(locale: Locale("zh-Hans", "zh"), '好'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
+          actions: [
+            SheetActionButton.primary(
+              label: '好',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+          contentSpacing: 18,
+          actionsSpacing: 12,
         ),
       );
     } else {
