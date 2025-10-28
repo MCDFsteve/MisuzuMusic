@@ -28,6 +28,9 @@ import '../../utils/track_display_utils.dart';
 
 const bool _desktopLyricsVerboseLogging = false;
 
+final RegExp _desktopLyricsHanCharacterRegExp =
+    RegExp(r'[\u3400-\u4DBF\u4E00-\u9FFF]');
+
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
     super.key,
@@ -269,9 +272,33 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           continue;
         }
         final annotation = segment.annotation.trim();
-        final shouldAnnotate = annotation.isNotEmpty &&
-            annotation != original.trim() &&
-            segment.type != TextType.other;
+        final bool hasAnnotation =
+            annotation.isNotEmpty && annotation != original.trim();
+
+        if (hasAnnotation &&
+            _desktopLyricsHanCharacterRegExp.hasMatch(original)) {
+          final matches =
+              _desktopLyricsHanCharacterRegExp.allMatches(original).toList();
+          if (matches.isNotEmpty) {
+            final prefix = original.substring(0, matches.first.start);
+            final suffix = original.substring(matches.last.end);
+            final core =
+                original.substring(matches.first.start, matches.last.end);
+
+            if (prefix.isNotEmpty) {
+              buffer.write(prefix);
+            }
+            // Limit annotation to Han characters so surrounding symbols stay separate.
+            buffer.write('$core[$annotation]');
+            if (suffix.isNotEmpty) {
+              buffer.write(suffix);
+            }
+            continue;
+          }
+        }
+
+        final bool shouldAnnotate =
+            hasAnnotation && segment.type != TextType.other;
         if (shouldAnnotate) {
           buffer.write('$original[$annotation]');
         } else {

@@ -74,13 +74,9 @@ class DesktopLyricsParser {
       final base = match.group(1) ?? '';
       final annotation = match.group(2) ?? '';
       if (base.isNotEmpty) {
-        segments.add(
-          AnnotatedText(
-            original: base,
-            annotation: annotation,
-            type: _detectTextType(base),
-          ),
-        );
+        final List<AnnotatedText> splitSegments =
+            _splitAnnotatedSegment(base, annotation);
+        segments.addAll(splitSegments);
         plain.write(base);
       }
 
@@ -129,7 +125,65 @@ class DesktopLyricsParser {
   bool _isKatakana(int codeUnit) =>
       (codeUnit >= 0x30A0 && codeUnit <= 0x30FF) ||
       (codeUnit >= 0x31F0 && codeUnit <= 0x31FF);
+
+  List<AnnotatedText> _splitAnnotatedSegment(
+    String base,
+    String annotation,
+  ) {
+    final trimmedAnnotation = annotation.trim();
+    final matches = _hanRegex.allMatches(base).toList();
+
+    if (matches.isEmpty || trimmedAnnotation.isEmpty) {
+      return [
+        AnnotatedText(
+          original: base,
+          annotation: trimmedAnnotation,
+          type: trimmedAnnotation.isEmpty
+              ? TextType.other
+              : _detectTextType(base),
+        ),
+      ];
+    }
+
+    final first = matches.first;
+    final last = matches.last;
+    final prefix = base.substring(0, first.start);
+    final core = base.substring(first.start, last.end);
+    final suffix = base.substring(last.end);
+
+    final List<AnnotatedText> result = [];
+    if (prefix.isNotEmpty) {
+      result.add(
+        AnnotatedText(
+          original: prefix,
+          annotation: '',
+          type: TextType.other,
+        ),
+      );
+    }
+
+    result.add(
+      AnnotatedText(
+        original: core,
+        annotation: trimmedAnnotation,
+        type: _detectTextType(core),
+      ),
+    );
+
+    if (suffix.isNotEmpty) {
+      result.add(
+        AnnotatedText(
+          original: suffix,
+          annotation: '',
+          type: TextType.other,
+        ),
+      );
+    }
+
+    return result;
+  }
 }
 
 final RegExp _translationPattern = RegExp(r'<([^<>]*)>\s*$', multiLine: false);
 final RegExp _rubyPattern = RegExp(r'([^\[]+?)\[(.+?)\]');
+final RegExp _hanRegex = RegExp(r'[\u3400-\u4DBF\u4E00-\u9FFF]');
