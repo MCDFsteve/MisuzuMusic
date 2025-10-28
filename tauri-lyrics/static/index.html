@@ -5,6 +5,10 @@
     <title>Misuzu Lyrics Helper</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
+      :root {
+        --base-font-size: 36px;
+      }
+
       html,
       body {
         background: transparent;
@@ -14,12 +18,13 @@
         margin: 0;
         min-height: 100vh;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        color: #fff;
+        color: #ffffff;
         display: flex;
         align-items: center;
         justify-content: center;
         pointer-events: none;
       }
+
       main {
         width: 100vw;
         height: 100vh;
@@ -29,422 +34,95 @@
         align-items: center;
         justify-content: center;
       }
-      #lyrics-canvas {
-        width: 100vw;
-        height: 100vh;
-        display: block;
-        background: transparent;
+
+      #lyrics-root {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: min(16px, 2vh);
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .lyrics-line {
+        display: none;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 0;
+        white-space: pre-wrap;
+        font-weight: 900;
+        font-size: var(--base-font-size);
+        font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+        line-height: 1.15;
+        letter-spacing: 0;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.85);
+        filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
+      }
+
+      .segment {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        margin: 0;
+        padding: 0;
+        letter-spacing: 0;
+      }
+
+      .segment--text {
+        white-space: pre;
+        font-weight: 900;
+      }
+
+      .segment--ruby {
+        white-space: nowrap;
+        font-weight: 900;
+        line-height: 1.1;
+      }
+
+      .segment__annotation {
+        font-size: calc(var(--base-font-size) * 0.45);
+        font-weight: 600;
+        line-height: 1;
+        margin-bottom: 0.1em;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.75);
+        font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      }
+
+      .segment__base {
+        font-size: var(--base-font-size);
+        line-height: 1.05;
+        text-shadow: inherit;
+        font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      }
+
+      .translation-line {
+        display: none;
+        font-size: calc(var(--base-font-size) * 0.5);
+        font-weight: 600;
+        line-height: 1.2;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+        white-space: pre-wrap;
+        font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      }
+
+      .lyrics-loading {
+        font-size: var(--base-font-size);
+        font-weight: 700;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.85);
       }
     </style>
   </head>
   <body>
     <main data-tauri-drag-region>
-      <canvas id="lyrics-canvas"></canvas>
+      <div id="lyrics-root">
+        <div id="loading-line" class="lyrics-loading">歌词加载中</div>
+        <div id="active-line" class="lyrics-line" aria-live="polite" aria-atomic="true"></div>
+        <div id="translation-line" class="translation-line" aria-live="polite" aria-atomic="true"></div>
+      </div>
     </main>
-    <script type="module">
-      const canvas = document.getElementById('lyrics-canvas');
-      const ctx = canvas?.getContext('2d');
-      const DEFAULT_LINE = '歌词加载中';
-      const FONT_STACK = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif";
-      let currentLine = DEFAULT_LINE;
-      let lastPayload = null;
-
-      const sanitizeText = (value) =>
-        typeof value === 'string' ? value.trim() : '';
-
-      const shouldShowTranslation = (payload) => {
-        if (payload && typeof payload.show_translation === 'boolean') {
-          return payload.show_translation;
-        }
-        return true;
-      };
-
-      const parseFormattedLine = (rawLine) => {
-        if (!rawLine || typeof rawLine !== 'string') {
-          return { segments: [], plain: '', translation: null };
-        }
-
-        let text = rawLine.trim();
-        let translation = null;
-        const translationMatch = text.match(/<([^<>]*)>\s*$/);
-        if (translationMatch) {
-          translation = translationMatch[1].trim();
-          text = text.slice(0, translationMatch.index).trim();
-        }
-
-        const segments = [];
-        let plain = '';
-        const regex = /([^\[]+?)\[(.+?)\]/g;
-        let lastIndex = 0;
-        let match;
-
-        while ((match = regex.exec(text)) !== null) {
-          if (match.index > lastIndex) {
-            const chunk = text.slice(lastIndex, match.index);
-            if (chunk.length) {
-              segments.push({ original: chunk, annotation: '' });
-              plain += chunk;
-            }
-          }
-
-          const base = match[1];
-          const ruby = match[2];
-          if (base.length) {
-            segments.push({ original: base, annotation: ruby });
-            plain += base;
-          }
-
-          lastIndex = regex.lastIndex;
-        }
-
-        if (lastIndex < text.length) {
-          const rest = text.slice(lastIndex);
-          if (rest.length) {
-            segments.push({ original: rest, annotation: '' });
-            plain += rest;
-          }
-        }
-
-        if (!plain.length) {
-          plain = text;
-        }
-
-        return { segments, plain, translation };
-      };
-
-      const normalizeSegments = (segments) => {
-        if (!Array.isArray(segments) || segments.length === 0) {
-          return [];
-        }
-
-        return segments.reduce((acc, segment) => {
-          if (!segment) {
-            return acc;
-          }
-
-          const original =
-            typeof segment.original === 'string' ? segment.original : '';
-          const annotation =
-            typeof segment.annotation === 'string' ? segment.annotation : '';
-
-          if (!original.length && !annotation.length) {
-            return acc;
-          }
-
-          const normalized = { original, annotation };
-          const last = acc[acc.length - 1];
-
-          if (last && !last.annotation.length && !normalized.annotation.length) {
-            last.original += normalized.original;
-          } else {
-            acc.push(normalized);
-          }
-
-          return acc;
-        }, []);
-      };
-
-      if (!canvas || !ctx) {
-        const fallback = document.createElement('div');
-        fallback.textContent = DEFAULT_LINE;
-        fallback.style.cssText = `
-          font-size: 26px;
-          font-weight: 700;
-          color: #ffffff;
-          text-align: center;
-          width: 100%;
-          pointer-events: auto;
-          text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        `;
-        document.body.innerHTML = '';
-        document.body.appendChild(fallback);
-        console.error('无法初始化 Canvas 渲染环境');
-      } else {
-        const resizeCanvas = () => {
-          const dpr = window.devicePixelRatio || 1;
-          const width = window.innerWidth;
-          const height = window.innerHeight;
-
-          canvas.style.width = `${width}px`;
-          canvas.style.height = `${height}px`;
-          canvas.width = Math.max(1, Math.floor(width * dpr));
-          canvas.height = Math.max(1, Math.floor(height * dpr));
-
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.scale(dpr, dpr);
-
-          return { width, height };
-        };
-
-        const drawSimpleLine = (text = '—', translation = null) => {
-          const { width, height } = resizeCanvas();
-          ctx.clearRect(0, 0, width, height);
-
-          const content = text && text.length ? text : '—';
-          const maxWidth = width * 0.82;
-          let fontSize = Math.min(width, height) * 0.14;
-          fontSize = Math.max(fontSize, 20);
-
-          const setBaseFont = () => {
-            ctx.font = `900 ${fontSize}px ${FONT_STACK}`;
-          };
-
-          setBaseFont();
-          while (ctx.measureText(content).width > maxWidth && fontSize > 28) {
-            fontSize -= 2;
-            setBaseFont();
-          }
-
-          const baseBaseline = height / 2 + fontSize * 0.20;
-
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'alphabetic';
-          ctx.lineJoin = 'round';
-          ctx.lineCap = 'round';
-
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = fontSize * 0.12;
-
-          ctx.lineWidth = Math.max(fontSize * 0.07, 2.2);
-          ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-          ctx.strokeText(content, width / 2, baseBaseline);
-
-          ctx.shadowBlur = fontSize * 0.04;
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(content, width / 2, baseBaseline);
-
-          if (translation && translation.length) {
-            let translationSize = Math.max(fontSize * 0.48, 16);
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            ctx.fillStyle = '#ffffff';
-
-            const translationFont = () =>
-              `600 ${translationSize}px ${FONT_STACK}`;
-
-            ctx.font = translationFont();
-            while (
-              ctx.measureText(translation).width > width * 0.78 &&
-              translationSize > 14
-            ) {
-              translationSize -= 1;
-              ctx.font = translationFont();
-            }
-
-            const translationY = baseBaseline + fontSize * 0.45;
-            ctx.shadowBlur = translationSize * 0.05;
-            ctx.lineWidth = Math.max(translationSize * 0.05, 1.6);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-            ctx.strokeText(translation, width / 2, translationY);
-            ctx.shadowBlur = translationSize * 0.025;
-            ctx.fillText(translation, width / 2, translationY);
-          }
-        };
-
-        const drawSegments = (segments, translation = null) => {
-          const normalizedSegments = normalizeSegments(segments);
-          if (!normalizedSegments.length) {
-            drawSimpleLine(currentLine, translation);
-            return;
-          }
-
-          const { width, height } = resizeCanvas();
-          ctx.clearRect(0, 0, width, height);
-
-          const maxWidth = width * 0.82;
-          let baseFontSize = Math.min(width, height) * 0.14;
-          baseFontSize = Math.max(baseFontSize, 20);
-          let annotationFontSize = Math.max(baseFontSize * 0.4, 12);
-
-          const baseFont = () => `900 ${baseFontSize}px ${FONT_STACK}`;
-          const annotationFont = () => `600 ${annotationFontSize}px ${FONT_STACK}`;
-
-          ctx.font = baseFont();
-          const measureTotalWidth = () =>
-            normalizedSegments.reduce(
-              (sum, segment) => sum + ctx.measureText(segment.original).width,
-              0,
-            );
-
-          let totalWidth = measureTotalWidth();
-          if (totalWidth > maxWidth) {
-            const scale = maxWidth / totalWidth;
-            baseFontSize = Math.max(18, Math.floor(baseFontSize * scale));
-            annotationFontSize = Math.max(baseFontSize * 0.4, 12);
-            ctx.font = baseFont();
-            totalWidth = measureTotalWidth();
-          }
-
-          const baseBaseline = height / 2 + baseFontSize * 0.20;
-          const annotationBaseline = baseBaseline - baseFontSize * 0.88;
-          const startX = (width - totalWidth) / 2;
-          let x = startX;
-
-          ctx.textBaseline = 'alphabetic';
-          ctx.lineJoin = 'round';
-          ctx.lineCap = 'round';
-
-          normalizedSegments.forEach((segment) => {
-            const text = segment.original;
-            if (!text.length) {
-              return;
-            }
-
-            ctx.font = baseFont();
-            const segmentWidth = ctx.measureText(text).width;
-            const centerX = x + segmentWidth / 2;
-
-            ctx.textAlign = 'left';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-            ctx.shadowBlur = baseFontSize * 0.12;
-            ctx.lineWidth = Math.max(baseFontSize * 0.07, 2.2);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-            ctx.strokeText(text, x, baseBaseline);
-
-            ctx.shadowBlur = baseFontSize * 0.04;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(text, x, baseBaseline);
-
-            const annotation = segment.annotation;
-            if (annotation.length) {
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'alphabetic';
-              ctx.font = annotationFont();
-              ctx.lineWidth = Math.max(annotationFontSize * 0.05, 1.4);
-              ctx.shadowBlur = annotationFontSize * 0.1;
-              ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-              ctx.strokeText(annotation, centerX, annotationBaseline);
-              ctx.shadowBlur = annotationFontSize * 0.03;
-              ctx.fillStyle = '#ffffff';
-              ctx.fillText(annotation, centerX, annotationBaseline);
-            }
-
-            x += segmentWidth;
-          });
-
-          if (translation && translation.length) {
-            let translationSize = Math.max(baseFontSize * 0.5, 16);
-            const translationFont = () =>
-              `600 ${translationSize}px ${FONT_STACK}`;
-            ctx.font = translationFont();
-            while (
-              ctx.measureText(translation).width > width * 0.78 &&
-              translationSize > 14
-            ) {
-              translationSize -= 1;
-              ctx.font = translationFont();
-            }
-
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            ctx.shadowBlur = translationSize * 0.05;
-            ctx.lineWidth = Math.max(translationSize * 0.05, 1.6);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-            const translationY = baseBaseline + baseFontSize * 0.42;
-            ctx.strokeText(translation, width / 2, translationY);
-            ctx.shadowBlur = translationSize * 0.025;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(translation, width / 2, translationY);
-          }
-        };
-
-        const resolveLine = (payload) => {
-          const text = sanitizeText(payload?.active_line);
-          return text.length ? text : DEFAULT_LINE;
-        };
-
-        const render = (payload) => {
-          if (payload) {
-            lastPayload = payload;
-          }
-
-          const targetPayload = payload ?? lastPayload;
-          if (!targetPayload) {
-            drawSimpleLine(DEFAULT_LINE);
-            return;
-          }
-
-          const parsed = parseFormattedLine(targetPayload.active_line);
-          currentLine = parsed.plain.length ? parsed.plain : resolveLine(targetPayload);
-          document.title = currentLine;
-
-          const showTranslation = shouldShowTranslation(targetPayload);
-          const translation = showTranslation
-            ? sanitizeText(parsed.translation)
-            : '';
-          const displayTranslation = translation.length ? translation : null;
-          const hasAnnotations = parsed.segments.some(
-            (segment) => segment.annotation.length,
-          );
-
-          if (hasAnnotations) {
-            drawSegments(parsed.segments, displayTranslation);
-          } else {
-            drawSimpleLine(currentLine, displayTranslation);
-          }
-        };
-
-        const registerExitShortcuts = (tauriCore) => {
-          const handler = (event) => {
-            const key = event.key?.toLowerCase();
-            const comboPressed = event.metaKey || event.ctrlKey;
-            const exitViaQ = comboPressed && key === 'q';
-            const exitViaEsc = comboPressed && key === 'escape';
-
-            if (exitViaQ || exitViaEsc) {
-              event.preventDefault();
-              tauriCore.invoke('exit_app');
-            }
-          };
-
-          window.addEventListener('keydown', handler);
-        };
-
-        async function init() {
-          const tauri = window.__TAURI__;
-          console.log('Tauri API 入口:', tauri);
-          if (!tauri || !tauri.core || !tauri.event) {
-            console.error('无法找到 Tauri API');
-            drawSimpleLine(DEFAULT_LINE);
-            return;
-          }
-
-          const { invoke } = tauri.core;
-          const { listen } = tauri.event;
-
-          drawSimpleLine(currentLine);
-
-          try {
-            const payload = await invoke('get_lyrics_state');
-            console.log('初始歌词状态:', payload);
-            render(payload);
-          } catch (error) {
-            console.error('获取初始歌词状态失败:', error);
-            drawSimpleLine(DEFAULT_LINE);
-          }
-
-          try {
-            await listen('lyrics:update', ({ payload }) => {
-              console.log('收到歌词更新事件:', payload);
-              render(payload);
-            });
-          } catch (error) {
-            console.error('监听歌词更新失败:', error);
-          }
-
-          registerExitShortcuts(tauri.core);
-        }
-
-        window.addEventListener('resize', () => {
-          if (lastPayload) {
-            render(lastPayload);
-          } else {
-            drawSimpleLine(currentLine);
-          }
-        });
-
-        init();
-      }
-    </script>
+    <script type="module" src="./lyrics.js"></script>
   </body>
 </html>
