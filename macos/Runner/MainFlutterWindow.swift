@@ -17,8 +17,10 @@ class MainFlutterWindow: NSWindow {
     isMovableByWindowBackground = true
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    DesktopLyricsSpacesBridge.register(with: flutterViewController)
     FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
       RegisterGeneratedPlugins(registry: controller)
+      DesktopLyricsSpacesBridge.register(with: controller)
     }
 
     if let delegate = NSApp.delegate as? AppDelegate {

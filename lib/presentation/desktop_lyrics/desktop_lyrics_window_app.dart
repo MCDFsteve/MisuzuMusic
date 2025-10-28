@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/services/desktop_lyrics_bridge.dart';
@@ -16,6 +17,9 @@ Future<void> runDesktopLyricsWindow(
   WindowController controller,
   Map<String, dynamic> args,
 ) async {
+  const MethodChannel nativeSpacesChannel =
+      MethodChannel('com.aimessoft.misuzumusic/desktop_lyrics_window');
+
   WidgetsFlutterBinding.ensureInitialized();
 
   await windowManager.ensureInitialized();
@@ -40,6 +44,20 @@ Future<void> runDesktopLyricsWindow(
         true,
         visibleOnFullScreen: true,
       );
+      final visibleEverywhere = await windowManager.isVisibleOnAllWorkspaces();
+      debugPrint('桌面歌词窗口加入所有桌面: $visibleEverywhere');
+      if (Platform.isMacOS) {
+        try {
+          await nativeSpacesChannel.invokeMethod<void>(
+            'pinToAllSpaces',
+            {
+              'windowId': controller.windowId,
+            },
+          );
+        } catch (error) {
+          debugPrint('桌面歌词窗口原生空间配置失败: $error');
+        }
+      }
       await windowManager.setResizable(false);
       await windowManager.show();
       await windowManager.focus();
