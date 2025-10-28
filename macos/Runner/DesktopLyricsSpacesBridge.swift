@@ -51,6 +51,7 @@ class DesktopLyricsSpacesBridge {
 
     debugPrint("DesktopLyrics window class = \(type(of: targetWindow)), isPanel=\(targetWindow is NSPanel)")
 
+    prepareTransparentWindow(targetWindow)
     targetWindow.level = .statusBar
     var behavior = targetWindow.collectionBehavior
     behavior.remove(.moveToActiveSpace)
@@ -66,6 +67,32 @@ class DesktopLyricsSpacesBridge {
     targetWindow.orderFrontRegardless()
 
     result(true)
+  }
+
+  private static func prepareTransparentWindow(_ window: NSWindow) {
+    window.isOpaque = false
+    window.backgroundColor = .clear
+    window.hasShadow = false
+    window.titleVisibility = .hidden
+    window.titlebarAppearsTransparent = true
+    window.isMovableByWindowBackground = true
+
+    if let contentView = window.contentView {
+      contentView.wantsLayer = true
+      contentView.layer?.backgroundColor = NSColor.clear.cgColor
+      contentView.layer?.isOpaque = false
+    }
+
+    if let controllerView = window.contentViewController?.view {
+      controllerView.wantsLayer = true
+      controllerView.layer?.backgroundColor = NSColor.clear.cgColor
+      controllerView.layer?.isOpaque = false
+      controllerView.subviews.forEach { subview in
+        subview.wantsLayer = true
+        subview.layer?.backgroundColor = NSColor.clear.cgColor
+        subview.layer?.isOpaque = false
+      }
+    }
   }
 
   private static func resolveWindow(
