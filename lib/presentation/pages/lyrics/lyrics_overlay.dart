@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
@@ -9,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/services/lrc_export_service.dart';
+import '../../../core/services/desktop_lyrics_bridge.dart';
 import '../../../domain/entities/lyrics_entities.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../../domain/usecases/lyrics_usecases.dart';
@@ -39,20 +42,36 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late Track _currentTrack;
   late final ScrollController _lyricsScrollController;
   late final LyricsCubit _lyricsCubit;
+  late final DesktopLyricsBridge _desktopLyricsBridge;
   static bool _lastTranslationPreference = true;
   bool _showTranslation = _lastTranslationPreference;
+  bool _desktopLyricsActive = false;
+  bool _desktopLyricsBusy = false;
+  bool _desktopLyricsErrorNotified = false;
+  List<LyricsLine> _activeLyricsLines = const [];
+  LyricsLine? _activeDesktopLine;
+  int _activeDesktopIndex = -1;
+  Duration? _currentPosition;
+  bool _isPlaying = false;
+  String? _lastDesktopPayloadSignature;
+  bool _isSendingDesktopUpdate = false;
+  bool _shouldResendDesktopUpdate = false;
 
   @override
   void initState() {
     super.initState();
     _currentTrack = widget.initialTrack;
     _lyricsScrollController = ScrollController();
+    _desktopLyricsBridge = sl<DesktopLyricsBridge>();
     _lyricsCubit = LyricsCubit(
       findLyricsFile: sl<FindLyricsFile>(),
       loadLyricsFromFile: sl<LoadLyricsFromFile>(),
       fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
       getLyrics: sl<GetLyrics>(),
     )..loadLyricsForTrack(_currentTrack);
+
+    final initialPlayerState = context.read<PlayerBloc>().state;
+    _updatePlaybackStateFromPlayer(initialPlayerState, notify: false);
   }
 
   @override
@@ -62,11 +81,22 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _currentTrack = widget.initialTrack;
       _lyricsCubit.loadLyricsForTrack(_currentTrack);
       _resetScroll();
+      _activeLyricsLines = const [];
+      _activeDesktopLine = null;
+      _activeDesktopIndex = -1;
+      _lastDesktopPayloadSignature = null;
+      if (_desktopLyricsActive) {
+        _scheduleDesktopLyricsUpdate(force: true);
+      }
     }
   }
 
   @override
   void dispose() {
+    if (_desktopLyricsActive) {
+      _desktopLyricsActive = false;
+      unawaited(_desktopLyricsBridge.clear());
+    }
     _lyricsScrollController.dispose();
     _lyricsCubit.close();
     super.dispose();
@@ -84,6 +114,299 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _showTranslation = !_showTranslation;
     });
     _lastTranslationPreference = _showTranslation;
+    if (_desktopLyricsActive) {
+      _scheduleDesktopLyricsUpdate(force: true);
+    }
+  }
+
+  void _scheduleDesktopLyricsUpdate({bool force = false}) {
+    if (!_desktopLyricsActive) {
+      return;
+    }
+    unawaited(_sendDesktopLyricsUpdate(force: force));
+  }
+
+  Future<void> _sendDesktopLyricsUpdate({bool force = false}) async {
+    if (!_desktopLyricsActive) {
+      return;
+    }
+    if (_isSendingDesktopUpdate) {
+      if (force) {
+        _shouldResendDesktopUpdate = true;
+      }
+      return;
+    }
+
+    final update = _buildDesktopLyricsUpdate();
+    if (update == null) {
+      return;
+    }
+
+    final signature = _signatureForUpdate(update);
+    if (!force && _lastDesktopPayloadSignature == signature) {
+      return;
+    }
+
+    _isSendingDesktopUpdate = true;
+    try {
+      final success = await _desktopLyricsBridge.update(update);
+      if (success) {
+        _lastDesktopPayloadSignature = signature;
+        _desktopLyricsErrorNotified = false;
+      } else {
+        _lastDesktopPayloadSignature = null;
+        if (!_desktopLyricsErrorNotified) {
+          _desktopLyricsErrorNotified = true;
+          if (mounted) {
+            setState(() {
+              _desktopLyricsActive = false;
+            });
+            unawaited(
+              _showDesktopLyricsError('桌面歌词助手未响应，请确认已运行并允许网络访问。'),
+            );
+          }
+        }
+      }
+    } finally {
+      _isSendingDesktopUpdate = false;
+      if (_shouldResendDesktopUpdate) {
+        _shouldResendDesktopUpdate = false;
+        await _sendDesktopLyricsUpdate(force: true);
+      }
+    }
+  }
+
+  DesktopLyricsUpdate? _buildDesktopLyricsUpdate() {
+    final track = _currentTrack;
+    if (track == null) {
+      return null;
+    }
+
+    return DesktopLyricsUpdate(
+      trackId: track.id,
+      title: track.title,
+      artist: track.artist,
+      activeLine: _sanitizeLine(_activeDesktopLine),
+      nextLine: _sanitizeLine(_resolveNextDesktopLine()),
+      positionMs: _currentPosition?.inMilliseconds,
+      isPlaying: _isPlaying,
+    );
+  }
+
+  String _signatureForUpdate(DesktopLyricsUpdate update) {
+    final buffer = StringBuffer();
+    final payload = update.toJson();
+    payload.forEach((key, value) {
+      buffer
+        ..write(key)
+        ..write('=')
+        ..write(value)
+        ..write('|');
+    });
+    return buffer.toString();
+  }
+
+  String? _sanitizeLine(LyricsLine? line) {
+    if (line == null) {
+      return null;
+    }
+    final text = line.originalText.trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    return text;
+  }
+
+  LyricsLine? _resolveNextDesktopLine() {
+    final nextIndex = _activeDesktopIndex + 1;
+    if (nextIndex < 0 || nextIndex >= _activeLyricsLines.length) {
+      return null;
+    }
+    return _activeLyricsLines[nextIndex];
+  }
+
+  Future<void> _toggleDesktopLyricsAssistant() async {
+    if (_desktopLyricsBusy) {
+      return;
+    }
+    debugPrint(
+      _desktopLyricsActive ? '准备关闭桌面歌词窗口' : '准备开启桌面歌词窗口',
+    );
+    setState(() {
+      _desktopLyricsBusy = true;
+    });
+
+    try {
+      if (_desktopLyricsActive) {
+        await _disableDesktopLyrics();
+      } else {
+        await _enableDesktopLyrics();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _desktopLyricsBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _enableDesktopLyrics() async {
+    final track = _currentTrack;
+    if (track == null) {
+      await _showDesktopLyricsError('当前没有正在播放的歌曲，无法开启桌面歌词。');
+      return;
+    }
+
+    final isAlive = await _desktopLyricsBridge.ping();
+    if (!isAlive) {
+      await _showDesktopLyricsError('未检测到桌面歌词助手，请先启动 misuzu-lyrics 程序。');
+      return;
+    }
+
+    final shown = await _desktopLyricsBridge.showWindow();
+    if (!shown) {
+      await _showDesktopLyricsError('无法显示桌面歌词窗口，请检查助手程序状态。');
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _desktopLyricsActive = true;
+      _desktopLyricsErrorNotified = false;
+      _lastDesktopPayloadSignature = null;
+    });
+
+    _syncDesktopLyricsState();
+    await _sendDesktopLyricsUpdate(force: true);
+  }
+
+  Future<void> _disableDesktopLyrics({bool clear = true}) async {
+    _shouldResendDesktopUpdate = false;
+    if (!mounted) {
+      if (clear) {
+        unawaited(_desktopLyricsBridge.clear());
+      }
+      return;
+    }
+
+    setState(() {
+      _desktopLyricsActive = false;
+      _desktopLyricsErrorNotified = false;
+      _lastDesktopPayloadSignature = null;
+    });
+
+    if (clear) {
+      await _desktopLyricsBridge.clear();
+    }
+  }
+
+  Future<void> _showDesktopLyricsError(String message) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showPlaylistModalDialog(
+      context: context,
+      builder: (context) => PlaylistModalScaffold(
+        title: '桌面歌词不可用',
+        body: Text(message, locale: Locale("zh-Hans", "zh")),
+        actions: [
+          SheetActionButton.primary(
+            label: '确定',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+        maxWidth: 360,
+      ),
+    );
+  }
+
+  void _updatePlaybackStateFromPlayer(
+    PlayerBlocState state, {
+    bool notify = true,
+  }) {
+    Duration? position;
+    bool playing = false;
+
+    if (state is PlayerPlaying) {
+      position = state.position;
+      playing = true;
+    } else if (state is PlayerPaused) {
+      position = state.position;
+      playing = false;
+    } else if (state is PlayerLoading) {
+      position = state.position;
+      playing = false;
+    }
+
+    final bool playingChanged = playing != _isPlaying;
+    _isPlaying = playing;
+    _currentPosition = position;
+
+    if (notify && playingChanged) {
+      _scheduleDesktopLyricsUpdate(force: true);
+    }
+  }
+
+  void _handleActiveIndexChanged(int index) {
+    _activeDesktopIndex = index;
+    if (index < 0 || index >= _activeLyricsLines.length) {
+      _activeDesktopLine = null;
+    } else {
+      _activeDesktopLine = _activeLyricsLines[index];
+    }
+    debugPrint('桌面歌词当前索引更新: $index');
+    if (_desktopLyricsActive) {
+      _scheduleDesktopLyricsUpdate();
+    }
+  }
+
+  void _handleActiveLineChanged(LyricsLine? line) {
+    _activeDesktopLine = line;
+    if (line == null) {
+      _activeDesktopIndex = -1;
+    }
+    if (_desktopLyricsActive) {
+      _scheduleDesktopLyricsUpdate();
+    }
+  }
+
+  void _syncDesktopLyricsState() {
+    if (_activeLyricsLines.isEmpty) {
+      _activeDesktopLine = null;
+      _activeDesktopIndex = -1;
+      return;
+    }
+
+    final Duration? position = _currentPosition;
+    if (position == null) {
+      _activeDesktopIndex = 0;
+      _activeDesktopLine = _activeLyricsLines.first;
+      return;
+    }
+
+    int index = 0;
+    for (int i = 0; i < _activeLyricsLines.length; i++) {
+      final current = _activeLyricsLines[i].timestamp;
+      final Duration? next = i + 1 < _activeLyricsLines.length
+          ? _activeLyricsLines[i + 1].timestamp
+          : null;
+      if (position < current) {
+        index = math.max(0, i - 1);
+        break;
+      }
+      if (next == null || position < next) {
+        index = i;
+        break;
+      }
+    }
+
+    _activeDesktopIndex = index;
+    _activeDesktopLine = _activeLyricsLines[index];
   }
 
   Future<void> _reportError() async {
@@ -245,18 +568,44 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       value: _lyricsCubit,
       child: BlocListener<PlayerBloc, PlayerBlocState>(
         listener: (context, playerState) {
+          _updatePlaybackStateFromPlayer(playerState);
           final nextTrack = _extractTrack(playerState);
           if (nextTrack != null && nextTrack != _currentTrack) {
             if (!mounted) return;
             setState(() => _currentTrack = nextTrack);
             _lyricsCubit.loadLyricsForTrack(nextTrack);
             _resetScroll();
+            _activeLyricsLines = const [];
+            _activeDesktopLine = null;
+            _activeDesktopIndex = -1;
+            _lastDesktopPayloadSignature = null;
+            if (_desktopLyricsActive) {
+              _scheduleDesktopLyricsUpdate(force: true);
+            }
           }
         },
         child: BlocListener<LyricsCubit, LyricsState>(
           listener: (context, state) {
             if (state is LyricsLoaded || state is LyricsEmpty) {
               _resetScroll();
+            }
+    if (state is LyricsLoaded) {
+      _activeLyricsLines = state.lyrics.lines;
+      _activeDesktopIndex = -1;
+      _activeDesktopLine = null;
+      _lastDesktopPayloadSignature = null;
+      _syncDesktopLyricsState();
+      if (_desktopLyricsActive) {
+        _scheduleDesktopLyricsUpdate(force: true);
+      }
+    } else if (state is LyricsEmpty || state is LyricsError) {
+      _activeLyricsLines = const [];
+              _activeDesktopLine = null;
+              _activeDesktopIndex = -1;
+              _lastDesktopPayloadSignature = null;
+              if (_desktopLyricsActive) {
+                _scheduleDesktopLyricsUpdate(force: true);
+              }
             }
           },
           child: _LyricsLayout(
@@ -267,6 +616,12 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             onToggleTranslation: _toggleTranslationVisibility,
             onDownloadLrc: _downloadLrcFile,
             onReportError: _reportError,
+            onToggleDesktopLyrics: () =>
+                unawaited(_toggleDesktopLyricsAssistant()),
+            isDesktopLyricsActive: _desktopLyricsActive,
+            isDesktopLyricsBusy: _desktopLyricsBusy,
+            onActiveIndexChanged: _handleActiveIndexChanged,
+            onActiveLineChanged: _handleActiveLineChanged,
           ),
         ),
       ),
@@ -283,6 +638,11 @@ class _LyricsLayout extends StatelessWidget {
     required this.onToggleTranslation,
     required this.onDownloadLrc,
     required this.onReportError,
+    required this.onToggleDesktopLyrics,
+    required this.isDesktopLyricsActive,
+    required this.isDesktopLyricsBusy,
+    required this.onActiveIndexChanged,
+    required this.onActiveLineChanged,
   });
 
   final Track track;
@@ -292,6 +652,11 @@ class _LyricsLayout extends StatelessWidget {
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
+  final VoidCallback onToggleDesktopLyrics;
+  final bool isDesktopLyricsActive;
+  final bool isDesktopLyricsBusy;
+  final ValueChanged<int> onActiveIndexChanged;
+  final ValueChanged<LyricsLine?> onActiveLineChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -345,6 +710,11 @@ class _LyricsLayout extends StatelessWidget {
                     onToggleTranslation: onToggleTranslation,
                     onDownloadLrc: onDownloadLrc,
                     onReportError: onReportError,
+                    onToggleDesktopLyrics: onToggleDesktopLyrics,
+                    isDesktopLyricsActive: isDesktopLyricsActive,
+                    isDesktopLyricsBusy: isDesktopLyricsBusy,
+                    onActiveIndexChanged: onActiveIndexChanged,
+                    onActiveLineChanged: onActiveLineChanged,
                   ),
                 ),
               ],
@@ -488,6 +858,11 @@ class _LyricsPanel extends StatelessWidget {
     required this.onToggleTranslation,
     required this.onDownloadLrc,
     required this.onReportError,
+    required this.onToggleDesktopLyrics,
+    required this.isDesktopLyricsActive,
+    required this.isDesktopLyricsBusy,
+    required this.onActiveIndexChanged,
+    required this.onActiveLineChanged,
   });
 
   final bool isDarkMode;
@@ -497,6 +872,11 @@ class _LyricsPanel extends StatelessWidget {
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
+  final VoidCallback onToggleDesktopLyrics;
+  final bool isDesktopLyricsActive;
+  final bool isDesktopLyricsBusy;
+  final ValueChanged<int> onActiveIndexChanged;
+  final ValueChanged<LyricsLine?> onActiveLineChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -534,7 +914,7 @@ class _LyricsPanel extends StatelessWidget {
                   Positioned.fill(child: content),
                   if (showReportError)
                     Positioned(
-                      bottom: 150,
+                      bottom: 190,
                       right: 12,
                       child: _ReportErrorButton(
                         isDarkMode: isDarkMode,
@@ -542,12 +922,22 @@ class _LyricsPanel extends StatelessWidget {
                       ),
                     ),
                   Positioned(
-                    bottom: 70,
+                    bottom: 130,
                     right: 12,
                     child: _DownloadLrcButton(
                       isDarkMode: isDarkMode,
                       isEnabled: state is LyricsLoaded,
                       onPressed: state is LyricsLoaded ? onDownloadLrc : null,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 75,
+                    right: 12,
+                    child: _DesktopLyricsToggleButton(
+                      isDarkMode: isDarkMode,
+                      isActive: isDesktopLyricsActive,
+                      isBusy: isDesktopLyricsBusy,
+                      onPressed: onToggleDesktopLyrics,
                     ),
                   ),
                   Positioned(
@@ -607,26 +997,28 @@ class _LyricsPanel extends StatelessWidget {
       );
     }
 
-    if (state is LyricsLoaded) {
-      final lines = state.lyrics.lines;
-      if (lines.isEmpty) {
-        return _buildInfoMessage(
-          controller,
-          title: '暂无歌词',
-          subtitle: '暂未找到 ${track.title} 的歌词。',
+      if (state is LyricsLoaded) {
+        final lines = state.lyrics.lines;
+        if (lines.isEmpty) {
+          return _buildInfoMessage(
+            controller,
+            title: '暂无歌词',
+            subtitle: '暂未找到 ${track.title} 的歌词。',
+            isDarkMode: isDarkMode,
+            viewportHeight: viewportHeight,
+          );
+        }
+
+        return LyricsDisplay(
+          key: ValueKey(track.id),
+          lines: lines,
+          controller: controller,
           isDarkMode: isDarkMode,
-          viewportHeight: viewportHeight,
+          showTranslation: showTranslation,
+          onActiveIndexChanged: onActiveIndexChanged,
+          onActiveLineChanged: onActiveLineChanged,
         );
       }
-
-      return LyricsDisplay(
-        key: ValueKey(track.id),
-        lines: lines,
-        controller: controller,
-        isDarkMode: isDarkMode,
-        showTranslation: showTranslation,
-      );
-    }
 
     return const SizedBox.shrink();
   }
@@ -877,6 +1269,46 @@ class _DownloadLrcButton extends StatelessWidget {
         hoverColor: isEnabled ? activeColor : disabledColor,
         disabledColor: disabledColor,
         size: iconSize,
+      ),
+    );
+  }
+}
+
+class _DesktopLyricsToggleButton extends StatelessWidget {
+  const _DesktopLyricsToggleButton({
+    required this.isDarkMode,
+    required this.isActive,
+    required this.isBusy,
+    required this.onPressed,
+  });
+
+  final bool isDarkMode;
+  final bool isActive;
+  final bool isBusy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color iconColor = isDarkMode ? Colors.white : Colors.black;
+    final bool enabled = !isBusy;
+    final Color disabledColor = iconColor.withOpacity(0.4);
+    final Color baseColor = enabled
+        ? (isActive ? iconColor : iconColor.withOpacity(0.78))
+        : disabledColor;
+    final String tooltip = isBusy
+        ? '处理中...'
+        : (isActive ? '关闭桌面歌词窗口' : '显示桌面歌词窗口');
+
+    return MacosTooltip(
+      message: tooltip,
+      child: _HoverGlyphButton(
+        enabled: enabled,
+        onPressed: enabled ? onPressed : null,
+        icon: CupertinoIcons.macwindow,
+        size: 26,
+        baseColor: baseColor,
+        hoverColor: iconColor,
+        disabledColor: disabledColor,
       ),
     );
   }

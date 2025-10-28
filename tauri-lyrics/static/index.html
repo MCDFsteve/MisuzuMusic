@@ -41,11 +41,16 @@
     <main data-tauri-drag-region>
       <canvas id="lyrics-canvas"></canvas>
     </main>
+    <div
+      id="debug-text"
+      style="position: fixed; bottom: 12px; left: 12px; font-size: 12px; color: rgba(255,255,255,0.65); pointer-events: none; text-shadow: 0 0 4px rgba(0,0,0,0.7); max-width: 70vw; white-space: pre-wrap;"
+    ></div>
     <script type="module">
       const canvas = document.getElementById('lyrics-canvas');
       const ctx = canvas?.getContext('2d');
       const DEFAULT_LINE = '歌词加载中';
       let currentLine = DEFAULT_LINE;
+      const debugText = document.getElementById('debug-text');
 
       if (!canvas || !ctx) {
         const fallback = document.createElement('div');
@@ -123,7 +128,11 @@
 
         const render = (payload) => {
           currentLine = resolveLine(payload);
+          document.title = currentLine;
           drawLine(currentLine);
+          if (debugText) {
+            debugText.textContent = `active_line: ${payload?.active_line ?? 'null'}\nnext_line: ${payload?.next_line ?? 'null'}`;
+          }
         };
 
         const registerExitShortcuts = (tauri) => {
@@ -143,21 +152,38 @@
         };
 
         async function init() {
+          const tauri = window.__TAURI__;
+          console.log('Tauri API 入口:', tauri);
+          if (!tauri || !tauri.core || !tauri.event) {
+            console.error('无法找到 Tauri API');
+            drawLine(DEFAULT_LINE);
+            return;
+          }
+
+          const { invoke } = tauri.core;
+          const { listen } = tauri.event;
+
+          drawLine(currentLine);
+
           try {
-            const tauri = await import('tauri://api');
-            drawLine(currentLine);
-            const payload = await tauri.invoke('get_lyrics_state');
+            const payload = await invoke('get_lyrics_state');
+            console.log('初始歌词状态:', payload);
             render(payload);
-
-            await tauri.event.listen('lyrics:update', ({ payload }) => {
-              render(payload);
-            });
-
-            registerExitShortcuts(tauri);
           } catch (error) {
-            console.error('初始化 Tauri 接口失败:', error);
+            console.error('获取初始歌词状态失败:', error);
             drawLine(DEFAULT_LINE);
           }
+
+          try {
+            await listen('lyrics:update', ({ payload }) => {
+              console.log('收到歌词更新事件:', payload);
+              render(payload);
+            });
+          } catch (error) {
+            console.error('监听歌词更新失败:', error);
+          }
+
+          registerExitShortcuts(tauri.core);
         }
 
         window.addEventListener('resize', () => drawLine(currentLine));

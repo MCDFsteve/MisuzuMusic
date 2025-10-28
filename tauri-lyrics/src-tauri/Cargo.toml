@@ -24,4 +24,5 @@ log = "0.4"
 tauri = { version = "2.5.0", features = ["macos-private-api"] }
 tauri-plugin-log = "2.0.0-rc"
 window-vibrancy = "0.6"
-tokio = { version = "1", features = ["signal"] }
+tokio = { version = "1", features = ["signal", "macros", "rt-multi-thread", "net"] }
+axum = { version = "0.7", default-features = false, features = ["json", "tokio", "http1"] }
