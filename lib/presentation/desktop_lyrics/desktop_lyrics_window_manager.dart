@@ -24,7 +24,7 @@ class DesktopLyricsWindowManager {
       return;
     }
 
-    DesktopMultiWindow.setMethodCallHandler((call, fromWindowId) async {
+    DesktopMultiWindow.setMethodHandler((call, fromWindowId) async {
       switch (call.method) {
         case 'lyrics_window_disposed':
           if (_controller?.windowId == fromWindowId) {

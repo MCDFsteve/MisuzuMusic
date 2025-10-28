@@ -49,7 +49,7 @@ Future<void> runDesktopLyricsWindow(
     );
   }
 
-  DesktopMultiWindow.setMethodCallHandler((call, fromWindowId) async {
+  DesktopMultiWindow.setMethodHandler((call, fromWindowId) async {
     switch (call.method) {
       case 'configure_window':
         await configureWindow();

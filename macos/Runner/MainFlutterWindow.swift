@@ -17,8 +17,6 @@ class MainFlutterWindow: NSWindow {
     isMovableByWindowBackground = true
 
     RegisterGeneratedPlugins(registry: flutterViewController)
-    WindowManagerPlugin.RegisterGeneratedPlugins = RegisterGeneratedPlugins
-
     FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
       RegisterGeneratedPlugins(registry: controller)
     }

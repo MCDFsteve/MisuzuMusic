@@ -66,10 +66,12 @@ class DesktopLyricsServer {
           await _handleRequest(request);
         } catch (error, stackTrace) {
           debugPrint('DesktopLyricsServer request error: $error\n$stackTrace');
-          if (!request.response.headersSent) {
+          try {
             request.response.statusCode = HttpStatus.internalServerError;
-          }
-          await request.response.close();
+          } catch (_) {}
+          try {
+            await request.response.close();
+          } catch (_) {}
         }
       }),
     );
