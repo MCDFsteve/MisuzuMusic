@@ -1,9 +1,17 @@
+import { WindowResizer } from './window_resizer.js';
+
 const DEFAULT_LINE = '歌词加载中';
 const FONT_STACK = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif";
 
+const rootElement = document.getElementById('lyrics-root');
 const loadingElement = document.getElementById('loading-line');
 const activeLineElement = document.getElementById('active-line');
 const translationElement = document.getElementById('translation-line');
+
+const windowResizer = rootElement ? new WindowResizer(rootElement) : null;
+const queueResize = () => {
+  windowResizer?.scheduleResize();
+};
 
 let lastPayload = null;
 let currentLineText = DEFAULT_LINE;
@@ -144,13 +152,25 @@ const setLoadingState = (isLoading, message = DEFAULT_LINE) => {
     loadingElement.style.display = 'none';
     activeLineElement.style.display = 'flex';
   }
+  queueResize();
 };
 
 const updateFontScale = () => {
-  const width = window.innerWidth || document.documentElement.clientWidth;
-  const height = window.innerHeight || document.documentElement.clientHeight;
-  const baseSize = Math.max(Math.min(width, height) * 0.14, 20);
-  document.documentElement.style.setProperty('--base-font-size', `${Math.floor(baseSize)}px`);
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const screenWidth = window.screen?.width ?? viewportWidth;
+  const screenHeight = window.screen?.height ?? viewportHeight;
+
+  const screenReference = Math.min(screenWidth, screenHeight);
+  const viewportReference = Math.min(viewportWidth, viewportHeight);
+
+  const screenBased = screenReference * 0.042; // 比例保持大屏字体
+  const viewportBased = viewportReference * 0.18; // 窗口放大缩小时的补偿
+  const computed = Math.max(screenBased, viewportBased);
+  const baseSize = Math.max(36, Math.min(96, Math.floor(computed)));
+
+  document.documentElement.style.setProperty('--base-font-size', `${baseSize}px`);
+  queueResize();
 };
 
 const produceTextSegment = (text) => ({ type: 'text', text });
@@ -162,6 +182,7 @@ const renderSegments = (segments) => {
     fallback.className = 'segment segment--text';
     fallback.textContent = currentLineText;
     activeLineElement.appendChild(fallback);
+    queueResize();
     return;
   }
 
@@ -196,6 +217,7 @@ const renderSegments = (segments) => {
   });
 
   activeLineElement.appendChild(fragment);
+  queueResize();
 };
 
 const selectTranslation = (parsed, payload) => {
@@ -248,6 +270,7 @@ const render = (payload) => {
   }
 
   setLoadingState(false);
+  queueResize();
 };
 
 const registerExitShortcuts = (tauriCore) => {
@@ -285,6 +308,10 @@ const bootstrap = async () => {
 
     const { invoke } = tauri.core;
     const { listen } = tauri.event;
+
+    if (windowResizer) {
+      await windowResizer.init(tauri);
+    }
 
     try {
       const payload = await invoke('get_lyrics_state');

@@ -57,8 +57,12 @@
         font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
         line-height: 1.15;
         letter-spacing: 0;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.85);
-        filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
+        color: #ffffff;
+        -webkit-text-stroke: 1.4px #000000;
+        text-stroke: 1.4px #000000;
+        paint-order: stroke fill;
+        text-shadow: none;
+        filter: none;
       }
 
       .segment {
@@ -74,12 +78,22 @@
       .segment--text {
         white-space: pre;
         font-weight: 900;
+        color: #ffffff;
+        -webkit-text-stroke: 1.4px #000000;
+        text-stroke: 1.4px #000000;
+        paint-order: stroke fill;
+        text-shadow: none;
       }
 
       .segment--ruby {
         white-space: nowrap;
         font-weight: 900;
         line-height: 1.1;
+        color: #ffffff;
+        -webkit-text-stroke: 1.4px #000000;
+        text-stroke: 1.4px #000000;
+        paint-order: stroke fill;
+        text-shadow: none;
       }
 
       .segment__annotation {
@@ -87,15 +101,23 @@
         font-weight: 600;
         line-height: 1;
         margin-bottom: 0.1em;
-        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.75);
         font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+        color: #ffffff;
+        -webkit-text-stroke: 1.0px #000000;
+        text-stroke: 1.0px #000000;
+        paint-order: stroke fill;
+        text-shadow: none;
       }
 
       .segment__base {
         font-size: var(--base-font-size);
         line-height: 1.05;
-        text-shadow: inherit;
+        text-shadow: none;
         font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+        color: #ffffff;
+        -webkit-text-stroke: 1.4px #000000;
+        text-stroke: 1.4px #000000;
+        paint-order: stroke fill;
       }
 
       .translation-line {
@@ -103,15 +125,23 @@
         font-size: calc(var(--base-font-size) * 0.5);
         font-weight: 600;
         line-height: 1.2;
-        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
         white-space: pre-wrap;
         font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+        color: #ffffff;
+        -webkit-text-stroke: 1.2px #000000;
+        text-stroke: 1.2px #000000;
+        paint-order: stroke fill;
+        text-shadow: none;
       }
 
       .lyrics-loading {
         font-size: var(--base-font-size);
         font-weight: 700;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.85);
+        color: #ffffff;
+        -webkit-text-stroke: 1.4px #000000;
+        text-stroke: 1.4px #000000;
+        paint-order: stroke fill;
+        text-shadow: none;
       }
     </style>
   </head>

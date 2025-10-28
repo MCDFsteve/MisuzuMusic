@@ -115,6 +115,21 @@ fn exit_app(app: AppHandle) -> Result<(), ()> {
     Ok(())
 }
 
+#[tauri::command]
+fn resize_window(app: AppHandle, width: u32, height: u32) -> Result<(), String> {
+    if width == 0 || height == 0 {
+        return Err("窗口尺寸无效".to_string());
+    }
+
+    if let Some(window) = app.get_webview_window("main") {
+        window
+            .set_size(tauri::Size::Physical(tauri::PhysicalSize::new(width, height)))
+            .map_err(|err| err.to_string())
+    } else {
+        Err("找不到桌面歌词窗口".to_string())
+    }
+}
+
 async fn start_http_server(state: HttpServerState) -> Result<(), String> {
     let router = Router::new()
         .route("/health", get(handle_health))
@@ -198,7 +213,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             update_lyrics,
             get_lyrics_state,
-            exit_app
+            exit_app,
+            resize_window
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
