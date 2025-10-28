@@ -160,15 +160,16 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
     if (index != _activeIndex) {
       final LyricsLine activeLine = lines[index];
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        setState(() {
-          _activeIndex = index;
+      _activeIndex = index;
+      widget.onActiveIndexChanged?.call(index);
+      widget.onActiveLineChanged?.call(activeLine);
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _scrollToIndex(index);
         });
-        widget.onActiveIndexChanged?.call(index);
-        widget.onActiveLineChanged?.call(activeLine);
-        _scrollToIndex(index);
-      });
+      }
     }
   }
 

@@ -13,6 +13,8 @@ const queueResize = () => {
   windowResizer?.scheduleResize();
 };
 
+let loadingVisible = true;
+
 let lastPayload = null;
 let currentLineText = DEFAULT_LINE;
 
@@ -143,14 +145,21 @@ const resolveLine = (payload) => {
 };
 
 const setLoadingState = (isLoading, message = DEFAULT_LINE) => {
-  if (isLoading) {
+  const stateChanged = isLoading !== loadingVisible;
+
+  if (stateChanged) {
+    loadingVisible = isLoading;
+    if (isLoading) {
+      loadingElement.textContent = message;
+      loadingElement.style.display = 'block';
+      activeLineElement.style.display = 'none';
+      translationElement.style.display = 'none';
+    } else {
+      loadingElement.style.display = 'none';
+      activeLineElement.style.display = 'flex';
+    }
+  } else if (isLoading && typeof message === 'string') {
     loadingElement.textContent = message;
-    loadingElement.style.display = 'block';
-    activeLineElement.style.display = 'none';
-    translationElement.style.display = 'none';
-  } else {
-    loadingElement.style.display = 'none';
-    activeLineElement.style.display = 'flex';
   }
   queueResize();
 };
@@ -167,7 +176,7 @@ const updateFontScale = () => {
   const screenBased = screenReference * 0.042; // 比例保持大屏字体
   const viewportBased = viewportReference * 0.18; // 窗口放大缩小时的补偿
   const computed = Math.max(screenBased, viewportBased);
-  const baseSize = Math.max(36, Math.min(96, Math.floor(computed)));
+  const baseSize = Math.max(36, Math.min(128, Math.round(computed)));
 
   document.documentElement.style.setProperty('--base-font-size', `${baseSize}px`);
   queueResize();
@@ -269,8 +278,8 @@ const render = (payload) => {
     translationElement.style.display = 'none';
   }
 
-  setLoadingState(false);
   queueResize();
+  setLoadingState(false);
 };
 
 const registerExitShortcuts = (tauriCore) => {
