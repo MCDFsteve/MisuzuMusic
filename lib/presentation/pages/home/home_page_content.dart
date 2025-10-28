@@ -1381,14 +1381,8 @@ class _HomePageContentState extends State<HomePageContent> {
       return const SizedBox.shrink();
     }
 
-    final artworkSignature = track.artworkPath?.isNotEmpty == true
-        ? track.artworkPath
-        : 'no_artwork';
-
     return LyricsOverlay(
-      key: ValueKey(
-        '${track.id}_${artworkSignature}_${isMac ? 'mac' : 'material'}',
-      ),
+      key: ValueKey('lyrics_overlay_${isMac ? 'mac' : 'material'}'),
       initialTrack: track,
       isMac: isMac,
     );
