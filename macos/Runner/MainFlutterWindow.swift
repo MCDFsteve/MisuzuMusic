@@ -1,6 +1,7 @@
 import Cocoa
 import FlutterMacOS
 import window_manager
+import desktop_multi_window
 
 class MainFlutterWindow: NSWindow {
   override func awakeFromNib() {
@@ -17,6 +18,10 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     WindowManagerPlugin.RegisterGeneratedPlugins = RegisterGeneratedPlugins
+
+    FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
+      RegisterGeneratedPlugins(registry: controller)
+    }
 
     if let delegate = NSApp.delegate as? AppDelegate {
       delegate.configureChannelsIfNeeded(with: flutterViewController)

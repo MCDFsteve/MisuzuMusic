@@ -52,6 +52,22 @@ class DesktopLyricsBridge {
     }
   }
 
+  Future<bool> hideWindow() async {
+    try {
+      final response = await _client
+          .post(_uri('/hide'))
+          .timeout(DesktopLyricsConstants.requestTimeout);
+      debugPrint('桌面歌词窗口隐藏响应: ${response.statusCode}');
+      return response.statusCode == 200;
+    } on TimeoutException catch (error) {
+      developer.log('桌面歌词窗口隐藏请求超时', error: error, name: 'DesktopLyricsBridge');
+      return false;
+    } catch (error) {
+      developer.log('桌面歌词窗口隐藏请求失败', error: error, name: 'DesktopLyricsBridge');
+      return false;
+    }
+  }
+
   Future<bool> update(DesktopLyricsUpdate update) async {
     try {
       final response = await _client
@@ -131,4 +147,28 @@ class DesktopLyricsUpdate {
       isPlaying: isPlaying ?? this.isPlaying,
     );
   }
+
+  factory DesktopLyricsUpdate.fromJson(Map<String, dynamic> json) {
+    return DesktopLyricsUpdate(
+      trackId: json['track_id'] as String?,
+      title: json['title'] as String?,
+      artist: json['artist'] as String?,
+      activeLine: json['active_line'] as String?,
+      nextLine: json['next_line'] as String?,
+      positionMs: switch (json['position_ms']) {
+        int value => value,
+        String value => int.tryParse(value),
+        _ => null,
+      },
+      isPlaying: json['is_playing'] is bool
+          ? json['is_playing'] as bool
+          : json['is_playing'] is String
+              ? (json['is_playing'] as String).toLowerCase() == 'true'
+              : null,
+    );
+  }
+
+  bool get hasAnyContent =>
+      (activeLine != null && activeLine!.trim().isNotEmpty) ||
+      (nextLine != null && nextLine!.trim().isNotEmpty);
 }

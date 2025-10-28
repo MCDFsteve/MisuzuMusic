@@ -103,6 +103,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (_desktopLyricsActive) {
       _desktopLyricsActive = false;
       unawaited(_desktopLyricsBridge.clear());
+      unawaited(_desktopLyricsBridge.hideWindow());
     }
     unawaited(_playerSubscription?.cancel());
     _lyricsScrollController.dispose();
@@ -332,13 +333,13 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
 
     final isAlive = await _desktopLyricsBridge.ping();
     if (!isAlive) {
-      await _showDesktopLyricsError('未检测到桌面歌词助手，请先启动 misuzu-lyrics 程序。');
+      await _showDesktopLyricsError('桌面歌词服务不可用，请稍后重试。');
       return;
     }
 
     final shown = await _desktopLyricsBridge.showWindow();
     if (!shown) {
-      await _showDesktopLyricsError('无法显示桌面歌词窗口，请检查助手程序状态。');
+      await _showDesktopLyricsError('无法显示桌面歌词窗口，请检查服务状态。');
       return;
     }
 
@@ -374,6 +375,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (clear) {
       await _desktopLyricsBridge.clear();
     }
+
+    unawaited(_desktopLyricsBridge.hideWindow());
   }
 
   Future<void> _showDesktopLyricsError(String message) async {
