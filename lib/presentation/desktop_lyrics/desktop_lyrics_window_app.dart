@@ -25,15 +25,16 @@ Future<void> runDesktopLyricsWindow(
   await windowManager.ensureInitialized();
 
   Future<void> configureWindow() async {
-    const options = WindowOptions(
-      size: Size(420, 200),
-      minimumSize: Size(200, 140),
+    final bool isMacOS = Platform.isMacOS;
+    final options = WindowOptions(
+      size: const Size(420, 200),
+      minimumSize: const Size(200, 140),
       center: true,
       backgroundColor: Colors.transparent,
       alwaysOnTop: true,
       skipTaskbar: true,
-      titleBarStyle: TitleBarStyle.hidden,
-      windowButtonVisibility: false,
+      titleBarStyle: isMacOS ? null : TitleBarStyle.hidden,
+      windowButtonVisibility: isMacOS ? null : false,
     );
 
     await windowManager.waitUntilReadyToShow(options, () async {

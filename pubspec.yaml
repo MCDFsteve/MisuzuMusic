@@ -145,3 +145,6 @@ rename:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+dependency_overrides:
+  desktop_multi_window:
+    path: third_party/plugins/desktop_multi_window

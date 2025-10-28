@@ -49,14 +49,21 @@ class DesktopLyricsSpacesBridge {
       return
     }
 
-    targetWindow.level = .floating
-    targetWindow.collectionBehavior.insert(.canJoinAllSpaces)
-    targetWindow.collectionBehavior.insert(.fullScreenAuxiliary)
-    targetWindow.collectionBehavior.insert(.stationary)
+    debugPrint("DesktopLyrics window class = \(type(of: targetWindow)), isPanel=\(targetWindow is NSPanel)")
 
-    if targetWindow is NSPanel {
-      targetWindow.styleMask.insert(.nonactivatingPanel)
-    }
+    targetWindow.level = .statusBar
+    var behavior = targetWindow.collectionBehavior
+    behavior.remove(.moveToActiveSpace)
+    behavior.remove(.fullScreenPrimary)
+    behavior.remove(.managed)
+    behavior.insert(.canJoinAllSpaces)
+    behavior.insert(.fullScreenAuxiliary)
+    behavior.insert(.stationary)
+    behavior.insert(.ignoresCycle)
+    behavior.insert(.transient)
+    targetWindow.collectionBehavior = behavior
+    targetWindow.styleMask.insert(.nonactivatingPanel)
+    targetWindow.orderFrontRegardless()
 
     result(true)
   }
