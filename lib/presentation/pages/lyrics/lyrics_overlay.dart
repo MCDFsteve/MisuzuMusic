@@ -58,6 +58,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   String? _lastDesktopPayloadSignature;
   bool _isSendingDesktopUpdate = false;
   bool _shouldResendDesktopUpdate = false;
+  StreamSubscription<PlayerBlocState>? _playerSubscription;
+  PlayerBlocState? _lastProcessedPlayerState;
 
   @override
   void initState() {
@@ -74,6 +76,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
 
     final initialPlayerState = context.read<PlayerBloc>().state;
     _updatePlaybackStateFromPlayer(initialPlayerState, notify: false);
+    _lastProcessedPlayerState = initialPlayerState;
+    _playerSubscription =
+        context.read<PlayerBloc>().stream.listen(_handlePlayerStateStream);
   }
 
   @override
@@ -99,6 +104,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _desktopLyricsActive = false;
       unawaited(_desktopLyricsBridge.clear());
     }
+    unawaited(_playerSubscription?.cancel());
     _lyricsScrollController.dispose();
     _lyricsCubit.close();
     super.dispose();
@@ -418,6 +424,43 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     }
   }
 
+  void _handlePlayerStateStream(PlayerBlocState state) {
+    if (!mounted) {
+      return;
+    }
+
+    if (identical(state, _lastProcessedPlayerState)) {
+      return;
+    }
+    _lastProcessedPlayerState = state;
+    _processPlayerState(state);
+  }
+
+  void _processPlayerState(PlayerBlocState playerState) {
+    _updatePlaybackStateFromPlayer(playerState);
+
+    final nextTrack = _extractTrack(playerState);
+    if (nextTrack != null && nextTrack != _currentTrack) {
+      if (mounted) {
+        setState(() => _currentTrack = nextTrack);
+      }
+      _lyricsCubit.loadLyricsForTrack(nextTrack);
+      _resetScroll();
+      _activeLyricsLines = const [];
+      _activeDesktopLine = null;
+      _activeDesktopIndex = -1;
+      _lastDesktopPayloadSignature = null;
+      if (_desktopLyricsActive) {
+        _scheduleDesktopLyricsUpdate(force: true);
+      }
+      return;
+    }
+
+    if (_desktopLyricsActive) {
+      _scheduleDesktopLyricsUpdate();
+    }
+  }
+
   void _handleActiveIndexChanged(int index) {
     _activeDesktopIndex = index;
     if (index < 0 || index >= _activeLyricsLines.length) {
@@ -632,15 +675,21 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
 
     return BlocProvider.value(
       value: _lyricsCubit,
-      child: BlocListener<PlayerBloc, PlayerBlocState>(
-        listener: (context, playerState) {
-          _updatePlaybackStateFromPlayer(playerState);
-          final nextTrack = _extractTrack(playerState);
-          if (nextTrack != null && nextTrack != _currentTrack) {
-            if (!mounted) return;
-            setState(() => _currentTrack = nextTrack);
-            _lyricsCubit.loadLyricsForTrack(nextTrack);
+      child: BlocListener<LyricsCubit, LyricsState>(
+        listener: (context, state) {
+          if (state is LyricsLoaded || state is LyricsEmpty) {
             _resetScroll();
+          }
+          if (state is LyricsLoaded) {
+            _activeLyricsLines = state.lyrics.lines;
+            _activeDesktopIndex = -1;
+            _activeDesktopLine = null;
+            _lastDesktopPayloadSignature = null;
+            _syncDesktopLyricsState();
+            if (_desktopLyricsActive) {
+              _scheduleDesktopLyricsUpdate(force: true);
+            }
+          } else if (state is LyricsEmpty || state is LyricsError) {
             _activeLyricsLines = const [];
             _activeDesktopLine = null;
             _activeDesktopIndex = -1;
@@ -650,45 +699,19 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             }
           }
         },
-        child: BlocListener<LyricsCubit, LyricsState>(
-          listener: (context, state) {
-            if (state is LyricsLoaded || state is LyricsEmpty) {
-              _resetScroll();
-            }
-    if (state is LyricsLoaded) {
-      _activeLyricsLines = state.lyrics.lines;
-      _activeDesktopIndex = -1;
-      _activeDesktopLine = null;
-      _lastDesktopPayloadSignature = null;
-      _syncDesktopLyricsState();
-      if (_desktopLyricsActive) {
-        _scheduleDesktopLyricsUpdate(force: true);
-      }
-    } else if (state is LyricsEmpty || state is LyricsError) {
-      _activeLyricsLines = const [];
-              _activeDesktopLine = null;
-              _activeDesktopIndex = -1;
-              _lastDesktopPayloadSignature = null;
-              if (_desktopLyricsActive) {
-                _scheduleDesktopLyricsUpdate(force: true);
-              }
-            }
-          },
-          child: _LyricsLayout(
-            track: _currentTrack,
-            lyricsScrollController: _lyricsScrollController,
-            isMac: isMac,
-            showTranslation: _showTranslation,
-            onToggleTranslation: _toggleTranslationVisibility,
-            onDownloadLrc: _downloadLrcFile,
-            onReportError: _reportError,
-            onToggleDesktopLyrics: () =>
-                unawaited(_toggleDesktopLyricsAssistant()),
-            isDesktopLyricsActive: _desktopLyricsActive,
-            isDesktopLyricsBusy: _desktopLyricsBusy,
-            onActiveIndexChanged: _handleActiveIndexChanged,
-            onActiveLineChanged: _handleActiveLineChanged,
-          ),
+        child: _LyricsLayout(
+          track: _currentTrack,
+          lyricsScrollController: _lyricsScrollController,
+          isMac: isMac,
+          showTranslation: _showTranslation,
+          onToggleTranslation: _toggleTranslationVisibility,
+          onDownloadLrc: _downloadLrcFile,
+          onReportError: _reportError,
+          onToggleDesktopLyrics: () => unawaited(_toggleDesktopLyricsAssistant()),
+          isDesktopLyricsActive: _desktopLyricsActive,
+          isDesktopLyricsBusy: _desktopLyricsBusy,
+          onActiveIndexChanged: _handleActiveIndexChanged,
+          onActiveLineChanged: _handleActiveLineChanged,
         ),
       ),
     );

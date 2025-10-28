@@ -15,6 +15,13 @@ const queueResize = () => {
 
 let loadingVisible = true;
 
+let lastRenderedTrackId = null;
+let hasRenderedContent = false;
+
+const resetRenderedState = () => {
+  hasRenderedContent = false;
+};
+
 let lastPayload = null;
 let currentLineText = DEFAULT_LINE;
 
@@ -139,11 +146,6 @@ const shouldShowTranslation = (payload) => {
   return true;
 };
 
-const resolveLine = (payload) => {
-  const text = sanitizeText(payload?.active_line);
-  return text.length ? text : DEFAULT_LINE;
-};
-
 const setLoadingState = (isLoading, message = DEFAULT_LINE) => {
   const stateChanged = isLoading !== loadingVisible;
 
@@ -245,23 +247,47 @@ const render = (payload) => {
   const targetPayload = payload ?? lastPayload;
 
   if (!targetPayload) {
-    currentLineText = DEFAULT_LINE;
-    activeLineElement.innerHTML = '';
-    setLoadingState(true, DEFAULT_LINE);
-    document.title = DEFAULT_LINE;
+    if (!hasRenderedContent) {
+      currentLineText = DEFAULT_LINE;
+      activeLineElement.innerHTML = '';
+      setLoadingState(true, DEFAULT_LINE);
+      document.title = DEFAULT_LINE;
+    }
     return;
   }
 
-  const resolvedLine = resolveLine(targetPayload);
+  const trackIdentifier =
+    targetPayload.track_id ??
+    `${sanitizeText(targetPayload.title)}::${sanitizeText(targetPayload.artist)}`;
+  if (trackIdentifier && trackIdentifier !== lastRenderedTrackId) {
+    lastRenderedTrackId = trackIdentifier;
+    resetRenderedState();
+  }
+
   const parsed = parseFormattedLine(targetPayload.active_line);
+  const hasSegments = parsed.segments.length > 0;
+  const sanitizedActiveLine = sanitizeText(targetPayload.active_line);
+  const hasLineText = sanitizedActiveLine.length > 0;
+  const hasRenderableLine = hasSegments || hasLineText;
+
+  if (!hasRenderableLine) {
+    if (!hasRenderedContent) {
+      setLoadingState(true, DEFAULT_LINE);
+    }
+    return;
+  }
+
   const plainForTitle = sanitizeText(parsed.plain);
-  const baseLineText = plainForTitle.length ? plainForTitle : resolvedLine;
+  const baseLineText = plainForTitle.length
+    ? plainForTitle
+    : (hasLineText ? sanitizedActiveLine : DEFAULT_LINE);
   currentLineText = baseLineText.length ? baseLineText : DEFAULT_LINE;
   document.title = currentLineText;
 
-  const segments = parsed.segments.length
+  const segments = hasSegments
     ? parsed.segments
     : [produceTextSegment(currentLineText)];
+
   updateFontScale();
   renderSegments(segments);
 
@@ -278,6 +304,7 @@ const render = (payload) => {
     translationElement.style.display = 'none';
   }
 
+  hasRenderedContent = true;
   queueResize();
   setLoadingState(false);
 };
