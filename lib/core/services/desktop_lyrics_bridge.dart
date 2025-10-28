@@ -90,11 +90,6 @@ class DesktopLyricsUpdate {
     this.nextLine,
     this.positionMs,
     this.isPlaying,
-    this.activeSegments,
-    this.nextSegments,
-    this.activeTranslation,
-    this.nextTranslation,
-    this.showTranslation,
   });
 
   final String? trackId;
@@ -104,11 +99,6 @@ class DesktopLyricsUpdate {
   final String? nextLine;
   final int? positionMs;
   final bool? isPlaying;
-  final List<DesktopLyricsSegment>? activeSegments;
-  final List<DesktopLyricsSegment>? nextSegments;
-  final String? activeTranslation;
-  final String? nextTranslation;
-  final bool? showTranslation;
 
   Map<String, dynamic> toJson() {
     return {
@@ -119,17 +109,6 @@ class DesktopLyricsUpdate {
       if (nextLine != null) 'next_line': nextLine,
       if (positionMs != null) 'position_ms': positionMs,
       if (isPlaying != null) 'is_playing': isPlaying,
-      if (activeSegments != null)
-        'active_segments': activeSegments!
-            .map((segment) => segment.toJson())
-            .toList(growable: false),
-      if (nextSegments != null)
-        'next_segments': nextSegments!
-            .map((segment) => segment.toJson())
-            .toList(growable: false),
-      if (activeTranslation != null) 'active_translation': activeTranslation,
-      if (nextTranslation != null) 'next_translation': nextTranslation,
-      if (showTranslation != null) 'show_translation': showTranslation,
     };
   }
 
@@ -141,11 +120,6 @@ class DesktopLyricsUpdate {
     String? nextLine,
     int? positionMs,
     bool? isPlaying,
-    List<DesktopLyricsSegment>? activeSegments,
-    List<DesktopLyricsSegment>? nextSegments,
-    String? activeTranslation,
-    String? nextTranslation,
-    bool? showTranslation,
   }) {
     return DesktopLyricsUpdate(
       trackId: trackId ?? this.trackId,
@@ -155,31 +129,6 @@ class DesktopLyricsUpdate {
       nextLine: nextLine ?? this.nextLine,
       positionMs: positionMs ?? this.positionMs,
       isPlaying: isPlaying ?? this.isPlaying,
-      activeSegments: activeSegments ?? this.activeSegments,
-      nextSegments: nextSegments ?? this.nextSegments,
-      activeTranslation: activeTranslation ?? this.activeTranslation,
-      nextTranslation: nextTranslation ?? this.nextTranslation,
-      showTranslation: showTranslation ?? this.showTranslation,
     );
-  }
-}
-
-class DesktopLyricsSegment {
-  const DesktopLyricsSegment({
-    required this.original,
-    required this.annotation,
-    required this.type,
-  });
-
-  final String original;
-  final String annotation;
-  final String type;
-
-  Map<String, String> toJson() {
-    return {
-      'original': original,
-      'annotation': annotation,
-      'type': type,
-    };
   }
 }

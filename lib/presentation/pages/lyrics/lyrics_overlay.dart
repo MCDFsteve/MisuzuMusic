@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/services/lrc_export_service.dart';
 import '../../../core/services/desktop_lyrics_bridge.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../domain/entities/lyrics_entities.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../../domain/usecases/lyrics_usecases.dart';
@@ -185,22 +186,23 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       return null;
     }
 
+    final formattedActive = _formatLineForDesktop(
+      _activeDesktopLine,
+      includeTranslation: _showTranslation,
+    );
+    final formattedNext = _formatLineForDesktop(
+      _resolveNextDesktopLine(),
+      includeTranslation: _showTranslation,
+    );
+
     return DesktopLyricsUpdate(
       trackId: track.id,
       title: track.title,
       artist: track.artist,
-      activeLine: _sanitizeLine(_activeDesktopLine),
-      nextLine: _sanitizeLine(_resolveNextDesktopLine()),
+      activeLine: formattedActive ?? _sanitizeLine(_activeDesktopLine),
+      nextLine: formattedNext ?? _sanitizeLine(_resolveNextDesktopLine()),
       positionMs: _currentPosition?.inMilliseconds,
       isPlaying: _isPlaying,
-      activeSegments: _segmentsForLine(_activeDesktopLine),
-      nextSegments: _segmentsForLine(_resolveNextDesktopLine()),
-      activeTranslation: _showTranslation
-          ? _lineTranslation(_activeDesktopLine)
-          : null,
-      nextTranslation:
-          _showTranslation ? _lineTranslation(_resolveNextDesktopLine()) : null,
-      showTranslation: _showTranslation,
     );
   }
 
@@ -227,34 +229,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     return _activeLyricsLines[nextIndex];
   }
 
-  List<DesktopLyricsSegment>? _segmentsForLine(LyricsLine? line) {
-    if (line == null) {
-      return null;
-    }
-    if (line.annotatedTexts.isEmpty) {
-      debugPrint('桌面歌词行缺少注音: ${line.originalText}');
-      return null;
-    }
-
-    final segments = line.annotatedTexts
-        .where((segment) => segment.original.isNotEmpty)
-        .map(
-          (segment) => DesktopLyricsSegment(
-            original: segment.original,
-            annotation: segment.annotation.trim(),
-            type: segment.type.name,
-          ),
-        )
-        .toList(growable: false);
-
-    if (segments.isEmpty) {
-      debugPrint('桌面歌词行注音过滤后为空: ${line.originalText}');
-      return null;
-    }
-    debugPrint('桌面歌词行注音段数量: ${segments.length} -> ${line.originalText}');
-    return segments;
-  }
-
   String? _lineTranslation(LyricsLine? line) {
     final translation = line?.translatedText?.trim();
     if (translation == null || translation.isEmpty) {
@@ -264,6 +238,57 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       return null;
     }
     return translation;
+  }
+
+  String? _formatLineForDesktop(
+    LyricsLine? line, {
+    required bool includeTranslation,
+  }) {
+    if (line == null) {
+      return null;
+    }
+
+    final StringBuffer buffer = StringBuffer();
+    if (line.annotatedTexts.isNotEmpty) {
+      for (final segment in line.annotatedTexts) {
+        final original = segment.original;
+        if (original.isEmpty) {
+          continue;
+        }
+        final annotation = segment.annotation.trim();
+        final shouldAnnotate = annotation.isNotEmpty &&
+            annotation != original.trim() &&
+            segment.type != TextType.other;
+        if (shouldAnnotate) {
+          buffer.write('$original[$annotation]');
+        } else {
+          buffer.write(original);
+        }
+      }
+    }
+
+    if (buffer.isEmpty) {
+      buffer.write(line.originalText);
+    }
+
+    String formatted = buffer.toString().trim();
+    if (formatted.isEmpty) {
+      return null;
+    }
+
+    if (includeTranslation) {
+      final translation = _lineTranslation(line);
+      if (translation != null) {
+        if (!formatted.endsWith(' ')) {
+          formatted += ' ';
+        }
+        formatted += '<$translation>';
+      }
+    }
+
+    formatted = formatted.trim();
+    debugPrint('桌面歌词格式化: $formatted');
+    return formatted.isEmpty ? null : formatted;
   }
 
   Future<void> _toggleDesktopLyricsAssistant() async {

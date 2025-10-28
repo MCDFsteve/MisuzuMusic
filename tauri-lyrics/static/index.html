@@ -59,16 +59,57 @@
         return true;
       };
 
-      const normalizeSegments = (segments) => {
-        if (!Array.isArray(segments)) {
-          return [];
+      const parseFormattedLine = (rawLine) => {
+        if (!rawLine || typeof rawLine !== 'string') {
+          return { segments: [], plain: '', translation: null };
         }
-        return segments
-          .map((segment) => ({
-            original: sanitizeText(segment?.original),
-            annotation: sanitizeText(segment?.annotation),
-          }))
-          .filter((segment) => segment.original.length > 0);
+
+        let text = rawLine.trim();
+        let translation = null;
+        const translationMatch = text.match(/<([^<>]*)>\s*$/);
+        if (translationMatch) {
+          translation = translationMatch[1].trim();
+          text = text.slice(0, translationMatch.index).trim();
+        }
+
+        const segments = [];
+        let plain = '';
+        const regex = /([^\[]+?)\[(.+?)\]/g;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+          if (match.index > lastIndex) {
+            const chunk = text.slice(lastIndex, match.index);
+            if (chunk.length) {
+              segments.push({ original: chunk, annotation: '' });
+              plain += chunk;
+            }
+          }
+
+          const base = match[1];
+          const ruby = match[2];
+          if (base.length) {
+            segments.push({ original: base, annotation: ruby });
+            plain += base;
+          }
+
+          lastIndex = regex.lastIndex;
+        }
+
+        if (lastIndex < text.length) {
+          const rest = text.slice(lastIndex);
+          if (rest.length) {
+            segments.push({ original: rest, annotation: '' });
+            plain += rest;
+          }
+        }
+
+        if (!plain.length) {
+          plain = text;
+        }
+
+        return { segments, plain, translation };
       };
 
       if (!canvas || !ctx) {
@@ -130,7 +171,7 @@
           ctx.lineCap = 'round';
 
           ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = fontSize * 0.14;
+          ctx.shadowBlur = fontSize * 0.12;
 
           ctx.lineWidth = Math.max(fontSize * 0.07, 2.2);
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
@@ -160,8 +201,8 @@
 
             const translationY = baseBaseline + fontSize * 0.45;
             ctx.shadowBlur = translationSize * 0.05;
-            ctx.lineWidth = Math.max(translationSize * 0.06, 1.6);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.lineWidth = Math.max(translationSize * 0.05, 1.6);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
             ctx.strokeText(translation, width / 2, translationY);
             ctx.shadowBlur = translationSize * 0.025;
             ctx.fillText(translation, width / 2, translationY);
@@ -237,11 +278,11 @@
               ctx.textAlign = 'center';
               ctx.textBaseline = 'alphabetic';
               ctx.font = annotationFont();
-              ctx.lineWidth = Math.max(annotationFontSize * 0.05, 1.2);
+              ctx.lineWidth = Math.max(annotationFontSize * 0.05, 1.4);
               ctx.shadowBlur = annotationFontSize * 0.1;
               ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
               ctx.strokeText(annotation, centerX, annotationBaseline);
-              ctx.shadowBlur = annotationFontSize * 0.035;
+              ctx.shadowBlur = annotationFontSize * 0.03;
               ctx.fillStyle = '#ffffff';
               ctx.fillText(annotation, centerX, annotationBaseline);
             }
@@ -291,21 +332,23 @@
             return;
           }
 
-          const text = resolveLine(targetPayload);
-          currentLine = text;
-          document.title = text;
+          const parsed = parseFormattedLine(targetPayload.active_line);
+          currentLine = parsed.plain.length ? parsed.plain : resolveLine(targetPayload);
+          document.title = currentLine;
 
-          const segments = normalizeSegments(targetPayload.active_segments);
           const showTranslation = shouldShowTranslation(targetPayload);
           const translation = showTranslation
-              ? sanitizeText(targetPayload.active_translation)
-              : '';
+            ? sanitizeText(parsed.translation)
+            : '';
           const displayTranslation = translation.length ? translation : null;
+          const hasAnnotations = parsed.segments.some(
+            (segment) => segment.annotation.length,
+          );
 
-          if (segments.length) {
-            drawSegments(segments, displayTranslation);
+          if (hasAnnotations) {
+            drawSegments(parsed.segments, displayTranslation);
           } else {
-            drawSimpleLine(text, displayTranslation);
+            drawSimpleLine(currentLine, displayTranslation);
           }
         };
 
