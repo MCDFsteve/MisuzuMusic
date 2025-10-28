@@ -176,14 +176,12 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         if (!_desktopLyricsErrorNotified) {
           _desktopLyricsErrorNotified = true;
           if (mounted) {
-            setState(() {
-              _desktopLyricsActive = false;
-            });
             unawaited(
               _showDesktopLyricsError('桌面歌词助手未响应，请确认已运行并允许网络访问。'),
             );
           }
         }
+        _shouldResendDesktopUpdate = true;
       }
     } finally {
       _isSendingDesktopUpdate = false;
@@ -1420,9 +1418,16 @@ class _DesktopLyricsToggleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color iconColor = isDarkMode ? Colors.white : Colors.black;
     final bool enabled = !isBusy;
-    final Color disabledColor = iconColor.withOpacity(0.4);
+    final Color disabledColor = iconColor.withOpacity(0.34);
+    final Color inactiveBase = iconColor.withOpacity(isDarkMode ? 0.52 : 0.6);
+    final Color activeBase = iconColor.withOpacity(isDarkMode ? 0.84 : 0.9);
+    final Color hoverInactive = iconColor.withOpacity(isDarkMode ? 0.74 : 0.8);
+    final Color hoverActive = iconColor;
     final Color baseColor = enabled
-        ? (isActive ? iconColor : iconColor.withOpacity(0.78))
+        ? (isActive ? activeBase : inactiveBase)
+        : disabledColor;
+    final Color hoverColor = enabled
+        ? (isActive ? hoverActive : hoverInactive)
         : disabledColor;
     final String tooltip = isBusy
         ? '处理中...'
@@ -1436,7 +1441,7 @@ class _DesktopLyricsToggleButton extends StatelessWidget {
         icon: CupertinoIcons.macwindow,
         size: 26,
         baseColor: baseColor,
-        hoverColor: iconColor,
+        hoverColor: hoverColor,
         disabledColor: disabledColor,
       ),
     );
