@@ -36,6 +36,10 @@ Future<void> runDesktopLyricsWindow(
       await windowManager.setAsFrameless();
       await windowManager.setHasShadow(false);
       await windowManager.setAlwaysOnTop(true);
+      await windowManager.setVisibleOnAllWorkspaces(
+        true,
+        visibleOnFullScreen: true,
+      );
       await windowManager.setResizable(false);
       await windowManager.show();
       await windowManager.focus();
