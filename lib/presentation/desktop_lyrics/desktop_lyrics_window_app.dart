@@ -22,8 +22,8 @@ Future<void> runDesktopLyricsWindow(
 
   Future<void> configureWindow() async {
     const options = WindowOptions(
-      size: Size(640, 240),
-      minimumSize: Size(320, 160),
+      size: Size(420, 200),
+      minimumSize: Size(200, 140),
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: true,
@@ -130,11 +130,11 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
       if (context == null) return;
       final box = context.findRenderObject() as RenderBox?;
       if (box == null || !box.hasSize) return;
-      final size = box.size;
+      final size = _measureContentSize(box);
       const padding = Size(32, 32);
       final targetSize = Size(
-        (size.width + padding.width).clamp(280, 1400),
-        (size.height + padding.height).clamp(160, 900),
+        (size.width + padding.width).clamp(200, 1400),
+        (size.height + padding.height).clamp(140, 900),
       );
 
       final last = _lastLogicalSize;
@@ -147,8 +147,29 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
       }
 
       _lastLogicalSize = targetSize;
+      await windowManager.setResizable(true);
       await windowManager.setSize(targetSize);
+      await windowManager.setResizable(false);
     });
+  }
+
+  Size _measureContentSize(RenderBox box) {
+    try {
+      const measurementConstraints = BoxConstraints(
+        minWidth: 0,
+        maxWidth: 1400,
+        minHeight: 0,
+        maxHeight: double.infinity,
+      );
+      final measured = box.getDryLayout(measurementConstraints);
+      if (measured.width.isFinite && measured.height.isFinite) {
+        return measured;
+      }
+    } catch (_) {
+      // ignore fallthrough to box.size
+    }
+
+    return box.size;
   }
 
   @override
@@ -172,16 +193,19 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
       onPanStart: (_) => windowManager.startDragging(),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: ValueListenableBuilder<DesktopLyricsUpdate?>(
-        valueListenable: _streamController.updateNotifier,
-        builder: (context, update, _) {
-          _scheduleResize();
-          return _LyricsContent(
-            key: _contentKey,
-            update: update,
-            parser: _parser,
-          );
-        },
+        child: Align(
+          alignment: Alignment.center,
+          child: ValueListenableBuilder<DesktopLyricsUpdate?>(
+            valueListenable: _streamController.updateNotifier,
+            builder: (context, update, _) {
+              _scheduleResize();
+              return _LyricsContent(
+                key: _contentKey,
+                update: update,
+                parser: _parser,
+              );
+            },
+          ),
         ),
       ),
     );
