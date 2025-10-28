@@ -60,8 +60,12 @@ Future<void> runDesktopLyricsWindow(
         }
       }
       await windowManager.setResizable(false);
-      await windowManager.show();
-      await windowManager.focus();
+      if (!Platform.isMacOS) {
+        await windowManager.show();
+        await windowManager.focus();
+      } else {
+        await windowManager.hide();
+      }
     });
 
     unawaited(
@@ -79,8 +83,12 @@ Future<void> runDesktopLyricsWindow(
         await configureWindow();
         break;
       case 'show_window':
-        await windowManager.show();
-        await windowManager.focus();
+        if (Platform.isMacOS) {
+          await windowManager.focus();
+        } else {
+          await windowManager.show();
+          await windowManager.focus();
+        }
         break;
       case 'hide_window':
         await windowManager.hide();
@@ -139,6 +147,7 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
   final DesktopLyricsParser _parser = const DesktopLyricsParser();
   final GlobalKey _contentKey = GlobalKey();
   Size? _lastLogicalSize;
+  bool _windowVisible = false;
 
   @override
   void initState() {
@@ -147,7 +156,7 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
     _streamController.initialize();
   }
 
-  void _scheduleResize() {
+  void _scheduleResize({bool showAfterResize = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final context = _contentKey.currentContext;
@@ -174,7 +183,23 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
       await windowManager.setResizable(true);
       await windowManager.setSize(targetSize);
       await windowManager.setResizable(false);
+      if (showAfterResize) {
+        await _setWindowVisible(true);
+      }
     });
+  }
+
+  Future<void> _setWindowVisible(bool visible) async {
+    if (_windowVisible == visible) {
+      return;
+    }
+    if (visible) {
+      await windowManager.show();
+      await windowManager.focus();
+    } else {
+      await windowManager.hide();
+    }
+    _windowVisible = visible;
   }
 
   Size _measureContentSize(RenderBox box) {
@@ -222,7 +247,13 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
           child: ValueListenableBuilder<DesktopLyricsUpdate?>(
             valueListenable: _streamController.updateNotifier,
             builder: (context, update, _) {
-              _scheduleResize();
+              final bool hasContent = _hasDisplayableContent(update);
+              if (hasContent) {
+                final bool shouldShowAfterResize = !_windowVisible;
+                _scheduleResize(showAfterResize: shouldShowAfterResize);
+              } else {
+                unawaited(_setWindowVisible(false));
+              }
               return _LyricsContent(
                 key: _contentKey,
                 update: update,
@@ -233,6 +264,15 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
         ),
       ),
     );
+  }
+
+  bool _hasDisplayableContent(DesktopLyricsUpdate? update) {
+    if (update == null) {
+      return false;
+    }
+    final active = update.activeLine?.trim() ?? '';
+    final next = update.nextLine?.trim() ?? '';
+    return active.isNotEmpty || next.isNotEmpty;
   }
 
   @override
@@ -279,18 +319,7 @@ class _LyricsContent extends StatelessWidget {
         parsedActive.hasContent ? parsedActive : parser.parse(update?.nextLine ?? '');
 
     if (!parsedFallback.hasContent) {
-      return const Center(
-        child: OutlinedText(
-          text: '歌词加载中',
-          fillStyle: TextStyle(
-            fontSize: 40,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-          strokeColor: Colors.black,
-          strokeWidth: 2.2,
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     return _buildLine(
