@@ -122,7 +122,7 @@
             setBaseFont();
           }
 
-          const baseBaseline = height / 2 + fontSize * 0.28;
+          const baseBaseline = height / 2 + fontSize * 0.20;
 
           ctx.textAlign = 'center';
           ctx.textBaseline = 'alphabetic';
@@ -144,7 +144,7 @@
             let translationSize = Math.max(fontSize * 0.48, 16);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillStyle = 'rgba(236, 240, 255, 0.92)';
+            ctx.fillStyle = '#ffffff';
 
             const translationFont = () =>
               `600 ${translationSize}px ${FONT_STACK}`;
@@ -202,8 +202,8 @@
             totalWidth = measureTotalWidth();
           }
 
-          const baseBaseline = height / 2 + baseFontSize * 0.25;
-          const annotationBaseline = baseBaseline - baseFontSize * 0.72;
+          const baseBaseline = height / 2 + baseFontSize * 0.20;
+          const annotationBaseline = baseBaseline - baseFontSize * 0.88;
           const startX = (width - totalWidth) / 2;
           let x = startX;
 
@@ -239,10 +239,10 @@
               ctx.font = annotationFont();
               ctx.lineWidth = Math.max(annotationFontSize * 0.05, 1.2);
               ctx.shadowBlur = annotationFontSize * 0.1;
-              ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+              ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
               ctx.strokeText(annotation, centerX, annotationBaseline);
               ctx.shadowBlur = annotationFontSize * 0.035;
-              ctx.fillStyle = 'rgba(240, 244, 255, 0.92)';
+              ctx.fillStyle = '#ffffff';
               ctx.fillText(annotation, centerX, annotationBaseline);
             }
 
@@ -264,13 +264,13 @@
 
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.shadowBlur = translationSize * 0.06;
-            ctx.lineWidth = Math.max(translationSize * 0.06, 1.8);
+            ctx.shadowBlur = translationSize * 0.05;
+            ctx.lineWidth = Math.max(translationSize * 0.05, 1.6);
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
             const translationY = baseBaseline + baseFontSize * 0.42;
             ctx.strokeText(translation, width / 2, translationY);
             ctx.shadowBlur = translationSize * 0.025;
-            ctx.fillStyle = 'rgba(236, 240, 255, 0.92)';
+            ctx.fillStyle = '#ffffff';
             ctx.fillText(translation, width / 2, translationY);
           }
         };
