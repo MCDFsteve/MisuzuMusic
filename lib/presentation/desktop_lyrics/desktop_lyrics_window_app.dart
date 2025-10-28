@@ -26,6 +26,7 @@ Future<void> runDesktopLyricsWindow(
       minimumSize: Size(200, 140),
       center: true,
       backgroundColor: Colors.transparent,
+      alwaysOnTop: true,
       skipTaskbar: true,
       titleBarStyle: TitleBarStyle.hidden,
       windowButtonVisibility: false,
