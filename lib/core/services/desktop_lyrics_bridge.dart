@@ -25,7 +25,12 @@ class DesktopLyricsBridge {
       final response = await _client
           .get(_uri('/health'))
           .timeout(timeout ?? DesktopLyricsConstants.requestTimeout);
-      debugPrint('桌面歌词健康检查响应: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        developer.log(
+          '桌面歌词健康检查异常状态码: ${response.statusCode}',
+          name: 'DesktopLyricsBridge',
+        );
+      }
       return response.statusCode == 200;
     } on TimeoutException catch (error) {
       developer.log('桌面歌词健康检查超时', error: error, name: 'DesktopLyricsBridge');
@@ -41,7 +46,12 @@ class DesktopLyricsBridge {
       final response = await _client
           .post(_uri('/show'))
           .timeout(DesktopLyricsConstants.requestTimeout);
-      debugPrint('桌面歌词窗口显示响应: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        developer.log(
+          '桌面歌词窗口显示异常状态码: ${response.statusCode}',
+          name: 'DesktopLyricsBridge',
+        );
+      }
       return response.statusCode == 200;
     } on TimeoutException catch (error) {
       developer.log('桌面歌词窗口显示请求超时', error: error, name: 'DesktopLyricsBridge');
@@ -57,7 +67,12 @@ class DesktopLyricsBridge {
       final response = await _client
           .post(_uri('/hide'))
           .timeout(DesktopLyricsConstants.requestTimeout);
-      debugPrint('桌面歌词窗口隐藏响应: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        developer.log(
+          '桌面歌词窗口隐藏异常状态码: ${response.statusCode}',
+          name: 'DesktopLyricsBridge',
+        );
+      }
       return response.statusCode == 200;
     } on TimeoutException catch (error) {
       developer.log('桌面歌词窗口隐藏请求超时', error: error, name: 'DesktopLyricsBridge');
@@ -79,7 +94,12 @@ class DesktopLyricsBridge {
             body: jsonEncode(update.toJson()),
           )
           .timeout(DesktopLyricsConstants.requestTimeout);
-      debugPrint('桌面歌词更新响应: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        developer.log(
+          '桌面歌词更新异常状态码: ${response.statusCode}',
+          name: 'DesktopLyricsBridge',
+        );
+      }
       return response.statusCode == 200;
     } on TimeoutException catch (error) {
       developer.log('桌面歌词更新请求超时', error: error, name: 'DesktopLyricsBridge');

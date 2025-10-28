@@ -26,6 +26,8 @@ import '../../../core/constants/mystery_library_constants.dart';
 import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
 import '../../utils/track_display_utils.dart';
 
+const bool _desktopLyricsVerboseLogging = false;
+
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
     super.key,
@@ -151,7 +153,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       return;
     }
 
-    debugPrint('桌面歌词payload: ${jsonEncode(update.toJson())}');
+    if (_desktopLyricsVerboseLogging && kDebugMode) {
+      debugPrint('桌面歌词payload: ${jsonEncode(update.toJson())}');
+    }
 
     final signature = _signatureForUpdate(update);
     if (!force && _lastDesktopPayloadSignature == signature) {
@@ -240,7 +244,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     final translation = line?.translatedText?.trim();
     if (translation == null || translation.isEmpty) {
       if (line != null) {
-        debugPrint('桌面歌词行缺少翻译: ${line.originalText}');
+        if (_desktopLyricsVerboseLogging && kDebugMode) {
+          debugPrint('桌面歌词行缺少翻译: ${line.originalText}');
+        }
       }
       return null;
     }
@@ -294,7 +300,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     }
 
     formatted = formatted.trim();
-    debugPrint('桌面歌词格式化: $formatted');
+    if (_desktopLyricsVerboseLogging && kDebugMode) {
+      debugPrint('桌面歌词格式化: $formatted');
+    }
     return formatted.isEmpty ? null : formatted;
   }
 
@@ -471,7 +479,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     } else {
       _activeDesktopLine = _activeLyricsLines[index];
     }
-    debugPrint('桌面歌词当前索引更新: $index');
+    if (_desktopLyricsVerboseLogging && kDebugMode) {
+      debugPrint('桌面歌词当前索引更新: $index');
+    }
     if (_desktopLyricsActive) {
       _scheduleDesktopLyricsUpdate();
     }

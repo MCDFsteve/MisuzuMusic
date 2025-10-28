@@ -104,11 +104,7 @@ class DesktopLyricsWindowManager {
       );
       await controller.setTitle('Misuzu Lyrics');
       _controller = controller;
-      await DesktopMultiWindow.invokeMethod(
-        controller.windowId,
-        'configure_window',
-        null,
-      );
+      await controller.show();
     } catch (error, stackTrace) {
       debugPrint('Failed to create lyrics window: $error\n$stackTrace');
       _controller = null;

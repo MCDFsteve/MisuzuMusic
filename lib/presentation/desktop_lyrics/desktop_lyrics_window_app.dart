@@ -217,21 +217,20 @@ class _LyricsContent extends StatelessWidget {
       fontWeight: FontWeight.w800,
       height: 1.12,
       color: Colors.white,
+      decoration: TextDecoration.none,
     );
     final TextStyle translationStyle = baseStyle.copyWith(
       fontSize: 24,
       fontWeight: FontWeight.w600,
+      decoration: TextDecoration.none,
     );
 
     final ParsedLyricsLine parsedActive =
         parser.parse(update?.activeLine ?? '');
-    final ParsedLyricsLine parsedNext =
-        parser.parse(update?.nextLine ?? '');
+    final ParsedLyricsLine parsedFallback =
+        parsedActive.hasContent ? parsedActive : parser.parse(update?.nextLine ?? '');
 
-    final bool hasActive = parsedActive.hasContent;
-    final bool hasNext = parsedNext.hasContent;
-
-    if (!hasActive && !hasNext) {
+    if (!parsedFallback.hasContent) {
       return const Center(
         child: OutlinedText(
           text: '歌词加载中',
@@ -246,43 +245,10 @@ class _LyricsContent extends StatelessWidget {
       );
     }
 
-    final children = <Widget>[];
-
-    if (hasActive) {
-      children.add(
-        _buildLine(
-          parsedActive,
-          baseStyle,
-          translationStyle,
-        ),
-      );
-    }
-
-    if (hasNext) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: 12));
-      }
-      final nextStyle = baseStyle.copyWith(
-        fontSize: baseStyle.fontSize! * 0.68,
-        color: Colors.white.withOpacity(0.78),
-      );
-      final nextTranslation = translationStyle.copyWith(
-        fontSize: translationStyle.fontSize! * 0.8,
-        color: Colors.white.withOpacity(0.78),
-      );
-      children.add(
-        _buildLine(
-          parsedNext,
-          nextStyle,
-          nextTranslation,
-        ),
-      );
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: children,
+    return _buildLine(
+      parsedFallback,
+      baseStyle,
+      translationStyle,
     );
   }
 
