@@ -143,6 +143,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       return;
     }
 
+    debugPrint('桌面歌词payload: ${jsonEncode(update.toJson())}');
+
     final signature = _signatureForUpdate(update);
     if (!force && _lastDesktopPayloadSignature == signature) {
       return;
@@ -230,6 +232,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       return null;
     }
     if (line.annotatedTexts.isEmpty) {
+      debugPrint('桌面歌词行缺少注音: ${line.originalText}');
       return null;
     }
 
@@ -245,14 +248,19 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         .toList(growable: false);
 
     if (segments.isEmpty) {
+      debugPrint('桌面歌词行注音过滤后为空: ${line.originalText}');
       return null;
     }
+    debugPrint('桌面歌词行注音段数量: ${segments.length} -> ${line.originalText}');
     return segments;
   }
 
   String? _lineTranslation(LyricsLine? line) {
     final translation = line?.translatedText?.trim();
     if (translation == null || translation.isEmpty) {
+      if (line != null) {
+        debugPrint('桌面歌词行缺少翻译: ${line.originalText}');
+      }
       return null;
     }
     return translation;

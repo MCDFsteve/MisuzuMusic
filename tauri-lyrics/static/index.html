@@ -122,21 +122,23 @@
             setBaseFont();
           }
 
+          const baseBaseline = height / 2 + fontSize * 0.28;
+
           ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
+          ctx.textBaseline = 'alphabetic';
           ctx.lineJoin = 'round';
           ctx.lineCap = 'round';
 
           ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = fontSize * 0.16;
+          ctx.shadowBlur = fontSize * 0.14;
 
-          ctx.lineWidth = Math.max(fontSize * 0.08, 2.5);
+          ctx.lineWidth = Math.max(fontSize * 0.07, 2.2);
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-          ctx.strokeText(content, width / 2, height / 2);
+          ctx.strokeText(content, width / 2, baseBaseline);
 
-          ctx.shadowBlur = fontSize * 0.05;
+          ctx.shadowBlur = fontSize * 0.04;
           ctx.fillStyle = '#ffffff';
-          ctx.fillText(content, width / 2, height / 2);
+          ctx.fillText(content, width / 2, baseBaseline);
 
           if (translation && translation.length) {
             let translationSize = Math.max(fontSize * 0.48, 16);
@@ -156,12 +158,12 @@
               ctx.font = translationFont();
             }
 
-            const translationY = height / 2 + fontSize * 0.78;
-            ctx.shadowBlur = translationSize * 0.06;
-            ctx.lineWidth = Math.max(translationSize * 0.06, 1.8);
+            const translationY = baseBaseline + fontSize * 0.45;
+            ctx.shadowBlur = translationSize * 0.05;
+            ctx.lineWidth = Math.max(translationSize * 0.06, 1.6);
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
             ctx.strokeText(translation, width / 2, translationY);
-            ctx.shadowBlur = translationSize * 0.03;
+            ctx.shadowBlur = translationSize * 0.025;
             ctx.fillText(translation, width / 2, translationY);
           }
         };
@@ -200,12 +202,12 @@
             totalWidth = measureTotalWidth();
           }
 
-          const baseY = height / 2;
-          const annotationOffset = baseFontSize * 0.65;
+          const baseBaseline = height / 2 + baseFontSize * 0.25;
+          const annotationBaseline = baseBaseline - baseFontSize * 0.72;
           const startX = (width - totalWidth) / 2;
           let x = startX;
 
-          ctx.textBaseline = 'middle';
+          ctx.textBaseline = 'alphabetic';
           ctx.lineJoin = 'round';
           ctx.lineCap = 'round';
 
@@ -221,27 +223,27 @@
 
             ctx.textAlign = 'left';
             ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-            ctx.shadowBlur = baseFontSize * 0.16;
-            ctx.lineWidth = Math.max(baseFontSize * 0.08, 2.5);
+            ctx.shadowBlur = baseFontSize * 0.12;
+            ctx.lineWidth = Math.max(baseFontSize * 0.07, 2.2);
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-            ctx.strokeText(text, x, baseY);
+            ctx.strokeText(text, x, baseBaseline);
 
-            ctx.shadowBlur = baseFontSize * 0.05;
+            ctx.shadowBlur = baseFontSize * 0.04;
             ctx.fillStyle = '#ffffff';
-            ctx.fillText(text, x, baseY);
+            ctx.fillText(text, x, baseBaseline);
 
             const annotation = segment.annotation;
             if (annotation.length) {
               ctx.textAlign = 'center';
-              ctx.textBaseline = 'bottom';
+              ctx.textBaseline = 'alphabetic';
               ctx.font = annotationFont();
-              ctx.lineWidth = Math.max(annotationFontSize * 0.06, 1.5);
-              ctx.shadowBlur = annotationFontSize * 0.12;
+              ctx.lineWidth = Math.max(annotationFontSize * 0.05, 1.2);
+              ctx.shadowBlur = annotationFontSize * 0.1;
               ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-              ctx.strokeText(annotation, centerX, baseY - annotationOffset);
-              ctx.shadowBlur = annotationFontSize * 0.04;
+              ctx.strokeText(annotation, centerX, annotationBaseline);
+              ctx.shadowBlur = annotationFontSize * 0.035;
               ctx.fillStyle = 'rgba(240, 244, 255, 0.92)';
-              ctx.fillText(annotation, centerX, baseY - annotationOffset);
+              ctx.fillText(annotation, centerX, annotationBaseline);
             }
 
             x += segmentWidth;
@@ -265,9 +267,9 @@
             ctx.shadowBlur = translationSize * 0.06;
             ctx.lineWidth = Math.max(translationSize * 0.06, 1.8);
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-            const translationY = baseY + baseFontSize * 0.78;
+            const translationY = baseBaseline + baseFontSize * 0.42;
             ctx.strokeText(translation, width / 2, translationY);
-            ctx.shadowBlur = translationSize * 0.03;
+            ctx.shadowBlur = translationSize * 0.025;
             ctx.fillStyle = 'rgba(236, 240, 255, 0.92)';
             ctx.fillText(translation, width / 2, translationY);
           }
