@@ -41,16 +41,35 @@
     <main data-tauri-drag-region>
       <canvas id="lyrics-canvas"></canvas>
     </main>
-    <div
-      id="debug-text"
-      style="position: fixed; bottom: 12px; left: 12px; font-size: 12px; color: rgba(255,255,255,0.65); pointer-events: none; text-shadow: 0 0 4px rgba(0,0,0,0.7); max-width: 70vw; white-space: pre-wrap;"
-    ></div>
     <script type="module">
       const canvas = document.getElementById('lyrics-canvas');
       const ctx = canvas?.getContext('2d');
       const DEFAULT_LINE = '歌词加载中';
+      const FONT_STACK = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif";
       let currentLine = DEFAULT_LINE;
-      const debugText = document.getElementById('debug-text');
+      let lastPayload = null;
+
+      const sanitizeText = (value) =>
+        typeof value === 'string' ? value.trim() : '';
+
+      const shouldShowTranslation = (payload) => {
+        if (payload && typeof payload.show_translation === 'boolean') {
+          return payload.show_translation;
+        }
+        return true;
+      };
+
+      const normalizeSegments = (segments) => {
+        if (!Array.isArray(segments)) {
+          return [];
+        }
+        return segments
+          .map((segment) => ({
+            original: sanitizeText(segment?.original),
+            annotation: sanitizeText(segment?.annotation),
+          }))
+          .filter((segment) => segment.original.length > 0);
+      };
 
       if (!canvas || !ctx) {
         const fallback = document.createElement('div');
@@ -74,34 +93,33 @@
           const height = window.innerHeight;
 
           canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
-        canvas.width = Math.max(1, Math.floor(width * dpr));
-        canvas.height = Math.max(1, Math.floor(height * dpr));
+          canvas.style.height = `${height}px`;
+          canvas.width = Math.max(1, Math.floor(width * dpr));
+          canvas.height = Math.max(1, Math.floor(height * dpr));
 
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.scale(dpr, dpr);
 
-        return { width, height };
+          return { width, height };
         };
 
-        const drawLine = (text = '—') => {
+        const drawSimpleLine = (text = '—', translation = null) => {
           const { width, height } = resizeCanvas();
           ctx.clearRect(0, 0, width, height);
 
-          const content = text || '—';
+          const content = text && text.length ? text : '—';
           const maxWidth = width * 0.82;
           let fontSize = Math.min(width, height) * 0.14;
           fontSize = Math.max(fontSize, 20);
 
-          const fontStack = "'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif";
-          const setFont = () => {
-            ctx.font = `900 ${fontSize}px ${fontStack}`;
+          const setBaseFont = () => {
+            ctx.font = `900 ${fontSize}px ${FONT_STACK}`;
           };
 
-          setFont();
+          setBaseFont();
           while (ctx.measureText(content).width > maxWidth && fontSize > 28) {
             fontSize -= 2;
-            setFont();
+            setBaseFont();
           }
 
           ctx.textAlign = 'center';
@@ -119,23 +137,177 @@
           ctx.shadowBlur = fontSize * 0.05;
           ctx.fillStyle = '#ffffff';
           ctx.fillText(content, width / 2, height / 2);
-        };
 
-        const resolveLine = (payload) => {
-          const text = payload?.active_line?.trim();
-          return text && text.length ? text : DEFAULT_LINE;
-        };
+          if (translation && translation.length) {
+            let translationSize = Math.max(fontSize * 0.48, 16);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = 'rgba(236, 240, 255, 0.92)';
 
-        const render = (payload) => {
-          currentLine = resolveLine(payload);
-          document.title = currentLine;
-          drawLine(currentLine);
-          if (debugText) {
-            debugText.textContent = `active_line: ${payload?.active_line ?? 'null'}\nnext_line: ${payload?.next_line ?? 'null'}`;
+            const translationFont = () =>
+              `600 ${translationSize}px ${FONT_STACK}`;
+
+            ctx.font = translationFont();
+            while (
+              ctx.measureText(translation).width > width * 0.78 &&
+              translationSize > 14
+            ) {
+              translationSize -= 1;
+              ctx.font = translationFont();
+            }
+
+            const translationY = height / 2 + fontSize * 0.78;
+            ctx.shadowBlur = translationSize * 0.06;
+            ctx.lineWidth = Math.max(translationSize * 0.06, 1.8);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.strokeText(translation, width / 2, translationY);
+            ctx.shadowBlur = translationSize * 0.03;
+            ctx.fillText(translation, width / 2, translationY);
           }
         };
 
-        const registerExitShortcuts = (tauri) => {
+        const drawSegments = (segments, translation = null) => {
+          const normalizedSegments = normalizeSegments(segments);
+          if (!normalizedSegments.length) {
+            drawSimpleLine(currentLine, translation);
+            return;
+          }
+
+          const { width, height } = resizeCanvas();
+          ctx.clearRect(0, 0, width, height);
+
+          const maxWidth = width * 0.82;
+          let baseFontSize = Math.min(width, height) * 0.14;
+          baseFontSize = Math.max(baseFontSize, 20);
+          let annotationFontSize = Math.max(baseFontSize * 0.4, 12);
+
+          const baseFont = () => `900 ${baseFontSize}px ${FONT_STACK}`;
+          const annotationFont = () => `600 ${annotationFontSize}px ${FONT_STACK}`;
+
+          ctx.font = baseFont();
+          const measureTotalWidth = () =>
+            normalizedSegments.reduce(
+              (sum, segment) => sum + ctx.measureText(segment.original).width,
+              0,
+            );
+
+          let totalWidth = measureTotalWidth();
+          if (totalWidth > maxWidth) {
+            const scale = maxWidth / totalWidth;
+            baseFontSize = Math.max(18, Math.floor(baseFontSize * scale));
+            annotationFontSize = Math.max(baseFontSize * 0.4, 12);
+            ctx.font = baseFont();
+            totalWidth = measureTotalWidth();
+          }
+
+          const baseY = height / 2;
+          const annotationOffset = baseFontSize * 0.65;
+          const startX = (width - totalWidth) / 2;
+          let x = startX;
+
+          ctx.textBaseline = 'middle';
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+
+          normalizedSegments.forEach((segment) => {
+            const text = segment.original;
+            if (!text.length) {
+              return;
+            }
+
+            ctx.font = baseFont();
+            const segmentWidth = ctx.measureText(text).width;
+            const centerX = x + segmentWidth / 2;
+
+            ctx.textAlign = 'left';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+            ctx.shadowBlur = baseFontSize * 0.16;
+            ctx.lineWidth = Math.max(baseFontSize * 0.08, 2.5);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+            ctx.strokeText(text, x, baseY);
+
+            ctx.shadowBlur = baseFontSize * 0.05;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(text, x, baseY);
+
+            const annotation = segment.annotation;
+            if (annotation.length) {
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              ctx.font = annotationFont();
+              ctx.lineWidth = Math.max(annotationFontSize * 0.06, 1.5);
+              ctx.shadowBlur = annotationFontSize * 0.12;
+              ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+              ctx.strokeText(annotation, centerX, baseY - annotationOffset);
+              ctx.shadowBlur = annotationFontSize * 0.04;
+              ctx.fillStyle = 'rgba(240, 244, 255, 0.92)';
+              ctx.fillText(annotation, centerX, baseY - annotationOffset);
+            }
+
+            x += segmentWidth;
+          });
+
+          if (translation && translation.length) {
+            let translationSize = Math.max(baseFontSize * 0.5, 16);
+            const translationFont = () =>
+              `600 ${translationSize}px ${FONT_STACK}`;
+            ctx.font = translationFont();
+            while (
+              ctx.measureText(translation).width > width * 0.78 &&
+              translationSize > 14
+            ) {
+              translationSize -= 1;
+              ctx.font = translationFont();
+            }
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.shadowBlur = translationSize * 0.06;
+            ctx.lineWidth = Math.max(translationSize * 0.06, 1.8);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            const translationY = baseY + baseFontSize * 0.78;
+            ctx.strokeText(translation, width / 2, translationY);
+            ctx.shadowBlur = translationSize * 0.03;
+            ctx.fillStyle = 'rgba(236, 240, 255, 0.92)';
+            ctx.fillText(translation, width / 2, translationY);
+          }
+        };
+
+        const resolveLine = (payload) => {
+          const text = sanitizeText(payload?.active_line);
+          return text.length ? text : DEFAULT_LINE;
+        };
+
+        const render = (payload) => {
+          if (payload) {
+            lastPayload = payload;
+          }
+
+          const targetPayload = payload ?? lastPayload;
+          if (!targetPayload) {
+            drawSimpleLine(DEFAULT_LINE);
+            return;
+          }
+
+          const text = resolveLine(targetPayload);
+          currentLine = text;
+          document.title = text;
+
+          const segments = normalizeSegments(targetPayload.active_segments);
+          const showTranslation = shouldShowTranslation(targetPayload);
+          const translation = showTranslation
+              ? sanitizeText(targetPayload.active_translation)
+              : '';
+          const displayTranslation = translation.length ? translation : null;
+
+          if (segments.length) {
+            drawSegments(segments, displayTranslation);
+          } else {
+            drawSimpleLine(text, displayTranslation);
+          }
+        };
+
+        const registerExitShortcuts = (tauriCore) => {
           const handler = (event) => {
             const key = event.key?.toLowerCase();
             const comboPressed = event.metaKey || event.ctrlKey;
@@ -144,7 +316,7 @@
 
             if (exitViaQ || exitViaEsc) {
               event.preventDefault();
-              tauri.invoke('exit_app');
+              tauriCore.invoke('exit_app');
             }
           };
 
@@ -156,14 +328,14 @@
           console.log('Tauri API 入口:', tauri);
           if (!tauri || !tauri.core || !tauri.event) {
             console.error('无法找到 Tauri API');
-            drawLine(DEFAULT_LINE);
+            drawSimpleLine(DEFAULT_LINE);
             return;
           }
 
           const { invoke } = tauri.core;
           const { listen } = tauri.event;
 
-          drawLine(currentLine);
+          drawSimpleLine(currentLine);
 
           try {
             const payload = await invoke('get_lyrics_state');
@@ -171,7 +343,7 @@
             render(payload);
           } catch (error) {
             console.error('获取初始歌词状态失败:', error);
-            drawLine(DEFAULT_LINE);
+            drawSimpleLine(DEFAULT_LINE);
           }
 
           try {
@@ -186,7 +358,14 @@
           registerExitShortcuts(tauri.core);
         }
 
-        window.addEventListener('resize', () => drawLine(currentLine));
+        window.addEventListener('resize', () => {
+          if (lastPayload) {
+            render(lastPayload);
+          } else {
+            drawSimpleLine(currentLine);
+          }
+        });
+
         init();
       }
     </script>

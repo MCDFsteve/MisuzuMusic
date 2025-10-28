@@ -24,10 +24,23 @@ pub struct LyricsPayload {
     pub next_line: Option<String>,
     pub position_ms: Option<u64>,
     pub is_playing: Option<bool>,
+    pub active_segments: Option<Vec<FuriganaSegment>>,
+    pub next_segments: Option<Vec<FuriganaSegment>>,
+    pub active_translation: Option<String>,
+    pub next_translation: Option<String>,
+    pub show_translation: Option<bool>,
 }
 
 #[derive(Clone, Default)]
 struct SharedLyricsState(Arc<Mutex<LyricsPayload>>);
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FuriganaSegment {
+    pub original: Option<String>,
+    pub annotation: Option<String>,
+    #[serde(rename = "type")]
+    pub segment_type: Option<String>,
+}
 
 #[derive(Clone)]
 struct HttpServerState {

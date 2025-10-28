@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 
@@ -190,20 +191,19 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       nextLine: _sanitizeLine(_resolveNextDesktopLine()),
       positionMs: _currentPosition?.inMilliseconds,
       isPlaying: _isPlaying,
+      activeSegments: _segmentsForLine(_activeDesktopLine),
+      nextSegments: _segmentsForLine(_resolveNextDesktopLine()),
+      activeTranslation: _showTranslation
+          ? _lineTranslation(_activeDesktopLine)
+          : null,
+      nextTranslation:
+          _showTranslation ? _lineTranslation(_resolveNextDesktopLine()) : null,
+      showTranslation: _showTranslation,
     );
   }
 
   String _signatureForUpdate(DesktopLyricsUpdate update) {
-    final buffer = StringBuffer();
-    final payload = update.toJson();
-    payload.forEach((key, value) {
-      buffer
-        ..write(key)
-        ..write('=')
-        ..write(value)
-        ..write('|');
-    });
-    return buffer.toString();
+    return jsonEncode(update.toJson());
   }
 
   String? _sanitizeLine(LyricsLine? line) {
@@ -223,6 +223,39 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       return null;
     }
     return _activeLyricsLines[nextIndex];
+  }
+
+  List<DesktopLyricsSegment>? _segmentsForLine(LyricsLine? line) {
+    if (line == null) {
+      return null;
+    }
+    if (line.annotatedTexts.isEmpty) {
+      return null;
+    }
+
+    final segments = line.annotatedTexts
+        .where((segment) => segment.original.isNotEmpty)
+        .map(
+          (segment) => DesktopLyricsSegment(
+            original: segment.original,
+            annotation: segment.annotation.trim(),
+            type: segment.type.name,
+          ),
+        )
+        .toList(growable: false);
+
+    if (segments.isEmpty) {
+      return null;
+    }
+    return segments;
+  }
+
+  String? _lineTranslation(LyricsLine? line) {
+    final translation = line?.translatedText?.trim();
+    if (translation == null || translation.isEmpty) {
+      return null;
+    }
+    return translation;
   }
 
   Future<void> _toggleDesktopLyricsAssistant() async {
