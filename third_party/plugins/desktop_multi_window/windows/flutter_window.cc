@@ -5,7 +5,6 @@
 #include "flutter_window.h"
 
 #include "flutter_windows.h"
-#include <dwmapi.h>
 
 #include "tchar.h"
 
@@ -34,7 +33,7 @@ void RegisterWindowClass(WNDPROC wnd_proc) {
     window_class.hInstance = GetModuleHandle(nullptr);
     window_class.hIcon =
         LoadIcon(window_class.hInstance, IDI_APPLICATION);
-    window_class.hbrBackground = nullptr;
+    window_class.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
     window_class.lpszMenuName = nullptr;
     window_class.lpfnWndProc = wnd_proc;
     RegisterClass(&window_class);
@@ -74,37 +73,6 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
   }
 }
 
-void ApplyOverlayWindowStyles(HWND hwnd) {
-  if (!hwnd) {
-    return;
-  }
-
-  LONG style = GetWindowLong(hwnd, GWL_STYLE);
-  style &= ~(WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
-  style |= WS_POPUP;
-  SetWindowLong(hwnd, GWL_STYLE, style);
-
-  LONG ex_style = GetWindowLong(hwnd, GWL_EXSTYLE);
-  ex_style |= (WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW);
-  ex_style &= ~WS_EX_APPWINDOW;
-  SetWindowLong(hwnd, GWL_EXSTYLE, ex_style);
-
-  SetWindowPos(
-      hwnd,
-      HWND_TOPMOST,
-      0,
-      0,
-      0,
-      0,
-      SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-
-  // Ensure the alpha channel stays intact so Flutter can render transparency.
-  SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
-
-  const MARGINS margins = {-1};
-  DwmExtendFrameIntoClientArea(hwnd, &margins);
-}
-
 }
 
 FlutterWindow::FlutterWindow(
@@ -139,8 +107,6 @@ FlutterWindow::FlutterWindow(
   auto view_handle = flutter_controller_->view()->GetNativeWindow();
   SetParent(view_handle, window_handle);
   MoveWindow(view_handle, 0, 0, frame.right - frame.left, frame.bottom - frame.top, true);
-
-  ApplyOverlayWindowStyles(window_handle);
 
   InternalMultiWindowPluginRegisterWithRegistrar(
       flutter_controller_->engine()->GetRegistrarForPlugin("DesktopMultiWindowPlugin"));
@@ -230,9 +196,6 @@ LRESULT FlutterWindow::MessageHandler(HWND hwnd, UINT message, WPARAM wparam, LP
                    rect.bottom - rect.top, TRUE);
       }
       return 0;
-    }
-    case WM_ERASEBKGND: {
-      return 1;
     }
 
     case WM_ACTIVATE: {

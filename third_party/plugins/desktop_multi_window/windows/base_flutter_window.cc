@@ -91,8 +91,6 @@ void BaseFlutterWindow::Show() {
     return;
   }
   ShowWindow(handle, SW_SHOW);
-  SetForegroundWindow(handle);
-  SetFocus(handle);
 
 }
 
