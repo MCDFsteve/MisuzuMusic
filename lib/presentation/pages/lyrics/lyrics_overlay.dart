@@ -258,22 +258,19 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
               const SizedBox(height: 14),
               SizedBox(
                 height: 260,
-                child: Scrollbar(
-                  thumbVisibility: true,
-                  child: TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(
-                      hintText: '填写歌曲背景、制作人员、翻译或任何想展示的信息…',
-                      border: OutlineInputBorder(),
-                      isDense: false,
-                    ),
-                    keyboardType: TextInputType.multiline,
-                    expands: true,
-                    minLines: null,
-                    maxLines: null,
-                    textInputAction: TextInputAction.newline,
-                    textAlignVertical: TextAlignVertical.top,
+                child: TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    hintText: '填写歌曲背景、制作人员、翻译或任何想展示的信息…',
+                    border: OutlineInputBorder(),
+                    isDense: false,
                   ),
+                  keyboardType: TextInputType.multiline,
+                  expands: true,
+                  minLines: null,
+                  maxLines: null,
+                  textInputAction: TextInputAction.newline,
+                  textAlignVertical: TextAlignVertical.top,
                 ),
               ),
             ],
@@ -335,16 +332,28 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         _trackDetailError = null;
       });
 
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
-        SnackBar(
-          content: Text(
-            result.created ? '歌曲详情已创建' : '歌曲详情已更新',
-            locale: Locale("zh-Hans", "zh"),
+      if (mounted) {
+        unawaited(
+          showPlaylistModalDialog<void>(
+            context: context,
+            barrierDismissible: true,
+            builder: (dialogContext) => PlaylistModalScaffold(
+              title: '保存成功',
+              maxWidth: 360,
+              body: Text(
+                result.created ? '已创建歌曲详情。' : '歌曲详情已更新。',
+                locale: Locale("zh-Hans", "zh"),
+              ),
+              actions: [
+                SheetActionButton.primary(
+                  label: '知道了',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+              ],
+            ),
           ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+        );
+      }
     } catch (error) {
       if (!mounted || requestId != _trackDetailRequestToken) {
         return;
@@ -354,16 +363,28 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         _trackDetailError = error.toString();
       });
 
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
-        SnackBar(
-          content: Text(
-            '保存歌曲详情失败: $error',
-            locale: Locale("zh-Hans", "zh"),
+      if (mounted) {
+        unawaited(
+          showPlaylistModalDialog<void>(
+            context: context,
+            barrierDismissible: true,
+            builder: (dialogContext) => PlaylistModalScaffold(
+              title: '保存失败',
+              maxWidth: 360,
+              body: Text(
+                '保存歌曲详情失败: $error',
+                locale: Locale("zh-Hans", "zh"),
+              ),
+              actions: [
+                SheetActionButton.primary(
+                  label: '关闭',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+              ],
+            ),
           ),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+        );
+      }
     } finally {
       if (!mounted || requestId != _trackDetailRequestToken) {
         return;
@@ -1509,43 +1530,50 @@ class _TrackDetailView extends StatelessWidget {
               child: SizedBox(
                 width: displayWidth,
                 height: panelHeight,
-                child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        track.title,
-                        locale: const Locale('zh-Hans', 'zh'),
-                        style: headerStyle.copyWith(fontSize: 18),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${track.artist} · ${track.album}',
-                        locale: const Locale('zh-Hans', 'zh'),
-                        style: metaStyle,
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        '歌曲详情',
-                        locale: const Locale('zh-Hans', 'zh'),
-                        style: bodyStyle.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: bodyStyle.color?.withOpacity(0.82) ??
-                              (isDarkMode
-                                  ? Colors.white.withOpacity(0.82)
-                                  : Colors.black.withOpacity(0.78)),
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context)
+                      .copyWith(scrollbars: false),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 22,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 18),
+                        Text(
+                          track.title,
+                          locale: const Locale('zh-Hans', 'zh'),
+                          style: headerStyle.copyWith(fontSize: 18),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      detailBody,
-                      if (!isLoadingDetail)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: editLink,
+                        const SizedBox(height: 6),
+                        Text(
+                          '${track.artist} · ${track.album}',
+                          locale: const Locale('zh-Hans', 'zh'),
+                          style: metaStyle,
                         ),
-                    ],
+                        const SizedBox(height: 22),
+                        Text(
+                          '歌曲详情',
+                          locale: const Locale('zh-Hans', 'zh'),
+                          style: bodyStyle.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: bodyStyle.color?.withOpacity(0.82) ??
+                                (isDarkMode
+                                    ? Colors.white.withOpacity(0.82)
+                                    : Colors.black.withOpacity(0.78)),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        detailBody,
+                        if (!isSavingDetail)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: editLink,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
