@@ -255,16 +255,13 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
               ),
               const SizedBox(height: 6),
               Text(
-                '保存后会写入 ${(_trackDetailFileName ?? _songDetailService.sanitizeTitle(track.title))}.txt',
+                '保存后将同步到服务器，可随时再次编辑。',
                 locale: Locale("zh-Hans", "zh"),
                 style: const TextStyle(fontSize: 12),
               ),
               const SizedBox(height: 14),
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minHeight: 180,
-                  maxHeight: 420,
-                ),
+              SizedBox(
+                height: 260,
                 child: Scrollbar(
                   thumbVisibility: true,
                   child: TextField(
@@ -275,9 +272,11 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
                       isDense: false,
                     ),
                     keyboardType: TextInputType.multiline,
+                    expands: true,
+                    minLines: null,
                     maxLines: null,
-                    minLines: 10,
                     textInputAction: TextInputAction.newline,
+                    textAlignVertical: TextAlignVertical.top,
                   ),
                 ),
               ),
@@ -1410,14 +1409,11 @@ class _TrackDetailView extends StatelessWidget {
         final panelHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : math.max(coverSize * 1.05, 420.0);
-        final accentColor =
-            isMac ? macTheme!.primaryColor : theme.colorScheme.primary;
-
-        final TextStyle headerStyle = isMac
-            ? macTheme!.typography.title3.copyWith(fontWeight: FontWeight.w600)
-            : theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
+    final TextStyle headerStyle = isMac
+        ? macTheme!.typography.title3.copyWith(fontWeight: FontWeight.w600)
+        : theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
                 ) ??
                 const TextStyle(fontSize: 16, fontWeight: FontWeight.w600);
 
@@ -1542,7 +1538,10 @@ class _TrackDetailView extends StatelessWidget {
                 style: bodyStyle.copyWith(
                   decoration: TextDecoration.underline,
                   fontWeight: FontWeight.w500,
-                  color: accentColor.withOpacity(isSavingDetail ? 0.45 : 0.9),
+                  color: bodyStyle.color ??
+                      (isDarkMode
+                          ? Colors.white.withOpacity(isSavingDetail ? 0.5 : 0.82)
+                          : Colors.black.withOpacity(isSavingDetail ? 0.5 : 0.78)),
                 ),
               ),
             ),
