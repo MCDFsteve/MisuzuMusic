@@ -22,32 +22,37 @@ Future<void> runDesktopLyricsWindow(
 
   WidgetsFlutterBinding.ensureInitialized();
 
-  await windowManager.ensureInitialized();
+  final bool isMacOS = Platform.isMacOS;
+  final bool isWindows = Platform.isWindows;
+  final bool isLinux = Platform.isLinux;
+
+  if (isMacOS) {
+    await windowManager.ensureInitialized();
+  }
 
   Future<void> configureWindow() async {
-    final bool isMacOS = Platform.isMacOS;
-    final options = WindowOptions(
-      size: const Size(420, 200),
-      minimumSize: const Size(200, 140),
-      center: true,
-      backgroundColor: Colors.transparent,
-      alwaysOnTop: true,
-      skipTaskbar: true,
-      titleBarStyle: isMacOS ? null : TitleBarStyle.hidden,
-      windowButtonVisibility: isMacOS ? null : false,
-    );
+    if (isMacOS) {
+      final options = WindowOptions(
+        size: const Size(420, 200),
+        minimumSize: const Size(200, 140),
+        center: true,
+        backgroundColor: Colors.transparent,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        titleBarStyle: null,
+        windowButtonVisibility: null,
+      );
 
-    await windowManager.waitUntilReadyToShow(options, () async {
-      await windowManager.setAsFrameless();
-      try {
-        await windowManager.setHasShadow(false);
-      } on MissingPluginException catch (_) {
-        debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
-      } on UnimplementedError catch (_) {
-        debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
-      }
-      await windowManager.setAlwaysOnTop(true);
-      if (Platform.isMacOS) {
+      await windowManager.waitUntilReadyToShow(options, () async {
+        await windowManager.setAsFrameless();
+        try {
+          await windowManager.setHasShadow(false);
+        } on MissingPluginException catch (_) {
+          debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+        } on UnimplementedError catch (_) {
+          debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+        }
+        await windowManager.setAlwaysOnTop(true);
         try {
           await windowManager.setVisibleOnAllWorkspaces(
             true,
@@ -71,15 +76,15 @@ Future<void> runDesktopLyricsWindow(
         } catch (error) {
           debugPrint('桌面歌词窗口原生空间配置失败: $error');
         }
-      }
-      await windowManager.setResizable(false);
-      if (!Platform.isMacOS) {
-        await windowManager.show();
-        await windowManager.focus();
-      } else {
+        await windowManager.setResizable(false);
         await windowManager.hide();
+      });
+    } else {
+      // Windows/Linux 直接在原生层完成窗口配置，并保持初始隐藏。
+      if (isWindows || isLinux) {
+        await controller.hide();
       }
-    });
+    }
 
     unawaited(
       DesktopMultiWindow.invokeMethod(
@@ -96,18 +101,25 @@ Future<void> runDesktopLyricsWindow(
         await configureWindow();
         break;
       case 'show_window':
-        if (Platform.isMacOS) {
+        if (isMacOS) {
           await windowManager.focus();
         } else {
-          await windowManager.show();
-          await windowManager.focus();
+          await controller.show();
         }
         break;
       case 'hide_window':
-        await windowManager.hide();
+        if (isMacOS) {
+          await windowManager.hide();
+        } else {
+          await controller.hide();
+        }
         break;
       case 'focus_window':
-        await windowManager.focus();
+        if (isMacOS) {
+          await windowManager.focus();
+        } else {
+          await controller.show();
+        }
         break;
     }
     return null;

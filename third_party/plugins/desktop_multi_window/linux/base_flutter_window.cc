@@ -10,6 +10,7 @@ void BaseFlutterWindow::Show() {
     return;
   }
   gtk_widget_show(GTK_WIDGET(window));
+  gtk_window_present(window);
 }
 
 void BaseFlutterWindow::Hide() {
