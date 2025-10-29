@@ -65,6 +65,7 @@ class DesktopLyricsWindowManager {
     }
 
     try {
+      await controller.show();
       await DesktopMultiWindow.invokeMethod(
         controller.windowId,
         'show_window',
@@ -83,6 +84,7 @@ class DesktopLyricsWindowManager {
       return;
     }
     try {
+      await controller.hide();
       await DesktopMultiWindow.invokeMethod(
         controller.windowId,
         'hide_window',

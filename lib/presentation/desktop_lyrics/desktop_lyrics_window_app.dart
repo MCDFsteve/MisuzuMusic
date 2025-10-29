@@ -81,18 +81,13 @@ Future<void> runDesktopLyricsWindow(
       });
     }
 
-    if (isWindows || isLinux) {
-      // 针对 Win/Linux，窗口在原生层已设置为顶置，这里直接请求显示即可。
-      await controller.show();
-    } else {
-      unawaited(
-        DesktopMultiWindow.invokeMethod(
-          0,
-          'lyrics_window_ready',
-          controller.windowId,
-        ),
-      );
-    }
+    unawaited(
+      DesktopMultiWindow.invokeMethod(
+        0,
+        'lyrics_window_ready',
+        controller.windowId,
+      ),
+    );
   }
 
   DesktopMultiWindow.setMethodHandler((call, fromWindowId) async {
@@ -102,23 +97,20 @@ Future<void> runDesktopLyricsWindow(
         break;
       case 'show_window':
         if (isMacOS) {
+          await windowManager.show();
           await windowManager.focus();
-        } else {
-          await controller.show();
+          await _setWindowVisible(true);
         }
         break;
       case 'hide_window':
         if (isMacOS) {
           await windowManager.hide();
-        } else {
-          await controller.hide();
+          await _setWindowVisible(false);
         }
         break;
       case 'focus_window':
         if (isMacOS) {
           await windowManager.focus();
-        } else {
-          await controller.show();
         }
         break;
     }
