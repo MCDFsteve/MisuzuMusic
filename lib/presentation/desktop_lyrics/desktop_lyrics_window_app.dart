@@ -79,11 +79,6 @@ Future<void> runDesktopLyricsWindow(
         await windowManager.setResizable(false);
         await windowManager.hide();
       });
-    } else {
-      // Windows/Linux 直接在原生层完成窗口配置，并保持初始隐藏。
-      if (isWindows || isLinux) {
-        await controller.hide();
-      }
     }
 
     unawaited(
