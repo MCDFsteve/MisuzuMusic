@@ -18,6 +18,7 @@ import '../../data/services/audio_player_service_impl.dart';
 import '../../data/services/misuzu_audio_handler.dart';
 import '../../data/services/cloud_playlist_api.dart';
 import '../../data/services/remote_lyrics_api.dart';
+import '../../data/services/song_detail_service.dart';
 import '../../data/datasources/remote/netease_api_client.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/netease_repository.dart';
@@ -73,6 +74,7 @@ class DependencyInjection {
       sl.registerLazySingleton<NeteaseApiClient>(() => NeteaseApiClient());
       sl.registerLazySingleton(() => CloudPlaylistApi());
       sl.registerLazySingleton(() => RemoteLyricsApi());
+      sl.registerLazySingleton(() => SongDetailService());
 
       sl.registerLazySingleton<MusicLibraryRepository>(
         () => MusicLibraryRepositoryImpl(

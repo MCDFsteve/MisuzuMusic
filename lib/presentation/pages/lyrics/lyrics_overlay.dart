@@ -11,6 +11,7 @@ import 'package:misuzu_music/presentation/pages/home_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/dependency_injection.dart';
+import '../../../data/services/song_detail_service.dart';
 import '../../../core/services/lrc_export_service.dart';
 import '../../../core/services/desktop_lyrics_bridge.dart';
 import '../../../core/constants/app_constants.dart';
@@ -50,6 +51,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late final ScrollController _lyricsScrollController;
   late final LyricsCubit _lyricsCubit;
   late final DesktopLyricsBridge _desktopLyricsBridge;
+  late final SongDetailService _songDetailService;
   static bool _lastTranslationPreference = true;
   bool _showTranslation = _lastTranslationPreference;
   bool _desktopLyricsActive = false;
@@ -65,6 +67,15 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   bool _shouldResendDesktopUpdate = false;
   StreamSubscription<PlayerBlocState>? _playerSubscription;
   PlayerBlocState? _lastProcessedPlayerState;
+  bool _showTrackDetailPanel = false;
+  bool _isLoadingTrackDetail = false;
+  bool _isSavingTrackDetail = false;
+  bool _trackDetailExists = false;
+  String? _trackDetailContent;
+  String? _trackDetailFileName;
+  String? _trackDetailError;
+  String? _trackDetailLoadedKey;
+  int _trackDetailRequestToken = 0;
 
   @override
   void initState() {
@@ -72,6 +83,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _currentTrack = widget.initialTrack;
     _lyricsScrollController = ScrollController();
     _desktopLyricsBridge = sl<DesktopLyricsBridge>();
+    _songDetailService = sl<SongDetailService>();
     _lyricsCubit = LyricsCubit(
       findLyricsFile: sl<FindLyricsFile>(),
       loadLyricsFromFile: sl<LoadLyricsFromFile>(),
@@ -91,6 +103,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialTrack != oldWidget.initialTrack) {
       _currentTrack = widget.initialTrack;
+      _resetTrackDetailState();
       _lyricsCubit.loadLyricsForTrack(_currentTrack);
       _resetScroll();
       _activeLyricsLines = const [];
@@ -119,6 +132,251 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   void _resetScroll() {
     if (_lyricsScrollController.hasClients) {
       _lyricsScrollController.jumpTo(0);
+    }
+  }
+
+  void _resetTrackDetailState() {
+    _trackDetailContent = null;
+    _trackDetailFileName = null;
+    _trackDetailError = null;
+    _trackDetailExists = false;
+    _trackDetailLoadedKey = null;
+    _isLoadingTrackDetail = false;
+    _isSavingTrackDetail = false;
+    _showTrackDetailPanel = false;
+    _trackDetailRequestToken++;
+  }
+
+  String _detailCacheKeyForTrack(Track track) {
+    return '${track.id}_${track.title}_${track.artist}_${track.album}';
+  }
+
+  void _toggleTrackDetailPanel() {
+    if (!mounted) {
+      return;
+    }
+    final shouldShow = !_showTrackDetailPanel;
+    setState(() {
+      _showTrackDetailPanel = shouldShow;
+      if (!shouldShow) {
+        _trackDetailError = null;
+      }
+    });
+    if (shouldShow) {
+      unawaited(_ensureTrackDetailLoaded());
+    }
+  }
+
+  Future<void> _ensureTrackDetailLoaded({bool force = false}) async {
+    if (!mounted) {
+      return;
+    }
+
+    final track = _currentTrack;
+    final cacheKey = _detailCacheKeyForTrack(track);
+
+    if (!force &&
+        _trackDetailLoadedKey == cacheKey &&
+        _trackDetailContent != null &&
+        !_isLoadingTrackDetail) {
+      return;
+    }
+
+    final currentRequestId = ++_trackDetailRequestToken;
+
+    if (mounted) {
+      setState(() {
+        _isLoadingTrackDetail = true;
+        if (force) {
+          _trackDetailError = null;
+        }
+      });
+    }
+
+    try {
+      final result = await _songDetailService.fetchDetail(
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+      );
+
+      if (!mounted || currentRequestId != _trackDetailRequestToken) {
+        return;
+      }
+
+      setState(() {
+        _trackDetailContent = result.content;
+        _trackDetailFileName = result.fileName;
+        _trackDetailExists = result.exists;
+        _trackDetailLoadedKey = cacheKey;
+        _trackDetailError = null;
+      });
+    } catch (error) {
+      if (!mounted || currentRequestId != _trackDetailRequestToken) {
+        return;
+      }
+      setState(() {
+        _trackDetailError = error.toString();
+        _trackDetailExists = false;
+      });
+    } finally {
+      if (!mounted || currentRequestId != _trackDetailRequestToken) {
+        return;
+      }
+      setState(() {
+        _isLoadingTrackDetail = false;
+      });
+    }
+  }
+
+  Future<void> _openTrackDetailEditor() async {
+    if (!mounted || _isSavingTrackDetail) {
+      return;
+    }
+
+    final track = _currentTrack;
+    final initialText = _trackDetailContent ?? '';
+    final controller = TextEditingController(text: initialText);
+
+    final result = await showPlaylistModalDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PlaylistModalScaffold(
+          title: '编辑歌曲详情',
+          maxWidth: 580,
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '曲目：${track.title} · ${track.artist}',
+                locale: Locale("zh-Hans", "zh"),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '保存后会写入 ${(_trackDetailFileName ?? _songDetailService.sanitizeTitle(track.title))}.txt',
+                locale: Locale("zh-Hans", "zh"),
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: 180,
+                  maxHeight: 420,
+                ),
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      hintText: '填写歌曲背景、制作人员、翻译或任何想展示的信息…',
+                      border: OutlineInputBorder(),
+                      isDense: false,
+                    ),
+                    keyboardType: TextInputType.multiline,
+                    maxLines: null,
+                    minLines: 10,
+                    textInputAction: TextInputAction.newline,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            SheetActionButton.secondary(
+              label: '取消',
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            SheetActionButton.primary(
+              label: '保存',
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (result == null) {
+      return;
+    }
+
+    await _saveTrackDetail(result);
+  }
+
+  Future<void> _saveTrackDetail(String content) async {
+    if (!mounted) {
+      return;
+    }
+
+    final trimmed = content;
+    final track = _currentTrack;
+    final cacheKey = _detailCacheKeyForTrack(track);
+    final requestId = ++_trackDetailRequestToken;
+
+    setState(() {
+      _isSavingTrackDetail = true;
+      _trackDetailError = null;
+    });
+
+    try {
+      final result = await _songDetailService.saveDetail(
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        content: trimmed,
+      );
+
+      if (!mounted || requestId != _trackDetailRequestToken) {
+        return;
+      }
+
+      setState(() {
+        _trackDetailContent = result.content;
+        _trackDetailFileName = result.fileName;
+        _trackDetailExists = true;
+        _trackDetailLoadedKey = cacheKey;
+        _trackDetailError = null;
+      });
+
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            result.created ? '歌曲详情已创建' : '歌曲详情已更新',
+            locale: Locale("zh-Hans", "zh"),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (error) {
+      if (!mounted || requestId != _trackDetailRequestToken) {
+        return;
+      }
+
+      setState(() {
+        _trackDetailError = error.toString();
+      });
+
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            '保存歌曲详情失败: $error',
+            locale: Locale("zh-Hans", "zh"),
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (!mounted || requestId != _trackDetailRequestToken) {
+        return;
+      }
+      setState(() {
+        _isSavingTrackDetail = false;
+      });
     }
   }
 
@@ -478,7 +736,10 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     final nextTrack = _extractTrack(playerState);
     if (nextTrack != null && nextTrack != _currentTrack) {
       if (mounted) {
-        setState(() => _currentTrack = nextTrack);
+        setState(() {
+          _currentTrack = nextTrack;
+          _resetTrackDetailState();
+        });
       }
       _lyricsCubit.loadLyricsForTrack(nextTrack);
       _resetScroll();
@@ -750,6 +1011,18 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           isDesktopLyricsBusy: _desktopLyricsBusy,
           onActiveIndexChanged: _handleActiveIndexChanged,
           onActiveLineChanged: _handleActiveLineChanged,
+          showTrackDetail: _showTrackDetailPanel,
+          isLoadingTrackDetail: _isLoadingTrackDetail,
+          isSavingTrackDetail: _isSavingTrackDetail,
+          trackDetailContent: _trackDetailContent,
+          trackDetailError: _trackDetailError,
+          trackDetailFileName: _trackDetailFileName,
+          trackDetailExists: _trackDetailExists,
+          detailFileFallbackName:
+              _songDetailService.sanitizeTitle(_currentTrack.title),
+          onToggleTrackDetail: _toggleTrackDetailPanel,
+          onEditTrackDetail: _openTrackDetailEditor,
+          onRefreshTrackDetail: () => _ensureTrackDetailLoaded(force: true),
         ),
       ),
     );
@@ -770,6 +1043,17 @@ class _LyricsLayout extends StatelessWidget {
     required this.isDesktopLyricsBusy,
     required this.onActiveIndexChanged,
     required this.onActiveLineChanged,
+    required this.showTrackDetail,
+    required this.isLoadingTrackDetail,
+    required this.isSavingTrackDetail,
+    required this.trackDetailContent,
+    required this.trackDetailError,
+    required this.trackDetailFileName,
+    required this.trackDetailExists,
+    required this.detailFileFallbackName,
+    required this.onToggleTrackDetail,
+    required this.onEditTrackDetail,
+    required this.onRefreshTrackDetail,
   });
 
   final Track track;
@@ -784,6 +1068,17 @@ class _LyricsLayout extends StatelessWidget {
   final bool isDesktopLyricsBusy;
   final ValueChanged<int> onActiveIndexChanged;
   final ValueChanged<LyricsLine?> onActiveLineChanged;
+  final bool showTrackDetail;
+  final bool isLoadingTrackDetail;
+  final bool isSavingTrackDetail;
+  final String? trackDetailContent;
+  final String? trackDetailError;
+  final String? trackDetailFileName;
+  final bool trackDetailExists;
+  final String detailFileFallbackName;
+  final VoidCallback onToggleTrackDetail;
+  final VoidCallback onEditTrackDetail;
+  final VoidCallback onRefreshTrackDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -813,10 +1108,21 @@ class _LyricsLayout extends StatelessWidget {
               children: [
                 Expanded(
                   flex: 10,
-                  child: _CoverColumn(
+                  child: _TrackInfoPanel(
                     track: normalizedTrack,
                     coverSize: coverSize,
                     isMac: isMac,
+                    showDetail: showTrackDetail,
+                    isLoadingDetail: isLoadingTrackDetail,
+                    isSavingDetail: isSavingTrackDetail,
+                    detailContent: trackDetailContent,
+                    detailError: trackDetailError,
+                    detailFileName: trackDetailFileName,
+                    detailFileFallbackName: detailFileFallbackName,
+                    detailExists: trackDetailExists,
+                    onToggleDetail: onToggleTrackDetail,
+                    onEditDetail: onEditTrackDetail,
+                    onRefreshDetail: onRefreshTrackDetail,
                   ),
                 ),
                 Container(
@@ -861,39 +1167,114 @@ class _LyricsLayout extends StatelessWidget {
   }
 }
 
-class _CoverColumn extends StatelessWidget {
-  const _CoverColumn({
+class _TrackInfoPanel extends StatelessWidget {
+  const _TrackInfoPanel({
+    super.key,
     required this.track,
     required this.coverSize,
     required this.isMac,
+    required this.showDetail,
+    required this.isLoadingDetail,
+    required this.isSavingDetail,
+    required this.detailContent,
+    required this.detailError,
+    required this.detailFileName,
+    required this.detailFileFallbackName,
+    required this.detailExists,
+    required this.onToggleDetail,
+    required this.onEditDetail,
+    required this.onRefreshDetail,
   });
 
   final Track track;
   final double coverSize;
   final bool isMac;
+  final bool showDetail;
+  final bool isLoadingDetail;
+  final bool isSavingDetail;
+  final String? detailContent;
+  final String? detailError;
+  final String? detailFileName;
+  final String detailFileFallbackName;
+  final bool detailExists;
+  final VoidCallback onToggleDetail;
+  final VoidCallback onEditDetail;
+  final VoidCallback onRefreshDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: showDetail
+          ? _TrackDetailView(
+              key: const ValueKey('track-detail-view'),
+              track: track,
+              coverSize: coverSize,
+              isMac: isMac,
+              isLoadingDetail: isLoadingDetail,
+              isSavingDetail: isSavingDetail,
+              detailContent: detailContent,
+              detailError: detailError,
+              detailFileName: detailFileName,
+              detailFileFallbackName: detailFileFallbackName,
+              detailExists: detailExists,
+              onToggleDetail: onToggleDetail,
+              onEditDetail: onEditDetail,
+              onRefreshDetail: onRefreshDetail,
+            )
+          : _CoverColumn(
+              key: const ValueKey('track-cover-view'),
+              track: track,
+              coverSize: coverSize,
+              isMac: isMac,
+              onTap: onToggleDetail,
+            ),
+    );
+  }
+}
+
+class _CoverColumn extends StatelessWidget {
+  const _CoverColumn({
+    super.key,
+    required this.track,
+    required this.coverSize,
+    required this.isMac,
+    required this.onTap,
+  });
+
+  final Track track;
+  final double coverSize;
+  final bool isMac;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final TextStyle titleStyle = isMac
-        ? MacosTheme.of(
-            context,
-          ).typography.title1.copyWith(fontWeight: FontWeight.w600)
+        ? MacosTheme.of(context).typography.title1.copyWith(
+              fontWeight: FontWeight.w600,
+            )
         : Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ) ??
-              const TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
+                  fontWeight: FontWeight.w600,
+                ) ??
+            const TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
     final TextStyle subtitleStyle = isMac
         ? MacosTheme.of(context).typography.body.copyWith(
-            color: MacosTheme.of(
-              context,
-            ).typography.body.color?.withOpacity(0.75),
-          )
+              color: MacosTheme.of(context)
+                  .typography
+                  .body
+                  .color
+                  ?.withOpacity(0.75),
+            )
         : Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.color?.withOpacity(0.7),
-              ) ??
-              const TextStyle(fontSize: 14, color: Colors.black54);
+                  color: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.color
+                      ?.withOpacity(0.7),
+                ) ??
+            const TextStyle(fontSize: 14, color: Colors.black54);
 
     String? remoteArtworkUrl;
     if (track.sourceType == TrackSourceType.netease) {
@@ -910,37 +1291,43 @@ class _CoverColumn extends StatelessWidget {
           );
     }
 
+    final bool isDarkMode = isMac
+        ? MacosTheme.of(context).brightness == Brightness.dark
+        : Theme.of(context).brightness == Brightness.dark;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          HoverGlowOverlay(
-            isDarkMode: isMac
-                ? MacosTheme.of(context).brightness == Brightness.dark
-                : Theme.of(context).brightness == Brightness.dark,
-            borderRadius: BorderRadius.circular(24),
-            glowRadius: 1.05,
-            glowOpacity: 0.85,
-            blurSigma: 0,
-            cursor: SystemMouseCursors.basic,
-            child: ArtworkThumbnail(
-              artworkPath: track.artworkPath,
-              remoteImageUrl: remoteArtworkUrl,
-              size: coverSize,
-              borderRadius: BorderRadius.circular(20),
-              backgroundColor: isMac
-                  ? MacosColors.controlBackgroundColor
-                  : Theme.of(context).colorScheme.surfaceVariant,
-              borderColor: isMac
-                  ? MacosTheme.of(context).dividerColor
-                  : Theme.of(context).dividerColor,
-              placeholder: Icon(
-                CupertinoIcons.music_note,
-                color: isMac
-                    ? MacosColors.systemGrayColor
-                    : Theme.of(context).hintColor.withOpacity(0.6),
-                size: coverSize * 0.28,
+          GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: HoverGlowOverlay(
+              isDarkMode: isDarkMode,
+              borderRadius: BorderRadius.circular(24),
+              glowRadius: 1.05,
+              glowOpacity: 0.85,
+              blurSigma: 0,
+              cursor: SystemMouseCursors.click,
+              child: ArtworkThumbnail(
+                artworkPath: track.artworkPath,
+                remoteImageUrl: remoteArtworkUrl,
+                size: coverSize,
+                borderRadius: BorderRadius.circular(20),
+                backgroundColor: isMac
+                    ? MacosColors.controlBackgroundColor
+                    : Theme.of(context).colorScheme.surfaceVariant,
+                borderColor: isMac
+                    ? MacosTheme.of(context).dividerColor
+                    : Theme.of(context).dividerColor,
+                placeholder: Icon(
+                  CupertinoIcons.music_note,
+                  color: isMac
+                      ? MacosColors.systemGrayColor
+                      : Theme.of(context).hintColor.withOpacity(0.6),
+                  size: coverSize * 0.28,
+                ),
               ),
             ),
           ),
@@ -972,6 +1359,271 @@ class _CoverColumn extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TrackDetailView extends StatelessWidget {
+  const _TrackDetailView({
+    super.key,
+    required this.track,
+    required this.coverSize,
+    required this.isMac,
+    required this.isLoadingDetail,
+    required this.isSavingDetail,
+    required this.detailContent,
+    required this.detailError,
+    required this.detailFileName,
+    required this.detailFileFallbackName,
+    required this.detailExists,
+    required this.onToggleDetail,
+    required this.onEditDetail,
+    required this.onRefreshDetail,
+  });
+
+  final Track track;
+  final double coverSize;
+  final bool isMac;
+  final bool isLoadingDetail;
+  final bool isSavingDetail;
+  final String? detailContent;
+  final String? detailError;
+  final String? detailFileName;
+  final String detailFileFallbackName;
+  final bool detailExists;
+  final VoidCallback onToggleDetail;
+  final VoidCallback onEditDetail;
+  final VoidCallback onRefreshDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final theme = Theme.of(context);
+        final macTheme = isMac ? MacosTheme.of(context) : null;
+        final isDarkMode = isMac
+            ? macTheme!.brightness == Brightness.dark
+            : theme.brightness == Brightness.dark;
+
+        final displayWidth =
+            math.min(560.0, coverSize * 1.38).clamp(320.0, 620.0);
+        final panelHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : math.max(coverSize * 1.05, 420.0);
+        final accentColor =
+            isMac ? macTheme!.primaryColor : theme.colorScheme.primary;
+
+        final TextStyle headerStyle = isMac
+            ? macTheme!.typography.title3.copyWith(fontWeight: FontWeight.w600)
+            : theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                ) ??
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.w600);
+
+        final TextStyle bodyStyle = isMac
+            ? macTheme!.typography.body
+            : theme.textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
+        final TextStyle metaStyle = bodyStyle.copyWith(
+          fontSize: (bodyStyle.fontSize ?? 14) - 1,
+          color: bodyStyle.color?.withOpacity(0.68) ??
+              (isDarkMode
+                  ? Colors.white.withOpacity(0.68)
+                  : Colors.black.withOpacity(0.62)),
+        );
+
+        final String? trimmedError = detailError?.trim();
+        final bool hasErrorText =
+            trimmedError != null && trimmedError.isNotEmpty;
+        final String trimmedContent = detailContent?.trim() ?? '';
+
+        Widget detailBody;
+        if (isLoadingDetail) {
+          detailBody = const Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.2),
+            ),
+          );
+        } else if (hasErrorText) {
+          detailBody = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    CupertinoIcons.exclamationmark_circle,
+                    size: 20,
+                    color: isDarkMode
+                        ? Colors.orangeAccent.withOpacity(0.9)
+                        : Colors.orange.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '加载失败',
+                    locale: const Locale('zh-Hans', 'zh'),
+                    style: bodyStyle.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                trimmedError!,
+                locale: const Locale('zh-Hans', 'zh'),
+                style: bodyStyle.copyWith(
+                  fontSize: (bodyStyle.fontSize ?? 14) - 1,
+                  color: bodyStyle.color?.withOpacity(0.72) ??
+                      (isDarkMode
+                          ? Colors.white.withOpacity(0.72)
+                          : Colors.black.withOpacity(0.68)),
+                ),
+              ),
+            ],
+          );
+        } else if (trimmedContent.isEmpty) {
+          detailBody = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '暂无歌曲详情',
+                locale: const Locale('zh-Hans', 'zh'),
+                style: bodyStyle.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '使用下方“编辑详情”撰写内容后会自动保存在服务器。',
+                locale: const Locale('zh-Hans', 'zh'),
+                style: metaStyle,
+              ),
+            ],
+          );
+        } else {
+          detailBody = SelectableText(
+            trimmedContent,
+            style: bodyStyle.copyWith(height: 1.45),
+            textAlign: TextAlign.start,
+          );
+        }
+
+        final Widget refreshButton = isMac
+            ? MacosIconButton(
+                icon: MacosIcon(
+                  CupertinoIcons.refresh,
+                  size: 16,
+                  color: isLoadingDetail
+                      ? MacosColors.systemGrayColor
+                      : macTheme!.typography.body.color,
+                ),
+                onPressed: isLoadingDetail ? null : onRefreshDetail,
+                semanticLabel: '刷新详情',
+                boxConstraints:
+                    const BoxConstraints.tightFor(width: 32, height: 32),
+              )
+            : IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: '刷新详情',
+                onPressed: isLoadingDetail ? null : onRefreshDetail,
+              );
+
+        final Widget editLink = MouseRegion(
+          cursor: isSavingDetail
+              ? SystemMouseCursors.basic
+              : SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: isSavingDetail ? null : onEditDetail,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 4),
+              child: Text(
+                isSavingDetail ? '保存中…' : '编辑详情',
+                locale: const Locale('zh-Hans', 'zh'),
+                style: bodyStyle.copyWith(
+                  decoration: TextDecoration.underline,
+                  fontWeight: FontWeight.w500,
+                  color: accentColor.withOpacity(isSavingDetail ? 0.45 : 0.9),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        return Align(
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: displayWidth,
+            height: panelHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              track.title,
+                              locale: const Locale('zh-Hans', 'zh'),
+                              style: headerStyle.copyWith(fontSize: 18),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${track.artist} · ${track.album}',
+                              locale: const Locale('zh-Hans', 'zh'),
+                              style: metaStyle,
+                            ),
+                          ],
+                        ),
+                      ),
+                      refreshButton,
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '歌曲详情',
+                    locale: const Locale('zh-Hans', 'zh'),
+                    style: bodyStyle.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: bodyStyle.color?.withOpacity(0.82) ??
+                          (isDarkMode
+                              ? Colors.white.withOpacity(0.82)
+                              : Colors.black.withOpacity(0.78)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.deferToChild,
+                      onTap: onToggleDetail,
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 8,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              detailBody,
+                              if (!isLoadingDetail) editLink,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

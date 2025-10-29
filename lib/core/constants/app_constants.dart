@@ -26,6 +26,8 @@ class AppConstants {
       'https://nipaplay.aimes-soft.com/cloud_playlist.php';
   static const String remoteLyricsEndpoint =
       'https://nipaplay.aimes-soft.com/lyrics_service.php';
+  static const String songDetailEndpoint =
+      'https://nipaplay.aimes-soft.com/song_detail.php';
 
 
   // Settings Keys
