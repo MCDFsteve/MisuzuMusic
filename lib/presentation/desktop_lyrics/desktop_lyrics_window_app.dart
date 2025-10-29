@@ -39,15 +39,28 @@ Future<void> runDesktopLyricsWindow(
 
     await windowManager.waitUntilReadyToShow(options, () async {
       await windowManager.setAsFrameless();
-      await windowManager.setHasShadow(false);
+      try {
+        await windowManager.setHasShadow(false);
+      } on MissingPluginException catch (_) {
+        debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+      } on UnimplementedError catch (_) {
+        debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+      }
       await windowManager.setAlwaysOnTop(true);
-      await windowManager.setVisibleOnAllWorkspaces(
-        true,
-        visibleOnFullScreen: true,
-      );
-      final visibleEverywhere = await windowManager.isVisibleOnAllWorkspaces();
-      debugPrint('桌面歌词窗口加入所有桌面: $visibleEverywhere');
       if (Platform.isMacOS) {
+        try {
+          await windowManager.setVisibleOnAllWorkspaces(
+            true,
+            visibleOnFullScreen: true,
+          );
+          final visibleEverywhere =
+              await windowManager.isVisibleOnAllWorkspaces();
+          debugPrint('桌面歌词窗口加入所有桌面: $visibleEverywhere');
+        } on MissingPluginException catch (error) {
+          debugPrint('桌面歌词窗口全桌面配置失败: $error');
+        } on UnimplementedError catch (error) {
+          debugPrint('桌面歌词窗口全桌面配置未实现: $error');
+        }
         try {
           await nativeSpacesChannel.invokeMethod<void>(
             'pinToAllSpaces',
