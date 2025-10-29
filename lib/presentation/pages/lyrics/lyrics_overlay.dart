@@ -1521,7 +1521,7 @@ class _TrackDetailView extends StatelessWidget {
         );
 
         return Align(
-          alignment: Alignment.center,
+          alignment: Alignment.centerRight,
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
@@ -1535,7 +1535,7 @@ class _TrackDetailView extends StatelessWidget {
                       .copyWith(scrollbars: false),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
+                      horizontal: 0,
                       vertical: 22,
                     ),
                     child: Column(
