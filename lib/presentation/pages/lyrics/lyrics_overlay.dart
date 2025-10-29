@@ -70,7 +70,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   bool _showTrackDetailPanel = false;
   bool _isLoadingTrackDetail = false;
   bool _isSavingTrackDetail = false;
-  bool _trackDetailExists = false;
   String? _trackDetailContent;
   String? _trackDetailFileName;
   String? _trackDetailError;
@@ -139,7 +138,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _trackDetailContent = null;
     _trackDetailFileName = null;
     _trackDetailError = null;
-    _trackDetailExists = false;
     _trackDetailLoadedKey = null;
     _isLoadingTrackDetail = false;
     _isSavingTrackDetail = false;
@@ -207,7 +205,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       setState(() {
         _trackDetailContent = result.content;
         _trackDetailFileName = result.fileName;
-        _trackDetailExists = result.exists;
         _trackDetailLoadedKey = cacheKey;
         _trackDetailError = null;
       });
@@ -217,7 +214,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       }
       setState(() {
         _trackDetailError = error.toString();
-        _trackDetailExists = false;
       });
     } finally {
       if (!mounted || currentRequestId != _trackDetailRequestToken) {
@@ -335,7 +331,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       setState(() {
         _trackDetailContent = result.content;
         _trackDetailFileName = result.fileName;
-        _trackDetailExists = true;
         _trackDetailLoadedKey = cacheKey;
         _trackDetailError = null;
       });
@@ -1016,12 +1011,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           trackDetailContent: _trackDetailContent,
           trackDetailError: _trackDetailError,
           trackDetailFileName: _trackDetailFileName,
-          trackDetailExists: _trackDetailExists,
-          detailFileFallbackName:
-              _songDetailService.sanitizeTitle(_currentTrack.title),
           onToggleTrackDetail: _toggleTrackDetailPanel,
           onEditTrackDetail: _openTrackDetailEditor,
-          onRefreshTrackDetail: () => _ensureTrackDetailLoaded(force: true),
         ),
       ),
     );
@@ -1048,11 +1039,8 @@ class _LyricsLayout extends StatelessWidget {
     required this.trackDetailContent,
     required this.trackDetailError,
     required this.trackDetailFileName,
-    required this.trackDetailExists,
-    required this.detailFileFallbackName,
     required this.onToggleTrackDetail,
     required this.onEditTrackDetail,
-    required this.onRefreshTrackDetail,
   });
 
   final Track track;
@@ -1073,11 +1061,8 @@ class _LyricsLayout extends StatelessWidget {
   final String? trackDetailContent;
   final String? trackDetailError;
   final String? trackDetailFileName;
-  final bool trackDetailExists;
-  final String detailFileFallbackName;
   final VoidCallback onToggleTrackDetail;
   final VoidCallback onEditTrackDetail;
-  final VoidCallback onRefreshTrackDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -1117,11 +1102,8 @@ class _LyricsLayout extends StatelessWidget {
                     detailContent: trackDetailContent,
                     detailError: trackDetailError,
                     detailFileName: trackDetailFileName,
-                    detailFileFallbackName: detailFileFallbackName,
-                    detailExists: trackDetailExists,
                     onToggleDetail: onToggleTrackDetail,
                     onEditDetail: onEditTrackDetail,
-                    onRefreshDetail: onRefreshTrackDetail,
                   ),
                 ),
                 Container(
@@ -1178,11 +1160,8 @@ class _TrackInfoPanel extends StatelessWidget {
     required this.detailContent,
     required this.detailError,
     required this.detailFileName,
-    required this.detailFileFallbackName,
-    required this.detailExists,
     required this.onToggleDetail,
     required this.onEditDetail,
-    required this.onRefreshDetail,
   });
 
   final Track track;
@@ -1194,11 +1173,8 @@ class _TrackInfoPanel extends StatelessWidget {
   final String? detailContent;
   final String? detailError;
   final String? detailFileName;
-  final String detailFileFallbackName;
-  final bool detailExists;
   final VoidCallback onToggleDetail;
   final VoidCallback onEditDetail;
-  final VoidCallback onRefreshDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -1217,11 +1193,8 @@ class _TrackInfoPanel extends StatelessWidget {
               detailContent: detailContent,
               detailError: detailError,
               detailFileName: detailFileName,
-              detailFileFallbackName: detailFileFallbackName,
-              detailExists: detailExists,
               onToggleDetail: onToggleDetail,
               onEditDetail: onEditDetail,
-              onRefreshDetail: onRefreshDetail,
             )
           : _CoverColumn(
               key: const ValueKey('track-cover-view'),
@@ -1373,11 +1346,8 @@ class _TrackDetailView extends StatelessWidget {
     required this.detailContent,
     required this.detailError,
     required this.detailFileName,
-    required this.detailFileFallbackName,
-    required this.detailExists,
     required this.onToggleDetail,
     required this.onEditDetail,
-    required this.onRefreshDetail,
   });
 
   final Track track;
@@ -1388,11 +1358,8 @@ class _TrackDetailView extends StatelessWidget {
   final String? detailContent;
   final String? detailError;
   final String? detailFileName;
-  final String detailFileFallbackName;
-  final bool detailExists;
   final VoidCallback onToggleDetail;
   final VoidCallback onEditDetail;
-  final VoidCallback onRefreshDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -1409,11 +1376,11 @@ class _TrackDetailView extends StatelessWidget {
         final panelHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : math.max(coverSize * 1.05, 420.0);
-    final TextStyle headerStyle = isMac
-        ? macTheme!.typography.title3.copyWith(fontWeight: FontWeight.w600)
-        : theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.2,
+        final TextStyle headerStyle = isMac
+            ? macTheme!.typography.title3.copyWith(fontWeight: FontWeight.w600)
+            : theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
                 ) ??
                 const TextStyle(fontSize: 16, fontWeight: FontWeight.w600);
 
@@ -1433,16 +1400,20 @@ class _TrackDetailView extends StatelessWidget {
             trimmedError != null && trimmedError.isNotEmpty;
         final String trimmedContent = detailContent?.trim() ?? '';
 
-        Widget detailBody;
         if (isLoadingDetail) {
-          detailBody = const Center(
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(strokeWidth: 2.2),
-            ),
+          return Center(
+            child: isMac
+                ? const ProgressCircle(radius: 16)
+                : const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  ),
           );
-        } else if (hasErrorText) {
+        }
+
+        Widget detailBody;
+        if (hasErrorText) {
           detailBody = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1496,32 +1467,12 @@ class _TrackDetailView extends StatelessWidget {
             ],
           );
         } else {
-          detailBody = SelectableText(
+          detailBody = Text(
             trimmedContent,
-            style: bodyStyle.copyWith(height: 1.45),
-            textAlign: TextAlign.start,
+            locale: const Locale('zh-Hans', 'zh'),
+            style: bodyStyle.copyWith(height: 1.48),
           );
         }
-
-        final Widget refreshButton = isMac
-            ? MacosIconButton(
-                icon: MacosIcon(
-                  CupertinoIcons.refresh,
-                  size: 16,
-                  color: isLoadingDetail
-                      ? MacosColors.systemGrayColor
-                      : macTheme!.typography.body.color,
-                ),
-                onPressed: isLoadingDetail ? null : onRefreshDetail,
-                semanticLabel: '刷新详情',
-                boxConstraints:
-                    const BoxConstraints.tightFor(width: 32, height: 32),
-              )
-            : IconButton(
-                icon: const Icon(Icons.refresh_rounded),
-                tooltip: '刷新详情',
-                onPressed: isLoadingDetail ? null : onRefreshDetail,
-              );
 
         final Widget editLink = MouseRegion(
           cursor: isSavingDetail
@@ -1550,74 +1501,53 @@ class _TrackDetailView extends StatelessWidget {
 
         return Align(
           alignment: Alignment.center,
-          child: SizedBox(
-            width: displayWidth,
-            height: panelHeight,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onToggleDetail,
+              child: SizedBox(
+                width: displayWidth,
+                height: panelHeight,
+                child: SingleChildScrollView(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              track.title,
-                              locale: const Locale('zh-Hans', 'zh'),
-                              style: headerStyle.copyWith(fontSize: 18),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${track.artist} · ${track.album}',
-                              locale: const Locale('zh-Hans', 'zh'),
-                              style: metaStyle,
-                            ),
-                          ],
+                      Text(
+                        track.title,
+                        locale: const Locale('zh-Hans', 'zh'),
+                        style: headerStyle.copyWith(fontSize: 18),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${track.artist} · ${track.album}',
+                        locale: const Locale('zh-Hans', 'zh'),
+                        style: metaStyle,
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        '歌曲详情',
+                        locale: const Locale('zh-Hans', 'zh'),
+                        style: bodyStyle.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: bodyStyle.color?.withOpacity(0.82) ??
+                              (isDarkMode
+                                  ? Colors.white.withOpacity(0.82)
+                                  : Colors.black.withOpacity(0.78)),
                         ),
                       ),
-                      refreshButton,
+                      const SizedBox(height: 16),
+                      detailBody,
+                      if (!isLoadingDetail)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: editLink,
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '歌曲详情',
-                    locale: const Locale('zh-Hans', 'zh'),
-                    style: bodyStyle.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: bodyStyle.color?.withOpacity(0.82) ??
-                          (isDarkMode
-                              ? Colors.white.withOpacity(0.82)
-                              : Colors.black.withOpacity(0.78)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.deferToChild,
-                      onTap: onToggleDetail,
-                      child: Scrollbar(
-                        thumbVisibility: true,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 8,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              detailBody,
-                              if (!isLoadingDetail) editLink,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
