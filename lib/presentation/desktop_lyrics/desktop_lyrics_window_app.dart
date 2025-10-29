@@ -81,13 +81,18 @@ Future<void> runDesktopLyricsWindow(
       });
     }
 
-    unawaited(
-      DesktopMultiWindow.invokeMethod(
-        0,
-        'lyrics_window_ready',
-        controller.windowId,
-      ),
-    );
+    if (isWindows || isLinux) {
+      // 针对 Win/Linux，窗口在原生层已设置为顶置，这里直接请求显示即可。
+      await controller.show();
+    } else {
+      unawaited(
+        DesktopMultiWindow.invokeMethod(
+          0,
+          'lyrics_window_ready',
+          controller.windowId,
+        ),
+      );
+    }
   }
 
   DesktopMultiWindow.setMethodHandler((call, fromWindowId) async {
@@ -185,10 +190,11 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
       if (box == null || !box.hasSize) return;
       final size = _measureContentSize(box);
       const padding = Size(32, 32);
-      final targetSize = Size(
-        (size.width + padding.width).clamp(200, 1400),
-        (size.height + padding.height).clamp(140, 900),
-      );
+      final double targetWidth =
+          (size.width + padding.width).clamp(320, 480);
+      final double targetHeight =
+          (size.height + padding.height).clamp(220, 720);
+      final targetSize = Size(targetWidth, targetHeight);
 
       final last = _lastLogicalSize;
       if (last != null) {
@@ -226,7 +232,7 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
     try {
       const measurementConstraints = BoxConstraints(
         minWidth: 0,
-        maxWidth: 1400,
+        maxWidth: 520,
         minHeight: 0,
         maxHeight: double.infinity,
       );
