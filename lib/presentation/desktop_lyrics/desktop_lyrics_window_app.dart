@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -25,8 +24,9 @@ Future<void> runDesktopLyricsWindow(
   final bool isMacOS = Platform.isMacOS;
   final bool isWindows = Platform.isWindows;
   final bool isLinux = Platform.isLinux;
+  final bool isManagedByWindowManager = isMacOS || isWindows || isLinux;
 
-  if (isMacOS) {
+  if (isManagedByWindowManager) {
     await windowManager.ensureInitialized();
   }
 
@@ -79,6 +79,38 @@ Future<void> runDesktopLyricsWindow(
         await windowManager.setResizable(false);
         await windowManager.hide();
       });
+    } else if (isWindows) {
+      final options = WindowOptions(
+        size: const Size(420, 200),
+        minimumSize: const Size(200, 140),
+        center: true,
+        backgroundColor: Colors.transparent,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        titleBarStyle: TitleBarStyle.hidden,
+        windowButtonVisibility: null,
+      );
+
+      await windowManager.waitUntilReadyToShow(options, () async {
+        await windowManager.setAsFrameless();
+        try {
+          await windowManager.setHasShadow(false);
+        } on MissingPluginException catch (_) {
+          debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+        } on UnimplementedError catch (_) {
+          debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+        }
+        await windowManager.setAlwaysOnTop(true);
+        try {
+          await windowManager.setSkipTaskbar(true);
+        } on MissingPluginException catch (_) {
+          debugPrint('桌面歌词窗口 setSkipTaskbar 未实现，忽略调用');
+        } on UnimplementedError catch (_) {
+          debugPrint('桌面歌词窗口 setSkipTaskbar 未实现，忽略调用');
+        }
+        await windowManager.setResizable(false);
+        await windowManager.hide();
+      });
     }
 
     unawaited(
@@ -96,18 +128,18 @@ Future<void> runDesktopLyricsWindow(
         await configureWindow();
         break;
       case 'show_window':
-        if (isMacOS) {
+        if (isMacOS || isWindows) {
           await windowManager.show();
           await windowManager.focus();
         }
         break;
       case 'hide_window':
-        if (isMacOS) {
+        if (isMacOS || isWindows) {
           await windowManager.hide();
         }
         break;
       case 'focus_window':
-        if (isMacOS) {
+        if (isMacOS || isWindows) {
           await windowManager.focus();
         }
         break;
