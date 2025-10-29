@@ -1418,10 +1418,10 @@ class _DesktopLyricsToggleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color iconColor = isDarkMode ? Colors.white : Colors.black;
     final bool enabled = !isBusy;
-    final Color disabledColor = iconColor.withOpacity(0.34);
-    final Color inactiveBase = iconColor.withOpacity(isDarkMode ? 0.52 : 0.6);
-    final Color activeBase = iconColor.withOpacity(isDarkMode ? 0.84 : 0.9);
-    final Color hoverInactive = iconColor.withOpacity(isDarkMode ? 0.74 : 0.8);
+    final Color disabledColor = iconColor.withOpacity(0.42);
+    final Color inactiveBase = iconColor.withOpacity(0.82);
+    final Color activeBase = iconColor;
+    final Color hoverInactive = iconColor;
     final Color hoverActive = iconColor;
     final Color baseColor = enabled
         ? (isActive ? activeBase : inactiveBase)
@@ -1432,13 +1432,16 @@ class _DesktopLyricsToggleButton extends StatelessWidget {
     final String tooltip = isBusy
         ? '处理中...'
         : (isActive ? '关闭桌面歌词窗口' : '显示桌面歌词窗口');
+    final String assetPath = enabled
+        ? (isActive ? 'icons/text.png' : 'icons/text2.png')
+        : 'icons/text2.png';
 
     return MacosTooltip(
       message: tooltip,
       child: _HoverGlyphButton(
         enabled: enabled,
         onPressed: enabled ? onPressed : null,
-        icon: CupertinoIcons.macwindow,
+        assetPath: assetPath,
         size: 26,
         baseColor: baseColor,
         hoverColor: hoverColor,
