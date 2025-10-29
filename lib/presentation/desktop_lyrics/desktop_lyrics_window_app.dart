@@ -348,13 +348,17 @@ class _LyricsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextStyle baseStyle = const TextStyle(
+    final bool isWindows = Platform.isWindows;
+    const TextStyle rawBaseStyle = TextStyle(
       fontSize: 42,
       fontWeight: FontWeight.w800,
       height: 1.12,
       color: Colors.white,
       decoration: TextDecoration.none,
     );
+    final TextStyle baseStyle = isWindows
+        ? rawBaseStyle.copyWith(fontFamily: 'Microsoft YaHei')
+        : rawBaseStyle;
     final TextStyle translationStyle = baseStyle.copyWith(
       fontSize: 24,
       fontWeight: FontWeight.w600,
