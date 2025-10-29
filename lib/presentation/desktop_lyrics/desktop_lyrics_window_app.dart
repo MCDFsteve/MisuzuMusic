@@ -99,13 +99,11 @@ Future<void> runDesktopLyricsWindow(
         if (isMacOS) {
           await windowManager.show();
           await windowManager.focus();
-          await _setWindowVisible(true);
         }
         break;
       case 'hide_window':
         if (isMacOS) {
           await windowManager.hide();
-          await _setWindowVisible(false);
         }
         break;
       case 'focus_window':
