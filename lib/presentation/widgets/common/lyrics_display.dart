@@ -17,12 +17,16 @@ class LyricsDisplay extends StatefulWidget {
     required this.controller,
     required this.isDarkMode,
     this.showTranslation = true,
+    this.onActiveLineChanged,
+    this.onActiveIndexChanged,
   });
 
   final List<LyricsLine> lines;
   final ScrollController controller;
   final bool isDarkMode;
   final bool showTranslation;
+  final ValueChanged<LyricsLine?>? onActiveLineChanged;
+  final ValueChanged<int>? onActiveIndexChanged;
 
   @override
   State<LyricsDisplay> createState() => _LyricsDisplayState();
@@ -74,6 +78,10 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.lines.length != widget.lines.length) {
       _itemKeys = _generateKeys(widget.lines.length);
+      if (widget.lines.isEmpty) {
+        widget.onActiveIndexChanged?.call(-1);
+        widget.onActiveLineChanged?.call(null);
+      }
     }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_handlePrimaryScroll);
@@ -127,6 +135,10 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   void _updateActiveIndex(Duration position) {
     final lines = widget.lines;
     if (lines.isEmpty) {
+      if (_activeIndex != -1) {
+        widget.onActiveIndexChanged?.call(-1);
+        widget.onActiveLineChanged?.call(null);
+      }
       return;
     }
 
@@ -147,13 +159,17 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     }
 
     if (index != _activeIndex) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        setState(() {
-          _activeIndex = index;
+      final LyricsLine activeLine = lines[index];
+      _activeIndex = index;
+      widget.onActiveIndexChanged?.call(index);
+      widget.onActiveLineChanged?.call(activeLine);
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _scrollToIndex(index);
         });
-        _scrollToIndex(index);
-      });
+      }
     }
   }
 

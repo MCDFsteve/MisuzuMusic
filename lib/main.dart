@@ -1,12 +1,18 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:window_manager/window_manager.dart' as wm;
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 
 import 'core/di/dependency_injection.dart';
 import 'core/theme/theme_controller.dart';
 import 'presentation/pages/home_page.dart';
+import 'presentation/desktop_lyrics/desktop_lyrics_window_app.dart';
+import 'presentation/desktop_lyrics/desktop_lyrics_window_manager.dart';
+import 'presentation/desktop_lyrics/desktop_lyrics_server.dart';
 
 Future<void> _configureMainWindow() async {
   if (!(Platform.isMacOS || Platform.isWindows)) {
@@ -33,15 +39,52 @@ Future<void> _configureMainWindow() async {
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final bool isSupportedDesktop = Platform.isMacOS || Platform.isWindows;
+  if (_maybeHandleSubWindow(args)) {
+    return;
+  }
+
+  final bool isSupportedDesktop =
+      Platform.isMacOS || Platform.isWindows || Platform.isLinux;
   if (isSupportedDesktop) {
     await wm.windowManager.ensureInitialized();
-    await _configureMainWindow();
+    DesktopLyricsWindowManager.instance.initialize();
+    await DesktopLyricsServer.instance.start();
+    if (Platform.isMacOS || Platform.isWindows) {
+      await _configureMainWindow();
+    }
   }
 
   await DependencyInjection.init();
 
   runApp(const MisuzuMusicApp());
+}
+
+bool _maybeHandleSubWindow(List<String> args) {
+  if (args.isEmpty || args.first != 'multi_window') {
+    return false;
+  }
+
+  if (args.length < 2) {
+    return false;
+  }
+
+  final windowId = int.tryParse(args[1]);
+  if (windowId == null) {
+    return false;
+  }
+
+  final payload = args.length > 2 && args[2].isNotEmpty
+      ? jsonDecode(args[2]) as Map<String, dynamic>
+      : const <String, dynamic>{};
+
+  final kind = payload['kind'] as String?;
+  if (kind == 'lyrics') {
+    final controller = WindowController.fromWindowId(windowId);
+    unawaited(runDesktopLyricsWindow(controller, payload));
+    return true;
+  }
+
+  return false;
 }
 
 class MisuzuMusicApp extends StatelessWidget {

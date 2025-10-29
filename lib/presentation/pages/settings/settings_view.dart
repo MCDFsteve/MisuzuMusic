@@ -3,14 +3,29 @@ import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:macos_ui/macos_ui.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/platform_utils.dart';
 import '../../widgets/common/adaptive_scrollbar.dart';
 import '../../widgets/common/hover_glow_overlay.dart';
+
+final Future<PackageInfo> _packageInfoFuture = PackageInfo.fromPlatform();
+final Uri _repositoryUrl =
+    Uri.parse('https://github.com/MCDFsteve/MisuzuMusic');
+
+Future<void> _openRepository() async {
+  final result = await launchUrl(
+    _repositoryUrl,
+    mode: LaunchMode.externalApplication,
+  );
+  if (!result) {
+    debugPrint('无法打开 $_repositoryUrl');
+  }
+}
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
@@ -63,23 +78,44 @@ class _MacOSSettingsView extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
               sliver: SliverToBoxAdapter(
-                child: _SettingsCard(
-                  isDarkMode: isDarkMode,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SettingsSection(
-                        title: '外观',
-                        subtitle: '自定义应用的外观和主题',
-                        isDarkMode: isDarkMode,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _SettingsCard(
+                      isDarkMode: isDarkMode,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SettingsSection(
+                            title: '外观',
+                            subtitle: '自定义应用的外观和主题',
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 20),
+                          _ThemeModeControl(
+                            currentMode: currentMode,
+                            onChanged: onChanged,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
-                      _ThemeModeControl(
-                        currentMode: currentMode,
-                        onChanged: onChanged,
+                    ),
+                    const SizedBox(height: 24),
+                    _SettingsCard(
+                      isDarkMode: isDarkMode,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SettingsSection(
+                            title: '关于',
+                            subtitle: '了解项目名称、版本号与仓库链接',
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 20),
+                          _AboutSection(packageInfoFuture: _packageInfoFuture),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -112,23 +148,44 @@ class _MobileSettingsView extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
               sliver: SliverToBoxAdapter(
-                child: _SettingsCard(
-                  isDarkMode: isDarkMode,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SettingsSection(
-                        title: '外观',
-                        subtitle: '自定义应用的外观和主题',
-                        isDarkMode: isDarkMode,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _SettingsCard(
+                      isDarkMode: isDarkMode,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SettingsSection(
+                            title: '外观',
+                            subtitle: '自定义应用的外观和主题',
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 20),
+                          _MobileThemeModeControl(
+                            currentMode: currentMode,
+                            onChanged: onChanged,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
-                      _MobileThemeModeControl(
-                        currentMode: currentMode,
-                        onChanged: onChanged,
+                    ),
+                    const SizedBox(height: 24),
+                    _SettingsCard(
+                      isDarkMode: isDarkMode,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SettingsSection(
+                            title: '关于',
+                            subtitle: '了解项目名称、版本号与仓库链接',
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 20),
+                          _AboutSection(packageInfoFuture: _packageInfoFuture),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -186,7 +243,7 @@ class _SettingsCard extends StatelessWidget {
       isDarkMode: isDarkMode,
       borderRadius: BorderRadius.circular(16),
       blurSigma: 0,
-      child: baseCard,
+      child: SizedBox(width: double.infinity, child: baseCard),
     );
   }
 }
@@ -237,6 +294,49 @@ class _SettingsSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AboutSection extends StatelessWidget {
+  const _AboutSection({required this.packageInfoFuture});
+
+  final Future<PackageInfo> packageInfoFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    final macTheme = MacosTheme.maybeOf(context);
+    final TextStyle bodyStyle = macTheme?.typography.body ??
+        DefaultTextStyle.of(context).style ??
+        const TextStyle(fontSize: 14);
+
+    return FutureBuilder<PackageInfo>(
+      future: packageInfoFuture,
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        final appName = info?.appName.isNotEmpty == true
+            ? info!.appName
+            : 'Misuzu Music';
+        final version = info?.version ?? '未知版本';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('项目名称：$appName', style: bodyStyle),
+            const SizedBox(height: 8),
+            Text('版本号：$version', style: bodyStyle),
+            const SizedBox(height: 8),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _openRepository,
+              child: Text(
+                'GitHub：${_repositoryUrl.toString()}',
+                style: bodyStyle,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -1,0 +1,457 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
+
+import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
+
+import '../../core/services/desktop_lyrics_bridge.dart';
+import 'desktop_lyrics_controller.dart';
+import 'desktop_lyrics_parser.dart';
+import 'outlined_text.dart';
+
+Future<void> runDesktopLyricsWindow(
+  WindowController controller,
+  Map<String, dynamic> args,
+) async {
+  const MethodChannel nativeSpacesChannel =
+      MethodChannel('com.aimessoft.misuzumusic/desktop_lyrics_window');
+
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final bool isMacOS = Platform.isMacOS;
+  final bool isWindows = Platform.isWindows;
+  final bool isLinux = Platform.isLinux;
+  final bool isManagedByWindowManager = isMacOS || isWindows || isLinux;
+
+  if (isManagedByWindowManager) {
+    await windowManager.ensureInitialized();
+  }
+
+  Future<void> configureWindow() async {
+    if (isMacOS) {
+      final options = WindowOptions(
+        size: const Size(420, 200),
+        minimumSize: const Size(200, 140),
+        center: true,
+        backgroundColor: Colors.transparent,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        titleBarStyle: null,
+        windowButtonVisibility: null,
+      );
+
+      await windowManager.waitUntilReadyToShow(options, () async {
+        await windowManager.setAsFrameless();
+        try {
+          await windowManager.setHasShadow(false);
+        } on MissingPluginException catch (_) {
+          debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+        } on UnimplementedError catch (_) {
+          debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+        }
+        await windowManager.setAlwaysOnTop(true);
+        try {
+          await windowManager.setVisibleOnAllWorkspaces(
+            true,
+            visibleOnFullScreen: true,
+          );
+          final visibleEverywhere =
+              await windowManager.isVisibleOnAllWorkspaces();
+          debugPrint('桌面歌词窗口加入所有桌面: $visibleEverywhere');
+        } on MissingPluginException catch (error) {
+          debugPrint('桌面歌词窗口全桌面配置失败: $error');
+        } on UnimplementedError catch (error) {
+          debugPrint('桌面歌词窗口全桌面配置未实现: $error');
+        }
+        try {
+          await nativeSpacesChannel.invokeMethod<void>(
+            'pinToAllSpaces',
+            {
+              'windowId': controller.windowId,
+            },
+          );
+        } catch (error) {
+          debugPrint('桌面歌词窗口原生空间配置失败: $error');
+        }
+        await windowManager.setResizable(false);
+        await windowManager.hide();
+      });
+    } else if (isWindows) {
+      final options = WindowOptions(
+        size: const Size(420, 200),
+        minimumSize: const Size(200, 140),
+        center: true,
+        backgroundColor: Colors.transparent,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        titleBarStyle: TitleBarStyle.hidden,
+        windowButtonVisibility: null,
+      );
+
+      await windowManager.waitUntilReadyToShow(options, () async {
+        await windowManager.setAsFrameless();
+        try {
+          await windowManager.setHasShadow(false);
+        } on MissingPluginException catch (_) {
+          debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+        } on UnimplementedError catch (_) {
+          debugPrint('桌面歌词窗口 setHasShadow 未实现，忽略调用');
+        }
+        await windowManager.setAlwaysOnTop(true);
+        try {
+          await windowManager.setSkipTaskbar(true);
+        } on MissingPluginException catch (_) {
+          debugPrint('桌面歌词窗口 setSkipTaskbar 未实现，忽略调用');
+        } on UnimplementedError catch (_) {
+          debugPrint('桌面歌词窗口 setSkipTaskbar 未实现，忽略调用');
+        }
+        await windowManager.setResizable(false);
+        await windowManager.hide();
+      });
+    }
+
+    unawaited(
+      DesktopMultiWindow.invokeMethod(
+        0,
+        'lyrics_window_ready',
+        controller.windowId,
+      ),
+    );
+  }
+
+  DesktopMultiWindow.setMethodHandler((call, fromWindowId) async {
+    switch (call.method) {
+      case 'configure_window':
+        await configureWindow();
+        break;
+      case 'show_window':
+        if (isMacOS || isWindows) {
+          await windowManager.show();
+          await windowManager.focus();
+        }
+        break;
+      case 'hide_window':
+        if (isMacOS || isWindows) {
+          await windowManager.hide();
+        }
+        break;
+      case 'focus_window':
+        if (isMacOS || isWindows) {
+          await windowManager.focus();
+        }
+        break;
+    }
+    return null;
+  });
+
+  await configureWindow();
+
+  runApp(
+    LyricsWindowApp(
+      windowId: controller.windowId,
+    ),
+  );
+}
+
+class LyricsWindowApp extends StatelessWidget {
+  const LyricsWindowApp({super.key, required this.windowId});
+
+  final int windowId;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        fontFamily: Platform.isWindows ? 'Microsoft YaHei' : null,
+        scaffoldBackgroundColor: Colors.transparent,
+      ),
+      home: LyricsWindowScreen(windowId: windowId),
+    );
+  }
+}
+
+class LyricsWindowScreen extends StatefulWidget {
+  const LyricsWindowScreen({
+    super.key,
+    required this.windowId,
+  });
+
+  final int windowId;
+
+  @override
+  State<LyricsWindowScreen> createState() => _LyricsWindowScreenState();
+}
+
+class _LyricsWindowScreenState extends State<LyricsWindowScreen>
+    with WindowListener {
+  final DesktopLyricsStreamController _streamController =
+      DesktopLyricsStreamController();
+  final DesktopLyricsParser _parser = const DesktopLyricsParser();
+  final GlobalKey _contentKey = GlobalKey();
+  Size? _lastLogicalSize;
+  bool _windowVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+    _streamController.initialize();
+  }
+
+  void _scheduleResize({bool showAfterResize = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final context = _contentKey.currentContext;
+      if (context == null) return;
+      final box = context.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      final size = _measureContentSize(box);
+      const padding = Size(32, 32);
+      final double targetWidth =
+          (size.width + padding.width).clamp(320, 480);
+      final double targetHeight =
+          (size.height + padding.height).clamp(220, 720);
+      final targetSize = Size(targetWidth, targetHeight);
+
+      final last = _lastLogicalSize;
+      if (last != null) {
+        final widthDiff = (last.width - targetSize.width).abs();
+        final heightDiff = (last.height - targetSize.height).abs();
+        if (widthDiff < 1 && heightDiff < 1) {
+          return;
+        }
+      }
+
+      _lastLogicalSize = targetSize;
+      await windowManager.setResizable(true);
+      await windowManager.setSize(targetSize);
+      await windowManager.setResizable(false);
+      if (showAfterResize) {
+        await _setWindowVisible(true);
+      }
+    });
+  }
+
+  Future<void> _setWindowVisible(bool visible) async {
+    if (_windowVisible == visible) {
+      return;
+    }
+    if (visible) {
+      await windowManager.show();
+      await windowManager.focus();
+    } else {
+      await windowManager.hide();
+    }
+    _windowVisible = visible;
+  }
+
+  Size _measureContentSize(RenderBox box) {
+    try {
+      const measurementConstraints = BoxConstraints(
+        minWidth: 0,
+        maxWidth: 520,
+        minHeight: 0,
+        maxHeight: double.infinity,
+      );
+      final measured = box.getDryLayout(measurementConstraints);
+      if (measured.width.isFinite && measured.height.isFinite) {
+        return measured;
+      }
+    } catch (_) {
+      // ignore fallthrough to box.size
+    }
+
+    return box.size;
+  }
+
+  @override
+  Future<void> dispose() async {
+    windowManager.removeListener(this);
+    await _streamController.dispose();
+    unawaited(
+      DesktopMultiWindow.invokeMethod(
+        0,
+        'lyrics_window_disposed',
+        widget.windowId,
+      ),
+    );
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) => windowManager.startDragging(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Align(
+          alignment: Alignment.center,
+          child: ValueListenableBuilder<DesktopLyricsUpdate?>(
+            valueListenable: _streamController.updateNotifier,
+            builder: (context, update, _) {
+              final bool hasContent = _hasDisplayableContent(update);
+              if (hasContent) {
+                final bool shouldShowAfterResize = !_windowVisible;
+                _scheduleResize(showAfterResize: shouldShowAfterResize);
+              } else {
+                unawaited(_setWindowVisible(false));
+              }
+              return _LyricsContent(
+                key: _contentKey,
+                update: update,
+                parser: _parser,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _hasDisplayableContent(DesktopLyricsUpdate? update) {
+    if (update == null) {
+      return false;
+    }
+    final active = update.activeLine?.trim() ?? '';
+    final next = update.nextLine?.trim() ?? '';
+    return active.isNotEmpty || next.isNotEmpty;
+  }
+
+  @override
+  Future<bool> onWindowClose() async {
+    unawaited(
+      DesktopMultiWindow.invokeMethod(
+        0,
+        'lyrics_window_disposed',
+        widget.windowId,
+      ),
+    );
+    return true;
+  }
+}
+
+class _LyricsContent extends StatelessWidget {
+  const _LyricsContent({
+    super.key,
+    required this.update,
+    required this.parser,
+  });
+
+  final DesktopLyricsUpdate? update;
+  final DesktopLyricsParser parser;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isWindows = Platform.isWindows;
+    const TextStyle rawBaseStyle = TextStyle(
+      fontSize: 42,
+      fontWeight: FontWeight.w800,
+      height: 1.12,
+      color: Colors.white,
+      decoration: TextDecoration.none,
+    );
+    final TextStyle baseStyle = isWindows
+        ? rawBaseStyle.copyWith(fontFamily: 'Microsoft YaHei')
+        : rawBaseStyle;
+    final TextStyle translationStyle = baseStyle.copyWith(
+      fontSize: 24,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.none,
+    );
+
+    final ParsedLyricsLine parsedActive =
+        parser.parse(update?.activeLine ?? '');
+    final ParsedLyricsLine parsedFallback =
+        parsedActive.hasContent ? parsedActive : parser.parse(update?.nextLine ?? '');
+
+    if (!parsedFallback.hasContent) {
+      return const SizedBox.shrink();
+    }
+
+    return _buildLine(
+      parsedFallback,
+      baseStyle,
+      translationStyle,
+    );
+  }
+
+  Widget _buildLine(
+    ParsedLyricsLine parsed,
+    TextStyle baseStyle,
+    TextStyle translationStyle,
+  ) {
+    final double annotationFontSize =
+        (baseStyle.fontSize ?? 40) * 0.42;
+    final TextStyle annotationStyle = baseStyle.copyWith(
+      fontSize: annotationFontSize,
+      fontWeight: FontWeight.w600,
+      height: 1.0,
+    );
+
+    final Widget lyricBody;
+    if (parsed.segments.isEmpty ||
+        parsed.segments.every((segment) => segment.annotation.isEmpty)) {
+      lyricBody = OutlinedText(
+        text: parsed.plain.isEmpty ? ' ' : parsed.plain,
+        fillStyle: baseStyle,
+        strokeColor: Colors.black,
+        strokeWidth: 2.2,
+        strutStyle: StrutStyle(
+          fontSize: baseStyle.fontSize,
+          height: baseStyle.height,
+          forceStrutHeight: true,
+        ),
+      );
+    } else {
+      lyricBody = OutlinedFuriganaText(
+        segments: parsed.segments,
+        baseStyle: baseStyle,
+        annotationStyle: annotationStyle,
+        strokeColor: Colors.black,
+        strokeWidth: 2.2,
+        textAlign: TextAlign.center,
+        maxLines: 3,
+        softWrap: true,
+        strutStyle: StrutStyle(
+          fontSize: baseStyle.fontSize,
+          height: baseStyle.height,
+          forceStrutHeight: true,
+        ),
+        annotationSpacing: -math.max(
+          (baseStyle.fontSize ?? 40) * 0.32,
+          annotationFontSize * 0.6,
+        ),
+      );
+    }
+
+    final translation = parsed.translation;
+    if (translation == null || translation.isEmpty) {
+      return lyricBody;
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        lyricBody,
+        const SizedBox(height: 8),
+        OutlinedText(
+          text: translation,
+          fillStyle: translationStyle,
+          strokeColor: Colors.black,
+          strokeWidth: 1.8,
+          strutStyle: StrutStyle(
+            fontSize: translationStyle.fontSize,
+            height: translationStyle.height,
+            forceStrutHeight: true,
+          ),
+        ),
+      ],
+    );
+  }
+}

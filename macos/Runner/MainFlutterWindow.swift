@@ -1,6 +1,7 @@
 import Cocoa
 import FlutterMacOS
 import window_manager
+import desktop_multi_window
 
 class MainFlutterWindow: NSWindow {
   override func awakeFromNib() {
@@ -16,7 +17,11 @@ class MainFlutterWindow: NSWindow {
     isMovableByWindowBackground = true
 
     RegisterGeneratedPlugins(registry: flutterViewController)
-    WindowManagerPlugin.RegisterGeneratedPlugins = RegisterGeneratedPlugins
+    DesktopLyricsSpacesBridge.register(with: flutterViewController)
+    FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
+      RegisterGeneratedPlugins(registry: controller)
+      DesktopLyricsSpacesBridge.register(with: controller)
+    }
 
     if let delegate = NSApp.delegate as? AppDelegate {
       delegate.configureChannelsIfNeeded(with: flutterViewController)

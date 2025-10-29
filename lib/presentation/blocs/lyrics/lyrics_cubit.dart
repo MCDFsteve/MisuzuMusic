@@ -25,17 +25,20 @@ class LyricsCubit extends Cubit<LyricsState> {
   final LoadLyricsFromFile _loadLyricsFromFile;
   final FetchOnlineLyrics _fetchOnlineLyrics;
   final GetLyrics _getLyrics;
+  String? _activeTrackId;
 
   Future<void> loadLyricsForTrack(Track track) async {
     if (isClosed) return;
+    final String requestTrackId = track.id;
+    _activeTrackId = requestTrackId;
     emit(const LyricsLoading());
     try {
       final lyricsFromFile = await _loadLyricsFromAssociatedFile(track);
-      if (isClosed) return;
+      if (_shouldAbort(requestTrackId)) return;
 
       // Always attempt to refresh from cloud so server updates are reflected
       final cloudLyrics = await _loadLyricsFromOnline(track, cloudOnly: true);
-      if (isClosed) return;
+      if (_shouldAbort(requestTrackId)) return;
       if (cloudLyrics != null && cloudLyrics.lines.isNotEmpty) {
         print('🎼 LyricsCubit: 使用云端歌词');
         emit(LyricsLoaded(_withSource(cloudLyrics, LyricsSource.nipaplay)));
@@ -49,7 +52,7 @@ class LyricsCubit extends Cubit<LyricsState> {
       }
 
       final cached = await _getLyrics(track.id);
-      if (isClosed) return;
+      if (_shouldAbort(requestTrackId)) return;
       if (cached != null && cached.lines.isNotEmpty) {
         print('🎼 LyricsCubit: 使用缓存歌词');
         emit(LyricsLoaded(_withSource(cached, LyricsSource.cached)));
@@ -57,16 +60,17 @@ class LyricsCubit extends Cubit<LyricsState> {
       }
 
       final onlineLyrics = await _loadLyricsFromOnline(track);
-      if (isClosed) return;
+      if (_shouldAbort(requestTrackId)) return;
       if (onlineLyrics != null && onlineLyrics.lines.isNotEmpty) {
         print('🎼 LyricsCubit: 使用网络歌曲歌词');
         emit(LyricsLoaded(_withSource(onlineLyrics, LyricsSource.netease)));
         return;
       }
 
+      if (_shouldAbort(requestTrackId)) return;
       emit(const LyricsEmpty());
     } catch (e) {
-      if (isClosed) return;
+      if (_shouldAbort(requestTrackId)) return;
       emit(LyricsError(e.toString()));
     }
   }
@@ -172,5 +176,9 @@ class LyricsCubit extends Cubit<LyricsState> {
       format: lyrics.format,
       source: source,
     );
+  }
+
+  bool _shouldAbort(String requestTrackId) {
+    return isClosed || _activeTrackId != requestTrackId;
   }
 }

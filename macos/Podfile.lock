@@ -6,6 +6,8 @@ PODS:
     - FlutterMacOS
   - audio_session (0.0.1):
     - FlutterMacOS
+  - desktop_multi_window (0.0.1):
+    - FlutterMacOS
   - file_picker (0.0.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
@@ -15,6 +17,8 @@ PODS:
   - macos_ui (0.1.0):
     - FlutterMacOS
   - macos_window_utils (1.0.0):
+    - FlutterMacOS
+  - package_info_plus (0.0.1):
     - FlutterMacOS
   - path_provider_foundation (0.0.1):
     - Flutter
@@ -26,18 +30,20 @@ PODS:
     - FlutterMacOS
   - url_launcher_macos (0.0.1):
     - FlutterMacOS
-  - window_manager (0.2.0):
+  - window_manager (0.5.0):
     - FlutterMacOS
 
 DEPENDENCIES:
   - appkit_ui_element_colors (from `Flutter/ephemeral/.symlinks/plugins/appkit_ui_element_colors/macos`)
   - audio_service (from `Flutter/ephemeral/.symlinks/plugins/audio_service/darwin`)
   - audio_session (from `Flutter/ephemeral/.symlinks/plugins/audio_session/macos`)
+  - desktop_multi_window (from `Flutter/ephemeral/.symlinks/plugins/desktop_multi_window/macos`)
   - file_picker (from `Flutter/ephemeral/.symlinks/plugins/file_picker/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - just_audio (from `Flutter/ephemeral/.symlinks/plugins/just_audio/darwin`)
   - macos_ui (from `Flutter/ephemeral/.symlinks/plugins/macos_ui/macos`)
   - macos_window_utils (from `Flutter/ephemeral/.symlinks/plugins/macos_window_utils/macos`)
+  - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
   - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
   - screen_retriever_macos (from `Flutter/ephemeral/.symlinks/plugins/screen_retriever_macos/macos`)
   - sqflite_darwin (from `Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin`)
@@ -51,6 +57,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/audio_service/darwin
   audio_session:
     :path: Flutter/ephemeral/.symlinks/plugins/audio_session/macos
+  desktop_multi_window:
+    :path: Flutter/ephemeral/.symlinks/plugins/desktop_multi_window/macos
   file_picker:
     :path: Flutter/ephemeral/.symlinks/plugins/file_picker/macos
   FlutterMacOS:
@@ -61,6 +69,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/macos_ui/macos
   macos_window_utils:
     :path: Flutter/ephemeral/.symlinks/plugins/macos_window_utils/macos
+  package_info_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos
   path_provider_foundation:
     :path: Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin
   screen_retriever_macos:
@@ -76,16 +86,18 @@ SPEC CHECKSUMS:
   appkit_ui_element_colors: c8e13c23cbd781e0f5d9b75cad686e6a4bb958da
   audio_service: aa99a6ba2ae7565996015322b0bb024e1d25c6fd
   audio_session: eaca2512cf2b39212d724f35d11f46180ad3a33e
+  desktop_multi_window: 93667594ccc4b88d91a97972fd3b1b89667fa80a
   file_picker: 7584aae6fa07a041af2b36a2655122d42f578c1a
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   macos_ui: ff29104a215c2e1b76f37aacdcbba648abb25faa
   macos_window_utils: 23f54331a0fd51eea9e0ed347253bf48fd379d1d
+  package_info_plus: f0052d280d17aa382b932f399edf32507174e870
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
   screen_retriever_macos: 452e51764a9e1cdb74b3c541238795849f21557f
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
-  window_manager: 1d01fa7ac65a6e6f83b965471b1a7fdd3f06166c
+  window_manager: b729e31d38fb04905235df9ea896128991cad99e
 
 PODFILE CHECKSUM: 94890a0b1d519ffb25e56e42b7a5109449a132d8
 

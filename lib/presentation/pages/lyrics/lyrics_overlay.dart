@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
@@ -8,7 +11,10 @@ import 'package:misuzu_music/presentation/pages/home_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/dependency_injection.dart';
+import '../../../data/services/song_detail_service.dart';
 import '../../../core/services/lrc_export_service.dart';
+import '../../../core/services/desktop_lyrics_bridge.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../domain/entities/lyrics_entities.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../../domain/usecases/lyrics_usecases.dart';
@@ -20,6 +26,11 @@ import '../../widgets/common/lyrics_display.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
 import '../../utils/track_display_utils.dart';
+
+const bool _desktopLyricsVerboseLogging = false;
+
+final RegExp _desktopLyricsHanCharacterRegExp =
+    RegExp(r'[\u3400-\u4DBF\u4E00-\u9FFF]');
 
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
@@ -39,20 +50,51 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late Track _currentTrack;
   late final ScrollController _lyricsScrollController;
   late final LyricsCubit _lyricsCubit;
+  late final DesktopLyricsBridge _desktopLyricsBridge;
+  late final SongDetailService _songDetailService;
   static bool _lastTranslationPreference = true;
   bool _showTranslation = _lastTranslationPreference;
+  bool _desktopLyricsActive = false;
+  bool _desktopLyricsBusy = false;
+  bool _desktopLyricsErrorNotified = false;
+  List<LyricsLine> _activeLyricsLines = const [];
+  LyricsLine? _activeDesktopLine;
+  int _activeDesktopIndex = -1;
+  Duration? _currentPosition;
+  bool _isPlaying = false;
+  String? _lastDesktopPayloadSignature;
+  bool _isSendingDesktopUpdate = false;
+  bool _shouldResendDesktopUpdate = false;
+  StreamSubscription<PlayerBlocState>? _playerSubscription;
+  PlayerBlocState? _lastProcessedPlayerState;
+  bool _showTrackDetailPanel = false;
+  bool _isLoadingTrackDetail = false;
+  bool _isSavingTrackDetail = false;
+  String? _trackDetailContent;
+  String? _trackDetailFileName;
+  String? _trackDetailError;
+  String? _trackDetailLoadedKey;
+  int _trackDetailRequestToken = 0;
 
   @override
   void initState() {
     super.initState();
     _currentTrack = widget.initialTrack;
     _lyricsScrollController = ScrollController();
+    _desktopLyricsBridge = sl<DesktopLyricsBridge>();
+    _songDetailService = sl<SongDetailService>();
     _lyricsCubit = LyricsCubit(
       findLyricsFile: sl<FindLyricsFile>(),
       loadLyricsFromFile: sl<LoadLyricsFromFile>(),
       fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
       getLyrics: sl<GetLyrics>(),
     )..loadLyricsForTrack(_currentTrack);
+
+    final initialPlayerState = context.read<PlayerBloc>().state;
+    _updatePlaybackStateFromPlayer(initialPlayerState, notify: false);
+    _lastProcessedPlayerState = initialPlayerState;
+    _playerSubscription =
+        context.read<PlayerBloc>().stream.listen(_handlePlayerStateStream);
   }
 
   @override
@@ -60,13 +102,27 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialTrack != oldWidget.initialTrack) {
       _currentTrack = widget.initialTrack;
+      _resetTrackDetailState();
       _lyricsCubit.loadLyricsForTrack(_currentTrack);
       _resetScroll();
+      _activeLyricsLines = const [];
+      _activeDesktopLine = null;
+      _activeDesktopIndex = -1;
+      _lastDesktopPayloadSignature = null;
+      if (_desktopLyricsActive) {
+        _scheduleDesktopLyricsUpdate(force: true);
+      }
     }
   }
 
   @override
   void dispose() {
+    if (_desktopLyricsActive) {
+      _desktopLyricsActive = false;
+      unawaited(_desktopLyricsBridge.clear());
+      unawaited(_desktopLyricsBridge.hideWindow());
+    }
+    unawaited(_playerSubscription?.cancel());
     _lyricsScrollController.dispose();
     _lyricsCubit.close();
     super.dispose();
@@ -78,12 +134,702 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     }
   }
 
+  void _resetTrackDetailState() {
+    _trackDetailContent = null;
+    _trackDetailFileName = null;
+    _trackDetailError = null;
+    _trackDetailLoadedKey = null;
+    _isLoadingTrackDetail = false;
+    _isSavingTrackDetail = false;
+    _showTrackDetailPanel = false;
+    _trackDetailRequestToken++;
+  }
+
+  String _detailCacheKeyForTrack(Track track) {
+    return '${track.id}_${track.title}_${track.artist}_${track.album}';
+  }
+
+  void _toggleTrackDetailPanel() {
+    if (!mounted) {
+      return;
+    }
+    final shouldShow = !_showTrackDetailPanel;
+    setState(() {
+      _showTrackDetailPanel = shouldShow;
+      if (!shouldShow) {
+        _trackDetailError = null;
+      }
+    });
+    if (shouldShow) {
+      unawaited(_ensureTrackDetailLoaded());
+    }
+  }
+
+  Future<void> _ensureTrackDetailLoaded({bool force = false}) async {
+    if (!mounted) {
+      return;
+    }
+
+    final track = _currentTrack;
+    final cacheKey = _detailCacheKeyForTrack(track);
+
+    if (!force &&
+        _trackDetailLoadedKey == cacheKey &&
+        _trackDetailContent != null &&
+        !_isLoadingTrackDetail) {
+      return;
+    }
+
+    final currentRequestId = ++_trackDetailRequestToken;
+
+    if (mounted) {
+      setState(() {
+        _isLoadingTrackDetail = true;
+        if (force) {
+          _trackDetailError = null;
+        }
+      });
+    }
+
+    try {
+      final result = await _songDetailService.fetchDetail(
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+      );
+
+      if (!mounted || currentRequestId != _trackDetailRequestToken) {
+        return;
+      }
+
+      setState(() {
+        _trackDetailContent = result.content;
+        _trackDetailFileName = result.fileName;
+        _trackDetailLoadedKey = cacheKey;
+        _trackDetailError = null;
+      });
+    } catch (error) {
+      if (!mounted || currentRequestId != _trackDetailRequestToken) {
+        return;
+      }
+      setState(() {
+        _trackDetailError = error.toString();
+      });
+    } finally {
+      if (!mounted || currentRequestId != _trackDetailRequestToken) {
+        return;
+      }
+      setState(() {
+        _isLoadingTrackDetail = false;
+      });
+    }
+  }
+
+  Future<void> _openTrackDetailEditor() async {
+    if (!mounted || _isSavingTrackDetail) {
+      return;
+    }
+
+    final track = _currentTrack;
+    final initialText = _trackDetailContent ?? '';
+    final controller = TextEditingController(text: initialText);
+
+    final result = await showPlaylistModalDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PlaylistModalScaffold(
+          title: '编辑歌曲详情',
+          maxWidth: 580,
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '曲目：${track.title} · ${track.artist}',
+                locale: Locale("zh-Hans", "zh"),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '保存后将同步到服务器，可随时再次编辑。',
+                locale: Locale("zh-Hans", "zh"),
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 260,
+                child: TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    hintText: '填写歌曲背景、制作人员、翻译或任何想展示的信息…',
+                    border: OutlineInputBorder(),
+                    isDense: false,
+                  ),
+                  keyboardType: TextInputType.multiline,
+                  expands: true,
+                  minLines: null,
+                  maxLines: null,
+                  textInputAction: TextInputAction.newline,
+                  textAlignVertical: TextAlignVertical.top,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            SheetActionButton.secondary(
+              label: '取消',
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            SheetActionButton.primary(
+              label: '保存',
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (result == null) {
+      return;
+    }
+
+    await _saveTrackDetail(result);
+  }
+
+  Future<void> _saveTrackDetail(String content) async {
+    if (!mounted) {
+      return;
+    }
+
+    final trimmed = content;
+    final track = _currentTrack;
+    final cacheKey = _detailCacheKeyForTrack(track);
+    final requestId = ++_trackDetailRequestToken;
+
+    setState(() {
+      _isSavingTrackDetail = true;
+      _trackDetailError = null;
+    });
+
+    try {
+      final result = await _songDetailService.saveDetail(
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        content: trimmed,
+      );
+
+      if (!mounted || requestId != _trackDetailRequestToken) {
+        return;
+      }
+
+      setState(() {
+        _trackDetailContent = result.content;
+        _trackDetailFileName = result.fileName;
+        _trackDetailLoadedKey = cacheKey;
+        _trackDetailError = null;
+      });
+
+      if (mounted) {
+        unawaited(
+          showPlaylistModalDialog<void>(
+            context: context,
+            barrierDismissible: true,
+            builder: (dialogContext) => PlaylistModalScaffold(
+              title: '保存成功',
+              maxWidth: 360,
+              body: Text(
+                result.created ? '已创建歌曲详情。' : '歌曲详情已更新。',
+                locale: Locale("zh-Hans", "zh"),
+              ),
+              actions: [
+                SheetActionButton.primary(
+                  label: '知道了',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted || requestId != _trackDetailRequestToken) {
+        return;
+      }
+
+      setState(() {
+        _trackDetailError = error.toString();
+      });
+
+      if (mounted) {
+        unawaited(
+          showPlaylistModalDialog<void>(
+            context: context,
+            barrierDismissible: true,
+            builder: (dialogContext) => PlaylistModalScaffold(
+              title: '保存失败',
+              maxWidth: 360,
+              body: Text(
+                '保存歌曲详情失败: $error',
+                locale: Locale("zh-Hans", "zh"),
+              ),
+              actions: [
+                SheetActionButton.primary(
+                  label: '关闭',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (!mounted || requestId != _trackDetailRequestToken) {
+        return;
+      }
+      setState(() {
+        _isSavingTrackDetail = false;
+      });
+    }
+  }
+
   void _toggleTranslationVisibility() {
     if (!mounted) return;
     setState(() {
       _showTranslation = !_showTranslation;
     });
     _lastTranslationPreference = _showTranslation;
+    if (_desktopLyricsActive) {
+      _scheduleDesktopLyricsUpdate(force: true);
+    }
+  }
+
+  void _scheduleDesktopLyricsUpdate({bool force = false}) {
+    if (!_desktopLyricsActive) {
+      return;
+    }
+    unawaited(_sendDesktopLyricsUpdate(force: force));
+  }
+
+  Future<void> _sendDesktopLyricsUpdate({bool force = false}) async {
+    if (!_desktopLyricsActive) {
+      return;
+    }
+    if (_isSendingDesktopUpdate) {
+      if (force) {
+        _shouldResendDesktopUpdate = true;
+      }
+      return;
+    }
+
+    final update = _buildDesktopLyricsUpdate();
+    if (update == null) {
+      return;
+    }
+
+    if (_desktopLyricsVerboseLogging && kDebugMode) {
+      debugPrint('桌面歌词payload: ${jsonEncode(update.toJson())}');
+    }
+
+    final signature = _signatureForUpdate(update);
+    if (!force && _lastDesktopPayloadSignature == signature) {
+      return;
+    }
+
+    _isSendingDesktopUpdate = true;
+    try {
+      final success = await _desktopLyricsBridge.update(update);
+      if (success) {
+        _lastDesktopPayloadSignature = signature;
+        _desktopLyricsErrorNotified = false;
+      } else {
+        _lastDesktopPayloadSignature = null;
+        if (!_desktopLyricsErrorNotified) {
+          _desktopLyricsErrorNotified = true;
+          if (mounted) {
+            unawaited(
+              _showDesktopLyricsError('桌面歌词助手未响应，请确认已运行并允许网络访问。'),
+            );
+          }
+        }
+        _shouldResendDesktopUpdate = true;
+      }
+    } finally {
+      _isSendingDesktopUpdate = false;
+      if (_shouldResendDesktopUpdate) {
+        _shouldResendDesktopUpdate = false;
+        await _sendDesktopLyricsUpdate(force: true);
+      }
+    }
+  }
+
+  DesktopLyricsUpdate? _buildDesktopLyricsUpdate() {
+    final track = _currentTrack;
+    if (track == null) {
+      return null;
+    }
+
+    final formattedActive = _formatLineForDesktop(
+      _activeDesktopLine,
+      includeTranslation: _showTranslation,
+    );
+    final formattedNext = _formatLineForDesktop(
+      _resolveNextDesktopLine(),
+      includeTranslation: _showTranslation,
+    );
+
+    return DesktopLyricsUpdate(
+      trackId: track.id,
+      title: track.title,
+      artist: track.artist,
+      activeLine: formattedActive ?? _sanitizeLine(_activeDesktopLine),
+      nextLine: formattedNext ?? _sanitizeLine(_resolveNextDesktopLine()),
+      positionMs: _currentPosition?.inMilliseconds,
+      isPlaying: _isPlaying,
+    );
+  }
+
+  String _signatureForUpdate(DesktopLyricsUpdate update) {
+    return jsonEncode(update.toJson());
+  }
+
+  String? _sanitizeLine(LyricsLine? line) {
+    if (line == null) {
+      return null;
+    }
+    final text = line.originalText.trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    return text;
+  }
+
+  LyricsLine? _resolveNextDesktopLine() {
+    final nextIndex = _activeDesktopIndex + 1;
+    if (nextIndex < 0 || nextIndex >= _activeLyricsLines.length) {
+      return null;
+    }
+    return _activeLyricsLines[nextIndex];
+  }
+
+  String? _lineTranslation(LyricsLine? line) {
+    final translation = line?.translatedText?.trim();
+    if (translation == null || translation.isEmpty) {
+      if (line != null) {
+        if (_desktopLyricsVerboseLogging && kDebugMode) {
+          debugPrint('桌面歌词行缺少翻译: ${line.originalText}');
+        }
+      }
+      return null;
+    }
+    return translation;
+  }
+
+  String? _formatLineForDesktop(
+    LyricsLine? line, {
+    required bool includeTranslation,
+  }) {
+    if (line == null) {
+      return null;
+    }
+
+    final StringBuffer buffer = StringBuffer();
+    if (line.annotatedTexts.isNotEmpty) {
+      for (final segment in line.annotatedTexts) {
+        final original = segment.original;
+        if (original.isEmpty) {
+          continue;
+        }
+        final annotation = segment.annotation.trim();
+        final bool hasAnnotation =
+            annotation.isNotEmpty && annotation != original.trim();
+
+        if (hasAnnotation &&
+            _desktopLyricsHanCharacterRegExp.hasMatch(original)) {
+          final matches =
+              _desktopLyricsHanCharacterRegExp.allMatches(original).toList();
+          if (matches.isNotEmpty) {
+            final prefix = original.substring(0, matches.first.start);
+            final suffix = original.substring(matches.last.end);
+            final core =
+                original.substring(matches.first.start, matches.last.end);
+
+            if (prefix.isNotEmpty) {
+              buffer.write(prefix);
+            }
+            // Limit annotation to Han characters so surrounding symbols stay separate.
+            buffer.write('$core[$annotation]');
+            if (suffix.isNotEmpty) {
+              buffer.write(suffix);
+            }
+            continue;
+          }
+        }
+
+        final bool shouldAnnotate =
+            hasAnnotation && segment.type != TextType.other;
+        if (shouldAnnotate) {
+          buffer.write('$original[$annotation]');
+        } else {
+          buffer.write(original);
+        }
+      }
+    }
+
+    if (buffer.isEmpty) {
+      buffer.write(line.originalText);
+    }
+
+    String formatted = buffer.toString().trim();
+    if (formatted.isEmpty) {
+      return null;
+    }
+
+    if (includeTranslation) {
+      final translation = _lineTranslation(line);
+      if (translation != null) {
+        if (!formatted.endsWith(' ')) {
+          formatted += ' ';
+        }
+        formatted += '<$translation>';
+      }
+    }
+
+    formatted = formatted.trim();
+    if (_desktopLyricsVerboseLogging && kDebugMode) {
+      debugPrint('桌面歌词格式化: $formatted');
+    }
+    return formatted.isEmpty ? null : formatted;
+  }
+
+  Future<void> _toggleDesktopLyricsAssistant() async {
+    if (_desktopLyricsBusy) {
+      return;
+    }
+    debugPrint(
+      _desktopLyricsActive ? '准备关闭桌面歌词窗口' : '准备开启桌面歌词窗口',
+    );
+    setState(() {
+      _desktopLyricsBusy = true;
+    });
+
+    try {
+      if (_desktopLyricsActive) {
+        await _disableDesktopLyrics();
+      } else {
+        await _enableDesktopLyrics();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _desktopLyricsBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _enableDesktopLyrics() async {
+    final track = _currentTrack;
+    if (track == null) {
+      await _showDesktopLyricsError('当前没有正在播放的歌曲，无法开启桌面歌词。');
+      return;
+    }
+
+    final isAlive = await _desktopLyricsBridge.ping();
+    if (!isAlive) {
+      await _showDesktopLyricsError('桌面歌词服务不可用，请稍后重试。');
+      return;
+    }
+
+    final shown = await _desktopLyricsBridge.showWindow();
+    if (!shown) {
+      await _showDesktopLyricsError('无法显示桌面歌词窗口，请检查服务状态。');
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _desktopLyricsActive = true;
+      _desktopLyricsErrorNotified = false;
+      _lastDesktopPayloadSignature = null;
+    });
+
+    _syncDesktopLyricsState();
+    await _sendDesktopLyricsUpdate(force: true);
+  }
+
+  Future<void> _disableDesktopLyrics({bool clear = true}) async {
+    _shouldResendDesktopUpdate = false;
+    if (!mounted) {
+      if (clear) {
+        unawaited(_desktopLyricsBridge.clear());
+      }
+      return;
+    }
+
+    setState(() {
+      _desktopLyricsActive = false;
+      _desktopLyricsErrorNotified = false;
+      _lastDesktopPayloadSignature = null;
+    });
+
+    if (clear) {
+      await _desktopLyricsBridge.clear();
+    }
+
+    unawaited(_desktopLyricsBridge.hideWindow());
+  }
+
+  Future<void> _showDesktopLyricsError(String message) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showPlaylistModalDialog(
+      context: context,
+      builder: (context) => PlaylistModalScaffold(
+        title: '桌面歌词不可用',
+        body: Text(message, locale: Locale("zh-Hans", "zh")),
+        actions: [
+          SheetActionButton.primary(
+            label: '确定',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+        maxWidth: 360,
+      ),
+    );
+  }
+
+  void _updatePlaybackStateFromPlayer(
+    PlayerBlocState state, {
+    bool notify = true,
+  }) {
+    Duration? position;
+    bool playing = false;
+
+    if (state is PlayerPlaying) {
+      position = state.position;
+      playing = true;
+    } else if (state is PlayerPaused) {
+      position = state.position;
+      playing = false;
+    } else if (state is PlayerLoading) {
+      position = state.position;
+      playing = false;
+    }
+
+    final bool playingChanged = playing != _isPlaying;
+    _isPlaying = playing;
+    _currentPosition = position;
+
+    if (notify && playingChanged) {
+      _scheduleDesktopLyricsUpdate(force: true);
+    }
+  }
+
+  void _handlePlayerStateStream(PlayerBlocState state) {
+    if (!mounted) {
+      return;
+    }
+
+    if (identical(state, _lastProcessedPlayerState)) {
+      return;
+    }
+    _lastProcessedPlayerState = state;
+    _processPlayerState(state);
+  }
+
+  void _processPlayerState(PlayerBlocState playerState) {
+    _updatePlaybackStateFromPlayer(playerState);
+
+    final nextTrack = _extractTrack(playerState);
+    if (nextTrack != null && nextTrack != _currentTrack) {
+      if (mounted) {
+        setState(() {
+          _currentTrack = nextTrack;
+          _resetTrackDetailState();
+        });
+      }
+      _lyricsCubit.loadLyricsForTrack(nextTrack);
+      _resetScroll();
+      _activeLyricsLines = const [];
+      _activeDesktopLine = null;
+      _activeDesktopIndex = -1;
+      _lastDesktopPayloadSignature = null;
+      if (_desktopLyricsActive) {
+        _scheduleDesktopLyricsUpdate(force: true);
+      }
+      return;
+    }
+
+    if (_desktopLyricsActive) {
+      _scheduleDesktopLyricsUpdate();
+    }
+  }
+
+  void _handleActiveIndexChanged(int index) {
+    _activeDesktopIndex = index;
+    if (index < 0 || index >= _activeLyricsLines.length) {
+      _activeDesktopLine = null;
+    } else {
+      _activeDesktopLine = _activeLyricsLines[index];
+    }
+    if (_desktopLyricsVerboseLogging && kDebugMode) {
+      debugPrint('桌面歌词当前索引更新: $index');
+    }
+    if (_desktopLyricsActive) {
+      _scheduleDesktopLyricsUpdate();
+    }
+  }
+
+  void _handleActiveLineChanged(LyricsLine? line) {
+    _activeDesktopLine = line;
+    if (line == null) {
+      _activeDesktopIndex = -1;
+    }
+    if (_desktopLyricsActive) {
+      _scheduleDesktopLyricsUpdate();
+    }
+  }
+
+  void _syncDesktopLyricsState() {
+    if (_activeLyricsLines.isEmpty) {
+      _activeDesktopLine = null;
+      _activeDesktopIndex = -1;
+      return;
+    }
+
+    final Duration? position = _currentPosition;
+    if (position == null) {
+      _activeDesktopIndex = 0;
+      _activeDesktopLine = _activeLyricsLines.first;
+      return;
+    }
+
+    int index = 0;
+    for (int i = 0; i < _activeLyricsLines.length; i++) {
+      final current = _activeLyricsLines[i].timestamp;
+      final Duration? next = i + 1 < _activeLyricsLines.length
+          ? _activeLyricsLines[i + 1].timestamp
+          : null;
+      if (position < current) {
+        index = math.max(0, i - 1);
+        break;
+      }
+      if (next == null || position < next) {
+        index = i;
+        break;
+      }
+    }
+
+    _activeDesktopIndex = index;
+    _activeDesktopLine = _activeLyricsLines[index];
   }
 
   Future<void> _reportError() async {
@@ -243,31 +989,51 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
 
     return BlocProvider.value(
       value: _lyricsCubit,
-      child: BlocListener<PlayerBloc, PlayerBlocState>(
-        listener: (context, playerState) {
-          final nextTrack = _extractTrack(playerState);
-          if (nextTrack != null && nextTrack != _currentTrack) {
-            if (!mounted) return;
-            setState(() => _currentTrack = nextTrack);
-            _lyricsCubit.loadLyricsForTrack(nextTrack);
+      child: BlocListener<LyricsCubit, LyricsState>(
+        listener: (context, state) {
+          if (state is LyricsLoaded || state is LyricsEmpty) {
             _resetScroll();
           }
-        },
-        child: BlocListener<LyricsCubit, LyricsState>(
-          listener: (context, state) {
-            if (state is LyricsLoaded || state is LyricsEmpty) {
-              _resetScroll();
+          if (state is LyricsLoaded) {
+            _activeLyricsLines = state.lyrics.lines;
+            _activeDesktopIndex = -1;
+            _activeDesktopLine = null;
+            _lastDesktopPayloadSignature = null;
+            _syncDesktopLyricsState();
+            if (_desktopLyricsActive) {
+              _scheduleDesktopLyricsUpdate(force: true);
             }
-          },
-          child: _LyricsLayout(
-            track: _currentTrack,
-            lyricsScrollController: _lyricsScrollController,
-            isMac: isMac,
-            showTranslation: _showTranslation,
-            onToggleTranslation: _toggleTranslationVisibility,
-            onDownloadLrc: _downloadLrcFile,
-            onReportError: _reportError,
-          ),
+          } else if (state is LyricsEmpty || state is LyricsError) {
+            _activeLyricsLines = const [];
+            _activeDesktopLine = null;
+            _activeDesktopIndex = -1;
+            _lastDesktopPayloadSignature = null;
+            if (_desktopLyricsActive) {
+              _scheduleDesktopLyricsUpdate(force: true);
+            }
+          }
+        },
+        child: _LyricsLayout(
+          track: _currentTrack,
+          lyricsScrollController: _lyricsScrollController,
+          isMac: isMac,
+          showTranslation: _showTranslation,
+          onToggleTranslation: _toggleTranslationVisibility,
+          onDownloadLrc: _downloadLrcFile,
+          onReportError: _reportError,
+          onToggleDesktopLyrics: () => unawaited(_toggleDesktopLyricsAssistant()),
+          isDesktopLyricsActive: _desktopLyricsActive,
+          isDesktopLyricsBusy: _desktopLyricsBusy,
+          onActiveIndexChanged: _handleActiveIndexChanged,
+          onActiveLineChanged: _handleActiveLineChanged,
+          showTrackDetail: _showTrackDetailPanel,
+          isLoadingTrackDetail: _isLoadingTrackDetail,
+          isSavingTrackDetail: _isSavingTrackDetail,
+          trackDetailContent: _trackDetailContent,
+          trackDetailError: _trackDetailError,
+          trackDetailFileName: _trackDetailFileName,
+          onToggleTrackDetail: _toggleTrackDetailPanel,
+          onEditTrackDetail: _openTrackDetailEditor,
         ),
       ),
     );
@@ -283,6 +1049,19 @@ class _LyricsLayout extends StatelessWidget {
     required this.onToggleTranslation,
     required this.onDownloadLrc,
     required this.onReportError,
+    required this.onToggleDesktopLyrics,
+    required this.isDesktopLyricsActive,
+    required this.isDesktopLyricsBusy,
+    required this.onActiveIndexChanged,
+    required this.onActiveLineChanged,
+    required this.showTrackDetail,
+    required this.isLoadingTrackDetail,
+    required this.isSavingTrackDetail,
+    required this.trackDetailContent,
+    required this.trackDetailError,
+    required this.trackDetailFileName,
+    required this.onToggleTrackDetail,
+    required this.onEditTrackDetail,
   });
 
   final Track track;
@@ -292,6 +1071,19 @@ class _LyricsLayout extends StatelessWidget {
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
+  final VoidCallback onToggleDesktopLyrics;
+  final bool isDesktopLyricsActive;
+  final bool isDesktopLyricsBusy;
+  final ValueChanged<int> onActiveIndexChanged;
+  final ValueChanged<LyricsLine?> onActiveLineChanged;
+  final bool showTrackDetail;
+  final bool isLoadingTrackDetail;
+  final bool isSavingTrackDetail;
+  final String? trackDetailContent;
+  final String? trackDetailError;
+  final String? trackDetailFileName;
+  final VoidCallback onToggleTrackDetail;
+  final VoidCallback onEditTrackDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -321,10 +1113,18 @@ class _LyricsLayout extends StatelessWidget {
               children: [
                 Expanded(
                   flex: 10,
-                  child: _CoverColumn(
+                  child: _TrackInfoPanel(
                     track: normalizedTrack,
                     coverSize: coverSize,
                     isMac: isMac,
+                    showDetail: showTrackDetail,
+                    isLoadingDetail: isLoadingTrackDetail,
+                    isSavingDetail: isSavingTrackDetail,
+                    detailContent: trackDetailContent,
+                    detailError: trackDetailError,
+                    detailFileName: trackDetailFileName,
+                    onToggleDetail: onToggleTrackDetail,
+                    onEditDetail: onEditTrackDetail,
                   ),
                 ),
                 Container(
@@ -345,6 +1145,11 @@ class _LyricsLayout extends StatelessWidget {
                     onToggleTranslation: onToggleTranslation,
                     onDownloadLrc: onDownloadLrc,
                     onReportError: onReportError,
+                    onToggleDesktopLyrics: onToggleDesktopLyrics,
+                    isDesktopLyricsActive: isDesktopLyricsActive,
+                    isDesktopLyricsBusy: isDesktopLyricsBusy,
+                    onActiveIndexChanged: onActiveIndexChanged,
+                    onActiveLineChanged: onActiveLineChanged,
                   ),
                 ),
               ],
@@ -364,39 +1169,105 @@ class _LyricsLayout extends StatelessWidget {
   }
 }
 
-class _CoverColumn extends StatelessWidget {
-  const _CoverColumn({
+class _TrackInfoPanel extends StatelessWidget {
+  const _TrackInfoPanel({
+    super.key,
     required this.track,
     required this.coverSize,
     required this.isMac,
+    required this.showDetail,
+    required this.isLoadingDetail,
+    required this.isSavingDetail,
+    required this.detailContent,
+    required this.detailError,
+    required this.detailFileName,
+    required this.onToggleDetail,
+    required this.onEditDetail,
   });
 
   final Track track;
   final double coverSize;
   final bool isMac;
+  final bool showDetail;
+  final bool isLoadingDetail;
+  final bool isSavingDetail;
+  final String? detailContent;
+  final String? detailError;
+  final String? detailFileName;
+  final VoidCallback onToggleDetail;
+  final VoidCallback onEditDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: showDetail
+          ? _TrackDetailView(
+              key: const ValueKey('track-detail-view'),
+              track: track,
+              coverSize: coverSize,
+              isMac: isMac,
+              isLoadingDetail: isLoadingDetail,
+              isSavingDetail: isSavingDetail,
+              detailContent: detailContent,
+              detailError: detailError,
+              detailFileName: detailFileName,
+              onToggleDetail: onToggleDetail,
+              onEditDetail: onEditDetail,
+            )
+          : _CoverColumn(
+              key: const ValueKey('track-cover-view'),
+              track: track,
+              coverSize: coverSize,
+              isMac: isMac,
+              onTap: onToggleDetail,
+            ),
+    );
+  }
+}
+
+class _CoverColumn extends StatelessWidget {
+  const _CoverColumn({
+    super.key,
+    required this.track,
+    required this.coverSize,
+    required this.isMac,
+    required this.onTap,
+  });
+
+  final Track track;
+  final double coverSize;
+  final bool isMac;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final TextStyle titleStyle = isMac
-        ? MacosTheme.of(
-            context,
-          ).typography.title1.copyWith(fontWeight: FontWeight.w600)
+        ? MacosTheme.of(context).typography.title1.copyWith(
+              fontWeight: FontWeight.w600,
+            )
         : Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ) ??
-              const TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
+                  fontWeight: FontWeight.w600,
+                ) ??
+            const TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
     final TextStyle subtitleStyle = isMac
         ? MacosTheme.of(context).typography.body.copyWith(
-            color: MacosTheme.of(
-              context,
-            ).typography.body.color?.withOpacity(0.75),
-          )
+              color: MacosTheme.of(context)
+                  .typography
+                  .body
+                  .color
+                  ?.withOpacity(0.75),
+            )
         : Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.color?.withOpacity(0.7),
-              ) ??
-              const TextStyle(fontSize: 14, color: Colors.black54);
+                  color: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.color
+                      ?.withOpacity(0.7),
+                ) ??
+            const TextStyle(fontSize: 14, color: Colors.black54);
 
     String? remoteArtworkUrl;
     if (track.sourceType == TrackSourceType.netease) {
@@ -413,37 +1284,43 @@ class _CoverColumn extends StatelessWidget {
           );
     }
 
+    final bool isDarkMode = isMac
+        ? MacosTheme.of(context).brightness == Brightness.dark
+        : Theme.of(context).brightness == Brightness.dark;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          HoverGlowOverlay(
-            isDarkMode: isMac
-                ? MacosTheme.of(context).brightness == Brightness.dark
-                : Theme.of(context).brightness == Brightness.dark,
-            borderRadius: BorderRadius.circular(24),
-            glowRadius: 1.05,
-            glowOpacity: 0.85,
-            blurSigma: 0,
-            cursor: SystemMouseCursors.basic,
-            child: ArtworkThumbnail(
-              artworkPath: track.artworkPath,
-              remoteImageUrl: remoteArtworkUrl,
-              size: coverSize,
-              borderRadius: BorderRadius.circular(20),
-              backgroundColor: isMac
-                  ? MacosColors.controlBackgroundColor
-                  : Theme.of(context).colorScheme.surfaceVariant,
-              borderColor: isMac
-                  ? MacosTheme.of(context).dividerColor
-                  : Theme.of(context).dividerColor,
-              placeholder: Icon(
-                CupertinoIcons.music_note,
-                color: isMac
-                    ? MacosColors.systemGrayColor
-                    : Theme.of(context).hintColor.withOpacity(0.6),
-                size: coverSize * 0.28,
+          GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: HoverGlowOverlay(
+              isDarkMode: isDarkMode,
+              borderRadius: BorderRadius.circular(24),
+              glowRadius: 1.05,
+              glowOpacity: 0.85,
+              blurSigma: 0,
+              cursor: SystemMouseCursors.click,
+              child: ArtworkThumbnail(
+                artworkPath: track.artworkPath,
+                remoteImageUrl: remoteArtworkUrl,
+                size: coverSize,
+                borderRadius: BorderRadius.circular(20),
+                backgroundColor: isMac
+                    ? MacosColors.controlBackgroundColor
+                    : Theme.of(context).colorScheme.surfaceVariant,
+                borderColor: isMac
+                    ? MacosTheme.of(context).dividerColor
+                    : Theme.of(context).dividerColor,
+                placeholder: Icon(
+                  CupertinoIcons.music_note,
+                  color: isMac
+                      ? MacosColors.systemGrayColor
+                      : Theme.of(context).hintColor.withOpacity(0.6),
+                  size: coverSize * 0.28,
+                ),
               ),
             ),
           ),
@@ -479,6 +1356,235 @@ class _CoverColumn extends StatelessWidget {
   }
 }
 
+class _TrackDetailView extends StatelessWidget {
+  const _TrackDetailView({
+    super.key,
+    required this.track,
+    required this.coverSize,
+    required this.isMac,
+    required this.isLoadingDetail,
+    required this.isSavingDetail,
+    required this.detailContent,
+    required this.detailError,
+    required this.detailFileName,
+    required this.onToggleDetail,
+    required this.onEditDetail,
+  });
+
+  final Track track;
+  final double coverSize;
+  final bool isMac;
+  final bool isLoadingDetail;
+  final bool isSavingDetail;
+  final String? detailContent;
+  final String? detailError;
+  final String? detailFileName;
+  final VoidCallback onToggleDetail;
+  final VoidCallback onEditDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final theme = Theme.of(context);
+        final macTheme = isMac ? MacosTheme.of(context) : null;
+        final isDarkMode = isMac
+            ? macTheme!.brightness == Brightness.dark
+            : theme.brightness == Brightness.dark;
+
+        final displayWidth =
+            math.min(560.0, coverSize * 1.38).clamp(320.0, 620.0);
+        final panelHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : math.max(coverSize * 1.05, 420.0);
+        final TextStyle headerStyle = isMac
+            ? macTheme!.typography.title3.copyWith(fontWeight: FontWeight.w600)
+            : theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                ) ??
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.w600);
+
+        final TextStyle bodyStyle = isMac
+            ? macTheme!.typography.body
+            : theme.textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
+        final TextStyle metaStyle = bodyStyle.copyWith(
+          fontSize: (bodyStyle.fontSize ?? 14) - 1,
+          color: bodyStyle.color?.withOpacity(0.68) ??
+              (isDarkMode
+                  ? Colors.white.withOpacity(0.68)
+                  : Colors.black.withOpacity(0.62)),
+        );
+
+        final String? trimmedError = detailError?.trim();
+        final bool hasErrorText =
+            trimmedError != null && trimmedError.isNotEmpty;
+        final String trimmedContent = detailContent?.trim() ?? '';
+
+        if (isLoadingDetail) {
+          return Center(
+            child: isMac
+                ? const ProgressCircle(radius: 16)
+                : const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  ),
+          );
+        }
+
+        Widget detailBody;
+        if (hasErrorText) {
+          detailBody = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    CupertinoIcons.exclamationmark_circle,
+                    size: 20,
+                    color: isDarkMode
+                        ? Colors.orangeAccent.withOpacity(0.9)
+                        : Colors.orange.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '加载失败',
+                    locale: const Locale('zh-Hans', 'zh'),
+                    style: bodyStyle.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                trimmedError!,
+                locale: const Locale('zh-Hans', 'zh'),
+                style: bodyStyle.copyWith(
+                  fontSize: (bodyStyle.fontSize ?? 14) - 1,
+                  color: bodyStyle.color?.withOpacity(0.72) ??
+                      (isDarkMode
+                          ? Colors.white.withOpacity(0.72)
+                          : Colors.black.withOpacity(0.68)),
+                ),
+              ),
+            ],
+          );
+        } else if (trimmedContent.isEmpty) {
+          detailBody = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '暂无歌曲详情',
+                locale: const Locale('zh-Hans', 'zh'),
+                style: bodyStyle.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '使用下方“编辑详情”撰写内容后会自动保存在服务器。',
+                locale: const Locale('zh-Hans', 'zh'),
+                style: metaStyle,
+              ),
+            ],
+          );
+        } else {
+          detailBody = Text(
+            trimmedContent,
+            locale: const Locale('zh-Hans', 'zh'),
+            style: bodyStyle.copyWith(height: 1.48),
+          );
+        }
+
+        final Widget editLink = MouseRegion(
+          cursor: isSavingDetail
+              ? SystemMouseCursors.basic
+              : SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: isSavingDetail ? null : onEditDetail,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 4),
+              child: Text(
+                isSavingDetail ? '保存中…' : '编辑详情',
+                locale: const Locale('zh-Hans', 'zh'),
+                style: bodyStyle.copyWith(
+                  decoration: TextDecoration.underline,
+                  fontWeight: FontWeight.w500,
+                  color: bodyStyle.color ??
+                      (isDarkMode
+                          ? Colors.white.withOpacity(isSavingDetail ? 0.5 : 0.82)
+                          : Colors.black.withOpacity(isSavingDetail ? 0.5 : 0.78)),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        return Align(
+          alignment: Alignment.centerRight,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onToggleDetail,
+              child: SizedBox(
+                width: displayWidth,
+                height: panelHeight,
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context)
+                      .copyWith(scrollbars: false),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 0,
+                      vertical: 22,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 18),
+                        Text(
+                          track.title,
+                          locale: const Locale('zh-Hans', 'zh'),
+                          style: headerStyle.copyWith(fontSize: 18),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${track.artist} · ${track.album}',
+                          locale: const Locale('zh-Hans', 'zh'),
+                          style: metaStyle,
+                        ),
+                        const SizedBox(height: 22),
+                        Text(
+                          '歌曲详情',
+                          locale: const Locale('zh-Hans', 'zh'),
+                          style: bodyStyle.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: bodyStyle.color?.withOpacity(0.82) ??
+                                (isDarkMode
+                                    ? Colors.white.withOpacity(0.82)
+                                    : Colors.black.withOpacity(0.78)),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        detailBody,
+                        if (!isSavingDetail)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: editLink,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _LyricsPanel extends StatelessWidget {
   const _LyricsPanel({
     required this.isDarkMode,
@@ -488,6 +1594,11 @@ class _LyricsPanel extends StatelessWidget {
     required this.onToggleTranslation,
     required this.onDownloadLrc,
     required this.onReportError,
+    required this.onToggleDesktopLyrics,
+    required this.isDesktopLyricsActive,
+    required this.isDesktopLyricsBusy,
+    required this.onActiveIndexChanged,
+    required this.onActiveLineChanged,
   });
 
   final bool isDarkMode;
@@ -497,6 +1608,11 @@ class _LyricsPanel extends StatelessWidget {
   final VoidCallback onToggleTranslation;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
+  final VoidCallback onToggleDesktopLyrics;
+  final bool isDesktopLyricsActive;
+  final bool isDesktopLyricsBusy;
+  final ValueChanged<int> onActiveIndexChanged;
+  final ValueChanged<LyricsLine?> onActiveLineChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -534,7 +1650,7 @@ class _LyricsPanel extends StatelessWidget {
                   Positioned.fill(child: content),
                   if (showReportError)
                     Positioned(
-                      bottom: 150,
+                      bottom: 190,
                       right: 12,
                       child: _ReportErrorButton(
                         isDarkMode: isDarkMode,
@@ -542,12 +1658,22 @@ class _LyricsPanel extends StatelessWidget {
                       ),
                     ),
                   Positioned(
-                    bottom: 70,
+                    bottom: 130,
                     right: 12,
                     child: _DownloadLrcButton(
                       isDarkMode: isDarkMode,
                       isEnabled: state is LyricsLoaded,
                       onPressed: state is LyricsLoaded ? onDownloadLrc : null,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 75,
+                    right: 12,
+                    child: _DesktopLyricsToggleButton(
+                      isDarkMode: isDarkMode,
+                      isActive: isDesktopLyricsActive,
+                      isBusy: isDesktopLyricsBusy,
+                      onPressed: onToggleDesktopLyrics,
                     ),
                   ),
                   Positioned(
@@ -607,26 +1733,28 @@ class _LyricsPanel extends StatelessWidget {
       );
     }
 
-    if (state is LyricsLoaded) {
-      final lines = state.lyrics.lines;
-      if (lines.isEmpty) {
-        return _buildInfoMessage(
-          controller,
-          title: '暂无歌词',
-          subtitle: '暂未找到 ${track.title} 的歌词。',
+      if (state is LyricsLoaded) {
+        final lines = state.lyrics.lines;
+        if (lines.isEmpty) {
+          return _buildInfoMessage(
+            controller,
+            title: '暂无歌词',
+            subtitle: '暂未找到 ${track.title} 的歌词。',
+            isDarkMode: isDarkMode,
+            viewportHeight: viewportHeight,
+          );
+        }
+
+        return LyricsDisplay(
+          key: ValueKey(track.id),
+          lines: lines,
+          controller: controller,
           isDarkMode: isDarkMode,
-          viewportHeight: viewportHeight,
+          showTranslation: showTranslation,
+          onActiveIndexChanged: onActiveIndexChanged,
+          onActiveLineChanged: onActiveLineChanged,
         );
       }
-
-      return LyricsDisplay(
-        key: ValueKey(track.id),
-        lines: lines,
-        controller: controller,
-        isDarkMode: isDarkMode,
-        showTranslation: showTranslation,
-      );
-    }
 
     return const SizedBox.shrink();
   }
@@ -877,6 +2005,56 @@ class _DownloadLrcButton extends StatelessWidget {
         hoverColor: isEnabled ? activeColor : disabledColor,
         disabledColor: disabledColor,
         size: iconSize,
+      ),
+    );
+  }
+}
+
+class _DesktopLyricsToggleButton extends StatelessWidget {
+  const _DesktopLyricsToggleButton({
+    required this.isDarkMode,
+    required this.isActive,
+    required this.isBusy,
+    required this.onPressed,
+  });
+
+  final bool isDarkMode;
+  final bool isActive;
+  final bool isBusy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color iconColor = isDarkMode ? Colors.white : Colors.black;
+    final bool enabled = !isBusy;
+    final Color disabledColor = iconColor.withOpacity(0.42);
+    final Color inactiveBase = iconColor.withOpacity(0.82);
+    final Color activeBase = iconColor;
+    final Color hoverInactive = iconColor;
+    final Color hoverActive = iconColor;
+    final Color baseColor = enabled
+        ? (isActive ? activeBase : inactiveBase)
+        : disabledColor;
+    final Color hoverColor = enabled
+        ? (isActive ? hoverActive : hoverInactive)
+        : disabledColor;
+    final String tooltip = isBusy
+        ? '处理中...'
+        : (isActive ? '关闭桌面歌词窗口' : '显示桌面歌词窗口');
+    final String assetPath = enabled
+        ? (isActive ? 'icons/text.png' : 'icons/text2.png')
+        : 'icons/text2.png';
+
+    return MacosTooltip(
+      message: tooltip,
+      child: _HoverGlyphButton(
+        enabled: enabled,
+        onPressed: enabled ? onPressed : null,
+        assetPath: assetPath,
+        size: 26,
+        baseColor: baseColor,
+        hoverColor: hoverColor,
+        disabledColor: disabledColor,
       ),
     );
   }

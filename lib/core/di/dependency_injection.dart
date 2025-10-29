@@ -18,6 +18,7 @@ import '../../data/services/audio_player_service_impl.dart';
 import '../../data/services/misuzu_audio_handler.dart';
 import '../../data/services/cloud_playlist_api.dart';
 import '../../data/services/remote_lyrics_api.dart';
+import '../../data/services/song_detail_service.dart';
 import '../../data/datasources/remote/netease_api_client.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/netease_repository.dart';
@@ -32,6 +33,7 @@ import '../storage/storage_path_provider.dart';
 import '../storage/binary_config_store.dart';
 import '../../data/storage/playlist_file_storage.dart';
 import '../../data/storage/netease_session_store.dart';
+import '../services/desktop_lyrics_bridge.dart';
 
 final sl = GetIt.instance;
 
@@ -72,6 +74,7 @@ class DependencyInjection {
       sl.registerLazySingleton<NeteaseApiClient>(() => NeteaseApiClient());
       sl.registerLazySingleton(() => CloudPlaylistApi());
       sl.registerLazySingleton(() => RemoteLyricsApi());
+      sl.registerLazySingleton(() => SongDetailService());
 
       sl.registerLazySingleton<MusicLibraryRepository>(
         () => MusicLibraryRepositoryImpl(
@@ -108,6 +111,8 @@ class DependencyInjection {
           sl<NeteaseRepository>(),
         ),
       );
+
+      sl.registerLazySingleton(() => DesktopLyricsBridge());
 
       print('🎧 初始化音频处理程序...');
       final audioHandler = await AudioService.init(

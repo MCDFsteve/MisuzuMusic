@@ -302,6 +302,11 @@ class _HomePageContentState extends State<HomePageContent> {
           return;
         }
 
+        // 保持当前歌词组件状态，避免切歌过渡时触发 dispose 导致桌面歌词被关闭。
+        if (!shouldHideLyrics && nextTrack == null && _lyricsVisible) {
+          nextTrack = _lyricsActiveTrack;
+        }
+
         final bool needsHideUpdate = shouldHideLyrics && _lyricsVisible;
         final bool trackChanged = _lyricsActiveTrack != nextTrack;
 
@@ -1381,14 +1386,8 @@ class _HomePageContentState extends State<HomePageContent> {
       return const SizedBox.shrink();
     }
 
-    final artworkSignature = track.artworkPath?.isNotEmpty == true
-        ? track.artworkPath
-        : 'no_artwork';
-
     return LyricsOverlay(
-      key: ValueKey(
-        '${track.id}_${artworkSignature}_${isMac ? 'mac' : 'material'}',
-      ),
+      key: ValueKey('lyrics_overlay_${isMac ? 'mac' : 'material'}'),
       initialTrack: track,
       isMac: isMac,
     );
