@@ -302,6 +302,11 @@ class _HomePageContentState extends State<HomePageContent> {
           return;
         }
 
+        // 保持当前歌词组件状态，避免切歌过渡时触发 dispose 导致桌面歌词被关闭。
+        if (!shouldHideLyrics && nextTrack == null && _lyricsVisible) {
+          nextTrack = _lyricsActiveTrack;
+        }
+
         final bool needsHideUpdate = shouldHideLyrics && _lyricsVisible;
         final bool trackChanged = _lyricsActiveTrack != nextTrack;
 
