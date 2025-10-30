@@ -72,7 +72,12 @@ class _BlurredArtworkBackground extends StatelessWidget {
     if (artworkPath != null && artworkPath!.isNotEmpty) {
       final file = File(artworkPath!);
       if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover);
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          filterQuality: FilterQuality.high,
+        );
       }
     }
 
@@ -80,6 +85,8 @@ class _BlurredArtworkBackground extends StatelessWidget {
       return Image.network(
         remoteImageUrl!,
         fit: BoxFit.cover,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.high,
         errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
       );
     }

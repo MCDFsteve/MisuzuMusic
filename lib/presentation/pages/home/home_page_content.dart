@@ -417,43 +417,12 @@ class _HomePageContentState extends State<HomePageContent> {
                   return Stack(
                     children: [
                       Positioned.fill(
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Container(
-                              color: MacosTheme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? Colors.black
-                                  : MacosTheme.of(context).canvasColor,
-                            ),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 500),
-                              switchInCurve: Curves.easeOut,
-                              switchOutCurve: Curves.easeIn,
-                              transitionBuilder: (child, animation) =>
-                                  FadeTransition(
-                                opacity: animation,
-                                child: child,
-                              ),
-                              child: artworkSource.hasSource
-                                  ? _BlurredArtworkBackground(
-                                      key: ValueKey<String>(
-                                        artworkSource.cacheKey,
-                                      ),
-                                      artworkPath: artworkSource.localPath,
-                                      remoteImageUrl: artworkSource.remoteUrl,
-                                      isDarkMode:
-                                          MacosTheme.of(context).brightness ==
-                                          Brightness.dark,
-                                    )
-                                  : Container(
-                                      key: const ValueKey<String>(
-                                        'default_background',
-                                      ),
-                                      color: MacosTheme.of(context).canvasColor,
-                                    ),
-                            ),
-                          ],
+                        child: _ArtworkBackgroundSwitcher(
+                          sources: artworkSource,
+                          isDarkMode:
+                              MacosTheme.of(context).brightness ==
+                                  Brightness.dark,
+                          fallbackColor: MacosTheme.of(context).canvasColor,
                         ),
                       ),
                       Row(
@@ -1749,5 +1718,149 @@ class _ArtworkBackgroundSources {
       return 'remote_$remoteUrl';
     }
     return 'none';
+  }
+}
+
+class _ArtworkBackgroundSwitcher extends StatefulWidget {
+  const _ArtworkBackgroundSwitcher({
+    super.key,
+    required this.sources,
+    required this.isDarkMode,
+    required this.fallbackColor,
+  });
+
+  final _ArtworkBackgroundSources sources;
+  final bool isDarkMode;
+  final Color fallbackColor;
+
+  @override
+  State<_ArtworkBackgroundSwitcher> createState() =>
+      _ArtworkBackgroundSwitcherState();
+}
+
+class _ArtworkBackgroundSwitcherState extends State<_ArtworkBackgroundSwitcher>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _fadeIn;
+  late Animation<double> _fadeOut;
+  late Animation<double> _scaleIn;
+  late Animation<double> _scaleOut;
+
+  Widget? _currentChild;
+  Widget? _previousChild;
+  String _currentKey = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 780),
+    );
+    _configureAnimations();
+    _setInitialChild();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ArtworkBackgroundSwitcher oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextKey = _childKey();
+    final hasKeyChanged = nextKey != _currentKey;
+    final themeChanged = widget.isDarkMode != oldWidget.isDarkMode;
+
+    if (hasKeyChanged) {
+      setState(() {
+        _previousChild = _currentChild;
+        _currentChild = _buildChild();
+        _currentKey = nextKey;
+      });
+      _controller.forward(from: 0);
+    } else if (themeChanged) {
+      setState(() {
+        _currentChild = _buildChild();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            color: widget.isDarkMode ? Colors.black : widget.fallbackColor,
+          ),
+          if (_previousChild != null)
+            FadeTransition(
+              opacity: _fadeOut,
+              child: ScaleTransition(
+                scale: _scaleOut,
+                child: _previousChild,
+              ),
+            ),
+          if (_currentChild != null)
+            FadeTransition(
+              opacity: _fadeIn,
+              child: ScaleTransition(
+                scale: _scaleIn,
+                child: _currentChild,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _configureAnimations() {
+    final fadeCurve = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+      reverseCurve: Curves.easeInOutCubic.flipped,
+    );
+
+    _fadeIn = fadeCurve;
+    _fadeOut = ReverseAnimation(fadeCurve);
+
+    _scaleIn = Tween<double>(begin: 0.975, end: 1.0).animate(fadeCurve);
+    _scaleOut = Tween<double>(begin: 1.0, end: 1.01).animate(_fadeOut);
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() => _previousChild = null);
+      }
+    });
+  }
+
+  void _setInitialChild() {
+    _currentKey = _childKey();
+    _currentChild = _buildChild();
+    _controller.value = 1.0;
+  }
+
+  Widget _buildChild() {
+    if (widget.sources.hasSource) {
+      return _BlurredArtworkBackground(
+        key: ValueKey<String>(widget.sources.cacheKey),
+        artworkPath: widget.sources.localPath,
+        remoteImageUrl: widget.sources.remoteUrl,
+        isDarkMode: widget.isDarkMode,
+      );
+    }
+    return Container(
+      key: const ValueKey<String>('default_background'),
+      color: widget.fallbackColor,
+    );
+  }
+
+  String _childKey() {
+    final mode = widget.isDarkMode ? 'dark' : 'light';
+    return '${widget.sources.cacheKey}_$mode';
   }
 }
