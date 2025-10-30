@@ -12,6 +12,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../data/services/song_detail_service.dart';
+import '../../../data/services/netease_id_resolver.dart';
+import '../../../data/models/netease_models.dart';
 import '../../../core/services/lrc_export_service.dart';
 import '../../../core/services/desktop_lyrics_bridge.dart';
 import '../../../core/constants/app_constants.dart';
@@ -53,6 +55,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late final LyricsCubit _lyricsCubit;
   late final DesktopLyricsBridge _desktopLyricsBridge;
   late final SongDetailService _songDetailService;
+  late final NeteaseIdResolver _neteaseIdResolver;
   static bool _lastTranslationPreference = true;
   bool _showTranslation = _lastTranslationPreference;
   bool _desktopLyricsActive = false;
@@ -85,6 +88,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _lyricsScrollController = ScrollController();
     _desktopLyricsBridge = sl<DesktopLyricsBridge>();
     _songDetailService = sl<SongDetailService>();
+    _neteaseIdResolver = sl<NeteaseIdResolver>();
     _lyricsCubit = LyricsCubit(
       findLyricsFile: sl<FindLyricsFile>(),
       loadLyricsFromFile: sl<LoadLyricsFromFile>(),
@@ -902,51 +906,135 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   }
 
   Future<void> _reportError() async {
+    if (!mounted) {
+      return;
+    }
+
+    final action = await showPlaylistModalDialog<_ReportErrorAction>(
+      context: context,
+      builder: (context) => _ReportErrorActionSheet(track: _currentTrack),
+    );
+
+    if (!mounted || action == null) {
+      return;
+    }
+
+    switch (action) {
+      case _ReportErrorAction.bindNetease:
+        await _startNeteaseCorrectionFlow();
+        break;
+      case _ReportErrorAction.manualLyrics:
+        await _openManualCorrectionPage();
+        break;
+    }
+  }
+
+  Future<void> _openManualCorrectionPage() async {
     const url = 'https://nipaplay.aimes-soft.com/lyrics_service.php';
     final uri = Uri.parse(url);
 
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          showPlaylistModalDialog(
-            context: context,
-            builder: (context) => PlaylistModalScaffold(
-              title: '无法打开链接',
-              body: const Text(
-                '无法打开浏览器，请手动访问:\nhttps://nipaplay.aimes-soft.com/lyrics_service.php',
-                locale: Locale("zh-Hans", "zh"),
-              ),
-              actions: [
-                SheetActionButton.primary(
-                  label: '确定',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-              maxWidth: 400,
-            ),
-          );
-        }
+        return;
       }
     } catch (e) {
-      if (mounted) {
-        showPlaylistModalDialog(
-          context: context,
-          builder: (context) => PlaylistModalScaffold(
-            title: '打开链接出错',
-            body: Text('打开浏览器时出错: $e', locale: Locale("zh-Hans", "zh")),
-            actions: [
-              SheetActionButton.primary(
-                label: '确定',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-            maxWidth: 400,
-          ),
-        );
-      }
+      // ignore: avoid_print
+      print('⚠️ LyricsOverlay: 打开纠错链接失败 -> $e');
     }
+
+    if (!mounted) {
+      return;
+    }
+
+    await showPlaylistModalDialog<void>(
+      context: context,
+      builder: (context) => PlaylistModalScaffold(
+        title: '无法打开浏览器',
+        body: const Text(
+          '请手动访问以下链接完成纠错：\nhttps://nipaplay.aimes-soft.com/lyrics_service.php',
+          locale: Locale('zh-Hans', 'zh'),
+        ),
+        actions: [
+          SheetActionButton.primary(
+            label: '好的',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+        maxWidth: 420,
+      ),
+    );
+  }
+
+  Future<void> _startNeteaseCorrectionFlow() async {
+    if (!mounted) {
+      return;
+    }
+
+    final track = _currentTrack;
+    final hash = track.contentHash?.trim();
+    if (hash == null || hash.isEmpty) {
+      await _showInfoDialog(
+        title: '暂无法纠错',
+        message: '当前歌曲尚未生成音频指纹，请先完成一次扫描或播放后再试。',
+      );
+      return;
+    }
+
+    final candidate = await showPlaylistModalDialog<NeteaseSongCandidate>(
+      context: context,
+      builder: (context) =>
+          _NeteaseSongSearchSheet(track: track, resolver: _neteaseIdResolver),
+    );
+
+    if (!mounted || candidate == null) {
+      return;
+    }
+
+    try {
+      await _neteaseIdResolver.saveMapping(
+        track: track,
+        neteaseId: candidate.id,
+        source: 'manual',
+      );
+      await _lyricsCubit.loadLyricsForTrack(track, forceRemote: true);
+      if (!mounted) {
+        return;
+      }
+      await _showInfoDialog(
+        title: '绑定成功',
+        message: '已将《${track.title}》绑定为网络歌曲《${candidate.title}》。',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      await _showInfoDialog(title: '保存失败', message: '提交纠错时出现错误：$e');
+    }
+  }
+
+  Future<void> _showInfoDialog({
+    required String title,
+    required String message,
+  }) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showPlaylistModalDialog<void>(
+      context: context,
+      builder: (context) => PlaylistModalScaffold(
+        title: title,
+        body: Text(message, locale: const Locale('zh-Hans', 'zh')),
+        actions: [
+          SheetActionButton.primary(
+            label: '确定',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+        maxWidth: 420,
+      ),
+    );
   }
 
   Future<void> _downloadLrcFile() async {
@@ -1724,22 +1812,17 @@ class _LyricsPanel extends StatelessWidget {
               final bool canToggle =
                   state is LyricsLoaded && _hasAnyTranslation(state.lyrics);
 
-              final bool showReportError =
-                  state is LyricsLoaded &&
-                  state.lyrics.source == LyricsSource.nipaplay;
-
               return Stack(
                 children: [
                   Positioned.fill(child: content),
-                  if (showReportError)
-                    Positioned(
-                      bottom: 190,
-                      right: 12,
-                      child: _ReportErrorButton(
-                        isDarkMode: isDarkMode,
-                        onPressed: onReportError,
-                      ),
+                  Positioned(
+                    bottom: 190,
+                    right: 12,
+                    child: _ReportErrorButton(
+                      isDarkMode: isDarkMode,
+                      onPressed: onReportError,
                     ),
+                  ),
                   Positioned(
                     bottom: 130,
                     right: 12,
@@ -2307,6 +2390,363 @@ class _ReportErrorButtonState extends State<_ReportErrorButton> {
           _setPressing(false);
         },
         child: button,
+      ),
+    );
+  }
+}
+
+enum _ReportErrorAction { bindNetease, manualLyrics }
+
+class _ReportErrorActionSheet extends StatelessWidget {
+  const _ReportErrorActionSheet({required this.track});
+
+  final Track track;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitleStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
+    );
+
+    return PlaylistModalScaffold(
+      title: '纠错网络 ID',
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('当前歌曲：${track.title}', style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 16),
+          _ReportActionTile(
+            icon: CupertinoIcons.search,
+            title: '从网络搜索绑定',
+            description: '搜索网络歌曲并绑定正确的歌词/封面 ID。',
+            onTap: () =>
+                Navigator.of(context).pop(_ReportErrorAction.bindNetease),
+          ),
+          const SizedBox(height: 12),
+          _ReportActionTile(
+            icon: CupertinoIcons.link,
+            title: '手动填写歌词页面',
+            description: '打开云歌词页面，直接上传或编辑歌词内容。',
+            onTap: () =>
+                Navigator.of(context).pop(_ReportErrorAction.manualLyrics),
+          ),
+          const SizedBox(height: 12),
+          Text('提示：绑定后会同步保存到云端，其他设备也会使用该网络 ID。', style: subtitleStyle),
+        ],
+      ),
+      actions: [
+        SheetActionButton.secondary(
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+      maxWidth: 420,
+    );
+  }
+}
+
+class _ReportActionTile extends StatefulWidget {
+  const _ReportActionTile({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  State<_ReportActionTile> createState() => _ReportActionTileState();
+}
+
+class _ReportActionTileState extends State<_ReportActionTile> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final background = _hovering
+        ? theme.colorScheme.primary.withOpacity(0.12)
+        : theme.colorScheme.surface.withOpacity(0.4);
+    final borderColor = theme.colorScheme.outline.withOpacity(0.18);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(widget.icon, size: 24, color: theme.colorScheme.primary),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(widget.description, style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NeteaseSongSearchSheet extends StatefulWidget {
+  const _NeteaseSongSearchSheet({required this.track, required this.resolver});
+
+  final Track track;
+  final NeteaseIdResolver resolver;
+
+  @override
+  State<_NeteaseSongSearchSheet> createState() =>
+      _NeteaseSongSearchSheetState();
+}
+
+class _NeteaseSongSearchSheetState extends State<_NeteaseSongSearchSheet> {
+  late final TextEditingController _queryController;
+  bool _includeArtist = true;
+  bool _loading = false;
+  List<NeteaseSongCandidate> _results = const [];
+  String? _message;
+
+  @override
+  void initState() {
+    super.initState();
+    _queryController = TextEditingController(text: widget.track.title);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _performSearch();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _performSearch() async {
+    final keyword = _queryController.text.trim();
+    if (keyword.isEmpty) {
+      setState(() {
+        _results = const [];
+        _message = '请输入歌曲名称后再搜索';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _message = null;
+    });
+
+    final artist = widget.track.artist.trim();
+    final normalizedArtist =
+        !_includeArtist ||
+            artist.isEmpty ||
+            artist.toLowerCase() == 'unknown artist'
+        ? null
+        : artist;
+
+    final results = await widget.resolver.searchCandidates(
+      keyword: keyword,
+      artist: normalizedArtist,
+      limit: 20,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _loading = false;
+      _results = results;
+      _message = results.isEmpty ? '未找到匹配结果，请尝试调整关键词。' : null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitleStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.textTheme.bodySmall?.color?.withOpacity(0.85),
+    );
+
+    return PlaylistModalScaffold(
+      title: '从网络选择歌曲',
+      body: SizedBox(
+        width: double.infinity,
+        height: 380,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '当前歌曲：${widget.track.title} - ${widget.track.artist}',
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: CupertinoSearchTextField(
+                    controller: _queryController,
+                    onSubmitted: (_) => _performSearch(),
+                    placeholder: '输入关键词搜索网络歌曲',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                CupertinoButton.filled(
+                  onPressed: _loading ? null : _performSearch,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
+                  child: _loading
+                      ? const CupertinoActivityIndicator(radius: 10)
+                      : const Text('搜索'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                CupertinoSwitch(
+                  value: _includeArtist,
+                  onChanged: (value) {
+                    setState(() => _includeArtist = value);
+                    _performSearch();
+                  },
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text('匹配时包含歌手名称，以提高准确度', style: subtitleStyle)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CupertinoActivityIndicator())
+                  : _buildResultList(theme),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        SheetActionButton.secondary(
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+      maxWidth: 560,
+    );
+  }
+
+  Widget _buildResultList(ThemeData theme) {
+    if (_message != null) {
+      return Center(child: Text(_message!, style: theme.textTheme.bodyMedium));
+    }
+
+    if (_results.isEmpty) {
+      return Center(child: Text('暂无匹配结果', style: theme.textTheme.bodyMedium));
+    }
+
+    return ListView.separated(
+      padding: EdgeInsets.zero,
+      itemBuilder: (context, index) {
+        final candidate = _results[index];
+        return _NeteaseCandidateTile(
+          candidate: candidate,
+          onTap: () => Navigator.of(context).pop(candidate),
+        );
+      },
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemCount: _results.length,
+    );
+  }
+}
+
+class _NeteaseCandidateTile extends StatelessWidget {
+  const _NeteaseCandidateTile({required this.candidate, required this.onTap});
+
+  final NeteaseSongCandidate candidate;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final borderColor = theme.colorScheme.outline.withOpacity(0.2);
+    final subtitleStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
+    );
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withOpacity(0.45),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    candidate.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(candidate.durationLabel, style: theme.textTheme.bodySmall),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(candidate.displayArtists, style: theme.textTheme.bodyMedium),
+            if (candidate.album.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text('专辑：${candidate.album}', style: subtitleStyle),
+            ],
+            if (candidate.aliasLabel != null &&
+                candidate.aliasLabel!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('别名：${candidate.aliasLabel}', style: subtitleStyle),
+              ),
+          ],
+        ),
       ),
     );
   }

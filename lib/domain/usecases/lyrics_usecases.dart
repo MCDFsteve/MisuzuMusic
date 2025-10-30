@@ -1,4 +1,5 @@
 import '../entities/lyrics_entities.dart';
+import '../entities/music_entities.dart';
 import '../repositories/lyrics_repository.dart';
 
 class GetLyrics {
@@ -46,16 +47,9 @@ class FetchOnlineLyrics {
 
   FetchOnlineLyrics(this._repository);
 
-  Future<Lyrics?> call({
-    required String trackId,
-    required String title,
-    String? artist,
-    bool cloudOnly = false,
-  }) async {
+  Future<Lyrics?> call({required Track track, bool cloudOnly = false}) async {
     return await _repository.fetchOnlineLyrics(
-      trackId: trackId,
-      title: title,
-      artist: artist,
+      track: track,
       cloudOnly: cloudOnly,
     );
   }

@@ -190,11 +190,7 @@ class NeteaseApiClient {
       final response = await _dio.get(
         '/playlist/tracks',
         options: _authOptions(cookie),
-        queryParameters: {
-          'op': 'add',
-          'pid': playlistId,
-          'tracks': trackId,
-        },
+        queryParameters: {'op': 'add', 'pid': playlistId, 'tracks': trackId},
       );
       final data = response.data;
       if (data is Map && (data['code'] == 200 || data['status'] == 200)) {
@@ -255,6 +251,109 @@ class NeteaseApiClient {
     } catch (e) {
       print('⚠️ NeteaseApiClient: 搜索歌曲失败 -> $e');
       return null;
+    }
+  }
+
+  Future<List<NeteaseSongCandidate>> searchSongCandidates({
+    required String keyword,
+    String? artist,
+    int limit = 10,
+  }) async {
+    final combined = _buildKeywords(title: keyword, artist: artist);
+    if (combined.isEmpty) {
+      return const [];
+    }
+    try {
+      final response = await _dio.get(
+        '/search',
+        queryParameters: {'keywords': combined, 'limit': limit.clamp(1, 50)},
+      );
+      final data = response.data;
+      if (data is! Map) {
+        return const [];
+      }
+      final result = data['result'];
+      if (result is! Map) {
+        return const [];
+      }
+      final songs = result['songs'];
+      if (songs is! List) {
+        return const [];
+      }
+      final candidates = <NeteaseSongCandidate>[];
+      for (final entry in songs) {
+        if (entry is! Map) {
+          continue;
+        }
+        final idRaw = entry['id'];
+        final id = switch (idRaw) {
+          int value => value,
+          num value => value.toInt(),
+          String value => int.tryParse(value),
+          _ => null,
+        };
+        if (id == null) {
+          continue;
+        }
+
+        final title = (entry['name'] as String?)?.trim();
+        if (title == null || title.isEmpty) {
+          continue;
+        }
+
+        final artistsPayload =
+            entry['ar'] as List? ?? entry['artists'] as List? ?? const [];
+        final artists = <String>[];
+        for (final artistEntry in artistsPayload) {
+          if (artistEntry is Map && artistEntry['name'] is String) {
+            final name = (artistEntry['name'] as String).trim();
+            if (name.isNotEmpty) {
+              artists.add(name);
+            }
+          }
+        }
+        if (artists.isEmpty) {
+          artists.add('未知艺人');
+        }
+
+        final albumPayload = entry['al'] ?? entry['album'];
+        String albumName = '未知专辑';
+        if (albumPayload is Map && albumPayload['name'] is String) {
+          final name = (albumPayload['name'] as String).trim();
+          if (name.isNotEmpty) {
+            albumName = name;
+          }
+        }
+
+        final aliasesRaw =
+            entry['alia'] as List? ?? entry['alias'] as List? ?? const [];
+        final aliases = aliasesRaw
+            .whereType<String>()
+            .map((alias) => alias.trim())
+            .where((alias) => alias.isNotEmpty)
+            .toList();
+
+        final durationMs =
+            (entry['dt'] as num?)?.toInt() ??
+            (entry['duration'] as num?)?.toInt() ??
+            0;
+
+        candidates.add(
+          NeteaseSongCandidate(
+            id: id,
+            title: title,
+            artists: artists,
+            album: albumName,
+            durationMs: durationMs,
+            aliases: aliases,
+          ),
+        );
+      }
+      return candidates;
+    } catch (error) {
+      // ignore: avoid_print
+      print('⚠️ NeteaseApiClient: 搜索歌曲列表失败 -> $error');
+      return const [];
     }
   }
 

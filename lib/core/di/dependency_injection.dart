@@ -19,6 +19,8 @@ import '../../data/services/misuzu_audio_handler.dart';
 import '../../data/services/cloud_playlist_api.dart';
 import '../../data/services/remote_lyrics_api.dart';
 import '../../data/services/song_detail_service.dart';
+import '../../data/services/song_id_mapping_service.dart';
+import '../../data/services/netease_id_resolver.dart';
 import '../../data/datasources/remote/netease_api_client.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/netease_repository.dart';
@@ -72,6 +74,13 @@ class DependencyInjection {
       // Repositories
       print('📚 注册仓库...');
       sl.registerLazySingleton<NeteaseApiClient>(() => NeteaseApiClient());
+      sl.registerLazySingleton(() => SongIdMappingService());
+      sl.registerLazySingleton(
+        () => NeteaseIdResolver(
+          mappingService: sl(),
+          neteaseApiClient: sl(),
+        ),
+      );
       sl.registerLazySingleton(() => CloudPlaylistApi());
       sl.registerLazySingleton(() => RemoteLyricsApi());
       sl.registerLazySingleton(() => SongDetailService());
@@ -81,6 +90,7 @@ class DependencyInjection {
           localDataSource: sl(),
           configStore: sl(),
           neteaseApiClient: sl(),
+          neteaseIdResolver: sl(),
           cloudPlaylistApi: sl(),
         ),
       );
@@ -94,6 +104,7 @@ class DependencyInjection {
           localDataSource: sl(),
           neteaseApiClient: sl(),
           remoteLyricsApi: sl(),
+          neteaseIdResolver: sl(),
         ),
       );
 

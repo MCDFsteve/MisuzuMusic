@@ -26,12 +26,14 @@ import '../models/music_models.dart';
 import '../models/webdav_bundle.dart';
 import '../models/webdav_models.dart';
 import '../services/cloud_playlist_api.dart';
+import '../services/netease_id_resolver.dart';
 import '../../core/constants/app_constants.dart';
 
 class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   final MusicLocalDataSource _localDataSource;
   final BinaryConfigStore _configStore;
   final NeteaseApiClient _neteaseApiClient;
+  final NeteaseIdResolver _neteaseIdResolver;
   final CloudPlaylistApi _cloudPlaylistApi;
   final Uuid _uuid = const Uuid();
   static const Set<String> _supportedAudioExtensions = {
@@ -60,10 +62,12 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     required MusicLocalDataSource localDataSource,
     required BinaryConfigStore configStore,
     required NeteaseApiClient neteaseApiClient,
+    required NeteaseIdResolver neteaseIdResolver,
     required CloudPlaylistApi cloudPlaylistApi,
   }) : _localDataSource = localDataSource,
        _configStore = configStore,
        _neteaseApiClient = neteaseApiClient,
+       _neteaseIdResolver = neteaseIdResolver,
        _cloudPlaylistApi = cloudPlaylistApi;
 
   final Map<String, String?> _neteaseArtworkCache = {};
@@ -171,6 +175,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       artist: track.artist,
       album: track.album,
       previousArtworkPath: track.artworkPath,
+      track: track,
     );
 
     if (path == null || path.isEmpty) {
@@ -350,10 +355,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       if (bytes == null) {
         throw DatabaseException('未找到要上传的歌单', playlistId);
       }
-      await _cloudPlaylistApi.uploadPlaylist(
-        remoteId: remoteId,
-        bytes: bytes,
-      );
+      await _cloudPlaylistApi.uploadPlaylist(remoteId: remoteId, bytes: bytes);
     } on AppException {
       rethrow;
     } catch (e) {
@@ -608,10 +610,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
     try {
       final listUri = resolvedBase.replace(
-        queryParameters: {
-          'action': 'list',
-          'code': normalizedCode,
-        },
+        queryParameters: {'action': 'list', 'code': normalizedCode},
       );
 
       final payload = await _fetchMysteryJson(client, listUri);
@@ -644,29 +643,34 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         final relativePath = _normalizeMysteryRelativePath(relativeValue);
         final metadata =
             (rawTrack['metadata'] as Map<String, dynamic>?) ?? const {};
-        final tags =
-            (metadata['tags'] as Map<String, dynamic>?) ?? const {};
+        final tags = (metadata['tags'] as Map<String, dynamic>?) ?? const {};
 
-        final trackId =
-            sha1.convert(utf8.encode('$sourceId|$relativePath')).toString();
+        final trackId = sha1
+            .convert(utf8.encode('$sourceId|$relativePath'))
+            .toString();
         final existing = existingById[trackId];
 
-        final title = _readNonEmptyString(metadata['title']) ??
+        final title =
+            _readNonEmptyString(metadata['title']) ??
             path.basenameWithoutExtension(relativePath);
-        final artist = _readNonEmptyString(metadata['artist']) ??
+        final artist =
+            _readNonEmptyString(metadata['artist']) ??
             _readNonEmptyString(tags['artist']) ??
             _readNonEmptyString(tags['album_artist']) ??
             'Unknown Artist';
-        final album = _readNonEmptyString(metadata['album']) ??
+        final album =
+            _readNonEmptyString(metadata['album']) ??
             _readNonEmptyString(tags['album']) ??
             'Unknown Album';
 
         final duration = _parseMysteryDuration(metadata, existing?.duration);
         final trackNumber =
-            _parseNullableInt(tags['track']) ?? _parseNullableInt(tags['tracknumber']);
-        final year = _parseNullableInt(tags['year']) ??
-            _parseNullableInt(tags['date']);
-        final genre = _readNonEmptyString(metadata['genre']) ??
+            _parseNullableInt(tags['track']) ??
+            _parseNullableInt(tags['tracknumber']);
+        final year =
+            _parseNullableInt(tags['year']) ?? _parseNullableInt(tags['date']);
+        final genre =
+            _readNonEmptyString(metadata['genre']) ??
             _readNonEmptyString(tags['genre']);
 
         final coverRemote = rawTrack['cover_path'] as String?;
@@ -697,8 +701,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         headers.remove(MysteryLibraryConstants.headerCoverLocal);
         headers.remove(MysteryLibraryConstants.headerThumbnailLocal);
 
-        final contentHash =
-            existing?.contentHash ?? trackId;
+        final contentHash = existing?.contentHash ?? trackId;
 
         final model = TrackModel(
           id: trackId,
@@ -1268,6 +1271,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           artist: artist,
           album: album,
           previousArtworkPath: existingTrack?.artworkPath,
+          track: existingTrack?.toEntity(),
         );
       }
 
@@ -1373,6 +1377,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     required String artist,
     required String album,
     String? previousArtworkPath,
+    Track? track,
   }) async {
     final normalizedTitle = title.trim().toLowerCase();
     if (normalizedTitle.isEmpty) {
@@ -1380,49 +1385,58 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     }
 
     final normalizedArtist = artist.trim().toLowerCase();
-    final key = '$normalizedTitle::$normalizedArtist';
-    if (_neteaseArtworkCache.containsKey(key)) {
-      return _neteaseArtworkCache[key];
+    final cacheKey =
+        track?.contentHash ?? '$normalizedTitle::$normalizedArtist';
+    if (_neteaseArtworkCache.containsKey(cacheKey)) {
+      return _neteaseArtworkCache[cacheKey];
     }
 
     try {
-      String? artistQuery = artist.trim();
-      if (artistQuery.isEmpty ||
-          artistQuery.toLowerCase() == 'unknown artist') {
-        artistQuery = null;
+      int? songId;
+      if (track != null) {
+        final resolution = await _neteaseIdResolver.resolve(track: track);
+        songId = resolution?.id;
       }
 
-      int? songId = await _neteaseApiClient.searchSongId(
-        title: title,
-        artist: artistQuery,
-      );
-
       if (songId == null) {
+        String? artistQuery = artist.trim();
+        if (artistQuery.isEmpty ||
+            artistQuery.toLowerCase() == 'unknown artist') {
+          artistQuery = null;
+        }
+
         songId = await _neteaseApiClient.searchSongId(
           title: title,
-          artist: null,
+          artist: artistQuery,
         );
-      }
 
-      if (songId == null) {
-        final trimmedAlbum = album.trim();
-        if (trimmedAlbum.isNotEmpty &&
-            trimmedAlbum.toLowerCase() != 'unknown album') {
+        if (songId == null) {
           songId = await _neteaseApiClient.searchSongId(
-            title: trimmedAlbum,
-            artist: artistQuery,
+            title: title,
+            artist: null,
           );
+        }
+
+        if (songId == null) {
+          final trimmedAlbum = album.trim();
+          if (trimmedAlbum.isNotEmpty &&
+              trimmedAlbum.toLowerCase() != 'unknown album') {
+            songId = await _neteaseApiClient.searchSongId(
+              title: trimmedAlbum,
+              artist: artistQuery,
+            );
+          }
         }
       }
 
       if (songId == null) {
-        _neteaseArtworkCache[key] = null;
+        _neteaseArtworkCache[cacheKey] = null;
         return null;
       }
 
       final coverUrl = await _neteaseApiClient.fetchSongCoverUrl(songId);
       if (coverUrl == null || coverUrl.isEmpty) {
-        _neteaseArtworkCache[key] = null;
+        _neteaseArtworkCache[cacheKey] = null;
         return null;
       }
 
@@ -1432,7 +1446,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
       final imageBytes = await _neteaseApiClient.downloadImage(optimizedUrl);
       if (imageBytes == null || imageBytes.isEmpty) {
-        _neteaseArtworkCache[key] = null;
+        _neteaseArtworkCache[cacheKey] = null;
         return null;
       }
 
@@ -1442,11 +1456,11 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         fileExtension: '.jpg',
       );
 
-      _neteaseArtworkCache[key] = savedPath;
+      _neteaseArtworkCache[cacheKey] = savedPath;
       return savedPath;
     } catch (e) {
       print('⚠️ MusicLibraryRepository: 网络歌曲封面获取失败 -> $e');
-      _neteaseArtworkCache[key] = null;
+      _neteaseArtworkCache[cacheKey] = null;
       return null;
     }
   }
@@ -1514,17 +1528,17 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     final response = await request.close();
     final body = await response.transform(utf8.decoder).join();
-    final rawPreview = body.length > 360 ? '${body.substring(0, 360)}...' : body;
+    final rawPreview = body.length > 360
+        ? '${body.substring(0, 360)}...'
+        : body;
     print('🕵️ Mystery: 响应预览 -> $rawPreview');
     if (response.statusCode != HttpStatus.ok) {
-      throw NetworkException(
-        '神秘代码请求失败',
-        'HTTP ${response.statusCode}',
-      );
+      throw NetworkException('神秘代码请求失败', 'HTTP ${response.statusCode}');
     }
     final cleaned = _sanitizeMysteryResponseBody(body);
-    final cleanedPreview =
-        cleaned.length > 360 ? '${cleaned.substring(0, 360)}...' : cleaned;
+    final cleanedPreview = cleaned.length > 360
+        ? '${cleaned.substring(0, 360)}...'
+        : cleaned;
     print('🕵️ Mystery: 清理后响应预览 -> $cleanedPreview');
     try {
       final decoded = json.decode(cleaned);
@@ -1643,7 +1657,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     }
 
     if (durationMs == null) {
-      final seconds = _parseNullableDouble(metadata['duration']) ??
+      final seconds =
+          _parseNullableDouble(metadata['duration']) ??
           _parseNullableDouble(tags['duration']);
       if (seconds != null) {
         durationMs = (seconds * 1000).round();

@@ -1,4 +1,5 @@
 import '../entities/lyrics_entities.dart';
+import '../entities/music_entities.dart';
 
 // Repository interface for lyrics operations
 abstract class LyricsRepository {
@@ -22,9 +23,7 @@ abstract class LyricsRepository {
 
   // Fetch lyrics from remote provider when local file is missing
   Future<Lyrics?> fetchOnlineLyrics({
-    required String trackId,
-    required String title,
-    String? artist,
+    required Track track,
     bool cloudOnly = false,
   });
 }

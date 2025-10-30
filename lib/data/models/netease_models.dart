@@ -218,9 +218,8 @@ class NeteaseTrackModel {
   }
 
   factory NeteaseTrackModel.fromTrack(Track track) {
-    final neteaseId = int.tryParse(
-          track.sourceId ?? track.id.replaceFirst('netease_', ''),
-        ) ??
+    final neteaseId =
+        int.tryParse(track.sourceId ?? track.id.replaceFirst('netease_', '')) ??
         0;
     return NeteaseTrackModel(
       id: neteaseId,
@@ -262,6 +261,35 @@ class NeteaseTrackModel {
       contentHash: 'netease_$id',
     );
   }
+}
+
+class NeteaseSongCandidate {
+  const NeteaseSongCandidate({
+    required this.id,
+    required this.title,
+    required this.artists,
+    required this.album,
+    required this.durationMs,
+    this.aliases = const [],
+  });
+
+  final int id;
+  final String title;
+  final List<String> artists;
+  final String album;
+  final int durationMs;
+  final List<String> aliases;
+
+  String get displayArtists => artists.join(', ');
+
+  String get durationLabel {
+    final totalSeconds = durationMs ~/ 1000;
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String? get aliasLabel => aliases.isEmpty ? null : aliases.first;
 }
 
 class NeteaseTrackStreamInfo {

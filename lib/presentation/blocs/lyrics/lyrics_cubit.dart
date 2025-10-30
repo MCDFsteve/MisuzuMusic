@@ -27,13 +27,20 @@ class LyricsCubit extends Cubit<LyricsState> {
   final GetLyrics _getLyrics;
   String? _activeTrackId;
 
-  Future<void> loadLyricsForTrack(Track track) async {
+  Future<void> loadLyricsForTrack(
+    Track track, {
+    bool forceRemote = false,
+  }) async {
     if (isClosed) return;
     final String requestTrackId = track.id;
     _activeTrackId = requestTrackId;
     emit(const LyricsLoading());
     try {
-      final lyricsFromFile = await _loadLyricsFromAssociatedFile(track);
+      final bool skipLocalSources = forceRemote;
+
+      final lyricsFromFile = skipLocalSources
+          ? null
+          : await _loadLyricsFromAssociatedFile(track);
       if (_shouldAbort(requestTrackId)) return;
 
       // Always attempt to refresh from cloud so server updates are reflected
@@ -45,18 +52,22 @@ class LyricsCubit extends Cubit<LyricsState> {
         return;
       }
 
-      if (lyricsFromFile != null && lyricsFromFile.lines.isNotEmpty) {
+      if (!skipLocalSources &&
+          lyricsFromFile != null &&
+          lyricsFromFile.lines.isNotEmpty) {
         print('🎼 LyricsCubit: 使用本地歌词');
         emit(LyricsLoaded(_withSource(lyricsFromFile, LyricsSource.local)));
         return;
       }
 
-      final cached = await _getLyrics(track.id);
-      if (_shouldAbort(requestTrackId)) return;
-      if (cached != null && cached.lines.isNotEmpty) {
-        print('🎼 LyricsCubit: 使用缓存歌词');
-        emit(LyricsLoaded(_withSource(cached, LyricsSource.cached)));
-        return;
+      if (!skipLocalSources) {
+        final cached = await _getLyrics(track.id);
+        if (_shouldAbort(requestTrackId)) return;
+        if (cached != null && cached.lines.isNotEmpty) {
+          print('🎼 LyricsCubit: 使用缓存歌词');
+          emit(LyricsLoaded(_withSource(cached, LyricsSource.cached)));
+          return;
+        }
       }
 
       final onlineLyrics = await _loadLyricsFromOnline(track);
@@ -147,9 +158,7 @@ class LyricsCubit extends Cubit<LyricsState> {
 
     try {
       final lyrics = await _fetchOnlineLyrics(
-        trackId: track.id,
-        title: title,
-        artist: track.artist.trim().isEmpty ? null : track.artist,
+        track: track,
         cloudOnly: cloudOnly,
       );
       if (lyrics != null) {

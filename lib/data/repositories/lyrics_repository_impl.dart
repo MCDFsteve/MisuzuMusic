@@ -4,24 +4,29 @@ import 'package:path/path.dart' as path;
 
 import '../../core/error/exceptions.dart';
 import '../../domain/entities/lyrics_entities.dart';
+import '../../domain/entities/music_entities.dart';
 import '../../domain/repositories/lyrics_repository.dart';
 import '../datasources/local/lyrics_local_datasource.dart';
 import '../datasources/remote/netease_api_client.dart';
 import '../models/lyrics_models.dart';
+import '../services/netease_id_resolver.dart';
 import '../services/remote_lyrics_api.dart';
 
 class LyricsRepositoryImpl implements LyricsRepository {
   final LyricsLocalDataSource _localDataSource;
   final NeteaseApiClient _neteaseApiClient;
   final RemoteLyricsApi _remoteLyricsApi;
+  final NeteaseIdResolver _neteaseIdResolver;
 
   LyricsRepositoryImpl({
     required LyricsLocalDataSource localDataSource,
     required NeteaseApiClient neteaseApiClient,
     required RemoteLyricsApi remoteLyricsApi,
-  })  : _localDataSource = localDataSource,
-        _neteaseApiClient = neteaseApiClient,
-        _remoteLyricsApi = remoteLyricsApi;
+    required NeteaseIdResolver neteaseIdResolver,
+  }) : _localDataSource = localDataSource,
+       _neteaseApiClient = neteaseApiClient,
+       _remoteLyricsApi = remoteLyricsApi,
+       _neteaseIdResolver = neteaseIdResolver;
 
   @override
   Future<Lyrics?> getLyricsByTrackId(String trackId) async {
@@ -220,38 +225,28 @@ class LyricsRepositoryImpl implements LyricsRepository {
 
   @override
   Future<Lyrics?> fetchOnlineLyrics({
-    required String trackId,
-    required String title,
-    String? artist,
+    required Track track,
     bool cloudOnly = false,
   }) async {
-    final trimmedTitle = title.trim();
+    final trimmedTitle = track.title.trim();
     if (trimmedTitle.isEmpty) {
       return null;
     }
 
     try {
       if (cloudOnly) {
-        return await _fetchLyricsFromRemoteLibrary(
-          trackId: trackId,
-          title: trimmedTitle,
-          artist: artist,
-        );
+        return await _fetchLyricsFromRemoteLibrary(track: track);
       }
 
       final Lyrics? remoteLyrics = await _fetchLyricsFromRemoteLibrary(
-        trackId: trackId,
-        title: trimmedTitle,
-        artist: artist,
+        track: track,
       );
       if (remoteLyrics != null) {
         return remoteLyrics;
       }
 
-      final songId = await _neteaseApiClient.searchSongId(
-        title: trimmedTitle,
-        artist: artist?.trim(),
-      );
+      final resolution = await _neteaseIdResolver.resolve(track: track);
+      final songId = resolution?.id;
       if (songId == null) {
         return null;
       }
@@ -271,27 +266,19 @@ class LyricsRepositoryImpl implements LyricsRepository {
         return null;
       }
 
-      print('🎼 LyricsRepository: 使用网络歌曲歌词 -> songId=$songId');
+      print('🎼 LyricsRepository: 使用歌词 -> songId=$songId');
       _logLyricsPreview(mergedLines);
       await saveLyrics(
-        Lyrics(
-          trackId: trackId,
-          lines: mergedLines,
-          format: LyricsFormat.lrc,
-        ),
+        Lyrics(trackId: track.id, lines: mergedLines, format: LyricsFormat.lrc),
       );
-      return await getLyricsByTrackId(trackId);
+      return await getLyricsByTrackId(track.id);
     } catch (e) {
       print('⚠️ LyricsRepository: 在线歌词获取失败 -> $e');
       return null;
     }
   }
 
-  Future<Lyrics?> _fetchLyricsFromRemoteLibrary({
-    required String trackId,
-    required String title,
-    String? artist,
-  }) async {
+  Future<Lyrics?> _fetchLyricsFromRemoteLibrary({required Track track}) async {
     try {
       final available = await _remoteLyricsApi.listAvailableLyrics();
       if (available.isEmpty) {
@@ -320,7 +307,10 @@ class LyricsRepositoryImpl implements LyricsRepository {
         normalizedMap.putIfAbsent(key, () => []).add(file);
       }
 
-      final candidateKeys = _buildCandidateKeys(title, artist);
+      final candidateKeys = _buildCandidateKeys(
+        track.title,
+        track.artist.trim().isEmpty ? null : track.artist,
+      );
       for (var candidate in candidateKeys) {
         if (!candidate.toLowerCase().endsWith('.lrc')) {
           candidate = '$candidate.lrc';
@@ -332,7 +322,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
           orElse: () => const MapEntry<String, String>('', ''),
         );
 
-        String? matchedFile = directEntry.key.isNotEmpty ? directEntry.key : null;
+        String? matchedFile = directEntry.key.isNotEmpty
+            ? directEntry.key
+            : null;
         if (matchedFile == null) {
           final normalizedKey = _sanitizeForComparison(
             candidate.substring(0, candidate.length - 4),
@@ -359,20 +351,22 @@ class LyricsRepositoryImpl implements LyricsRepository {
           continue;
         }
         print('🎼 LyricsRepository: 使用云端歌词 -> $matchedFile');
-        print('--- Cloud LRC Raw ---\n${content.split('\n').take(20).join('\n')}\n---------------------');
+        print(
+          '--- Cloud LRC Raw ---\n${content.split('\n').take(20).join('\n')}\n---------------------',
+        );
         _debugPrintAnnotations(parsedLines);
         _logLyricsPreview(parsedLines);
         await saveLyrics(
           Lyrics(
-            trackId: trackId,
+            trackId: track.id,
             lines: parsedLines,
             format: LyricsFormat.lrc,
           ),
         );
-        return await getLyricsByTrackId(trackId);
+        return await getLyricsByTrackId(track.id);
       }
 
-      final fallbackKey = _sanitizeForComparison(title);
+      final fallbackKey = _sanitizeForComparison(track.title);
       if (fallbackKey.isEmpty) {
         return null;
       }
@@ -384,7 +378,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
         return null;
       }
 
-      final content = await _remoteLyricsApi.fetchLyrics(looseEntry.value.first);
+      final content = await _remoteLyricsApi.fetchLyrics(
+        looseEntry.value.first,
+      );
       if (content == null || content.trim().isEmpty) {
         return null;
       }
@@ -394,17 +390,15 @@ class LyricsRepositoryImpl implements LyricsRepository {
         return null;
       }
       print('🎼 LyricsRepository: 使用云端歌词(模糊匹配) -> ${looseEntry.value.first}');
-      print('--- Cloud LRC Raw ---\n${content.split('\n').take(20).join('\n')}\n---------------------');
+      print(
+        '--- Cloud LRC Raw ---\n${content.split('\n').take(20).join('\n')}\n---------------------',
+      );
       _debugPrintAnnotations(parsedLines);
       _logLyricsPreview(parsedLines);
       await saveLyrics(
-        Lyrics(
-          trackId: trackId,
-          lines: parsedLines,
-          format: LyricsFormat.lrc,
-          ),
-        );
-      return await getLyricsByTrackId(trackId);
+        Lyrics(trackId: track.id, lines: parsedLines, format: LyricsFormat.lrc),
+      );
+      return await getLyricsByTrackId(track.id);
     } catch (e) {
       print('⚠️ LyricsRepository: 云歌词获取失败 -> $e');
       return null;
@@ -428,8 +422,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
     };
 
     final normalizedTitle = _sanitizeForComparison(trimmedTitle);
-    final normalizedArtist =
-        trimmedArtist == null ? '' : _sanitizeForComparison(trimmedArtist);
+    final normalizedArtist = trimmedArtist == null
+        ? ''
+        : _sanitizeForComparison(trimmedArtist);
 
     if (normalizedTitle.isNotEmpty) {
       candidates.add(normalizedTitle);
@@ -490,7 +485,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
     final sample = lines.take(3);
     for (final line in sample) {
       for (final seg in line.annotatedTexts) {
-        print('🔍 seg original="${seg.original}" annotation="${seg.annotation}" codeUnits=${seg.annotation.codeUnits}');
+        print(
+          '🔍 seg original="${seg.original}" annotation="${seg.annotation}" codeUnits=${seg.annotation.codeUnits}',
+        );
       }
     }
   }

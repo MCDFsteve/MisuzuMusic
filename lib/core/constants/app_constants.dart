@@ -28,7 +28,8 @@ class AppConstants {
       'https://nipaplay.aimes-soft.com/lyrics_service.php';
   static const String songDetailEndpoint =
       'https://nipaplay.aimes-soft.com/song_detail.php';
-
+  static const String songIdMappingEndpoint =
+      'https://nipaplay.aimes-soft.com/song_id_service.php';
 
   // Settings Keys
   static const String settingsVolume = 'volume';
@@ -45,25 +46,11 @@ class AppConstants {
   static const String mecabDictPath = 'assets/mecab_dict';
 }
 
-enum PlayMode {
-  repeatAll,
-  repeatOne,
-  shuffle,
-}
+enum PlayMode { repeatAll, repeatOne, shuffle }
 
-enum PlayerState {
-  playing,
-  paused,
-  stopped,
-  loading,
-}
+enum PlayerState { playing, paused, stopped, loading }
 
-enum TextType {
-  kanji,
-  katakana,
-  hiragana,
-  other,
-}
+enum TextType { kanji, katakana, hiragana, other }
 
 enum TrackSortMode {
   titleAZ,
