@@ -1817,7 +1817,7 @@ class _LyricsPanel extends StatelessWidget {
                   Positioned.fill(child: content),
                   Positioned(
                     bottom: 190,
-                    right: 12,
+                    right: 6,
                     child: _ReportErrorButton(
                       isDarkMode: isDarkMode,
                       onPressed: onReportError,
@@ -1825,7 +1825,7 @@ class _LyricsPanel extends StatelessWidget {
                   ),
                   Positioned(
                     bottom: 130,
-                    right: 12,
+                    right: 6,
                     child: _DownloadLrcButton(
                       isDarkMode: isDarkMode,
                       isEnabled: state is LyricsLoaded,
@@ -1834,7 +1834,7 @@ class _LyricsPanel extends StatelessWidget {
                   ),
                   Positioned(
                     bottom: 75,
-                    right: 12,
+                    right: 6,
                     child: _DesktopLyricsToggleButton(
                       isDarkMode: isDarkMode,
                       isActive: isDesktopLyricsActive,
@@ -1844,7 +1844,7 @@ class _LyricsPanel extends StatelessWidget {
                   ),
                   Positioned(
                     bottom: 20,
-                    right: 12,
+                    right: 6,
                     child: _TranslationToggleButton(
                       isDarkMode: isDarkMode,
                       isActive: showTranslation,
