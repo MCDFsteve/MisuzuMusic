@@ -417,27 +417,43 @@ class _HomePageContentState extends State<HomePageContent> {
                   return Stack(
                     children: [
                       Positioned.fill(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 500),
-                          switchInCurve: Curves.easeOut,
-                          switchOutCurve: Curves.easeIn,
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(opacity: animation, child: child),
-                          child: artworkSource.hasSource
-                              ? _BlurredArtworkBackground(
-                                  key: ValueKey<String>(artworkSource.cacheKey),
-                                  artworkPath: artworkSource.localPath,
-                                  remoteImageUrl: artworkSource.remoteUrl,
-                                  isDarkMode:
-                                      MacosTheme.of(context).brightness ==
-                                      Brightness.dark,
-                                )
-                              : Container(
-                                  key: const ValueKey<String>(
-                                    'default_background',
-                                  ),
-                                  color: MacosTheme.of(context).canvasColor,
-                                ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Container(
+                              color: MacosTheme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.black
+                                  : MacosTheme.of(context).canvasColor,
+                            ),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 500),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              ),
+                              child: artworkSource.hasSource
+                                  ? _BlurredArtworkBackground(
+                                      key: ValueKey<String>(
+                                        artworkSource.cacheKey,
+                                      ),
+                                      artworkPath: artworkSource.localPath,
+                                      remoteImageUrl: artworkSource.remoteUrl,
+                                      isDarkMode:
+                                          MacosTheme.of(context).brightness ==
+                                          Brightness.dark,
+                                    )
+                                  : Container(
+                                      key: const ValueKey<String>(
+                                        'default_background',
+                                      ),
+                                      color: MacosTheme.of(context).canvasColor,
+                                    ),
+                            ),
+                          ],
                         ),
                       ),
                       Row(
