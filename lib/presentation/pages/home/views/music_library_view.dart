@@ -462,6 +462,7 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
               key: const ValueKey<String>('library_overview'),
               child: CollectionOverviewGrid(
                 itemCount: summariesData.length,
+                scrollbarMargin: EdgeInsets.zero,
                 itemBuilder: (context, tileWidth, index) {
                   final summary = summariesData[index];
                   final subtitle = summary.isWebDav
