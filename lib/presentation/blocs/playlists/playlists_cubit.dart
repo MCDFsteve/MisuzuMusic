@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';
@@ -12,9 +14,9 @@ import '../../../domain/repositories/music_library_repository.dart';
 part 'playlists_state.dart';
 
 class PlaylistsCubit extends Cubit<PlaylistsState> {
-  PlaylistsCubit(this._repository, this._configStore) : super(const PlaylistsState()) {
-    _initializeSortMode();
-    loadPlaylists();
+  PlaylistsCubit(this._repository, this._configStore)
+    : super(const PlaylistsState()) {
+    unawaited(_initialize());
   }
 
   final MusicLibraryRepository _repository;
@@ -23,14 +25,59 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
   static final RegExp _cloudIdPattern = RegExp(r'^[A-Za-z0-9_]{5,}$');
   static const String _cloudIdRuleMessage = '云端ID需至少5位，只能包含字母、数字或下划线';
 
-  Future<void> _initializeSortMode() async {
+  Future<void> _initialize() async {
     try {
       await _configStore.init();
-      final sortModeString = _configStore.getValue<String>(StorageKeys.playlistSortMode);
+    } catch (e) {
+      print('❌ PlaylistsCubit: 初始化配置存储失败: $e');
+    }
+    await _initializeSortMode();
+    await _loadAutoSyncSettings();
+    await loadPlaylists();
+    unawaited(_pullAutoSyncedPlaylistsFromCloud());
+  }
+
+  Future<void> _initializeSortMode() async {
+    try {
+      final sortModeString = _configStore.getValue<String>(
+        StorageKeys.playlistSortMode,
+      );
       final sortMode = TrackSortModeExtension.fromStorageString(sortModeString);
       emit(state.copyWith(sortMode: sortMode));
     } catch (e) {
       print('❌ PlaylistsCubit: 加载排序模式失败: $e');
+    }
+  }
+
+  Future<void> _loadAutoSyncSettings() async {
+    try {
+      final raw = _configStore.getValue<Map<String, dynamic>>(
+        StorageKeys.playlistAutoSyncSettings,
+      );
+      if (raw == null || raw.isEmpty) {
+        emit(state.copyWith(autoSyncSettings: const {}));
+        return;
+      }
+
+      final parsed = <String, PlaylistAutoSyncConfig>{};
+      var changed = false;
+
+      raw.forEach((key, value) {
+        final config = PlaylistAutoSyncConfig.fromMap(value);
+        if (config != null) {
+          parsed[key] = config;
+        } else {
+          changed = true;
+        }
+      });
+
+      emit(state.copyWith(autoSyncSettings: parsed));
+
+      if (changed || parsed.length != raw.length) {
+        unawaited(_persistAutoSyncSettings(parsed));
+      }
+    } catch (e) {
+      print('❌ PlaylistsCubit: 加载自动同步配置失败: $e');
     }
   }
 
@@ -39,6 +86,64 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
   }
 
   String get cloudIdRuleDescription => _cloudIdRuleMessage;
+
+  PlaylistAutoSyncConfig? autoSyncSettingOf(String playlistId) {
+    return state.autoSyncSettings[playlistId];
+  }
+
+  Future<void> saveAutoSyncSetting({
+    required String playlistId,
+    required PlaylistAutoSyncConfig config,
+  }) async {
+    final trimmedRemoteId = config.remoteId.trim();
+    final updated = Map<String, PlaylistAutoSyncConfig>.from(
+      state.autoSyncSettings,
+    );
+
+    if (trimmedRemoteId.isEmpty) {
+      if (!updated.containsKey(playlistId)) {
+        return;
+      }
+      updated.remove(playlistId);
+    } else {
+      updated[playlistId] = config.copyWith(remoteId: trimmedRemoteId);
+    }
+
+    emit(state.copyWith(autoSyncSettings: updated));
+    await _persistAutoSyncSettings(updated);
+  }
+
+  Future<void> clearAutoSyncSetting(String playlistId) async {
+    if (!state.autoSyncSettings.containsKey(playlistId)) {
+      return;
+    }
+    final updated = Map<String, PlaylistAutoSyncConfig>.from(
+      state.autoSyncSettings,
+    )..remove(playlistId);
+    emit(state.copyWith(autoSyncSettings: updated));
+    await _persistAutoSyncSettings(updated);
+  }
+
+  Future<String?> syncPlaylistFromCloud(
+    String playlistId, {
+    bool force = false,
+  }) async {
+    final config = state.autoSyncSettings[playlistId];
+    if (config == null) {
+      return '尚未配置自动同步';
+    }
+    if (!config.enabled && !force) {
+      return '未启用自动同步';
+    }
+    final remoteId = config.remoteId.trim();
+    if (remoteId.isEmpty) {
+      return '云端ID无效';
+    }
+    return _pullSingleAutoSyncedPlaylist(
+      playlistId: playlistId,
+      remoteId: remoteId,
+    );
+  }
 
   Future<void> changeSortMode(TrackSortMode sortMode) async {
     try {
@@ -54,10 +159,12 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
         sortedPlaylistTracks[entry.key] = _sortTracks(entry.value, sortMode);
       }
 
-      emit(state.copyWith(
-        sortMode: sortMode,
-        playlistTracks: sortedPlaylistTracks,
-      ));
+      emit(
+        state.copyWith(
+          sortMode: sortMode,
+          playlistTracks: sortedPlaylistTracks,
+        ),
+      );
     } catch (e) {
       print('❌ PlaylistsCubit: 更改排序模式失败: $e');
     }
@@ -68,10 +175,14 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
 
     switch (sortMode) {
       case TrackSortMode.titleAZ:
-        sorted.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        sorted.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
         break;
       case TrackSortMode.titleZA:
-        sorted.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        sorted.sort(
+          (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()),
+        );
         break;
       case TrackSortMode.addedNewest:
         sorted.sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
@@ -81,9 +192,9 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
         break;
       case TrackSortMode.artistAZ:
         sorted.sort((a, b) {
-          final artistCompare = a.artist
-              .toLowerCase()
-              .compareTo(b.artist.toLowerCase());
+          final artistCompare = a.artist.toLowerCase().compareTo(
+            b.artist.toLowerCase(),
+          );
           if (artistCompare != 0) {
             return artistCompare;
           }
@@ -92,9 +203,9 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
         break;
       case TrackSortMode.artistZA:
         sorted.sort((a, b) {
-          final artistCompare = b.artist
-              .toLowerCase()
-              .compareTo(a.artist.toLowerCase());
+          final artistCompare = b.artist.toLowerCase().compareTo(
+            a.artist.toLowerCase(),
+          );
           if (artistCompare != 0) {
             return artistCompare;
           }
@@ -103,13 +214,15 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
         break;
       case TrackSortMode.albumAZ:
         sorted.sort((a, b) {
-          final albumCompare = a.album
-              .toLowerCase()
-              .compareTo(b.album.toLowerCase());
+          final albumCompare = a.album.toLowerCase().compareTo(
+            b.album.toLowerCase(),
+          );
           if (albumCompare != 0) {
             return albumCompare;
           }
-          final trackCompare = (a.trackNumber ?? 0).compareTo(b.trackNumber ?? 0);
+          final trackCompare = (a.trackNumber ?? 0).compareTo(
+            b.trackNumber ?? 0,
+          );
           if (trackCompare != 0) {
             return trackCompare;
           }
@@ -118,13 +231,15 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
         break;
       case TrackSortMode.albumZA:
         sorted.sort((a, b) {
-          final albumCompare = b.album
-              .toLowerCase()
-              .compareTo(a.album.toLowerCase());
+          final albumCompare = b.album.toLowerCase().compareTo(
+            a.album.toLowerCase(),
+          );
           if (albumCompare != 0) {
             return albumCompare;
           }
-          final trackCompare = (b.trackNumber ?? 0).compareTo(a.trackNumber ?? 0);
+          final trackCompare = (b.trackNumber ?? 0).compareTo(
+            a.trackNumber ?? 0,
+          );
           if (trackCompare != 0) {
             return trackCompare;
           }
@@ -144,16 +259,44 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
         ..removeWhere(
           (key, value) => playlists.every((playlist) => playlist.id != key),
         );
+      final autoSyncSettings = _pruneAutoSyncSettings(playlists);
       emit(
         state.copyWith(
           isLoading: false,
           playlists: playlists,
           playlistTracks: updatedTracks,
+          autoSyncSettings: autoSyncSettings,
         ),
       );
     } catch (e) {
       emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
     }
+  }
+
+  Map<String, PlaylistAutoSyncConfig> _pruneAutoSyncSettings(
+    List<Playlist> playlists,
+  ) {
+    if (state.autoSyncSettings.isEmpty) {
+      return state.autoSyncSettings;
+    }
+    final validIds = playlists.map((playlist) => playlist.id).toSet();
+    final current = Map<String, PlaylistAutoSyncConfig>.from(
+      state.autoSyncSettings,
+    );
+    final removable = <String>[];
+    for (final entry in current.entries) {
+      if (!validIds.contains(entry.key)) {
+        removable.add(entry.key);
+      }
+    }
+    if (removable.isEmpty) {
+      return state.autoSyncSettings;
+    }
+    for (final id in removable) {
+      current.remove(id);
+    }
+    unawaited(_persistAutoSyncSettings(current));
+    return current;
   }
 
   Future<void> refreshPlaylist(String playlistId) async {
@@ -254,6 +397,7 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
       await loadPlaylists();
       await ensurePlaylistTracks(playlistId, force: true);
       emit(state.copyWith(isProcessing: false, clearError: true));
+      unawaited(_autoUploadIfEnabled(playlistId));
       return true;
     } catch (e) {
       emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
@@ -269,6 +413,7 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
       await loadPlaylists();
       await ensurePlaylistTracks(playlistId, force: true);
       emit(state.copyWith(isProcessing: false, clearError: true));
+      unawaited(_autoUploadIfEnabled(playlistId));
     } catch (e) {
       emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
     }
@@ -323,6 +468,7 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
           clearError: true,
         ),
       );
+      unawaited(_autoUploadIfEnabled(playlistId));
       return true;
     } catch (e) {
       emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
@@ -347,6 +493,7 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
           clearError: true,
         ),
       );
+      await clearAutoSyncSetting(playlistId);
       return true;
     } catch (e) {
       emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
@@ -405,6 +552,92 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
       final message = _resolveErrorMessage(e);
       emit(state.copyWith(isProcessing: false, errorMessage: message));
       return (null, message);
+    }
+  }
+
+  Future<void> _persistAutoSyncSettings(
+    Map<String, PlaylistAutoSyncConfig> settings,
+  ) async {
+    if (settings.isEmpty) {
+      await _configStore.remove(StorageKeys.playlistAutoSyncSettings);
+      return;
+    }
+    final encoded = <String, dynamic>{};
+    settings.forEach((key, value) {
+      encoded[key] = value.toMap();
+    });
+    await _configStore.setValue(StorageKeys.playlistAutoSyncSettings, encoded);
+  }
+
+  Future<void> _pullAutoSyncedPlaylistsFromCloud() async {
+    if (state.autoSyncSettings.isEmpty) {
+      return;
+    }
+    for (final entry in state.autoSyncSettings.entries) {
+      final config = entry.value;
+      if (!config.enabled) {
+        continue;
+      }
+      await _pullSingleAutoSyncedPlaylist(
+        playlistId: entry.key,
+        remoteId: config.remoteId,
+      );
+    }
+  }
+
+  Future<String?> _pullSingleAutoSyncedPlaylist({
+    required String playlistId,
+    required String remoteId,
+  }) async {
+    final trimmed = remoteId.trim();
+    if (trimmed.isEmpty) {
+      return '云端ID无效';
+    }
+    try {
+      final playlist = await _repository.downloadPlaylistFromCloud(trimmed);
+      if (playlist == null) {
+        const message = '云端返回的歌单内容无效';
+        emit(state.copyWith(errorMessage: message));
+        return message;
+      }
+      if (playlist.id != playlistId) {
+        final updated = Map<String, PlaylistAutoSyncConfig>.from(
+          state.autoSyncSettings,
+        );
+        final config = updated.remove(playlistId);
+        if (config != null) {
+          updated[playlist.id] = config;
+          emit(state.copyWith(autoSyncSettings: updated));
+          await _persistAutoSyncSettings(updated);
+        }
+      }
+      await refreshPlaylist(playlist.id);
+      await ensurePlaylistTracks(playlist.id, force: true);
+      return null;
+    } catch (e) {
+      final message = _resolveErrorMessage(e);
+      emit(state.copyWith(errorMessage: message));
+      return message;
+    }
+  }
+
+  Future<void> _autoUploadIfEnabled(String playlistId) async {
+    final config = state.autoSyncSettings[playlistId];
+    if (config == null || !config.enabled) {
+      return;
+    }
+    final remoteId = config.remoteId.trim();
+    if (remoteId.isEmpty) {
+      return;
+    }
+    try {
+      await _repository.uploadPlaylistToCloud(
+        playlistId: playlistId,
+        remoteId: remoteId,
+      );
+    } catch (e) {
+      final message = _resolveErrorMessage(e);
+      emit(state.copyWith(errorMessage: message));
     }
   }
 

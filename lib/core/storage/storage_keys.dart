@@ -14,4 +14,5 @@ class StorageKeys {
   static const webDavPasswords = 'library.webdav_passwords';
   static const musicLibrarySortMode = 'library.sortMode';
   static const playlistSortMode = 'playlist.sortMode';
+  static const playlistAutoSyncSettings = 'playlist.autoSyncSettings';
 }

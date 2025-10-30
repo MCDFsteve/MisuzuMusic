@@ -60,6 +60,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   List<LyricsLine> _activeLyricsLines = const [];
   LyricsLine? _activeDesktopLine;
   int _activeDesktopIndex = -1;
+  String? _lastDesktopActiveText;
   Duration? _currentPosition;
   bool _isPlaying = false;
   String? _lastDesktopPayloadSignature;
@@ -89,6 +90,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
       getLyrics: sl<GetLyrics>(),
     )..loadLyricsForTrack(_currentTrack);
+    _resetDesktopLineCache();
 
     final initialPlayerState = context.read<PlayerBloc>().state;
     _updatePlaybackStateFromPlayer(initialPlayerState, notify: false);
@@ -109,6 +111,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _activeDesktopLine = null;
       _activeDesktopIndex = -1;
       _lastDesktopPayloadSignature = null;
+      _resetDesktopLineCache();
       if (_desktopLyricsActive) {
         _scheduleDesktopLyricsUpdate(force: true);
       }
@@ -132,6 +135,10 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (_lyricsScrollController.hasClients) {
       _lyricsScrollController.jumpTo(0);
     }
+  }
+
+  void _resetDesktopLineCache() {
+    _lastDesktopActiveText = null;
   }
 
   void _resetTrackDetailState() {
@@ -480,12 +487,26 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       includeTranslation: _showTranslation,
     );
 
+    String? activeLine = formattedActive ?? _sanitizeLine(_activeDesktopLine);
+    activeLine = activeLine?.trim();
+    if (activeLine != null && activeLine.isNotEmpty) {
+      _lastDesktopActiveText = activeLine;
+    } else {
+      activeLine = _lastDesktopActiveText;
+    }
+
+    String? nextLine = formattedNext ?? _sanitizeLine(_resolveNextDesktopLine());
+    nextLine = nextLine?.trim();
+    if (nextLine != null && nextLine.isEmpty) {
+      nextLine = null;
+    }
+
     return DesktopLyricsUpdate(
       trackId: track.id,
       title: track.title,
       artist: track.artist,
-      activeLine: formattedActive ?? _sanitizeLine(_activeDesktopLine),
-      nextLine: formattedNext ?? _sanitizeLine(_resolveNextDesktopLine()),
+      activeLine: activeLine,
+      nextLine: nextLine,
       positionMs: _currentPosition?.inMilliseconds,
       isPlaying: _isPlaying,
     );
@@ -762,6 +783,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _activeDesktopLine = null;
       _activeDesktopIndex = -1;
       _lastDesktopPayloadSignature = null;
+      _resetDesktopLineCache();
       if (_desktopLyricsActive) {
         _scheduleDesktopLyricsUpdate(force: true);
       }
@@ -999,6 +1021,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             _activeDesktopIndex = -1;
             _activeDesktopLine = null;
             _lastDesktopPayloadSignature = null;
+            _resetDesktopLineCache();
             _syncDesktopLyricsState();
             if (_desktopLyricsActive) {
               _scheduleDesktopLyricsUpdate(force: true);
@@ -1008,6 +1031,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             _activeDesktopLine = null;
             _activeDesktopIndex = -1;
             _lastDesktopPayloadSignature = null;
+            _resetDesktopLineCache();
             if (_desktopLyricsActive) {
               _scheduleDesktopLyricsUpdate(force: true);
             }

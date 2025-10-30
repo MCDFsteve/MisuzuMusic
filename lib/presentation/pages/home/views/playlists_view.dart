@@ -106,6 +106,11 @@ class _PlaylistsViewState extends State<PlaylistsView> {
         onSelected: () => _editPlaylist(playlist),
       ),
       MacosContextMenuAction(
+        label: '自动同步设置…',
+        icon: CupertinoIcons.arrow_2_squarepath,
+        onSelected: () => _showAutoSyncSettingsDialog(playlist),
+      ),
+      MacosContextMenuAction(
         label: '上传到云',
         icon: CupertinoIcons.cloud_upload,
         onSelected: () => _handleUploadToCloud(playlist),
@@ -153,6 +158,70 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     _showSnack(message!, isError: isError);
   }
 
+  Future<void> _showAutoSyncSettingsDialog(Playlist playlist) async {
+    final playlistsCubit = context.read<PlaylistsCubit>();
+    final currentConfig = playlistsCubit.autoSyncSettingOf(playlist.id);
+    final result = await showPlaylistModalDialog<_PlaylistAutoSyncDialogResult>(
+      context: context,
+      builder: (_) => _PlaylistAutoSyncDialog(
+        playlistName: playlist.name,
+        initialConfig: currentConfig,
+        idRuleDescription: playlistsCubit.cloudIdRuleDescription,
+        validator: playlistsCubit.isValidCloudPlaylistId,
+      ),
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    final trimmedRemoteId = result.remoteId.trim();
+    final shouldClear = result.shouldClear;
+
+    if (shouldClear) {
+      await playlistsCubit.clearAutoSyncSetting(playlist.id);
+      if (currentConfig != null) {
+        _showSnack('已清除自动同步设置');
+      } else {
+        _showSnack('当前没有自动同步设置');
+      }
+      return;
+    }
+
+    final hasChange =
+        currentConfig == null ||
+        currentConfig.remoteId != trimmedRemoteId ||
+        currentConfig.enabled != result.enabled;
+
+    if (hasChange) {
+      await playlistsCubit.saveAutoSyncSetting(
+        playlistId: playlist.id,
+        config: PlaylistAutoSyncConfig(
+          remoteId: trimmedRemoteId,
+          enabled: result.enabled,
+        ),
+      );
+    }
+
+    if (result.enabled) {
+      final error = await playlistsCubit.syncPlaylistFromCloud(
+        playlist.id,
+        force: true,
+      );
+      if (error != null) {
+        _showSnack(error, isError: true);
+        return;
+      }
+      _showSnack(hasChange ? '已开启自动同步，并从云端刷新歌单' : '已从云端刷新自动同步歌单');
+    } else {
+      if (hasChange) {
+        _showSnack('已保存自动同步设置');
+      } else {
+        _showSnack('自动同步设置未变更');
+      }
+    }
+  }
+
   Future<void> _runWithBlockingProgress({
     required String title,
     required Future<void> Function() task,
@@ -190,7 +259,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     messenger?.clearSnackBars();
     messenger?.showSnackBar(
       SnackBar(
-        content: Text(message,locale: Locale("zh-Hans", "zh"),),
+        content: Text(message, locale: Locale("zh-Hans", "zh")),
         backgroundColor: isError ? Colors.redAccent : Colors.green,
         duration: const Duration(seconds: 3),
       ),
@@ -232,7 +301,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                   color: MacosColors.systemGrayColor,
                 ),
                 SizedBox(height: 12),
-                Text('暂无歌单',locale: Locale("zh-Hans", "zh"),),
+                Text('暂无歌单', locale: Locale("zh-Hans", "zh")),
               ],
             ),
           );
@@ -240,8 +309,8 @@ class _PlaylistsViewState extends State<PlaylistsView> {
 
         final filteredPlaylists = hasQuery
             ? playlists
-                .where((playlist) => _matchesPlaylist(playlist, query))
-                .toList()
+                  .where((playlist) => _matchesPlaylist(playlist, query))
+                  .toList()
             : playlists;
 
         if (!_showList) {
@@ -293,21 +362,20 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           orElse: () => playlists.first,
         );
         final tracks = state.playlistTracks[playlist.id];
-        final isLoading = tracks == null;
-
-        if (isLoading) {
+        if (tracks == null) {
           context.read<PlaylistsCubit>().ensurePlaylistTracks(playlist.id);
         }
 
         Widget content;
-        if (isLoading) {
+        if (tracks == null) {
           content = const Center(child: ProgressCircle());
         } else {
+          final List<Track> currentTracks = tracks;
           final List<Track> filteredTracks = hasQuery
-              ? (tracks ?? const [])
-                  .where((track) => _matchesTrack(track, query))
-                  .toList()
-              : (tracks ?? const []);
+              ? currentTracks
+                    .where((track) => _matchesTrack(track, query))
+                    .toList()
+              : currentTracks;
 
           if (hasQuery && filteredTracks.isEmpty) {
             content = const _PlaylistMessage(
@@ -465,5 +533,157 @@ class _PlaylistCoverPreview extends StatelessWidget {
     } catch (_) {
       return placeholder;
     }
+  }
+}
+
+class _PlaylistAutoSyncDialogResult {
+  const _PlaylistAutoSyncDialogResult({
+    required this.remoteId,
+    required this.enabled,
+    this.cleared = false,
+  });
+
+  final String remoteId;
+  final bool enabled;
+  final bool cleared;
+
+  bool get shouldClear => cleared || remoteId.trim().isEmpty;
+}
+
+class _PlaylistAutoSyncDialog extends StatefulWidget {
+  const _PlaylistAutoSyncDialog({
+    required this.playlistName,
+    required this.initialConfig,
+    required this.idRuleDescription,
+    required this.validator,
+  });
+
+  final String playlistName;
+  final PlaylistAutoSyncConfig? initialConfig;
+  final String idRuleDescription;
+  final bool Function(String) validator;
+
+  @override
+  State<_PlaylistAutoSyncDialog> createState() =>
+      _PlaylistAutoSyncDialogState();
+}
+
+class _PlaylistAutoSyncDialogState extends State<_PlaylistAutoSyncDialog> {
+  late final TextEditingController _controller;
+  late final VoidCallback _controllerListener;
+  bool _enabled = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _enabled = widget.initialConfig?.enabled ?? false;
+    _controller = TextEditingController(
+      text: widget.initialConfig?.remoteId ?? '',
+    );
+    _controllerListener = () {
+      setState(() {
+        if (_errorText != null) {
+          _errorText = null;
+        }
+      });
+    };
+    _controller.addListener(_controllerListener);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_controllerListener);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onToggle(bool? value) {
+    setState(() => _enabled = value ?? false);
+  }
+
+  void _onClear() {
+    Navigator.of(context).pop(
+      const _PlaylistAutoSyncDialogResult(
+        remoteId: '',
+        enabled: false,
+        cleared: true,
+      ),
+    );
+  }
+
+  void _onSubmit() {
+    final remoteId = _controller.text.trim();
+    if (remoteId.isEmpty) {
+      Navigator.of(context).pop(
+        const _PlaylistAutoSyncDialogResult(
+          remoteId: '',
+          enabled: false,
+          cleared: true,
+        ),
+      );
+      return;
+    }
+
+    if (!widget.validator(remoteId)) {
+      setState(() => _errorText = widget.idRuleDescription);
+      return;
+    }
+
+    Navigator.of(
+      context,
+    ).pop(_PlaylistAutoSyncDialogResult(remoteId: remoteId, enabled: _enabled));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final macTheme = MacosTheme.of(context);
+    final typography = macTheme.typography;
+    final secondaryStyle = typography.caption1.copyWith(
+      color: MacosColors.secondaryLabelColor,
+    );
+
+    return _PlaylistModalScaffold(
+      title: '自动同步设置',
+      maxWidth: 380,
+      contentSpacing: 18,
+      actionsSpacing: 16,
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('歌单 “${widget.playlistName}”', style: typography.title3),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              MacosCheckbox(value: _enabled, onChanged: _onToggle),
+              const SizedBox(width: 8),
+              Expanded(child: Text('启用自动同步到云端', style: typography.body)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _MacosField(
+            label: '云端 ID',
+            controller: _controller,
+            placeholder: '至少 5 位字母、数字或下划线',
+            errorText: _errorText,
+          ),
+          const SizedBox(height: 6),
+          Text(widget.idRuleDescription, style: secondaryStyle),
+          const SizedBox(height: 16),
+          Text('开启后，会在添加或移除歌曲时自动上传；每次启动应用时也会从云端拉取最新歌单。', style: secondaryStyle),
+        ],
+      ),
+      actions: [
+        _SheetActionButton.secondary(
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        if (widget.initialConfig != null || _controller.text.trim().isNotEmpty)
+          _SheetActionButton.secondary(label: '清除设置', onPressed: _onClear),
+        _SheetActionButton.primary(label: '保存', onPressed: _onSubmit),
+      ],
+    );
   }
 }
