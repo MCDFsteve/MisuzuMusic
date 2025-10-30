@@ -80,10 +80,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
     required Widget child,
     required GlobalKey key,
   }) {
-    return KeyedSubtree(
-      key: key,
-      child: child,
-    );
+    return KeyedSubtree(key: key, child: child);
   }
 
   Iterable<GlobalKey> get _activeInteractiveRegionKeys sync* {
@@ -106,6 +103,28 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
     if (Platform.isWindows) {
       yield _windowsControlsKey;
     }
+  }
+
+  Widget _buildAnimatedSlot({
+    required String slotKey,
+    required bool isVisible,
+    required Widget Function() builder,
+  }) {
+    final Widget child = isVisible
+        ? KeyedSubtree(key: ValueKey<String>('slot_$slotKey'), child: builder())
+        : SizedBox.shrink(key: ValueKey<String>('slot_${slotKey}_empty'));
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.centerLeft,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        curve: isVisible ? Curves.easeOutCubic : Curves.easeInCubic,
+        opacity: isVisible ? 1 : 0,
+        child: child,
+      ),
+    );
   }
 
   bool _isPointWithinInteractiveRegion(Offset globalPosition) {
@@ -136,8 +155,9 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
       return;
     }
 
-    final bool startedOverInteractive =
-        _isPointWithinInteractiveRegion(event.position);
+    final bool startedOverInteractive = _isPointWithinInteractiveRegion(
+      event.position,
+    );
     _pointerStartedOverInteractive = startedOverInteractive;
     if (startedOverInteractive) {
       _pendingDoubleClick = false;
@@ -153,7 +173,8 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
 
     _dragRequested = false;
 
-    final bool isPotentialDoubleClick = previousTime != null &&
+    final bool isPotentialDoubleClick =
+        previousTime != null &&
         previousGlobalPosition != null &&
         (event.timeStamp - previousTime) <= _doubleClickTimeout &&
         (event.position - previousGlobalPosition).distanceSquared <=
@@ -209,7 +230,8 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
       return;
     }
 
-    final bool isDoubleClick = _pendingDoubleClick &&
+    final bool isDoubleClick =
+        _pendingDoubleClick &&
         !_dragRequested &&
         _lastPrimaryTapUpTime != null &&
         _lastPrimaryTapUpGlobalPosition != null &&
@@ -289,204 +311,246 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
             onPointerUp: _handlePointerUp,
             onPointerCancel: _handlePointerCancel,
             child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Misuzu Music',
-                          locale: Locale("zh-Hans", "zh"),
-                          style: theme.typography.title2.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: textColor,
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Misuzu Music',
+                        locale: Locale("zh-Hans", "zh"),
+                        style: theme.typography.title2.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(text: widget.sectionLabel),
+                            if (widget.statsLabel != null) ...[
+                              TextSpan(text: '  |  '),
+                              TextSpan(text: widget.statsLabel),
+                            ],
+                          ],
+                          style: theme.typography.caption1.copyWith(
+                            color: textColor.withOpacity(0.68),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(text: widget.sectionLabel),
-                              if (widget.statsLabel != null) ...[
-                                TextSpan(text: '  |  '),
-                                TextSpan(text: widget.statsLabel),
-                              ],
-                            ],
-                            style: theme.typography.caption1.copyWith(
-                              color: textColor.withOpacity(0.68),
+                        locale: Locale("zh-Hans", "zh"),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  flex: 3,
+                  child: Padding(
+                    padding: EdgeInsets.only(right: isWindows ? 8 : 12),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _wrapInteractiveRegion(
+                            key: _searchRegionKey,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minWidth: 100,
+                                maxWidth: 320,
+                              ),
+                              child: LibrarySearchField(
+                                query: widget.searchQuery,
+                                onQueryChanged: widget.onSearchChanged,
+                                onPreviewChanged: widget.onSearchPreviewChanged,
+                                suggestions: widget.searchSuggestions,
+                                onSuggestionSelected:
+                                    widget.onSuggestionSelected,
+                                onInteract: handleInteraction,
+                              ),
                             ),
                           ),
-                          locale: Locale("zh-Hans", "zh"),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Flexible(
-                    flex: 3,
-                    child: Padding(
-                      padding: EdgeInsets.only(right: isWindows ? 8 : 12),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _wrapInteractiveRegion(
-                              key: _searchRegionKey,
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(minWidth: 100, maxWidth: 320),
-                                child: LibrarySearchField(
-                                  query: widget.searchQuery,
-                                  onQueryChanged: widget.onSearchChanged,
-                                  onPreviewChanged: widget.onSearchPreviewChanged,
-                                  suggestions: widget.searchSuggestions,
-                                  onSuggestionSelected: widget.onSuggestionSelected,
-                                  onInteract: handleInteraction,
+                          _buildAnimatedSlot(
+                            slotKey: 'back',
+                            isVisible: widget.showBackButton,
+                            builder: () => _HeaderTooltip(
+                              useMacStyle: !isWindows,
+                              message: widget.backTooltip,
+                              child: _wrapInteractiveRegion(
+                                key: _backButtonKey,
+                                child: _HeaderIconButton(
+                                  baseColor: widget.canNavigateBack
+                                      ? textColor.withOpacity(0.72)
+                                      : textColor.withOpacity(0.24),
+                                  hoverColor: textColor,
+                                  icon: CupertinoIcons.left_chevron,
+                                  onPressed: widget.canNavigateBack
+                                      ? () {
+                                          handleInteraction();
+                                          widget.onNavigateBack?.call();
+                                        }
+                                      : null,
+                                  size: actionButtonSize,
+                                  iconSize: backIconSize,
+                                  enabled: widget.canNavigateBack,
+                                  isWindowsStyle: isWindows,
                                 ),
                               ),
                             ),
+                          ),
+                          _buildAnimatedSlot(
+                            slotKey: 'sort',
+                            isVisible:
+                                widget.showBackButton &&
+                                widget.sortMode != null &&
+                                widget.onSortModeChanged != null,
+                            builder: () => Padding(
+                              padding: EdgeInsets.only(left: actionSpacing),
+                              child: _HeaderTooltip(
+                                useMacStyle: !isWindows,
+                                message: '切换排序方式',
+                                child: _wrapInteractiveRegion(
+                                  key: _sortButtonKey,
+                                  child: _SortModeButton(
+                                    sortMode: widget.sortMode!,
+                                    onSortModeChanged: (mode) {
+                                      handleInteraction();
+                                      widget.onSortModeChanged!(mode);
+                                    },
+                                    textColor: textColor,
+                                    enabled: widget.canNavigateBack,
+                                    size: actionButtonSize,
+                                    iconSize: backIconSize,
+                                    isWindowsStyle: isWindows,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          _buildAnimatedSlot(
+                            slotKey: 'back_spacing',
+                            isVisible: widget.showBackButton,
+                            builder: () => SizedBox(width: actionSpacing),
+                          ),
+                          _buildAnimatedSlot(
+                            slotKey: 'logout_leading',
+                            isVisible:
+                                !widget.showBackButton &&
+                                widget.showLogoutButton,
+                            builder: () => SizedBox(width: actionSpacing),
+                          ),
+                          _buildAnimatedSlot(
+                            slotKey: 'logout',
+                            isVisible: widget.showLogoutButton,
+                            builder: () => _HeaderTooltip(
+                              useMacStyle: !isWindows,
+                              message: widget.logoutTooltip,
+                              child: _wrapInteractiveRegion(
+                                key: _logoutButtonKey,
+                                child: _HeaderIconButton(
+                                  baseColor: widget.logoutEnabled
+                                      ? textColor.withOpacity(0.72)
+                                      : textColor.withOpacity(0.24),
+                                  hoverColor: textColor,
+                                  size: actionButtonSize,
+                                  iconSize: primaryIconSize,
+                                  icon: CupertinoIcons.square_arrow_left,
+                                  onPressed: widget.logoutEnabled
+                                      ? () {
+                                          handleInteraction();
+                                          widget.onLogout?.call();
+                                        }
+                                      : null,
+                                  enabled: widget.logoutEnabled,
+                                  isWindowsStyle: isWindows,
+                                ),
+                              ),
+                            ),
+                          ),
+                          _buildAnimatedSlot(
+                            slotKey: 'logout_spacing',
+                            isVisible:
+                                widget.showLogoutButton &&
+                                (widget.showCreatePlaylistButton ||
+                                    widget.showSelectFolderButton),
+                            builder: () => SizedBox(width: actionSpacing),
+                          ),
+                          _buildAnimatedSlot(
+                            slotKey: 'create_playlist',
+                            isVisible: widget.showCreatePlaylistButton,
+                            builder: () => _HeaderTooltip(
+                              useMacStyle: !isWindows,
+                              message: '新建歌单',
+                              child: _wrapInteractiveRegion(
+                                key: _createPlaylistButtonKey,
+                                child: _HeaderIconButton(
+                                  baseColor: textColor.withOpacity(0.72),
+                                  hoverColor: textColor,
+                                  size: actionButtonSize,
+                                  iconSize: primaryIconSize,
+                                  icon: CupertinoIcons.add,
+                                  onPressed: () {
+                                    handleInteraction();
+                                    widget.onCreatePlaylist();
+                                  },
+                                  isWindowsStyle: isWindows,
+                                ),
+                              ),
+                            ),
+                          ),
+                          _buildAnimatedSlot(
+                            slotKey: 'create_playlist_spacing',
+                            isVisible:
+                                widget.showCreatePlaylistButton &&
+                                widget.showSelectFolderButton,
+                            builder: () => SizedBox(width: actionSpacing),
+                          ),
+                          _buildAnimatedSlot(
+                            slotKey: 'select_folder',
+                            isVisible: widget.showSelectFolderButton,
+                            builder: () => _HeaderTooltip(
+                              useMacStyle: !isWindows,
+                              message: '选择音乐文件夹',
+                              child: _wrapInteractiveRegion(
+                                key: _selectFolderButtonKey,
+                                child: _HeaderIconButton(
+                                  baseColor: textColor.withOpacity(0.72),
+                                  hoverColor: textColor,
+                                  size: actionButtonSize,
+                                  iconSize: primaryIconSize,
+                                  icon: CupertinoIcons.folder,
+                                  onPressed: () {
+                                    handleInteraction();
+                                    widget.onSelectMusicFolder();
+                                  },
+                                  isWindowsStyle: isWindows,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (isWindows) ...[
+                            const SizedBox(width: 8),
+                            _VerticalSeparator(
+                              color: textColor.withOpacity(0.18),
+                            ),
+                            const SizedBox(width: 8),
+                            _wrapInteractiveRegion(
+                              key: _windowsControlsKey,
+                              child: _WindowsWindowControls(
+                                isDarkMode: isDarkMode,
+                              ),
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
                   ),
-                  if (widget.showBackButton)
-                    _HeaderTooltip(
-                      useMacStyle: !isWindows,
-                      message: widget.backTooltip,
-                      child: _wrapInteractiveRegion(
-                        key: _backButtonKey,
-                        child: _HeaderIconButton(
-                          baseColor: widget.canNavigateBack
-                              ? textColor.withOpacity(0.72)
-                              : textColor.withOpacity(0.24),
-                          hoverColor: textColor,
-                          icon: CupertinoIcons.left_chevron,
-                          onPressed: widget.canNavigateBack
-                              ? () {
-                                  handleInteraction();
-                                  widget.onNavigateBack?.call();
-                                }
-                              : null,
-                          size: actionButtonSize,
-                          iconSize: backIconSize,
-                          enabled: widget.canNavigateBack,
-                          isWindowsStyle: isWindows,
-                        ),
-                      ),
-                    ),
-                  if (widget.showBackButton &&
-                      widget.sortMode != null &&
-                      widget.onSortModeChanged != null)
-                    Padding(
-                      padding: EdgeInsets.only(left: actionSpacing),
-                      child: _HeaderTooltip(
-                        useMacStyle: !isWindows,
-                        message: '切换排序方式',
-                        child: _wrapInteractiveRegion(
-                          key: _sortButtonKey,
-                          child: _SortModeButton(
-                            sortMode: widget.sortMode!,
-                            onSortModeChanged: (mode) {
-                              handleInteraction();
-                              widget.onSortModeChanged!(mode);
-                            },
-                            textColor: textColor,
-                            enabled: widget.canNavigateBack,
-                            size: actionButtonSize,
-                            iconSize: backIconSize,
-                            isWindowsStyle: isWindows,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (widget.showBackButton) SizedBox(width: actionSpacing),
-                  if (!widget.showBackButton && widget.showLogoutButton)
-                    SizedBox(width: actionSpacing),
-                  if (widget.showLogoutButton)
-                    _HeaderTooltip(
-                      useMacStyle: !isWindows,
-                      message: widget.logoutTooltip,
-                      child: _wrapInteractiveRegion(
-                        key: _logoutButtonKey,
-                        child: _HeaderIconButton(
-                          baseColor: widget.logoutEnabled
-                              ? textColor.withOpacity(0.72)
-                              : textColor.withOpacity(0.24),
-                          hoverColor: textColor,
-                          size: actionButtonSize,
-                          iconSize: primaryIconSize,
-                          icon: CupertinoIcons.square_arrow_left,
-                          onPressed: widget.logoutEnabled
-                              ? () {
-                                  handleInteraction();
-                                  widget.onLogout?.call();
-                                }
-                              : null,
-                          enabled: widget.logoutEnabled,
-                          isWindowsStyle: isWindows,
-                        ),
-                      ),
-                    ),
-                  if (widget.showLogoutButton &&
-                      (widget.showCreatePlaylistButton ||
-                          widget.showSelectFolderButton))
-                    SizedBox(width: actionSpacing),
-                  if (widget.showCreatePlaylistButton)
-                    _HeaderTooltip(
-                      useMacStyle: !isWindows,
-                      message: '新建歌单',
-                      child: _wrapInteractiveRegion(
-                        key: _createPlaylistButtonKey,
-                        child: _HeaderIconButton(
-                          baseColor: textColor.withOpacity(0.72),
-                          hoverColor: textColor,
-                          size: actionButtonSize,
-                          iconSize: primaryIconSize,
-                          icon: CupertinoIcons.add,
-                          onPressed: () {
-                            handleInteraction();
-                            widget.onCreatePlaylist();
-                          },
-                          isWindowsStyle: isWindows,
-                        ),
-                      ),
-                    ),
-                  if (widget.showCreatePlaylistButton &&
-                      widget.showSelectFolderButton)
-                    SizedBox(width: actionSpacing),
-                  if (widget.showSelectFolderButton)
-                    _HeaderTooltip(
-                      useMacStyle: !isWindows,
-                      message: '选择音乐文件夹',
-                      child: _wrapInteractiveRegion(
-                        key: _selectFolderButtonKey,
-                        child: _HeaderIconButton(
-                          baseColor: textColor.withOpacity(0.72),
-                          hoverColor: textColor,
-                          size: actionButtonSize,
-                          iconSize: primaryIconSize,
-                          icon: CupertinoIcons.folder,
-                          onPressed: () {
-                            handleInteraction();
-                            widget.onSelectMusicFolder();
-                          },
-                          isWindowsStyle: isWindows,
-                        ),
-                      ),
-                    ),
-                  if (isWindows) ...[
-                    const SizedBox(width: 8),
-                    _VerticalSeparator(color: textColor.withOpacity(0.18)),
-                    const SizedBox(width: 8),
-                    _wrapInteractiveRegion(
-                      key: _windowsControlsKey,
-                      child: _WindowsWindowControls(isDarkMode: isDarkMode),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -535,10 +599,7 @@ class _HeaderTooltip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (useMacStyle) {
-      return MacosTooltip(
-        message: message,
-        child: child,
-      );
+      return MacosTooltip(message: message, child: child);
     }
 
     return Tooltip(
@@ -1050,7 +1111,11 @@ class _SortModeButtonState extends State<_SortModeButton> {
             ),
             child: Center(
               child: windowsStyle
-                  ? Icon(_getSortIcon(), size: widget.iconSize, color: targetColor)
+                  ? Icon(
+                      _getSortIcon(),
+                      size: widget.iconSize,
+                      color: targetColor,
+                    )
                   : MacosIcon(
                       _getSortIcon(),
                       size: widget.iconSize,
@@ -1124,7 +1189,9 @@ class _SortModeMenuItemState extends State<_SortModeMenuItem> {
                   style: TextStyle(
                     fontSize: 13,
                     color: textColor,
-                    fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: widget.isSelected
+                        ? FontWeight.w600
+                        : FontWeight.w400,
                   ),
                 ),
               ),
