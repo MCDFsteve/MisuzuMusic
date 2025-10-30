@@ -326,6 +326,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         artist: track.artist,
         album: track.album,
         content: trimmed,
+        existingFileName: _trackDetailFileName,
       );
 
       if (!mounted || requestId != _trackDetailRequestToken) {
