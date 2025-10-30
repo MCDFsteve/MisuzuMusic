@@ -490,29 +490,28 @@ class _HomePageContentState extends State<HomePageContent> {
                                   child: Stack(
                                     children: [
                                       Positioned.fill(
-                                        child: Offstage(
-                                          offstage: _lyricsVisible,
-                                          child: KeyedSubtree(
-                                            key: const ValueKey<String>(
-                                              'mac_content_stack',
+                                        child: IgnorePointer(
+                                          ignoring: _lyricsVisible,
+                                          child: AnimatedOpacity(
+                                            duration: const Duration(
+                                              milliseconds: 260,
                                             ),
-                                            child: _buildMainContent(),
+                                            curve: Curves.easeInOut,
+                                            opacity: _lyricsVisible ? 0 : 1,
+                                            child: KeyedSubtree(
+                                              key: const ValueKey<String>(
+                                                'mac_content_stack',
+                                              ),
+                                              child: _buildMainContent(),
+                                            ),
                                           ),
                                         ),
                                       ),
                                       Positioned.fill(
-                                        child: AnimatedOpacity(
-                                          duration: const Duration(
-                                            milliseconds: 280,
-                                          ),
-                                          curve: Curves.easeInOut,
-                                          opacity: _lyricsVisible ? 1 : 0,
-                                          child: IgnorePointer(
-                                            ignoring: !_lyricsVisible,
-                                            child: _buildLyricsOverlay(
-                                              isMac: true,
-                                            ),
-                                          ),
+                                        child: _LyricsOverlaySwitcher(
+                                          isVisible: _lyricsVisible,
+                                          builder: () =>
+                                              _buildLyricsOverlay(isMac: true),
                                         ),
                                       ),
                                     ],
@@ -2063,5 +2062,78 @@ class _ArtworkBackgroundSwitcherState extends State<_ArtworkBackgroundSwitcher>
   String _childKey() {
     final mode = widget.isDarkMode ? 'dark' : 'light';
     return '${widget.sources.cacheKey}_$mode';
+  }
+}
+
+typedef _LyricsOverlayBuilder = Widget Function();
+
+class _LyricsOverlaySwitcher extends StatelessWidget {
+  const _LyricsOverlaySwitcher({
+    required this.isVisible,
+    required _LyricsOverlayBuilder builder,
+  }) : _builder = builder;
+
+  static const ValueKey<String> _visibleKey =
+      ValueKey<String>('lyrics_overlay_visible');
+  static const ValueKey<String> _hiddenKey =
+      ValueKey<String>('lyrics_overlay_hidden');
+
+  final bool isVisible;
+  final _LyricsOverlayBuilder _builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 360),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      transitionBuilder: (child, animation) {
+        final key = child.key;
+        if (key == _visibleKey) {
+          final slideAnimation = animation.drive(
+            Tween<Offset>(
+              begin: const Offset(0, 0.12),
+              end: Offset.zero,
+            ),
+          );
+          return SlideTransition(
+            position: slideAnimation,
+            child: FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+          );
+        }
+        return child;
+      },
+      child: isVisible
+          ? KeyedSubtree(
+              key: _visibleKey,
+              child: _builder(),
+            )
+          : const _LyricsOverlayPlaceholder(),
+    );
+  }
+}
+
+class _LyricsOverlayPlaceholder extends StatelessWidget {
+  const _LyricsOverlayPlaceholder()
+      : super(key: _LyricsOverlaySwitcher._hiddenKey);
+
+  @override
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      ignoring: true,
+      child: SizedBox.shrink(),
+    );
   }
 }
