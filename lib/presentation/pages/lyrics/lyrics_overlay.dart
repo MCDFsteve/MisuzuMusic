@@ -29,8 +29,9 @@ import '../../utils/track_display_utils.dart';
 
 const bool _desktopLyricsVerboseLogging = false;
 
-final RegExp _desktopLyricsHanCharacterRegExp =
-    RegExp(r'[\u3400-\u4DBF\u4E00-\u9FFF]');
+final RegExp _desktopLyricsHanCharacterRegExp = RegExp(
+  r'[\u3400-\u4DBF\u4E00-\u9FFF]',
+);
 
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
@@ -95,8 +96,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     final initialPlayerState = context.read<PlayerBloc>().state;
     _updatePlaybackStateFromPlayer(initialPlayerState, notify: false);
     _lastProcessedPlayerState = initialPlayerState;
-    _playerSubscription =
-        context.read<PlayerBloc>().stream.listen(_handlePlayerStateStream);
+    _playerSubscription = context.read<PlayerBloc>().stream.listen(
+      _handlePlayerStateStream,
+    );
   }
 
   @override
@@ -245,6 +247,28 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        final isDark = theme.brightness == Brightness.dark;
+        final borderColor = theme.colorScheme.outline.withOpacity(
+          isDark ? 0.28 : 0.2,
+        );
+        final focusedBorderColor = theme.colorScheme.primary.withOpacity(
+          isDark ? 0.55 : 0.48,
+        );
+        final fillColor = isDark
+            ? Colors.white.withOpacity(0.08)
+            : Colors.white.withOpacity(0.74);
+        final hintColor = isDark
+            ? Colors.white.withOpacity(0.46)
+            : Colors.black.withOpacity(0.48);
+        final textColor = isDark
+            ? Colors.white.withOpacity(0.9)
+            : Colors.black.withOpacity(0.85);
+        final border = OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: borderColor, width: 0.8),
+        );
+
         return PlaylistModalScaffold(
           title: '编辑歌曲详情',
           maxWidth: 580,
@@ -267,10 +291,28 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
                 height: 260,
                 child: TextField(
                   controller: controller,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: '填写歌曲背景、制作人员、翻译或任何想展示的信息…',
-                    border: OutlineInputBorder(),
-                    isDense: false,
+                    hintStyle:
+                        theme.textTheme.bodySmall?.copyWith(
+                          color: hintColor,
+                          fontSize: 12,
+                        ) ??
+                        TextStyle(fontSize: 12, color: hintColor),
+                    filled: true,
+                    fillColor: fillColor,
+                    border: border,
+                    enabledBorder: border,
+                    focusedBorder: border.copyWith(
+                      borderSide: BorderSide(
+                        color: focusedBorderColor,
+                        width: 1.0,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                   ),
                   keyboardType: TextInputType.multiline,
                   expands: true,
@@ -278,6 +320,13 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
                   maxLines: null,
                   textInputAction: TextInputAction.newline,
                   textAlignVertical: TextAlignVertical.top,
+                  style:
+                      theme.textTheme.bodyMedium?.copyWith(
+                        color: textColor,
+                        height: 1.4,
+                        fontSize: 13,
+                      ) ??
+                      TextStyle(color: textColor, height: 1.4, fontSize: 13),
                 ),
               ),
             ],
@@ -379,10 +428,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             builder: (dialogContext) => PlaylistModalScaffold(
               title: '保存失败',
               maxWidth: 360,
-              body: Text(
-                '保存歌曲详情失败: $error',
-                locale: Locale("zh-Hans", "zh"),
-              ),
+              body: Text('保存歌曲详情失败: $error', locale: Locale("zh-Hans", "zh")),
               actions: [
                 SheetActionButton.primary(
                   label: '关闭',
@@ -457,9 +503,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         if (!_desktopLyricsErrorNotified) {
           _desktopLyricsErrorNotified = true;
           if (mounted) {
-            unawaited(
-              _showDesktopLyricsError('桌面歌词助手未响应，请确认已运行并允许网络访问。'),
-            );
+            unawaited(_showDesktopLyricsError('桌面歌词助手未响应，请确认已运行并允许网络访问。'));
           }
         }
         _shouldResendDesktopUpdate = true;
@@ -496,7 +540,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       activeLine = _lastDesktopActiveText;
     }
 
-    String? nextLine = formattedNext ?? _sanitizeLine(_resolveNextDesktopLine());
+    String? nextLine =
+        formattedNext ?? _sanitizeLine(_resolveNextDesktopLine());
     nextLine = nextLine?.trim();
     if (nextLine != null && nextLine.isEmpty) {
       nextLine = null;
@@ -570,13 +615,16 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
 
         if (hasAnnotation &&
             _desktopLyricsHanCharacterRegExp.hasMatch(original)) {
-          final matches =
-              _desktopLyricsHanCharacterRegExp.allMatches(original).toList();
+          final matches = _desktopLyricsHanCharacterRegExp
+              .allMatches(original)
+              .toList();
           if (matches.isNotEmpty) {
             final prefix = original.substring(0, matches.first.start);
             final suffix = original.substring(matches.last.end);
-            final core =
-                original.substring(matches.first.start, matches.last.end);
+            final core = original.substring(
+              matches.first.start,
+              matches.last.end,
+            );
 
             if (prefix.isNotEmpty) {
               buffer.write(prefix);
@@ -630,9 +678,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (_desktopLyricsBusy) {
       return;
     }
-    debugPrint(
-      _desktopLyricsActive ? '准备关闭桌面歌词窗口' : '准备开启桌面歌词窗口',
-    );
+    debugPrint(_desktopLyricsActive ? '准备关闭桌面歌词窗口' : '准备开启桌面歌词窗口');
     setState(() {
       _desktopLyricsBusy = true;
     });
@@ -1046,7 +1092,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           onToggleTranslation: _toggleTranslationVisibility,
           onDownloadLrc: _downloadLrcFile,
           onReportError: _reportError,
-          onToggleDesktopLyrics: () => unawaited(_toggleDesktopLyricsAssistant()),
+          onToggleDesktopLyrics: () =>
+              unawaited(_toggleDesktopLyricsAssistant()),
           isDesktopLyricsActive: _desktopLyricsActive,
           isDesktopLyricsBusy: _desktopLyricsBusy,
           onActiveIndexChanged: _handleActiveIndexChanged,
@@ -1270,29 +1317,25 @@ class _CoverColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextStyle titleStyle = isMac
-        ? MacosTheme.of(context).typography.title1.copyWith(
-              fontWeight: FontWeight.w600,
-            )
+        ? MacosTheme.of(
+            context,
+          ).typography.title1.copyWith(fontWeight: FontWeight.w600)
         : Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ) ??
-            const TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
+                fontWeight: FontWeight.w600,
+              ) ??
+              const TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
     final TextStyle subtitleStyle = isMac
         ? MacosTheme.of(context).typography.body.copyWith(
-              color: MacosTheme.of(context)
-                  .typography
-                  .body
-                  .color
-                  ?.withOpacity(0.75),
-            )
+            color: MacosTheme.of(
+              context,
+            ).typography.body.color?.withOpacity(0.75),
+          )
         : Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.color
-                      ?.withOpacity(0.7),
-                ) ??
-            const TextStyle(fontSize: 14, color: Colors.black54);
+                color: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.color?.withOpacity(0.7),
+              ) ??
+              const TextStyle(fontSize: 14, color: Colors.black54);
 
     String? remoteArtworkUrl;
     if (track.sourceType == TrackSourceType.netease) {
@@ -1417,25 +1460,27 @@ class _TrackDetailView extends StatelessWidget {
             ? macTheme!.brightness == Brightness.dark
             : theme.brightness == Brightness.dark;
 
-        final displayWidth =
-            math.min(560.0, coverSize * 1.38).clamp(320.0, 620.0);
+        final displayWidth = math
+            .min(560.0, coverSize * 1.38)
+            .clamp(320.0, 620.0);
         final panelHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : math.max(coverSize * 1.05, 420.0);
         final TextStyle headerStyle = isMac
             ? macTheme!.typography.title3.copyWith(fontWeight: FontWeight.w600)
             : theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
-                ) ??
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.w600);
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ) ??
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600);
 
         final TextStyle bodyStyle = isMac
             ? macTheme!.typography.body
             : theme.textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
         final TextStyle metaStyle = bodyStyle.copyWith(
           fontSize: (bodyStyle.fontSize ?? 14) - 1,
-          color: bodyStyle.color?.withOpacity(0.68) ??
+          color:
+              bodyStyle.color?.withOpacity(0.68) ??
               (isDarkMode
                   ? Colors.white.withOpacity(0.68)
                   : Colors.black.withOpacity(0.62)),
@@ -1487,7 +1532,8 @@ class _TrackDetailView extends StatelessWidget {
                 locale: const Locale('zh-Hans', 'zh'),
                 style: bodyStyle.copyWith(
                   fontSize: (bodyStyle.fontSize ?? 14) - 1,
-                  color: bodyStyle.color?.withOpacity(0.72) ??
+                  color:
+                      bodyStyle.color?.withOpacity(0.72) ??
                       (isDarkMode
                           ? Colors.white.withOpacity(0.72)
                           : Colors.black.withOpacity(0.68)),
@@ -1535,10 +1581,15 @@ class _TrackDetailView extends StatelessWidget {
                 style: bodyStyle.copyWith(
                   decoration: TextDecoration.underline,
                   fontWeight: FontWeight.w500,
-                  color: bodyStyle.color ??
+                  color:
+                      bodyStyle.color ??
                       (isDarkMode
-                          ? Colors.white.withOpacity(isSavingDetail ? 0.5 : 0.82)
-                          : Colors.black.withOpacity(isSavingDetail ? 0.5 : 0.78)),
+                          ? Colors.white.withOpacity(
+                              isSavingDetail ? 0.5 : 0.82,
+                            )
+                          : Colors.black.withOpacity(
+                              isSavingDetail ? 0.5 : 0.78,
+                            )),
                 ),
               ),
             ),
@@ -1556,8 +1607,9 @@ class _TrackDetailView extends StatelessWidget {
                 width: displayWidth,
                 height: panelHeight,
                 child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context)
-                      .copyWith(scrollbars: false),
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 0,
@@ -1584,7 +1636,8 @@ class _TrackDetailView extends StatelessWidget {
                           locale: const Locale('zh-Hans', 'zh'),
                           style: bodyStyle.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: bodyStyle.color?.withOpacity(0.82) ??
+                            color:
+                                bodyStyle.color?.withOpacity(0.82) ??
                                 (isDarkMode
                                     ? Colors.white.withOpacity(0.82)
                                     : Colors.black.withOpacity(0.78)),
@@ -1758,28 +1811,28 @@ class _LyricsPanel extends StatelessWidget {
       );
     }
 
-      if (state is LyricsLoaded) {
-        final lines = state.lyrics.lines;
-        if (lines.isEmpty) {
-          return _buildInfoMessage(
-            controller,
-            title: '暂无歌词',
-            subtitle: '暂未找到 ${track.title} 的歌词。',
-            isDarkMode: isDarkMode,
-            viewportHeight: viewportHeight,
-          );
-        }
-
-        return LyricsDisplay(
-          key: ValueKey(track.id),
-          lines: lines,
-          controller: controller,
+    if (state is LyricsLoaded) {
+      final lines = state.lyrics.lines;
+      if (lines.isEmpty) {
+        return _buildInfoMessage(
+          controller,
+          title: '暂无歌词',
+          subtitle: '暂未找到 ${track.title} 的歌词。',
           isDarkMode: isDarkMode,
-          showTranslation: showTranslation,
-          onActiveIndexChanged: onActiveIndexChanged,
-          onActiveLineChanged: onActiveLineChanged,
+          viewportHeight: viewportHeight,
         );
       }
+
+      return LyricsDisplay(
+        key: ValueKey(track.id),
+        lines: lines,
+        controller: controller,
+        isDarkMode: isDarkMode,
+        showTranslation: showTranslation,
+        onActiveIndexChanged: onActiveIndexChanged,
+        onActiveLineChanged: onActiveLineChanged,
+      );
+    }
 
     return const SizedBox.shrink();
   }
