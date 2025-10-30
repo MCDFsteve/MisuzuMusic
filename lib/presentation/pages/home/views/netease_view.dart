@@ -185,18 +185,65 @@ class _NeteaseViewState extends State<NeteaseView> {
           );
         }
 
-        Widget content;
+        Widget mainContent;
         if (state.session == null) {
-          content = _NeteaseLoginPlaceholder(
-            onTap: () => _promptForCookie(force: true),
+          mainContent = KeyedSubtree(
+            key: const ValueKey<String>('netease_login'),
+            child: _NeteaseLoginPlaceholder(
+              onTap: () => _promptForCookie(force: true),
+            ),
           );
         } else if (_showPlaylistDetail) {
-          content = _buildPlaylistDetail(state);
+          mainContent = KeyedSubtree(
+            key: const ValueKey<String>('netease_detail'),
+            child: _buildPlaylistDetail(state),
+          );
         } else {
-          content = _buildPlaylistOverview(state);
+          mainContent = KeyedSubtree(
+            key: const ValueKey<String>('netease_overview'),
+            child: _buildPlaylistOverview(state),
+          );
         }
 
-        return Stack(children: [content, ...overlay]);
+        final animated = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeInOutCubic,
+          switchOutCurve: Curves.easeInOutCubic,
+          layoutBuilder: (currentChild, previousChildren) {
+            return Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                ...previousChildren,
+                if (currentChild != null) currentChild,
+              ],
+            );
+          },
+          transitionBuilder: (child, animation) {
+            final key = (child.key as ValueKey<String>?)?.value;
+            final isOverview = key == 'netease_overview';
+            final isLogin = key == 'netease_login';
+            final beginOffset = isOverview || isLogin
+                ? const Offset(-0.02, 0)
+                : const Offset(0.02, 0);
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOutCubic,
+            );
+            return FadeTransition(
+              opacity: curvedAnimation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: beginOffset,
+                  end: Offset.zero,
+                ).animate(curvedAnimation),
+                child: child,
+              ),
+            );
+          },
+          child: mainContent,
+        );
+
+        return Stack(children: [animated, ...overlay]);
       },
     );
   }
@@ -223,8 +270,8 @@ class _NeteaseViewState extends State<NeteaseView> {
     final hasQuery = query.isNotEmpty;
     final playlists = hasQuery
         ? state.playlists
-            .where((playlist) => _matchesPlaylist(playlist, query))
-            .toList()
+              .where((playlist) => _matchesPlaylist(playlist, query))
+              .toList()
         : state.playlists;
 
     if (hasQuery && playlists.isEmpty) {
@@ -235,7 +282,7 @@ class _NeteaseViewState extends State<NeteaseView> {
     }
     return CollectionOverviewGrid(
       itemCount: playlists.length,
-      padding: const EdgeInsets.symmetric(horizontal: 24,vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       scrollbarMargin: EdgeInsets.zero,
       itemBuilder: (context, tileWidth, index) {
         final playlist = playlists[index];
@@ -316,10 +363,7 @@ class _NeteaseViewState extends State<NeteaseView> {
             },
           ),
         },
-        child: Focus(
-          autofocus: true,
-          child: content,
-        ),
+        child: Focus(autofocus: true, child: content),
       ),
     );
   }
@@ -570,6 +614,7 @@ class _NeteasePlaylistEntryTile extends StatelessWidget {
     );
   }
 }
+
 class _NeteaseLoginPlaceholder extends StatelessWidget {
   const _NeteaseLoginPlaceholder({required this.onTap});
 
@@ -587,7 +632,10 @@ class _NeteaseLoginPlaceholder extends StatelessWidget {
             color: MacosColors.systemGrayColor,
           ),
           const SizedBox(height: 16),
-          const Text('需要先粘贴网络歌曲 Cookie 才能读取歌单', locale: Locale("zh-Hans", "zh")),
+          const Text(
+            '需要先粘贴网络歌曲 Cookie 才能读取歌单',
+            locale: Locale("zh-Hans", "zh"),
+          ),
           const SizedBox(height: 12),
           PushButton(
             controlSize: ControlSize.large,
@@ -631,10 +679,7 @@ class _NeteaseEmptyMessage extends StatelessWidget {
 }
 
 class _NeteaseToast extends StatelessWidget {
-  const _NeteaseToast({
-    required this.message,
-    this.isError = false,
-  });
+  const _NeteaseToast({required this.message, this.isError = false});
 
   final String message;
   final bool isError;

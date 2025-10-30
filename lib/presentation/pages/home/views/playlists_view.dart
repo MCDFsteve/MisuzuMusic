@@ -347,14 +347,14 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                   .toList()
             : playlists;
 
-        if (!_showList) {
-          if (hasQuery && filteredPlaylists.isEmpty) {
-            return const _PlaylistMessage(
-              icon: CupertinoIcons.search,
-              message: '未找到匹配的歌单',
-            );
-          }
-          return CollectionOverviewGrid(
+        Widget overviewContent;
+        if (hasQuery && filteredPlaylists.isEmpty) {
+          overviewContent = const _PlaylistMessage(
+            icon: CupertinoIcons.search,
+            message: '未找到匹配的歌单',
+          );
+        } else {
+          overviewContent = CollectionOverviewGrid(
             itemCount: filteredPlaylists.length,
             itemBuilder: (context, tileWidth, index) {
               final playlist = filteredPlaylists[index];
@@ -391,60 +391,111 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           );
         }
 
-        final playlist = playlists.firstWhere(
-          (p) => p.id == _activePlaylistId,
-          orElse: () => playlists.first,
-        );
-        final tracks = state.playlistTracks[playlist.id];
-        if (tracks == null) {
-          context.read<PlaylistsCubit>().ensurePlaylistTracks(playlist.id);
-        }
-
-        Widget content;
-        if (tracks == null) {
-          content = const Center(child: ProgressCircle());
-        } else {
-          final List<Track> currentTracks = tracks;
-          final List<Track> filteredTracks = hasQuery
-              ? currentTracks
-                    .where((track) => _matchesTrack(track, query))
-                    .toList()
-              : currentTracks;
-
-          if (hasQuery && filteredTracks.isEmpty) {
-            content = const _PlaylistMessage(
-              icon: CupertinoIcons.search,
-              message: '歌单中未找到匹配的歌曲',
-            );
+        Widget detailContent;
+        if (_showList) {
+          final playlist = playlists.firstWhere(
+            (p) => p.id == _activePlaylistId,
+            orElse: () => playlists.first,
+          );
+          final tracks = state.playlistTracks[playlist.id];
+          if (tracks == null) {
+            context.read<PlaylistsCubit>().ensurePlaylistTracks(playlist.id);
+            detailContent = const Center(child: ProgressCircle());
           } else {
-            content = MacOSTrackListView(
-              tracks: filteredTracks,
-              onAddToPlaylist: widget.onAddToPlaylist,
-              onRemoveFromPlaylist: (track) =>
-                  _removeTrackFromPlaylist(playlist.id, track),
-              onViewArtist: widget.onViewArtist,
-              onViewAlbum: widget.onViewAlbum,
-            );
+            final List<Track> currentTracks = tracks;
+            final List<Track> filteredTracks = hasQuery
+                ? currentTracks
+                      .where((track) => _matchesTrack(track, query))
+                      .toList()
+                : currentTracks;
+
+            if (hasQuery && filteredTracks.isEmpty) {
+              detailContent = const _PlaylistMessage(
+                icon: CupertinoIcons.search,
+                message: '歌单中未找到匹配的歌曲',
+              );
+            } else {
+              detailContent = MacOSTrackListView(
+                tracks: filteredTracks,
+                onAddToPlaylist: widget.onAddToPlaylist,
+                onRemoveFromPlaylist: (track) =>
+                    _removeTrackFromPlaylist(playlist.id, track),
+                onViewArtist: widget.onViewArtist,
+                onViewAlbum: widget.onViewAlbum,
+              );
+            }
           }
+        } else {
+          detailContent = const SizedBox.shrink();
         }
 
-        return Shortcuts(
-          shortcuts: <LogicalKeySet, Intent>{
-            LogicalKeySet(LogicalKeyboardKey.escape):
-                const _ExitLibraryOverviewIntent(),
-          },
-          child: Actions(
-            actions: {
-              _ExitLibraryOverviewIntent: CallbackAction(
-                onInvoke: (_) {
-                  _returnOverview();
-                  return null;
-                },
-              ),
+        Widget detailWithShortcuts = detailContent;
+        if (_showList) {
+          detailWithShortcuts = Shortcuts(
+            shortcuts: <LogicalKeySet, Intent>{
+              LogicalKeySet(LogicalKeyboardKey.escape):
+                  const _ExitLibraryOverviewIntent(),
             },
-            child: Focus(autofocus: true, child: content),
-          ),
+            child: Actions(
+              actions: {
+                _ExitLibraryOverviewIntent: CallbackAction(
+                  onInvoke: (_) {
+                    _returnOverview();
+                    return null;
+                  },
+                ),
+              },
+              child: Focus(autofocus: true, child: detailContent),
+            ),
+          );
+        }
+
+        final Widget animated = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeInOutCubic,
+          switchOutCurve: Curves.easeInOutCubic,
+          layoutBuilder: (currentChild, previousChildren) {
+            return Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                ...previousChildren,
+                if (currentChild != null) currentChild,
+              ],
+            );
+          },
+          transitionBuilder: (child, animation) {
+            final isOverview =
+                (child.key as ValueKey<String>?)?.value == 'playlists_overview';
+            final offsetTween = Tween<Offset>(
+              begin: isOverview
+                  ? const Offset(-0.02, 0)
+                  : const Offset(0.02, 0),
+              end: Offset.zero,
+            );
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOutCubic,
+            );
+            return FadeTransition(
+              opacity: curvedAnimation,
+              child: SlideTransition(
+                position: offsetTween.animate(curvedAnimation),
+                child: child,
+              ),
+            );
+          },
+          child: _showList
+              ? KeyedSubtree(
+                  key: const ValueKey<String>('playlists_detail'),
+                  child: detailWithShortcuts,
+                )
+              : KeyedSubtree(
+                  key: const ValueKey<String>('playlists_overview'),
+                  child: overviewContent,
+                ),
         );
+
+        return animated;
       },
     );
   }
