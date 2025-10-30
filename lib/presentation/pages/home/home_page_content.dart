@@ -493,10 +493,8 @@ class _HomePageContentState extends State<HomePageContent> {
                                         child: Offstage(
                                           offstage: _lyricsVisible,
                                           child: KeyedSubtree(
-                                            key: ValueKey(
-                                              _hasActiveDetail
-                                                  ? 'mac_detail_content'
-                                                  : 'mac_main_content',
+                                            key: const ValueKey<String>(
+                                              'mac_content_stack',
                                             ),
                                             child: _buildMainContent(),
                                           ),
