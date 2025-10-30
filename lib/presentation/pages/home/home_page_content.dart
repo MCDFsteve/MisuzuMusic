@@ -283,6 +283,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
   Widget _buildMacOSLayout() {
     return BlocConsumer<PlayerBloc, PlayerBlocState>(
+      buildWhen: _shouldRebuildForPlayerState,
       listener: (context, playerState) {
         bool shouldHideLyrics = false;
         Track? nextTrack = _playerTrack(playerState);
@@ -774,6 +775,119 @@ class _HomePageContentState extends State<HomePageContent> {
     );
 
     _showAlbumDetail(album, sortedTracks);
+  }
+
+  bool _shouldRebuildForPlayerState(
+    PlayerBlocState previous,
+    PlayerBlocState current,
+  ) {
+    if (identical(previous, current)) {
+      return false;
+    }
+    if (previous.runtimeType != current.runtimeType) {
+      return true;
+    }
+
+    if (previous is PlayerPlaying && current is PlayerPlaying) {
+      final sameSnapshot = _arePlaybackContextsEqual(
+        previousTrack: previous.track,
+        currentTrack: current.track,
+        previousDuration: previous.duration,
+        currentDuration: current.duration,
+        previousVolume: previous.volume,
+        currentVolume: current.volume,
+        previousMode: previous.playMode,
+        currentMode: current.playMode,
+        previousQueue: previous.queue,
+        currentQueue: current.queue,
+        previousIndex: previous.currentIndex,
+        currentIndex: current.currentIndex,
+      );
+      if (sameSnapshot && previous.position != current.position) {
+        return false;
+      }
+      return !sameSnapshot;
+    }
+
+    if (previous is PlayerPaused && current is PlayerPaused) {
+      final sameSnapshot = _arePlaybackContextsEqual(
+        previousTrack: previous.track,
+        currentTrack: current.track,
+        previousDuration: previous.duration,
+        currentDuration: current.duration,
+        previousVolume: previous.volume,
+        currentVolume: current.volume,
+        previousMode: previous.playMode,
+        currentMode: current.playMode,
+        previousQueue: previous.queue,
+        currentQueue: current.queue,
+        previousIndex: previous.currentIndex,
+        currentIndex: current.currentIndex,
+      );
+      if (sameSnapshot && previous.position != current.position) {
+        return false;
+      }
+      return !sameSnapshot;
+    }
+
+    if (previous is PlayerLoading && current is PlayerLoading) {
+      final sameSnapshot = _arePlaybackContextsEqual(
+        previousTrack: previous.track,
+        currentTrack: current.track,
+        previousDuration: previous.duration,
+        currentDuration: current.duration,
+        previousVolume: previous.volume,
+        currentVolume: current.volume,
+        previousMode: previous.playMode,
+        currentMode: current.playMode,
+        previousQueue: previous.queue,
+        currentQueue: current.queue,
+        previousIndex: previous.currentIndex,
+        currentIndex: current.currentIndex,
+      );
+      if (sameSnapshot && previous.position != current.position) {
+        return false;
+      }
+      return !sameSnapshot;
+    }
+
+    return true;
+  }
+
+  bool _arePlaybackContextsEqual({
+    required Track? previousTrack,
+    required Track? currentTrack,
+    required Duration previousDuration,
+    required Duration currentDuration,
+    required double previousVolume,
+    required double currentVolume,
+    required PlayMode previousMode,
+    required PlayMode currentMode,
+    required List<Track> previousQueue,
+    required List<Track> currentQueue,
+    required int previousIndex,
+    required int currentIndex,
+  }) {
+    if (previousTrack != currentTrack) {
+      return false;
+    }
+    if (previousDuration != currentDuration) {
+      return false;
+    }
+    if (previousVolume != currentVolume) {
+      return false;
+    }
+    if (previousMode != currentMode) {
+      return false;
+    }
+    if (previousIndex != currentIndex) {
+      return false;
+    }
+    if (!identical(previousQueue, currentQueue) &&
+        !listEquals(previousQueue, currentQueue)) {
+      return false;
+    }
+    return true;
   }
 
   void navigateToSettingsFromMenu() {
