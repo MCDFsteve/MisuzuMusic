@@ -422,7 +422,7 @@ class _HomePageContentState extends State<HomePageContent> {
                           sources: artworkSource,
                           isDarkMode:
                               MacosTheme.of(context).brightness ==
-                                  Brightness.dark,
+                              Brightness.dark,
                           fallbackColor: MacosTheme.of(context).canvasColor,
                         ),
                       ),
@@ -561,8 +561,8 @@ class _HomePageContentState extends State<HomePageContent> {
         ? _buildDetailContent()
         : const SizedBox.shrink();
 
-    final librarySection = IndexedStack(
-      index: _hasActiveDetail ? 1 : 0,
+    final librarySection = _AnimatedPageStack(
+      activeIndex: _hasActiveDetail ? 1 : 0,
       children: [libraryView, detailContent],
     );
 
@@ -614,7 +614,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
     final int safeIndex = _selectedIndex.clamp(0, pages.length - 1);
 
-    return IndexedStack(index: safeIndex, children: pages);
+    return _AnimatedPageStack(activeIndex: safeIndex, children: pages);
   }
 
   Widget _buildDetailContent() {
@@ -1835,6 +1835,101 @@ class _ArtworkBackgroundSources {
   }
 }
 
+/// Stack-based page switcher that keeps each page alive while animating
+/// transitions between them.
+class _AnimatedPageStack extends StatelessWidget {
+  const _AnimatedPageStack({
+    required this.activeIndex,
+    required this.children,
+    this.duration = const Duration(milliseconds: 320),
+    this.curve = Curves.easeInOutCubic,
+    this.inactiveSlideAmount = 0.02,
+  }) : assert(activeIndex >= 0);
+
+  final int activeIndex;
+  final List<Widget> children;
+  final Duration duration;
+  final Curve curve;
+  final double inactiveSlideAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final int clampedIndex = activeIndex.clamp(0, children.length - 1);
+
+    return Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      children: List.generate(children.length, (index) {
+        final bool isActive = index == clampedIndex;
+        final double horizontalShift;
+        if (index < clampedIndex) {
+          horizontalShift = -inactiveSlideAmount;
+        } else if (index > clampedIndex) {
+          horizontalShift = inactiveSlideAmount;
+        } else {
+          horizontalShift = 0.0;
+        }
+
+        return _AnimatedPageStackChild(
+          key: ValueKey<int>(index),
+          isActive: isActive,
+          duration: duration,
+          curve: curve,
+          inactiveOffset: Offset(horizontalShift, 0),
+          child: children[index],
+        );
+      }),
+    );
+  }
+}
+
+class _AnimatedPageStackChild extends StatelessWidget {
+  const _AnimatedPageStackChild({
+    super.key,
+    required this.isActive,
+    required this.duration,
+    required this.curve,
+    required this.inactiveOffset,
+    required this.child,
+  });
+
+  final bool isActive;
+  final Duration duration;
+  final Curve curve;
+  final Offset inactiveOffset;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final Offset targetOffset = isActive ? Offset.zero : inactiveOffset;
+
+    return IgnorePointer(
+      ignoring: !isActive,
+      child: AnimatedOpacity(
+        opacity: isActive ? 1 : 0,
+        duration: duration,
+        curve: curve,
+        child: AnimatedSlide(
+          offset: targetOffset,
+          duration: duration,
+          curve: curve,
+          child: AnimatedScale(
+            scale: isActive ? 1 : 0.985,
+            duration: duration,
+            curve: curve,
+            alignment: Alignment.center,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ArtworkBackgroundSwitcher extends StatefulWidget {
   const _ArtworkBackgroundSwitcher({
     super.key,
@@ -1914,18 +2009,12 @@ class _ArtworkBackgroundSwitcherState extends State<_ArtworkBackgroundSwitcher>
           if (_previousChild != null)
             FadeTransition(
               opacity: _fadeOut,
-              child: ScaleTransition(
-                scale: _scaleOut,
-                child: _previousChild,
-              ),
+              child: ScaleTransition(scale: _scaleOut, child: _previousChild),
             ),
           if (_currentChild != null)
             FadeTransition(
               opacity: _fadeIn,
-              child: ScaleTransition(
-                scale: _scaleIn,
-                child: _currentChild,
-              ),
+              child: ScaleTransition(scale: _scaleIn, child: _currentChild),
             ),
         ],
       ),
