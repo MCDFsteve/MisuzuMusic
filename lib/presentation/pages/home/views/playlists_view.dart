@@ -155,7 +155,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     if (!mounted || message == null) {
       return;
     }
-    _showSnack(message!, isError: isError);
+    await _showStatusDialog(title: '上传到云', message: message!, isError: isError);
   }
 
   Future<void> _showAutoSyncSettingsDialog(Playlist playlist) async {
@@ -181,9 +181,9 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     if (shouldClear) {
       await playlistsCubit.clearAutoSyncSetting(playlist.id);
       if (currentConfig != null) {
-        _showSnack('已清除自动同步设置');
+        await _showStatusDialog(title: '自动同步', message: '已清除自动同步设置');
       } else {
-        _showSnack('当前没有自动同步设置');
+        await _showStatusDialog(title: '自动同步', message: '当前没有自动同步设置');
       }
       return;
     }
@@ -209,15 +209,18 @@ class _PlaylistsViewState extends State<PlaylistsView> {
         force: true,
       );
       if (error != null) {
-        _showSnack(error, isError: true);
+        await _showStatusDialog(title: '自动同步', message: error, isError: true);
         return;
       }
-      _showSnack(hasChange ? '已开启自动同步，并从云端刷新歌单' : '已从云端刷新自动同步歌单');
+      await _showStatusDialog(
+        title: '自动同步',
+        message: hasChange ? '已开启自动同步，并从云端刷新歌单' : '已从云端刷新自动同步歌单',
+      );
     } else {
       if (hasChange) {
-        _showSnack('已保存自动同步设置');
+        await _showStatusDialog(title: '自动同步', message: '已保存自动同步设置');
       } else {
-        _showSnack('自动同步设置未变更');
+        await _showStatusDialog(title: '自动同步', message: '自动同步设置未变更');
       }
     }
   }
@@ -254,14 +257,45 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     }
   }
 
-  void _showSnack(String message, {bool isError = false}) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.clearSnackBars();
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(message, locale: Locale("zh-Hans", "zh")),
-        backgroundColor: isError ? Colors.redAccent : Colors.green,
-        duration: const Duration(seconds: 3),
+  Future<void> _showStatusDialog({
+    required String title,
+    required String message,
+    bool isError = false,
+  }) async {
+    if (!mounted) {
+      return;
+    }
+
+    final icon = isError
+        ? CupertinoIcons.exclamationmark_triangle_fill
+        : CupertinoIcons.check_mark_circled_solid;
+    final iconColor = isError
+        ? MacosColors.systemRedColor
+        : MacosColors.systemGreenColor;
+
+    await showPlaylistModalDialog<void>(
+      context: context,
+      builder: (_) => _PlaylistModalScaffold(
+        title: title,
+        maxWidth: 360,
+        contentSpacing: 16,
+        actionsSpacing: 20,
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MacosIcon(icon, size: 22, color: iconColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(message, locale: const Locale('zh-Hans', 'zh')),
+            ),
+          ],
+        ),
+        actions: [
+          _SheetActionButton.primary(
+            label: '好的',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
       ),
     );
   }
