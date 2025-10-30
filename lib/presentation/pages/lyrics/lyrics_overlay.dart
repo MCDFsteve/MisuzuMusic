@@ -1477,6 +1477,11 @@ class _TrackDetailView extends StatelessWidget {
         final TextStyle bodyStyle = isMac
             ? macTheme!.typography.body
             : theme.textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
+        final Color baseBodyColor =
+            bodyStyle.color ?? (isDarkMode ? Colors.white : Colors.black);
+        final Color detailTextColor = baseBodyColor.withOpacity(
+          isDarkMode ? 0.78 : 0.72,
+        );
         final TextStyle metaStyle = bodyStyle.copyWith(
           fontSize: (bodyStyle.fontSize ?? 14) - 1,
           color:
@@ -1562,7 +1567,7 @@ class _TrackDetailView extends StatelessWidget {
           detailBody = Text(
             trimmedContent,
             locale: const Locale('zh-Hans', 'zh'),
-            style: bodyStyle.copyWith(height: 1.48),
+            style: bodyStyle.copyWith(height: 1.48, color: detailTextColor),
           );
         }
 
