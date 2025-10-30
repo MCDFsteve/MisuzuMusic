@@ -455,124 +455,171 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
             });
           }
 
+          Widget content;
+
           if (!_showList) {
-            return CollectionOverviewGrid(
-              itemCount: summariesData.length,
-              itemBuilder: (context, tileWidth, index) {
-                final summary = summariesData[index];
-                final subtitle = summary.isWebDav
-                    ? '${summary.webDavSource!.baseUrl}${summary.webDavSource!.rootPath}'
-                    : summary.isMystery
-                    ? '神秘代码: ${summary.mysteryCode ?? summary.displayName}'
-                    : (summary.directoryPath == null ||
-                              summary.directoryPath!.isEmpty
-                          ? '所有目录'
-                          : p.normalize(summary.directoryPath!));
-                final gradient = summary.isRemote
-                    ? [const Color(0xFF2F3542), const Color(0xFF1E272E)]
-                    : null;
-
-                final remoteArtworkUrl =
-                    MysteryLibraryConstants.buildArtworkUrl(
-                      summary.previewTrack?.httpHeaders,
-                      thumbnail: true,
-                    );
-
-                return CollectionSummaryCard(
-                  title: summary.displayName,
-                  subtitle: subtitle,
-                  detailText: '${summary.totalTracks} 首歌曲 · 点击查看全部',
-                  artworkPath: summary.previewTrack?.artworkPath,
-                  remoteImageUrl: remoteArtworkUrl,
-                  hasArtwork: summary.hasArtwork,
-                  fallbackIcon: summary.isWebDav
-                      ? CupertinoIcons.cloud
+            content = KeyedSubtree(
+              key: const ValueKey<String>('library_overview'),
+              child: CollectionOverviewGrid(
+                itemCount: summariesData.length,
+                itemBuilder: (context, tileWidth, index) {
+                  final summary = summariesData[index];
+                  final subtitle = summary.isWebDav
+                      ? '${summary.webDavSource!.baseUrl}${summary.webDavSource!.rootPath}'
                       : summary.isMystery
-                      ? CupertinoIcons.music_note
-                      : CupertinoIcons.folder_solid,
-                  gradientColors: gradient,
-                  onTap: () {
-                    setState(() {
-                      _showList = true;
-                      _activeFilterKey = summary.isAll
-                          ? null
-                          : summary.filterKey;
-                    });
-                    _notifyDetailState();
-                  },
-                  onRemove: summary.isAll
-                      ? null
-                      : () => _confirmRemoveSummary(summary),
-                  contextMenuLabel: summary.isAll
-                      ? null
-                      : (summary.isWebDav
-                            ? '移除 WebDAV 音乐库'
-                            : summary.isMystery
-                            ? '卸载神秘音乐库'
-                            : '移除音乐库'),
-                );
-              },
-            );
-          }
+                      ? '神秘代码: ${summary.mysteryCode ?? summary.displayName}'
+                      : (summary.directoryPath == null ||
+                                summary.directoryPath!.isEmpty
+                            ? '所有目录'
+                            : p.normalize(summary.directoryPath!));
+                  final gradient = summary.isRemote
+                      ? [const Color(0xFF2F3542), const Color(0xFF1E272E)]
+                      : null;
 
-          final filteredTracks = _activeFilterKey == null
-              ? state.tracks
-              : state.tracks.where((track) {
-                  final key = _activeFilterKey!;
-                  if (_DirectorySummaryData.isAllKey(key)) {
-                    return true;
-                  }
-                  if (key.startsWith('webdav://')) {
-                    final sourceId = key.substring('webdav://'.length);
-                    return track.sourceType == TrackSourceType.webdav &&
-                        track.sourceId == sourceId;
-                  }
-                  if (key.startsWith('mystery://')) {
-                    final sourceId = key.substring('mystery://'.length);
-                    return track.sourceType == TrackSourceType.mystery &&
-                        track.sourceId == sourceId;
-                  }
-                  return _isTrackInDirectory(track, key);
-                }).toList();
+                  final remoteArtworkUrl =
+                      MysteryLibraryConstants.buildArtworkUrl(
+                        summary.previewTrack?.httpHeaders,
+                        thumbnail: true,
+                      );
 
-          final queueTracks = hasActiveSearch
-              ? state.allTracks
-              : filteredTracks;
-
-          final listWidget = MacOSTrackListView(
-            tracks: filteredTracks,
-            queueTracks: queueTracks,
-            onAddToPlaylist: widget.onAddToPlaylist,
-            onViewArtist: widget.onViewArtist,
-            onViewAlbum: widget.onViewAlbum,
-          );
-
-          if (_activeFilterKey != null) {
-            return Shortcuts(
-              shortcuts: <LogicalKeySet, Intent>{
-                LogicalKeySet(LogicalKeyboardKey.escape):
-                    const _ExitLibraryOverviewIntent(),
-              },
-              child: Actions(
-                actions: {
-                  _ExitLibraryOverviewIntent:
-                      CallbackAction<_ExitLibraryOverviewIntent>(
-                        onInvoke: (intent) {
-                          setState(() {
-                            _showList = false;
-                            _activeFilterKey = null;
-                          });
-                          _notifyDetailState();
-                          return null;
-                        },
-                      ),
+                  return CollectionSummaryCard(
+                    title: summary.displayName,
+                    subtitle: subtitle,
+                    detailText: '${summary.totalTracks} 首歌曲 · 点击查看全部',
+                    artworkPath: summary.previewTrack?.artworkPath,
+                    remoteImageUrl: remoteArtworkUrl,
+                    hasArtwork: summary.hasArtwork,
+                    fallbackIcon: summary.isWebDav
+                        ? CupertinoIcons.cloud
+                        : summary.isMystery
+                        ? CupertinoIcons.music_note
+                        : CupertinoIcons.folder_solid,
+                    gradientColors: gradient,
+                    onTap: () {
+                      setState(() {
+                        _showList = true;
+                        _activeFilterKey = summary.isAll
+                            ? null
+                            : summary.filterKey;
+                      });
+                      _notifyDetailState();
+                    },
+                    onRemove: summary.isAll
+                        ? null
+                        : () => _confirmRemoveSummary(summary),
+                    contextMenuLabel: summary.isAll
+                        ? null
+                        : (summary.isWebDav
+                              ? '移除 WebDAV 音乐库'
+                              : summary.isMystery
+                              ? '卸载神秘音乐库'
+                              : '移除音乐库'),
+                  );
                 },
-                child: Focus(autofocus: true, child: listWidget),
               ),
             );
+          } else {
+            final filteredTracks = _activeFilterKey == null
+                ? state.tracks
+                : state.tracks.where((track) {
+                    final key = _activeFilterKey!;
+                    if (_DirectorySummaryData.isAllKey(key)) {
+                      return true;
+                    }
+                    if (key.startsWith('webdav://')) {
+                      final sourceId = key.substring('webdav://'.length);
+                      return track.sourceType == TrackSourceType.webdav &&
+                          track.sourceId == sourceId;
+                    }
+                    if (key.startsWith('mystery://')) {
+                      final sourceId = key.substring('mystery://'.length);
+                      return track.sourceType == TrackSourceType.mystery &&
+                          track.sourceId == sourceId;
+                    }
+                    return _isTrackInDirectory(track, key);
+                  }).toList();
+
+            final queueTracks = hasActiveSearch
+                ? state.allTracks
+                : filteredTracks;
+
+            final listWidget = MacOSTrackListView(
+              tracks: filteredTracks,
+              queueTracks: queueTracks,
+              onAddToPlaylist: widget.onAddToPlaylist,
+              onViewArtist: widget.onViewArtist,
+              onViewAlbum: widget.onViewAlbum,
+            );
+
+            Widget listContent = listWidget;
+
+            if (_activeFilterKey != null) {
+              listContent = Shortcuts(
+                shortcuts: <LogicalKeySet, Intent>{
+                  LogicalKeySet(LogicalKeyboardKey.escape):
+                      const _ExitLibraryOverviewIntent(),
+                },
+                child: Actions(
+                  actions: {
+                    _ExitLibraryOverviewIntent:
+                        CallbackAction<_ExitLibraryOverviewIntent>(
+                          onInvoke: (intent) {
+                            setState(() {
+                              _showList = false;
+                              _activeFilterKey = null;
+                            });
+                            _notifyDetailState();
+                            return null;
+                          },
+                        ),
+                  },
+                  child: Focus(autofocus: true, child: listWidget),
+                ),
+              );
+            }
+
+            content = KeyedSubtree(
+              key: const ValueKey<String>('library_list'),
+              child: listContent,
+            );
           }
 
-          return listWidget;
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 320),
+            switchInCurve: Curves.easeInOutCubic,
+            switchOutCurve: Curves.easeInOutCubic,
+            layoutBuilder: (currentChild, previousChildren) {
+              return Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  ...previousChildren,
+                  if (currentChild != null) currentChild,
+                ],
+              );
+            },
+            transitionBuilder: (child, animation) {
+              final isOverview =
+                  (child.key as ValueKey<String>?)?.value == 'library_overview';
+              final offsetTween = Tween<Offset>(
+                begin: isOverview
+                    ? const Offset(-0.02, 0)
+                    : const Offset(0.02, 0),
+                end: Offset.zero,
+              );
+              final curvedAnimation = CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInOutCubic,
+              );
+              return FadeTransition(
+                opacity: curvedAnimation,
+                child: SlideTransition(
+                  position: offsetTween.animate(curvedAnimation),
+                  child: child,
+                ),
+              );
+            },
+            child: content,
+          );
         }
 
         return _PlaylistMessage(
