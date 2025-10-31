@@ -5,7 +5,6 @@
 #include "flutter_window.h"
 
 #include <iostream>
-#include <cairo.h>
 
 #include "include/desktop_multi_window/desktop_multi_window_plugin.h"
 #include "desktop_multi_window_plugin_internal.h"
@@ -30,35 +29,6 @@ FlutterWindow::FlutterWindow(
   gtk_window_set_default_size(GTK_WINDOW(window_), 1280, 720);
   gtk_window_set_title(GTK_WINDOW(window_), "");
   gtk_window_set_position(GTK_WINDOW(window_), GTK_WIN_POS_CENTER);
-  gtk_window_set_decorated(GTK_WINDOW(window_), FALSE);
-  gtk_window_set_resizable(GTK_WINDOW(window_), FALSE);
-  gtk_window_set_keep_above(GTK_WINDOW(window_), TRUE);
-  gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window_), TRUE);
-  gtk_window_set_skip_pager_hint(GTK_WINDOW(window_), TRUE);
-  gtk_widget_set_app_paintable(window_, TRUE);
-
-  if (auto *screen = gtk_widget_get_screen(window_)) {
-    if (auto *visual = gdk_screen_get_rgba_visual(screen)) {
-      gtk_widget_set_visual(window_, visual);
-    }
-  }
-
-  g_signal_connect(window_, "draw", G_CALLBACK(+[](GtkWidget *, cairo_t *cr, gpointer) {
-    cairo_save(cr);
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.0);
-    cairo_paint(cr);
-    cairo_restore(cr);
-    return FALSE;
-  }), nullptr);
-
-  g_signal_connect(window_, "realize", G_CALLBACK(+[](GtkWidget *widget, gpointer) {
-    if (auto *gdk_window = gtk_widget_get_window(widget)) {
-      GdkRGBA transparent = {0.0, 0.0, 0.0, 0.0};
-      gdk_window_set_background_rgba(gdk_window, &transparent);
-    }
-  }), nullptr);
-
   gtk_widget_show(GTK_WIDGET(window_));
 
   g_signal_connect(G_OBJECT(window_), "delete-event", G_CALLBACK(on_close_clicked), NULL);
@@ -76,15 +46,8 @@ FlutterWindow::FlutterWindow(
   fl_dart_project_set_dart_entrypoint_arguments(project, const_cast<char **>(entrypoint_args));
 
   auto fl_view = fl_view_new(project);
-  gtk_widget_set_app_paintable(GTK_WIDGET(fl_view), TRUE);
-  g_signal_connect(fl_view, "realize", G_CALLBACK(+[](GtkWidget *widget, gpointer) {
-    if (auto *gdk_window = gtk_widget_get_window(widget)) {
-      GdkRGBA transparent = {0.0, 0.0, 0.0, 0.0};
-      gdk_window_set_background_rgba(gdk_window, &transparent);
-    }
-  }), nullptr);
-  gtk_container_add(GTK_CONTAINER(window_), GTK_WIDGET(fl_view));
   gtk_widget_show(GTK_WIDGET(fl_view));
+  gtk_container_add(GTK_CONTAINER(window_), GTK_WIDGET(fl_view));
 
   if (_g_window_created_callback) {
     _g_window_created_callback(FL_PLUGIN_REGISTRY(fl_view));
