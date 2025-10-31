@@ -53,6 +53,7 @@ dependencies:
   sqflite_common_ffi: ^2.3.0
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  sqlite3_flutter_libs: ^0.5.22
 
   # Japanese Text Processing
 
