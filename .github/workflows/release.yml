@@ -72,12 +72,22 @@ jobs:
       arch: x64
     secrets: inherit
 
+  linux:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.should_run == 'true' }}
+    uses: ./.github/workflows/linux-build.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      arch: x64
+    secrets: inherit
+
   publish_release:
     needs:
       - prepare
       - macos
       - windows
-    if: ${{ needs.prepare.outputs.should_run == 'true' && needs.macos.result == 'success' && needs.windows.result == 'success' }}
+      - linux
+    if: ${{ needs.prepare.outputs.should_run == 'true' && needs.macos.result == 'success' && needs.windows.result == 'success' && needs.linux.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: 下载构建产物
@@ -95,6 +105,7 @@ jobs:
 
             - macOS 通用 DMG
             - Windows x64 ZIP
+            - Linux x64 TAR.GZ
           files: dist/*
 
   version_bump:
@@ -102,6 +113,7 @@ jobs:
       - prepare
       - macos
       - windows
+      - linux
       - publish_release
     if: ${{ needs.prepare.outputs.should_run == 'true' && needs.publish_release.result == 'success' }}
     uses: ./.github/workflows/version-bump.yml
