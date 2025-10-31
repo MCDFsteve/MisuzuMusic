@@ -13,6 +13,7 @@ import 'presentation/pages/home_page.dart';
 import 'presentation/desktop_lyrics/desktop_lyrics_window_app.dart';
 import 'presentation/desktop_lyrics/desktop_lyrics_window_manager.dart';
 import 'presentation/desktop_lyrics/desktop_lyrics_server.dart';
+import 'presentation/developer/developer_log_collector.dart';
 
 Future<void> _configureMainWindow() async {
   if (!(Platform.isMacOS || Platform.isWindows)) {
@@ -37,26 +38,44 @@ Future<void> _configureMainWindow() async {
 }
 
 Future<void> main(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final logCollector = DeveloperLogCollector.instance;
+  logCollector.initialize();
 
-  if (_maybeHandleSubWindow(args)) {
-    return;
-  }
+  await runZonedGuarded<Future<void>>(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-  final bool isSupportedDesktop =
-      Platform.isMacOS || Platform.isWindows || Platform.isLinux;
-  if (isSupportedDesktop) {
-    await wm.windowManager.ensureInitialized();
-    DesktopLyricsWindowManager.instance.initialize();
-    await DesktopLyricsServer.instance.start();
-    if (Platform.isMacOS || Platform.isWindows) {
-      await _configureMainWindow();
-    }
-  }
+      if (_maybeHandleSubWindow(args)) {
+        return;
+      }
 
-  await DependencyInjection.init();
+      final bool isSupportedDesktop =
+          Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+      if (isSupportedDesktop) {
+        await wm.windowManager.ensureInitialized();
+        DesktopLyricsWindowManager.instance.initialize();
+        await DesktopLyricsServer.instance.start();
+        if (Platform.isMacOS || Platform.isWindows) {
+          await _configureMainWindow();
+        }
+      }
 
-  runApp(const MisuzuMusicApp());
+      await DependencyInjection.init();
+
+      runApp(const MisuzuMusicApp());
+    },
+    (error, stackTrace) {
+      logCollector.addError(error, stackTrace);
+    },
+    zoneSpecification: ZoneSpecification(
+      print: (self, parent, zone, line) {
+        if (!logCollector.isSuppressingPrints) {
+          logCollector.addMessage(line);
+        }
+        parent.print(zone, line);
+      },
+    ),
+  );
 }
 
 bool _maybeHandleSubWindow(List<String> args) {

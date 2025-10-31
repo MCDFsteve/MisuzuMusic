@@ -1,7 +1,6 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -10,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/platform_utils.dart';
+import '../../../core/widgets/modal_dialog.dart';
+import '../../developer/developer_log_collector.dart';
 import '../../widgets/common/adaptive_scrollbar.dart';
 import '../../widgets/common/hover_glow_overlay.dart';
 
@@ -115,6 +116,22 @@ class _MacOSSettingsView extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 24),
+                    _SettingsCard(
+                      isDarkMode: isDarkMode,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SettingsSection(
+                            title: '开发者选项',
+                            subtitle: '访问调试输出等工具',
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 20),
+                          _DeveloperOptionsList(isDarkMode: isDarkMode),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -182,6 +199,22 @@ class _MobileSettingsView extends StatelessWidget {
                           ),
                           const SizedBox(height: 20),
                           _AboutSection(packageInfoFuture: _packageInfoFuture),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _SettingsCard(
+                      isDarkMode: isDarkMode,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SettingsSection(
+                            title: '开发者选项',
+                            subtitle: '访问调试输出等工具',
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 20),
+                          _DeveloperOptionsList(isDarkMode: isDarkMode),
                         ],
                       ),
                     ),
@@ -335,6 +368,412 @@ class _AboutSection extends StatelessWidget {
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _DeveloperOptionsList extends StatelessWidget {
+  const _DeveloperOptionsList({required this.isDarkMode});
+
+  final bool isDarkMode;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _DeveloperOptionTile(
+          title: '终端输出',
+          subtitle: '查看 print 和 debugPrint 的实时日志',
+          icon: Icons.terminal,
+          isDarkMode: isDarkMode,
+          onTap: () => _showTerminalOutputDialog(context),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeveloperOptionTile extends StatelessWidget {
+  const _DeveloperOptionTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.isDarkMode,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool isDarkMode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color background = isDarkMode
+        ? Colors.white.withValues(alpha: 0.05)
+        : Colors.black.withValues(alpha: 0.04);
+    final Color iconColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.9)
+        : Colors.black.withValues(alpha: 0.75);
+    final Color titleColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.95)
+        : Colors.black.withValues(alpha: 0.9);
+    final Color subtitleColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.6)
+        : Colors.black.withValues(alpha: 0.6);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Material(
+        color: background,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Icon(icon, color: iconColor),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        locale: Locale("zh-Hans", "zh"),
+                        style: TextStyle(
+                          color: titleColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        locale: Locale("zh-Hans", "zh"),
+                        style: TextStyle(
+                          color: subtitleColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: iconColor.withValues(alpha: 0.7),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showTerminalOutputDialog(BuildContext context) async {
+  final collector = DeveloperLogCollector.instance;
+
+  await showPlaylistModalDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    builder: (dialogContext) {
+      final theme = Theme.of(dialogContext);
+      final macTheme = MacosTheme.maybeOf(dialogContext);
+      final brightness = macTheme?.brightness ?? theme.brightness;
+      final isDark = brightness == Brightness.dark;
+
+      return PlaylistModalScaffold(
+        title: '终端输出',
+        maxWidth: 720,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        body: _DeveloperLogsDialog(
+          collector: collector,
+          isDarkMode: isDark,
+        ),
+        actions: [
+          TextButton(
+            onPressed: collector.clear,
+            child: const Text('清空'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+enum _DeveloperLogFilter { all, info, error }
+
+class _DeveloperLogsDialog extends StatefulWidget {
+  const _DeveloperLogsDialog({
+    required this.collector,
+    required this.isDarkMode,
+  });
+
+  final DeveloperLogCollector collector;
+  final bool isDarkMode;
+
+  @override
+  State<_DeveloperLogsDialog> createState() => _DeveloperLogsDialogState();
+}
+
+class _DeveloperLogsDialogState extends State<_DeveloperLogsDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+  _DeveloperLogFilter _filter = _DeveloperLogFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {});
+  }
+
+  void _setFilter(_DeveloperLogFilter filter) {
+    if (_filter == filter) {
+      return;
+    }
+    setState(() {
+      _filter = filter;
+    });
+  }
+
+  List<DeveloperLogEntry> _filterEntries(List<DeveloperLogEntry> logs) {
+    final query = _searchController.text.trim().toLowerCase();
+    return logs.where((entry) {
+      if (_filter == _DeveloperLogFilter.info &&
+          entry.level != DeveloperLogLevel.info) {
+        return false;
+      }
+      if (_filter == _DeveloperLogFilter.error &&
+          entry.level != DeveloperLogLevel.error) {
+        return false;
+      }
+      if (query.isNotEmpty &&
+          !entry.message.toLowerCase().contains(query) &&
+          !entry.formattedTimestamp().toLowerCase().contains(query)) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  String _filterDescription(_DeveloperLogFilter filter) {
+    return switch (filter) {
+      _DeveloperLogFilter.all => '全部',
+      _DeveloperLogFilter.info => '仅普通输出',
+      _DeveloperLogFilter.error => '仅错误',
+    };
+  }
+
+  IconData _filterIcon(_DeveloperLogFilter filter) {
+    return switch (filter) {
+      _DeveloperLogFilter.all => Icons.list_alt,
+      _DeveloperLogFilter.info => Icons.bubble_chart,
+      _DeveloperLogFilter.error => Icons.error,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color logBackground = widget.isDarkMode
+        ? const Color(0xFF111111)
+        : const Color(0xFFF4F4F4);
+    final Color borderColor = widget.isDarkMode
+        ? Colors.white.withValues(alpha: 0.05)
+        : Colors.black.withValues(alpha: 0.05);
+    final TextStyle baseLogStyle = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 12,
+      color: widget.isDarkMode
+          ? Colors.white.withValues(alpha: 0.9)
+          : Colors.black.withValues(alpha: 0.85),
+      height: 1.35,
+    );
+    final TextStyle errorStyle = baseLogStyle.copyWith(
+      color: const Color(0xFFFF4D4F),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaHeight = MediaQuery.of(context).size.height;
+        final double fallbackHeight = mediaHeight * 0.7;
+        final double boundedHeight = constraints.hasBoundedHeight &&
+                constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : fallbackHeight;
+        final double maxHeight = boundedHeight.clamp(340.0, mediaHeight * 0.9);
+        final double logViewportHeight = (maxHeight - 220).clamp(160.0, 360.0);
+
+        final column = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '展示应用启动以来所有 print 与 debugPrint 输出，可快速搜索或过滤。',
+              locale: Locale("zh-Hans", "zh"),
+              style: TextStyle(
+                fontSize: 12,
+                color: widget.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.66)
+                    : Colors.black.withValues(alpha: 0.64),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: '清除搜索',
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _searchFocusNode.requestFocus();
+                        },
+                      ),
+                hintText: '搜索日志内容或时间戳...',
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SegmentedButton<_DeveloperLogFilter>(
+              segments: _DeveloperLogFilter.values
+                  .map(
+                    (filter) => ButtonSegment<_DeveloperLogFilter>(
+                      value: filter,
+                      label: Text(
+                        _filterDescription(filter),
+                        locale: Locale("zh-Hans", "zh"),
+                      ),
+                      icon: Icon(_filterIcon(filter), size: 16),
+                    ),
+                  )
+                  .toList(growable: false),
+              selected: <_DeveloperLogFilter>{_filter},
+              onSelectionChanged: (selection) {
+                if (selection.isEmpty) {
+                  return;
+                }
+                _setFilter(selection.first);
+              },
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: logViewportHeight,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: logBackground,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: ValueListenableBuilder<List<DeveloperLogEntry>>(
+                    valueListenable: widget.collector.logsListenable,
+                    builder: (context, logs, _) {
+                      final filtered = _filterEntries(logs);
+
+                      if (filtered.isEmpty) {
+                        return Center(
+                          child: Text(
+                            logs.isEmpty
+                                ? '当前没有可显示的输出。'
+                                : '没有匹配筛选条件的日志。',
+                            locale: Locale("zh-Hans", "zh"),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: widget.isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.6)
+                                  : Colors.black.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        );
+                      }
+
+                      final textSpan = TextSpan(
+                        children: [
+                          for (final entry in filtered)
+                            TextSpan(
+                              text:
+                                  '[${entry.formattedTimestamp()}] ${entry.message}\n',
+                              style: entry.level == DeveloperLogLevel.error
+                                  ? errorStyle
+                                  : baseLogStyle,
+                            ),
+                        ],
+                      );
+
+                      return Scrollbar(
+                        controller: _scrollController,
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          primary: false,
+                          padding: const EdgeInsets.all(16),
+                          child: SelectableText.rich(
+                            textSpan,
+                            style: baseLogStyle,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<List<DeveloperLogEntry>>(
+              valueListenable: widget.collector.logsListenable,
+              builder: (context, logs, _) {
+                final filtered = _filterEntries(logs);
+                return Text(
+                  '总计 ${logs.length} 条，筛选后 ${filtered.length} 条。',
+                  locale: Locale("zh-Hans", "zh"),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: widget.isDarkMode
+                        ? Colors.white.withValues(alpha: 0.58)
+                        : Colors.black.withValues(alpha: 0.58),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: SingleChildScrollView(
+            child: column,
+          ),
         );
       },
     );
