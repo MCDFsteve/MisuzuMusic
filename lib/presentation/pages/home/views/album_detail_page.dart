@@ -6,6 +6,7 @@ class AlbumDetailPage extends StatelessWidget {
     required this.album,
     required this.tracks,
     this.onAddToPlaylist,
+    this.onAddAllToPlaylist,
     this.onViewArtist,
     this.onViewAlbum,
   });
@@ -13,6 +14,7 @@ class AlbumDetailPage extends StatelessWidget {
   final Album album;
   final List<Track> tracks;
   final Future<void> Function(Track track)? onAddToPlaylist;
+  final Future<void> Function(List<Track> tracks)? onAddAllToPlaylist;
   final ValueChanged<Track>? onViewArtist;
   final ValueChanged<Track>? onViewAlbum;
 
@@ -41,6 +43,7 @@ class AlbumDetailPage extends StatelessWidget {
         album: album,
         tracks: tracks,
         onAddToPlaylist: onAddToPlaylist,
+        onAddAllToPlaylist: onAddAllToPlaylist,
         onViewArtist: onViewArtist,
         onViewAlbum: onViewAlbum,
       ),
@@ -54,6 +57,7 @@ class AlbumDetailView extends StatelessWidget {
     required this.album,
     required this.tracks,
     this.onAddToPlaylist,
+    this.onAddAllToPlaylist,
     this.onViewArtist,
     this.onViewAlbum,
   });
@@ -61,6 +65,7 @@ class AlbumDetailView extends StatelessWidget {
   final Album album;
   final List<Track> tracks;
   final Future<void> Function(Track track)? onAddToPlaylist;
+  final Future<void> Function(List<Track> tracks)? onAddAllToPlaylist;
   final ValueChanged<Track>? onViewArtist;
   final ValueChanged<Track>? onViewAlbum;
 
@@ -91,6 +96,9 @@ class AlbumDetailView extends StatelessWidget {
             trackCount: tracks.length,
             description: '总时长：${hour} 小时 ${minute} 分钟',
             previewTrack: preview,
+            onAddAllToPlaylist: tracks.isEmpty || onAddAllToPlaylist == null
+                ? null
+                : () => onAddAllToPlaylist!(tracks),
           ),
         ),
         Expanded(
@@ -112,12 +120,14 @@ class _AlbumOverviewCard extends StatelessWidget {
     required this.trackCount,
     required this.description,
     this.previewTrack,
+    this.onAddAllToPlaylist,
   });
 
   final Album album;
   final int trackCount;
   final String description;
   final Track? previewTrack;
+  final VoidCallback? onAddAllToPlaylist;
 
   @override
   Widget build(BuildContext context) {
@@ -168,6 +178,13 @@ class _AlbumOverviewCard extends StatelessWidget {
       );
     }
 
+    if (onAddAllToPlaylist != null) {
+      artwork = _OverviewContextMenuTarget(
+        child: artwork,
+        onAddAllToPlaylist: onAddAllToPlaylist!,
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -208,6 +225,42 @@ class _AlbumOverviewCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _OverviewContextMenuTarget extends StatelessWidget {
+  const _OverviewContextMenuTarget({
+    required this.child,
+    required this.onAddAllToPlaylist,
+  });
+
+  final Widget child;
+  final VoidCallback onAddAllToPlaylist;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onSecondaryTapDown: (details) {
+          unawaited(
+            MacosContextMenu.show(
+              context: context,
+              globalPosition: details.globalPosition,
+              actions: [
+                MacosContextMenuAction(
+                  label: '全部添加到歌单',
+                  icon: CupertinoIcons.music_note_list,
+                  onSelected: onAddAllToPlaylist,
+                ),
+              ],
+            ),
+          );
+        },
+        child: child,
+      ),
     );
   }
 }

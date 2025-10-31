@@ -13,6 +13,22 @@ import '../../../domain/repositories/music_library_repository.dart';
 
 part 'playlists_state.dart';
 
+class PlaylistBulkAddResult {
+  const PlaylistBulkAddResult({
+    required this.addedCount,
+    required this.skippedCount,
+    this.errorMessage,
+    this.playlistMissing = false,
+  });
+
+  final int addedCount;
+  final int skippedCount;
+  final String? errorMessage;
+  final bool playlistMissing;
+
+  bool get hasError => playlistMissing || errorMessage != null;
+}
+
 class PlaylistsCubit extends Cubit<PlaylistsState> {
   PlaylistsCubit(this._repository, this._configStore)
     : super(const PlaylistsState()) {
@@ -402,6 +418,71 @@ class PlaylistsCubit extends Cubit<PlaylistsState> {
     } catch (e) {
       emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
       return false;
+    }
+  }
+
+  Future<PlaylistBulkAddResult> addTracksToPlaylist(
+    String playlistId,
+    List<Track> tracks,
+  ) async {
+    if (tracks.isEmpty) {
+      return const PlaylistBulkAddResult(addedCount: 0, skippedCount: 0);
+    }
+
+    emit(state.copyWith(isProcessing: true, clearError: true));
+    try {
+      Playlist? playlist;
+      for (final item in state.playlists) {
+        if (item.id == playlistId) {
+          playlist = item;
+          break;
+        }
+      }
+      playlist ??= await _repository.getPlaylistById(playlistId);
+      if (playlist == null) {
+        emit(state.copyWith(isProcessing: false));
+        return const PlaylistBulkAddResult(
+          addedCount: 0,
+          skippedCount: 0,
+          playlistMissing: true,
+          errorMessage: '指定的歌单不存在或已删除',
+        );
+      }
+
+      final existingHashes = playlist.trackIds.toSet();
+      var added = 0;
+      var skipped = 0;
+      for (final track in tracks) {
+        final trackHash = track.contentHash ?? track.id;
+        if (existingHashes.contains(trackHash)) {
+          skipped++;
+          continue;
+        }
+        await _repository.addTrackToPlaylist(playlistId, trackHash);
+        existingHashes.add(trackHash);
+        added++;
+      }
+
+      if (added > 0) {
+        await loadPlaylists();
+        await ensurePlaylistTracks(playlistId, force: true);
+        emit(state.copyWith(isProcessing: false, clearError: true));
+        unawaited(_autoUploadIfEnabled(playlistId));
+      } else {
+        emit(state.copyWith(isProcessing: false));
+      }
+
+      return PlaylistBulkAddResult(
+        addedCount: added,
+        skippedCount: skipped,
+      );
+    } catch (e) {
+      emit(state.copyWith(isProcessing: false, errorMessage: e.toString()));
+      return PlaylistBulkAddResult(
+        addedCount: 0,
+        skippedCount: 0,
+        errorMessage: e.toString(),
+      );
     }
   }
 

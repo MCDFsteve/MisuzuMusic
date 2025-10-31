@@ -6,6 +6,7 @@ class ArtistDetailPage extends StatelessWidget {
     required this.artist,
     required this.tracks,
     this.onAddToPlaylist,
+    this.onAddAllToPlaylist,
     this.onViewArtist,
     this.onViewAlbum,
   });
@@ -13,6 +14,7 @@ class ArtistDetailPage extends StatelessWidget {
   final Artist artist;
   final List<Track> tracks;
   final Future<void> Function(Track track)? onAddToPlaylist;
+  final Future<void> Function(List<Track> tracks)? onAddAllToPlaylist;
   final ValueChanged<Track>? onViewArtist;
   final ValueChanged<Track>? onViewAlbum;
 
@@ -36,6 +38,7 @@ class ArtistDetailPage extends StatelessWidget {
         artist: artist,
         tracks: tracks,
         onAddToPlaylist: onAddToPlaylist,
+        onAddAllToPlaylist: onAddAllToPlaylist,
         onViewArtist: onViewArtist,
         onViewAlbum: onViewAlbum,
       ),
@@ -49,6 +52,7 @@ class ArtistDetailView extends StatelessWidget {
     required this.artist,
     required this.tracks,
     this.onAddToPlaylist,
+    this.onAddAllToPlaylist,
     this.onViewArtist,
     this.onViewAlbum,
   });
@@ -56,6 +60,7 @@ class ArtistDetailView extends StatelessWidget {
   final Artist artist;
   final List<Track> tracks;
   final Future<void> Function(Track track)? onAddToPlaylist;
+  final Future<void> Function(List<Track> tracks)? onAddAllToPlaylist;
   final ValueChanged<Track>? onViewArtist;
   final ValueChanged<Track>? onViewAlbum;
 
@@ -88,6 +93,9 @@ class ArtistDetailView extends StatelessWidget {
             trackCount: tracks.length,
             description: '总时长：${hour} 小时 ${minute} 分钟',
             previewTrack: preview,
+            onAddAllToPlaylist: tracks.isEmpty || onAddAllToPlaylist == null
+                ? null
+                : () => onAddAllToPlaylist!(tracks),
           ),
         ),
         Expanded(
@@ -109,12 +117,14 @@ class _ArtistOverviewCard extends StatelessWidget {
     required this.trackCount,
     required this.description,
     this.previewTrack,
+    this.onAddAllToPlaylist,
   });
 
   final Artist artist;
   final int trackCount;
   final String description;
   final Track? previewTrack;
+  final VoidCallback? onAddAllToPlaylist;
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +183,13 @@ class _ArtistOverviewCard extends StatelessWidget {
             ),
           ),
         ),
+      );
+    }
+
+    if (onAddAllToPlaylist != null) {
+      artwork = _OverviewContextMenuTarget(
+        child: artwork,
+        onAddAllToPlaylist: onAddAllToPlaylist!,
       );
     }
 

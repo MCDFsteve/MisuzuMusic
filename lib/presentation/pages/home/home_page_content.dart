@@ -281,6 +281,50 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
+  Future<void> _showPlaylistActionDialog({
+    required String title,
+    required String message,
+    bool isError = false,
+    String confirmLabel = '好的',
+  }) async {
+    if (!mounted) {
+      return;
+    }
+
+    final icon = isError
+        ? CupertinoIcons.exclamationmark_triangle_fill
+        : CupertinoIcons.check_mark_circled_solid;
+    final iconColor = isError
+        ? MacosColors.systemRedColor
+        : MacosColors.systemGreenColor;
+
+    await showPlaylistModalDialog<void>(
+      context: context,
+      builder: (_) => _PlaylistModalScaffold(
+        title: title,
+        maxWidth: 360,
+        contentSpacing: 16,
+        actionsSpacing: 20,
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MacosIcon(icon, size: 22, color: iconColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(message, locale: const Locale('zh-Hans', 'zh')),
+            ),
+          ],
+        ),
+        actions: [
+          _SheetActionButton.primary(
+            label: confirmLabel,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMacOSLayout() {
     return BlocConsumer<PlayerBloc, PlayerBlocState>(
       buildWhen: _shouldRebuildForPlayerState,
@@ -620,6 +664,7 @@ class _HomePageContentState extends State<HomePageContent> {
         artist: _activeArtistDetail!,
         tracks: _activeArtistTracks,
         onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
+        onAddAllToPlaylist: _handleAddTracksToPlaylist,
         onViewArtist: _viewTrackArtist,
         onViewAlbum: _viewTrackAlbum,
       );
@@ -629,6 +674,7 @@ class _HomePageContentState extends State<HomePageContent> {
         album: _activeAlbumDetail!,
         tracks: _activeAlbumTracks,
         onAddToPlaylist: (track) => _handleAddTrackToPlaylist(track),
+        onAddAllToPlaylist: _handleAddTracksToPlaylist,
         onViewArtist: _viewTrackArtist,
         onViewAlbum: _viewTrackAlbum,
       );
@@ -639,12 +685,12 @@ class _HomePageContentState extends State<HomePageContent> {
   Future<void> _handleAddTrackToPlaylist(Track track) async {
     final playlistsCubit = context.read<PlaylistsCubit>();
 
-    final result = await showPlaylistModalDialog<String?>(
+    final result = await showPlaylistModalDialog<Object?>(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => BlocProvider.value(
         value: playlistsCubit,
-        child: _PlaylistSelectionDialog(track: track),
+        child: _PlaylistSelectionDialog(initialTracks: [track]),
       ),
     );
 
@@ -659,9 +705,121 @@ class _HomePageContentState extends State<HomePageContent> {
       if (newId != null) {
         await playlistsCubit.ensurePlaylistTracks(newId, force: true);
       }
-    } else if (result != null && result.isNotEmpty) {
-      await playlistsCubit.ensurePlaylistTracks(result, force: true);
+    } else if (result is _PlaylistSelectionResult) {
+      await playlistsCubit.ensurePlaylistTracks(
+        result.playlistId,
+        force: true,
+      );
     }
+  }
+
+  Future<void> _handleAddTracksToPlaylist(List<Track> tracks) async {
+    if (tracks.isEmpty) {
+      await _showPlaylistActionDialog(
+        title: '添加到歌单',
+        message: '当前没有可添加的歌曲',
+        isError: true,
+      );
+      return;
+    }
+
+    final playlistsCubit = context.read<PlaylistsCubit>();
+
+    final selection = await showPlaylistModalDialog<Object?>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => BlocProvider.value(
+        value: playlistsCubit,
+        child: _PlaylistSelectionDialog(initialTracks: tracks),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (selection == _PlaylistSelectionDialog.createSignal) {
+      final newId = await _startPlaylistCreationFlow(
+        initialTrack: tracks.first,
+        openAfterCreate: false,
+      );
+      if (!mounted || newId == null) {
+        return;
+      }
+
+      final remaining = tracks.skip(1).toList(growable: false);
+      PlaylistBulkAddResult? bulkResult;
+      if (remaining.isNotEmpty) {
+        bulkResult = await playlistsCubit.addTracksToPlaylist(
+          newId,
+          remaining,
+        );
+        if (bulkResult.hasError) {
+          await _showPlaylistActionDialog(
+            title: '添加到歌单',
+            message: bulkResult.errorMessage ?? '添加到歌单失败',
+            isError: true,
+          );
+          return;
+        }
+      }
+
+      await playlistsCubit.ensurePlaylistTracks(newId, force: true);
+
+      final playlistName = _playlistNameById(newId) ?? '歌单';
+      final added = 1 + (bulkResult?.addedCount ?? 0);
+      final skipped = bulkResult?.skippedCount ?? 0;
+      await _showPlaylistActionDialog(
+        title: '添加到歌单',
+        message: _formatBulkAddMessage(playlistName, added, skipped),
+        isError: false,
+      );
+      return;
+    }
+
+    if (selection is _PlaylistSelectionResult) {
+      await playlistsCubit.ensurePlaylistTracks(
+        selection.playlistId,
+        force: true,
+      );
+
+      final playlistName = _playlistNameById(selection.playlistId) ?? '歌单';
+
+      if (selection.addedCount > 0) {
+        await _showPlaylistActionDialog(
+          title: '添加到歌单',
+          message: _formatBulkAddMessage(
+            playlistName,
+            selection.addedCount,
+            selection.skippedCount,
+          ),
+        );
+      } else {
+        await _showPlaylistActionDialog(
+          title: '添加到歌单',
+          message: '所选歌曲已存在于歌单',
+          isError: true,
+        );
+      }
+    }
+  }
+
+  String? _playlistNameById(String playlistId) {
+    final playlists = context.read<PlaylistsCubit>().state.playlists;
+    for (final playlist in playlists) {
+      if (playlist.id == playlistId) {
+        return playlist.name;
+      }
+    }
+    return null;
+  }
+
+  String _formatBulkAddMessage(String playlistName, int added, int skipped) {
+    final base = '已添加 $added 首歌曲到歌单 “$playlistName”';
+    if (skipped <= 0) {
+      return base;
+    }
+    return '$base（$skipped 首已存在）';
   }
 
   MusicLibraryLoaded? _effectiveLibraryState() {

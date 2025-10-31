@@ -1,11 +1,15 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
 class _PlaylistSelectionDialog extends StatefulWidget {
-  const _PlaylistSelectionDialog({required this.track});
+  _PlaylistSelectionDialog({required List<Track> initialTracks})
+      : assert(initialTracks.isNotEmpty, '至少需要一首歌曲'),
+        tracks = List<Track>.unmodifiable(initialTracks);
 
-  final Track track;
+  final List<Track> tracks;
 
   static const String createSignal = '__create_playlist__';
+
+  bool get isBulk => tracks.length > 1;
 
   @override
   State<_PlaylistSelectionDialog> createState() =>
@@ -90,7 +94,7 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
                     ).pop(_PlaylistSelectionDialog.createSignal),
             ),
             _SheetActionButton.primary(
-              label: '添加',
+              label: widget.isBulk ? '全部添加' : '添加',
               onPressed: state.isProcessing || _selectedPlaylistId == null
                   ? null
                   : () async {
@@ -98,17 +102,66 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
                       if (playlistId == null) {
                         return;
                       }
-                      final added = await context
-                          .read<PlaylistsCubit>()
-                          .addTrackToPlaylist(playlistId, widget.track);
-                      if (!added) {
+                      setState(() {
+                        _localError = null;
+                      });
+                      final playlistsCubit = context.read<PlaylistsCubit>();
+                      if (!widget.isBulk) {
+                        final added = await playlistsCubit.addTrackToPlaylist(
+                          playlistId,
+                          widget.tracks.first,
+                        );
+                        if (!added) {
+                          if (mounted) {
+                            setState(() {
+                              _localError = '歌曲已在该歌单中';
+                            });
+                          }
+                          return;
+                        }
+                        if (mounted) {
+                          Navigator.of(context).pop(
+                            _PlaylistSelectionResult(
+                              playlistId: playlistId,
+                              addedCount: 1,
+                              skippedCount: 0,
+                            ),
+                          );
+                        }
+                        return;
+                      }
+
+                      final bulkResult = await playlistsCubit.addTracksToPlaylist(
+                        playlistId,
+                        widget.tracks,
+                      );
+                      if (bulkResult.hasError) {
+                        if (!mounted) {
+                          return;
+                        }
                         setState(() {
-                          _localError = '歌曲已在该歌单中';
+                          _localError =
+                              bulkResult.errorMessage ?? '添加失败，请稍后重试';
+                        });
+                        return;
+                      }
+                      if (bulkResult.addedCount == 0) {
+                        if (!mounted) {
+                          return;
+                        }
+                        setState(() {
+                          _localError = '所选歌曲已在该歌单中';
                         });
                         return;
                       }
                       if (mounted) {
-                        Navigator.of(context).pop(playlistId);
+                        Navigator.of(context).pop(
+                          _PlaylistSelectionResult(
+                            playlistId: playlistId,
+                            addedCount: bulkResult.addedCount,
+                            skippedCount: bulkResult.skippedCount,
+                          ),
+                        );
                       }
                     },
               isBusy: state.isProcessing,
@@ -149,7 +202,9 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
         ),
         const SizedBox(height: 6),
         Text(
-          '新建歌单后可以将这首歌添加进去。',
+          widget.isBulk
+              ? '新建歌单后可以将这些歌曲添加进去。'
+              : '新建歌单后可以将这首歌添加进去。',
           locale: Locale("zh-Hans", "zh"),
           style: macTheme.typography.caption1.copyWith(
             fontSize: 11,
@@ -166,11 +221,23 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
     bool isDark,
   ) {
     final macTheme = MacosTheme.of(context);
+    final trackCount = widget.tracks.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        Text(
+          widget.isBulk
+              ? '将添加 $trackCount 首歌曲到所选歌单。'
+              : '将添加 1 首歌曲到所选歌单。',
+          locale: Locale("zh-Hans", "zh"),
+          style: macTheme.typography.caption1.copyWith(
+            fontSize: 11,
+            color: MacosColors.secondaryLabelColor,
+          ),
+        ),
+        const SizedBox(height: 8),
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 240),
           child: MacosScrollbar(
@@ -219,6 +286,18 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
       ],
     );
   }
+}
+
+class _PlaylistSelectionResult {
+  const _PlaylistSelectionResult({
+    required this.playlistId,
+    required this.addedCount,
+    required this.skippedCount,
+  });
+
+  final String playlistId;
+  final int addedCount;
+  final int skippedCount;
 }
 
 class _PlaylistEntryTile extends StatelessWidget {
