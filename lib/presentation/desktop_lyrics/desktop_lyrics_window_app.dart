@@ -91,6 +91,15 @@ Future<void> runDesktopLyricsWindow(
 
       await windowManager.waitUntilReadyToShow(options, () async {
         await windowManager.setAsFrameless();
+        if (isLinux) {
+          try {
+            await windowManager.setBackgroundColor(Colors.transparent);
+          } on MissingPluginException catch (error) {
+            debugPrint('桌面歌词窗口 setBackgroundColor 未实现: $error');
+          } on UnimplementedError catch (error) {
+            debugPrint('桌面歌词窗口 setBackgroundColor 未实现: $error');
+          }
+        }
         try {
           await windowManager.setHasShadow(false);
         } on MissingPluginException catch (_) {
@@ -131,6 +140,11 @@ Future<void> runDesktopLyricsWindow(
         if (isMacOS || isWindows || isLinux) {
           await windowManager.show();
           await windowManager.focus();
+          try {
+            await windowManager.setAlwaysOnTop(true);
+          } catch (error) {
+            debugPrint('桌面歌词窗口置顶失败: $error');
+          }
         }
         break;
       case 'hide_window':
@@ -163,7 +177,11 @@ class LyricsWindowApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        fontFamily: Platform.isWindows ? 'Microsoft YaHei' : null,
+        fontFamily: Platform.isWindows
+            ? 'Microsoft YaHei'
+            : Platform.isLinux
+            ? 'Noto Sans CJK SC'
+            : null,
         scaffoldBackgroundColor: Colors.transparent,
       ),
       home: LyricsWindowScreen(windowId: windowId),
@@ -242,6 +260,11 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
     if (visible) {
       await windowManager.show();
       await windowManager.focus();
+      try {
+        await windowManager.setAlwaysOnTop(true);
+      } catch (error) {
+        debugPrint('桌面歌词窗口置顶失败: $error');
+      }
     } else {
       await windowManager.hide();
     }
@@ -343,6 +366,7 @@ class _LyricsContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isWindows = Platform.isWindows;
+    final bool isLinux = Platform.isLinux;
     const TextStyle rawBaseStyle = TextStyle(
       fontSize: 42,
       fontWeight: FontWeight.w800,
@@ -350,9 +374,13 @@ class _LyricsContent extends StatelessWidget {
       color: Colors.white,
       decoration: TextDecoration.none,
     );
-    final TextStyle baseStyle = isWindows
-        ? rawBaseStyle.copyWith(fontFamily: 'Microsoft YaHei')
-        : rawBaseStyle;
+    final TextStyle baseStyle = rawBaseStyle.copyWith(
+      fontFamily: isWindows
+          ? 'Microsoft YaHei'
+          : isLinux
+          ? 'Noto Sans CJK SC'
+          : null,
+    );
     final TextStyle translationStyle = baseStyle.copyWith(
       fontSize: 24,
       fontWeight: FontWeight.w600,
