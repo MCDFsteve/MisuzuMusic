@@ -240,25 +240,31 @@ class _OverviewContextMenuTarget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onSecondaryTapDown: (details) {
-          unawaited(
-            MacosContextMenu.show(
-              context: context,
-              globalPosition: details.globalPosition,
-              actions: [
-                MacosContextMenuAction(
-                  label: '全部添加到歌单',
-                  icon: CupertinoIcons.music_note_list,
-                  onSelected: onAddAllToPlaylist,
-                ),
-              ],
-            ),
-          );
-        },
+    final macTheme = MacosTheme.of(context);
+    final isDark = macTheme.brightness == Brightness.dark;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onSecondaryTapDown: (details) {
+        unawaited(
+          MacosContextMenu.show(
+            context: context,
+            globalPosition: details.globalPosition,
+            actions: [
+              MacosContextMenuAction(
+                label: '全部添加到歌单',
+                icon: CupertinoIcons.music_note_list,
+                onSelected: onAddAllToPlaylist,
+              ),
+            ],
+          ),
+        );
+      },
+      child: HoverGlowOverlay(
+        isDarkMode: isDark,
+        borderRadius: BorderRadius.circular(16),
+        cursor: SystemMouseCursors.click,
+        glowRadius: 1.05,
         child: child,
       ),
     );
