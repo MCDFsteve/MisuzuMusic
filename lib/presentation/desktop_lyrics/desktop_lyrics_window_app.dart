@@ -16,8 +16,9 @@ Future<void> runDesktopLyricsWindow(
   WindowController controller,
   Map<String, dynamic> args,
 ) async {
-  const MethodChannel nativeSpacesChannel =
-      MethodChannel('com.aimessoft.misuzumusic/desktop_lyrics_window');
+  const MethodChannel nativeSpacesChannel = MethodChannel(
+    'com.aimessoft.misuzumusic/desktop_lyrics_window',
+  );
 
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -58,8 +59,8 @@ Future<void> runDesktopLyricsWindow(
             true,
             visibleOnFullScreen: true,
           );
-          final visibleEverywhere =
-              await windowManager.isVisibleOnAllWorkspaces();
+          final visibleEverywhere = await windowManager
+              .isVisibleOnAllWorkspaces();
           debugPrint('桌面歌词窗口加入所有桌面: $visibleEverywhere');
         } on MissingPluginException catch (error) {
           debugPrint('桌面歌词窗口全桌面配置失败: $error');
@@ -67,19 +68,16 @@ Future<void> runDesktopLyricsWindow(
           debugPrint('桌面歌词窗口全桌面配置未实现: $error');
         }
         try {
-          await nativeSpacesChannel.invokeMethod<void>(
-            'pinToAllSpaces',
-            {
-              'windowId': controller.windowId,
-            },
-          );
+          await nativeSpacesChannel.invokeMethod<void>('pinToAllSpaces', {
+            'windowId': controller.windowId,
+          });
         } catch (error) {
           debugPrint('桌面歌词窗口原生空间配置失败: $error');
         }
         await windowManager.setResizable(false);
         await windowManager.hide();
       });
-    } else if (isWindows) {
+    } else if (isWindows || isLinux) {
       final options = WindowOptions(
         size: const Size(420, 200),
         minimumSize: const Size(200, 140),
@@ -108,7 +106,9 @@ Future<void> runDesktopLyricsWindow(
         } on UnimplementedError catch (_) {
           debugPrint('桌面歌词窗口 setSkipTaskbar 未实现，忽略调用');
         }
-        await windowManager.setResizable(false);
+        if (!isLinux) {
+          await windowManager.setResizable(false);
+        }
         await windowManager.hide();
       });
     }
@@ -128,18 +128,18 @@ Future<void> runDesktopLyricsWindow(
         await configureWindow();
         break;
       case 'show_window':
-        if (isMacOS || isWindows) {
+        if (isMacOS || isWindows || isLinux) {
           await windowManager.show();
           await windowManager.focus();
         }
         break;
       case 'hide_window':
-        if (isMacOS || isWindows) {
+        if (isMacOS || isWindows || isLinux) {
           await windowManager.hide();
         }
         break;
       case 'focus_window':
-        if (isMacOS || isWindows) {
+        if (isMacOS || isWindows || isLinux) {
           await windowManager.focus();
         }
         break;
@@ -149,11 +149,7 @@ Future<void> runDesktopLyricsWindow(
 
   await configureWindow();
 
-  runApp(
-    LyricsWindowApp(
-      windowId: controller.windowId,
-    ),
-  );
+  runApp(LyricsWindowApp(windowId: controller.windowId));
 }
 
 class LyricsWindowApp extends StatelessWidget {
@@ -176,10 +172,7 @@ class LyricsWindowApp extends StatelessWidget {
 }
 
 class LyricsWindowScreen extends StatefulWidget {
-  const LyricsWindowScreen({
-    super.key,
-    required this.windowId,
-  });
+  const LyricsWindowScreen({super.key, required this.windowId});
 
   final int windowId;
 
@@ -212,10 +205,11 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
       if (box == null || !box.hasSize) return;
       final size = _measureContentSize(box);
       const padding = Size(32, 32);
-      final double targetWidth =
-          (size.width + padding.width).clamp(320, 480);
-      final double targetHeight =
-          (size.height + padding.height).clamp(220, 720);
+      final double targetWidth = (size.width + padding.width).clamp(320, 480);
+      final double targetHeight = (size.height + padding.height).clamp(
+        220,
+        720,
+      );
       final targetSize = Size(targetWidth, targetHeight);
 
       final last = _lastLogicalSize;
@@ -228,9 +222,13 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
       }
 
       _lastLogicalSize = targetSize;
-      await windowManager.setResizable(true);
-      await windowManager.setSize(targetSize);
-      await windowManager.setResizable(false);
+      if (Platform.isLinux) {
+        await windowManager.setSize(targetSize);
+      } else {
+        await windowManager.setResizable(true);
+        await windowManager.setSize(targetSize);
+        await windowManager.setResizable(false);
+      }
       if (showAfterResize) {
         await _setWindowVisible(true);
       }
@@ -337,11 +335,7 @@ class _LyricsWindowScreenState extends State<LyricsWindowScreen>
 }
 
 class _LyricsContent extends StatelessWidget {
-  const _LyricsContent({
-    super.key,
-    required this.update,
-    required this.parser,
-  });
+  const _LyricsContent({super.key, required this.update, required this.parser});
 
   final DesktopLyricsUpdate? update;
   final DesktopLyricsParser parser;
@@ -365,20 +359,18 @@ class _LyricsContent extends StatelessWidget {
       decoration: TextDecoration.none,
     );
 
-    final ParsedLyricsLine parsedActive =
-        parser.parse(update?.activeLine ?? '');
-    final ParsedLyricsLine parsedFallback =
-        parsedActive.hasContent ? parsedActive : parser.parse(update?.nextLine ?? '');
+    final ParsedLyricsLine parsedActive = parser.parse(
+      update?.activeLine ?? '',
+    );
+    final ParsedLyricsLine parsedFallback = parsedActive.hasContent
+        ? parsedActive
+        : parser.parse(update?.nextLine ?? '');
 
     if (!parsedFallback.hasContent) {
       return const SizedBox.shrink();
     }
 
-    return _buildLine(
-      parsedFallback,
-      baseStyle,
-      translationStyle,
-    );
+    return _buildLine(parsedFallback, baseStyle, translationStyle);
   }
 
   Widget _buildLine(
@@ -386,8 +378,7 @@ class _LyricsContent extends StatelessWidget {
     TextStyle baseStyle,
     TextStyle translationStyle,
   ) {
-    final double annotationFontSize =
-        (baseStyle.fontSize ?? 40) * 0.42;
+    final double annotationFontSize = (baseStyle.fontSize ?? 40) * 0.42;
     final TextStyle annotationStyle = baseStyle.copyWith(
       fontSize: annotationFontSize,
       fontWeight: FontWeight.w600,
