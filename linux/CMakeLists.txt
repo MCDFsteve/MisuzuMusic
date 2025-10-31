@@ -72,6 +72,8 @@ set_target_properties(${BINARY_NAME}
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
+# media_kit tries to build mimalloc statically on Linux; disable it to avoid toolchain failures.
+set(MIMALLOC_USE_STATIC_LIBS OFF CACHE BOOL "Disable bundled mimalloc build" FORCE)
 include(flutter/generated_plugins.cmake)
 
 

@@ -1,0 +1,60 @@
+name: Build Linux Tarball
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Target version used for artifact naming
+        required: true
+        type: string
+      arch:
+        description: CPU architecture label used in artifact naming
+        required: false
+        default: x64
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_VERSION: ${{ inputs.version }}
+      TARGET_ARCH: ${{ inputs.arch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: 安装构建依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libgtk-3-dev \
+            libmpv-dev
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: 获取依赖
+        run: flutter pub get
+      - name: 构建 Linux 应用
+        run: flutter build linux --release
+      - name: 打包 TAR.GZ
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="build/artifacts"
+          OUTPUT_DIR="build/linux/${TARGET_ARCH}/release/bundle"
+          mkdir -p "$ARTIFACT_DIR"
+          if [[ ! -d "$OUTPUT_DIR" ]]; then
+            echo "未找到 Linux 构建输出：$OUTPUT_DIR" >&2
+            exit 1
+          fi
+          ARTIFACT_NAME="linux-${TARGET_ARCH}-${APP_VERSION}.tar.gz"
+          tar -czf "$ARTIFACT_DIR/$ARTIFACT_NAME" -C "$OUTPUT_DIR" .
+      - name: 上传 Linux 构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.tar.gz
+          path: build/artifacts/linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.tar.gz
+          if-no-files-found: error

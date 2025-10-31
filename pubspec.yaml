@@ -39,9 +39,11 @@ dependencies:
   # Audio Processing
   just_audio: ^0.9.34
   just_audio_windows: ^0.2.0
+  just_audio_media_kit: ^2.1.0
   audio_metadata_reader: ^1.0.0+8
   audio_waveforms: ^1.0.5
   audio_service: ^0.18.18
+  media_kit_libs_linux: any
 
   # File System
   path_provider: ^2.1.1
@@ -71,6 +73,7 @@ dependencies:
   webdav_client: ^1.1.11
   http: ^1.2.1
   url_launcher: ^6.3.1
+  media_kit_libs_audio: ^1.0.7
 
 dev_dependencies:
   flutter_test:
