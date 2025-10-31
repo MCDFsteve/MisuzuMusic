@@ -53,23 +53,13 @@ jobs:
         if: ${{ steps.meta.outputs.should_run != 'true' }}
         run: echo "提交信息未包含形如 2025.1026 的标记，后续构建被跳过。"
 
-  macos_x64:
+  macos:
     needs: prepare
     if: ${{ needs.prepare.outputs.should_run == 'true' }}
     uses: ./.github/workflows/macos-build.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
-      arch: x64
-      runner: macos-13
-    secrets: inherit
-
-  macos_arm64:
-    needs: prepare
-    if: ${{ needs.prepare.outputs.should_run == 'true' }}
-    uses: ./.github/workflows/macos-build.yml
-    with:
-      version: ${{ needs.prepare.outputs.version }}
-      arch: arm64
+      arch: universal
       runner: macos-14
     secrets: inherit
 
@@ -85,10 +75,9 @@ jobs:
   publish_release:
     needs:
       - prepare
-      - macos_x64
-      - macos_arm64
+      - macos
       - windows
-    if: ${{ needs.prepare.outputs.should_run == 'true' && needs.macos_x64.result == 'success' && needs.macos_arm64.result == 'success' && needs.windows.result == 'success' }}
+    if: ${{ needs.prepare.outputs.should_run == 'true' && needs.macos.result == 'success' && needs.windows.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: 下载构建产物
@@ -104,15 +93,14 @@ jobs:
           body: |
             自动发布版本：${{ needs.prepare.outputs.version }}
 
-            - macOS x64 与 arm64 DMG
+            - macOS 通用 DMG
             - Windows x64 ZIP
           files: dist/*
 
   version_bump:
     needs:
       - prepare
-      - macos_x64
-      - macos_arm64
+      - macos
       - windows
       - publish_release
     if: ${{ needs.prepare.outputs.should_run == 'true' && needs.publish_release.result == 'success' }}

@@ -10,7 +10,7 @@ on:
       arch:
         description: CPU architecture label used in artifact naming
         required: false
-        default: x64
+        default: universal
         type: string
       runner:
         description: macOS runner label (choose macos-13 for x64, macos-14 for arm64)
