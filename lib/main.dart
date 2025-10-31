@@ -16,22 +16,32 @@ import 'presentation/desktop_lyrics/desktop_lyrics_server.dart';
 import 'presentation/developer/developer_log_collector.dart';
 
 Future<void> _configureMainWindow() async {
-  if (!(Platform.isMacOS || Platform.isWindows)) {
+  if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
     return;
   }
 
   final bool isMacOS = Platform.isMacOS;
+  final bool isWindows = Platform.isWindows;
+  final bool isLinux = Platform.isLinux;
+
   final windowOptions = wm.WindowOptions(
-    size: Size(1067, 600),
-    minimumSize: Size(1067, 600),
+    size: const Size(1067, 600),
+    minimumSize: const Size(1067, 600),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
-    titleBarStyle: wm.TitleBarStyle.hidden,
+    titleBarStyle: (isMacOS || isWindows) ? wm.TitleBarStyle.hidden : null,
     windowButtonVisibility: isMacOS,
   );
 
   await wm.windowManager.waitUntilReadyToShow(windowOptions, () async {
+    if (isWindows || isLinux) {
+      try {
+        await wm.windowManager.setAsFrameless();
+      } catch (error) {
+        debugPrint('跳过 setAsFrameless: $error');
+      }
+    }
     await wm.windowManager.show();
     await wm.windowManager.focus();
   });
@@ -55,9 +65,7 @@ Future<void> main(List<String> args) async {
         await wm.windowManager.ensureInitialized();
         DesktopLyricsWindowManager.instance.initialize();
         await DesktopLyricsServer.instance.start();
-        if (Platform.isMacOS || Platform.isWindows) {
-          await _configureMainWindow();
-        }
+        await _configureMainWindow();
       }
 
       await DependencyInjection.init();

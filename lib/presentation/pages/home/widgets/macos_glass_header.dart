@@ -100,7 +100,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
     if (widget.showSelectFolderButton) {
       yield _selectFolderButtonKey;
     }
-    if (Platform.isWindows) {
+    if (Platform.isWindows || Platform.isLinux) {
       yield _windowsControlsKey;
     }
   }
@@ -277,11 +277,11 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final Color textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
-    final bool isWindows = Platform.isWindows;
-    final double actionButtonSize = isWindows ? 32 : 36;
-    final double primaryIconSize = isWindows ? 16 : 22;
-    final double backIconSize = isWindows ? 14 : 20;
-    final double actionSpacing = isWindows ? 4 : 8;
+    final bool isWindowsStyle = Platform.isWindows || Platform.isLinux;
+    final double actionButtonSize = isWindowsStyle ? 32 : 36;
+    final double primaryIconSize = isWindowsStyle ? 16 : 22;
+    final double backIconSize = isWindowsStyle ? 14 : 20;
+    final double actionSpacing = isWindowsStyle ? 4 : 8;
 
     void handleInteraction() => widget.onInteract?.call();
 
@@ -348,7 +348,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                 Flexible(
                   flex: 3,
                   child: Padding(
-                    padding: EdgeInsets.only(right: isWindows ? 8 : 12),
+                    padding: EdgeInsets.only(right: isWindowsStyle ? 8 : 12),
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: Row(
@@ -377,7 +377,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                             slotKey: 'back',
                             isVisible: widget.showBackButton,
                             builder: () => _HeaderTooltip(
-                              useMacStyle: !isWindows,
+                              useMacStyle: !isWindowsStyle,
                               message: widget.backTooltip,
                               child: _wrapInteractiveRegion(
                                 key: _backButtonKey,
@@ -396,7 +396,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                                   size: actionButtonSize,
                                   iconSize: backIconSize,
                                   enabled: widget.canNavigateBack,
-                                  isWindowsStyle: isWindows,
+                                  isWindowsStyle: isWindowsStyle,
                                 ),
                               ),
                             ),
@@ -410,7 +410,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                             builder: () => Padding(
                               padding: EdgeInsets.only(left: actionSpacing),
                               child: _HeaderTooltip(
-                                useMacStyle: !isWindows,
+                                useMacStyle: !isWindowsStyle,
                                 message: '切换排序方式',
                                 child: _wrapInteractiveRegion(
                                   key: _sortButtonKey,
@@ -424,7 +424,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                                     enabled: widget.canNavigateBack,
                                     size: actionButtonSize,
                                     iconSize: backIconSize,
-                                    isWindowsStyle: isWindows,
+                                    isWindowsStyle: isWindowsStyle,
                                   ),
                                 ),
                               ),
@@ -446,7 +446,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                             slotKey: 'logout',
                             isVisible: widget.showLogoutButton,
                             builder: () => _HeaderTooltip(
-                              useMacStyle: !isWindows,
+                              useMacStyle: !isWindowsStyle,
                               message: widget.logoutTooltip,
                               child: _wrapInteractiveRegion(
                                 key: _logoutButtonKey,
@@ -465,7 +465,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                                         }
                                       : null,
                                   enabled: widget.logoutEnabled,
-                                  isWindowsStyle: isWindows,
+                                  isWindowsStyle: isWindowsStyle,
                                 ),
                               ),
                             ),
@@ -482,7 +482,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                             slotKey: 'create_playlist',
                             isVisible: widget.showCreatePlaylistButton,
                             builder: () => _HeaderTooltip(
-                              useMacStyle: !isWindows,
+                              useMacStyle: !isWindowsStyle,
                               message: '新建歌单',
                               child: _wrapInteractiveRegion(
                                 key: _createPlaylistButtonKey,
@@ -496,7 +496,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                                     handleInteraction();
                                     widget.onCreatePlaylist();
                                   },
-                                  isWindowsStyle: isWindows,
+                                  isWindowsStyle: isWindowsStyle,
                                 ),
                               ),
                             ),
@@ -512,7 +512,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                             slotKey: 'select_folder',
                             isVisible: widget.showSelectFolderButton,
                             builder: () => _HeaderTooltip(
-                              useMacStyle: !isWindows,
+                              useMacStyle: !isWindowsStyle,
                               message: '选择音乐文件夹',
                               child: _wrapInteractiveRegion(
                                 key: _selectFolderButtonKey,
@@ -526,12 +526,12 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                                     handleInteraction();
                                     widget.onSelectMusicFolder();
                                   },
-                                  isWindowsStyle: isWindows,
+                                  isWindowsStyle: isWindowsStyle,
                                 ),
                               ),
                             ),
                           ),
-                          if (isWindows) ...[
+                          if (isWindowsStyle) ...[
                             const SizedBox(width: 8),
                             _VerticalSeparator(
                               color: textColor.withOpacity(0.18),
