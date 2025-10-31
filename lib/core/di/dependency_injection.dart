@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:get_it/get_it.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -45,6 +46,9 @@ class DependencyInjection {
 
     try {
       _configureDatabaseFactory();
+      if (Platform.isLinux) {
+        JustAudioMediaKit.ensureInitialized(linux: true, windows: false);
+      }
 
       // Storage setup
       print('📁 配置存储路径与配置文件...');
@@ -76,10 +80,7 @@ class DependencyInjection {
       sl.registerLazySingleton<NeteaseApiClient>(() => NeteaseApiClient());
       sl.registerLazySingleton(() => SongIdMappingService());
       sl.registerLazySingleton(
-        () => NeteaseIdResolver(
-          mappingService: sl(),
-          neteaseApiClient: sl(),
-        ),
+        () => NeteaseIdResolver(mappingService: sl(), neteaseApiClient: sl()),
       );
       sl.registerLazySingleton(() => CloudPlaylistApi());
       sl.registerLazySingleton(() => RemoteLyricsApi());
