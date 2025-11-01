@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:io';
 import 'package:misuzu_music/core/constants/app_constants.dart';
 import 'package:path/path.dart' as path;
@@ -409,7 +410,27 @@ class LyricsRepositoryImpl implements LyricsRepository {
     final trimmedTitle = title.trim();
     final trimmedArtist = artist?.trim();
 
-    final Set<String> candidates = {
+    final sanitizedTitle = _stripPunctuation(trimmedTitle);
+    final sanitizedArtist =
+        trimmedArtist == null ? '' : _stripPunctuation(trimmedArtist);
+
+    final candidates = LinkedHashSet<String>();
+
+    if (sanitizedArtist.isNotEmpty && sanitizedTitle.isNotEmpty) {
+      final combined = '$sanitizedArtist $sanitizedTitle'.trim();
+      if (combined.isNotEmpty) {
+        candidates
+          ..add(combined)
+          ..add(combined.replaceAll(' ', ''));
+      }
+    }
+
+    if (sanitizedTitle.isNotEmpty) {
+      candidates.add(sanitizedTitle);
+      candidates.add(sanitizedTitle.replaceAll(' ', ''));
+    }
+
+    final Set<String> fallback = {
       trimmedTitle,
       if (trimmedArtist != null && trimmedArtist.isNotEmpty)
         '${trimmedArtist} - $trimmedTitle',
@@ -420,6 +441,12 @@ class LyricsRepositoryImpl implements LyricsRepository {
       if (trimmedArtist != null && trimmedArtist.isNotEmpty)
         '${trimmedTitle}_$trimmedArtist',
     };
+    for (final candidate in fallback) {
+      final trimmed = candidate.trim();
+      if (trimmed.isNotEmpty) {
+        candidates.add(trimmed);
+      }
+    }
 
     final normalizedTitle = _sanitizeForComparison(trimmedTitle);
     final normalizedArtist = trimmedArtist == null
@@ -438,6 +465,14 @@ class LyricsRepositoryImpl implements LyricsRepository {
     }
 
     return candidates.where((candidate) => candidate.trim().isNotEmpty);
+  }
+
+  String _stripPunctuation(String input) {
+    final replaced = input.replaceAll(
+      RegExp(r'[\p{P}\p{S}]', unicode: true),
+      ' ',
+    );
+    return replaced.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   String _sanitizeForComparison(String value) {

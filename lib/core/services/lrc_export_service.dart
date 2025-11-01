@@ -9,6 +9,11 @@ import '../constants/app_constants.dart';
 class LrcExportService {
   LrcExportService._();
 
+  static final RegExp _punctuationPattern =
+      RegExp(r'[\p{P}\p{S}]', unicode: true);
+  static final RegExp _invalidFileCharacters =
+      RegExp(r'[<>:"/\\|?*]');
+
   /// Generate LRC formatted content from lyrics
   static String formatLyricsToLrc({
     required Lyrics lyrics,
@@ -134,19 +139,51 @@ class LrcExportService {
     String? title,
     String? trackId,
   }) {
-    // Clean filename by removing invalid characters
-    String cleanString(String input) {
-      return input.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    final compactArtist = artist == null ? '' : _compactSegment(artist);
+    final compactTitle = title == null ? '' : _compactSegment(title);
+
+    final buffer = StringBuffer();
+    if (compactArtist.isNotEmpty) {
+      buffer.write(compactArtist);
+    }
+    if (compactTitle.isNotEmpty) {
+      buffer.write(compactTitle);
     }
 
-    if (artist != null && title != null) {
-      return cleanString('${artist} - ${title}');
-    } else if (title != null) {
-      return cleanString(title);
-    } else if (trackId != null) {
-      return cleanString('Track_$trackId');
-    } else {
+    String candidate = buffer.toString();
+
+    if (candidate.isEmpty && compactTitle.isNotEmpty) {
+      candidate = compactTitle;
+    }
+
+    if (candidate.isEmpty && trackId != null) {
+      candidate = _compactSegment('Track_$trackId');
+    }
+
+    if (candidate.isEmpty) {
+      candidate = 'lyrics_${DateTime.now().millisecondsSinceEpoch}';
+    }
+
+    candidate = _ensureSafeFilename(candidate);
+
+    if (candidate.isEmpty) {
       return 'lyrics_${DateTime.now().millisecondsSinceEpoch}';
     }
+
+    return candidate;
+  }
+
+  static String _compactSegment(String input) {
+    final stripped = input.replaceAll(_punctuationPattern, ' ');
+    final collapsed = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (collapsed.isEmpty) {
+      return '';
+    }
+    return collapsed.replaceAll(' ', '');
+  }
+
+  static String _ensureSafeFilename(String input) {
+    final withoutInvalid = input.replaceAll(_invalidFileCharacters, '');
+    return withoutInvalid.trim();
   }
 }
