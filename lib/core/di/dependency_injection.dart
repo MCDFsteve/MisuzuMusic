@@ -46,8 +46,11 @@ class DependencyInjection {
 
     try {
       _configureDatabaseFactory();
-      if (Platform.isLinux) {
-        JustAudioMediaKit.ensureInitialized(linux: true, windows: false);
+      if (Platform.isLinux || Platform.isWindows) {
+        JustAudioMediaKit.ensureInitialized(
+          linux: Platform.isLinux,
+          windows: Platform.isWindows,
+        );
       }
 
       // Storage setup

@@ -4,7 +4,6 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   desktop_multi_window
-  just_audio_windows
   media_kit_libs_windows_audio
   permission_handler_windows
   screen_retriever_windows
