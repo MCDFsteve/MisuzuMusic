@@ -35,7 +35,13 @@ Future<void> _configureMainWindow() async {
   );
 
   await wm.windowManager.waitUntilReadyToShow(windowOptions, () async {
-    if (isWindows || isLinux) {
+    if (isWindows) {
+      try {
+        await wm.windowManager.setTitleBarStyle(wm.TitleBarStyle.hidden);
+      } catch (error) {
+        debugPrint('跳过 setTitleBarStyle: $error');
+      }
+    } else if (isLinux) {
       try {
         await wm.windowManager.setAsFrameless();
       } catch (error) {
