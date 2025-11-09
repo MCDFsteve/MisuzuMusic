@@ -46,12 +46,7 @@ class DependencyInjection {
 
     try {
       _configureDatabaseFactory();
-      if (Platform.isLinux || Platform.isWindows) {
-        JustAudioMediaKit.ensureInitialized(
-          linux: Platform.isLinux,
-          windows: Platform.isWindows,
-        );
-      }
+      JustAudioMediaKit.ensureInitialized(macOS: true);
 
       // Storage setup
       print('📁 配置存储路径与配置文件...');
