@@ -65,6 +65,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   DateTime _lastPositionPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
   Duration? _pendingRestorePosition;
   bool _restoringSession = false;
+  int _activePlayTransitions = 0;
 
   // Shuffle management
   List<int> _shuffleIndexes = [];  // 洗牌后的索引列表
@@ -282,6 +283,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
   @override
   Future<void> play(Track track, {String? fingerprint}) async {
+    _activePlayTransitions++;
     try {
       _restoringSession = false;
       _pendingRestorePosition = null;
@@ -335,6 +337,12 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         rethrow;
       }
       throw AudioPlaybackException('Failed to play track: ${e.toString()}');
+    } finally {
+      if (_activePlayTransitions > 0) {
+        _activePlayTransitions--;
+      } else {
+        _activePlayTransitions = 0;
+      }
     }
   }
 
@@ -601,6 +609,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   }
 
   void _handleTrackCompleted() {
+    if (_activePlayTransitions > 0) {
+      print('⏭️ AudioService: 忽略自动切歌事件（手动切换进行中）');
+      return;
+    }
     switch (_playMode) {
       case PlayMode.repeatAll:
       case PlayMode.repeatOne:
