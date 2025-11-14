@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -162,18 +165,11 @@ class MobileNowPlayingBar extends StatelessWidget {
           ),
           if (data.track != null) ...[
             const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: LinearProgressIndicator(
-                value: data.progress.isNaN
-                    ? 0
-                    : data.progress.clamp(0.0, 1.0),
-                minHeight: 4,
-                backgroundColor: theme.colorScheme.onSurface.withValues(
-                  alpha: isDark ? 0.15 : 0.08,
-                ),
-                valueColor: AlwaysStoppedAnimation<Color>(iconColor),
-              ),
+            _MobileProgressSlider(
+              position: data.position,
+              duration: data.duration,
+              activeColor: iconColor,
+              enabled: data.canControl,
             ),
           ],
         ],
@@ -243,10 +239,6 @@ class MobileNowPlayingBar extends StatelessWidget {
       }
     }
 
-    final progress = duration.inMilliseconds > 0
-        ? position.inMilliseconds / duration.inMilliseconds
-        : 0.0;
-
     final bool canSkipNext =
         queue.length > 1 && currentIndex < queue.length - 1;
     final bool canSkipPrevious = queue.length > 1 && currentIndex > 0;
@@ -264,7 +256,8 @@ class MobileNowPlayingBar extends StatelessWidget {
       canControl: track != null,
       canSkipNext: canSkipNext,
       canSkipPrevious: canSkipPrevious,
-      progress: progress.isFinite ? progress : 0,
+      position: position,
+      duration: duration,
     );
   }
 }
@@ -280,7 +273,8 @@ class _PlayerBarData {
     required this.canControl,
     required this.canSkipNext,
     required this.canSkipPrevious,
-    required this.progress,
+    required this.position,
+    required this.duration,
   });
 
   final Track? track;
@@ -292,7 +286,8 @@ class _PlayerBarData {
   final bool canControl;
   final bool canSkipNext;
   final bool canSkipPrevious;
-  final double progress;
+  final Duration position;
+  final Duration duration;
 }
 
 class _PlayPauseButton extends StatelessWidget {
@@ -367,6 +362,107 @@ class _PlayPauseButton extends StatelessWidget {
           ),
         ),
         onPressed: enabled ? onPressed : null,
+      ),
+    );
+  }
+}
+
+class _MobileProgressSlider extends StatefulWidget {
+  const _MobileProgressSlider({
+    required this.position,
+    required this.duration,
+    required this.activeColor,
+    required this.enabled,
+  });
+
+  final Duration position;
+  final Duration duration;
+  final Color activeColor;
+  final bool enabled;
+
+  @override
+  State<_MobileProgressSlider> createState() => _MobileProgressSliderState();
+}
+
+class _MobileProgressSliderState extends State<_MobileProgressSlider> {
+  double? _dragValue;
+
+  bool get _canSeek =>
+      widget.enabled && widget.duration.inMilliseconds > 0;
+
+  double get _maxPosition =>
+      math.max(1.0, widget.duration.inMilliseconds.toDouble());
+
+  @override
+  void didUpdateWidget(covariant _MobileProgressSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final shouldReset = widget.duration != oldWidget.duration ||
+        (widget.position == Duration.zero &&
+            oldWidget.position != Duration.zero) ||
+        !widget.enabled;
+    if (shouldReset && _dragValue != null) {
+      setState(() => _dragValue = null);
+    }
+  }
+
+  void _updateDragValue(double? value) {
+    setState(() => _dragValue = value);
+  }
+
+  void _handleChangeStart(double value) {
+    if (_canSeek) {
+      _updateDragValue(value);
+    }
+  }
+
+  void _handleChanged(double value) {
+    if (_canSeek) {
+      _updateDragValue(value);
+    }
+  }
+
+  void _handleChangeEnd(double value) {
+    if (!_canSeek) {
+      _updateDragValue(null);
+      return;
+    }
+
+    final clamped = value.clamp(0.0, _maxPosition).toDouble();
+    final newPosition = Duration(milliseconds: clamped.round());
+    context.read<PlayerBloc>().add(PlayerSeekTo(newPosition));
+    _updateDragValue(null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sliderValue = (_dragValue ??
+            widget.position.inMilliseconds.toDouble())
+        .clamp(0.0, _maxPosition);
+
+    final canInteract = _canSeek;
+    final sliderTheme = SliderTheme.of(context).copyWith(
+      trackHeight: 4,
+      activeTrackColor: widget.activeColor,
+      inactiveTrackColor: widget.activeColor.withOpacity(0.25),
+      thumbColor: widget.activeColor,
+      overlayShape: SliderComponentShape.noOverlay,
+      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+    );
+
+    return SizedBox(
+      height: 32,
+      child: SliderTheme(
+        data: sliderTheme,
+        child: AdaptiveSlider(
+          value: sliderValue,
+          min: 0.0,
+          max: _maxPosition,
+          activeColor: widget.activeColor,
+          thumbColor: widget.activeColor,
+          onChangeStart: canInteract ? _handleChangeStart : null,
+          onChanged: canInteract ? _handleChanged : null,
+          onChangeEnd: canInteract ? _handleChangeEnd : null,
+        ),
       ),
     );
   }
