@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart' as cupertino;
 import 'package:flutter/material.dart';
@@ -46,6 +47,7 @@ class LibrarySearchField extends StatefulWidget {
     this.suggestions = const [],
     this.onSuggestionSelected,
     this.onInteract,
+    this.useFrostedStyle = false,
   });
 
   final String query;
@@ -55,6 +57,7 @@ class LibrarySearchField extends StatefulWidget {
   final List<LibrarySearchSuggestion> suggestions;
   final ValueChanged<LibrarySearchSuggestion>? onSuggestionSelected;
   final VoidCallback? onInteract;
+  final bool useFrostedStyle;
 
   @override
   State<LibrarySearchField> createState() => _LibrarySearchFieldState();
@@ -182,6 +185,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
                 onSubmitted: _handleSubmitted,
                 isFocused: _focusNode.hasFocus,
                 focusProgress: _focusController.value,
+                useFrostedStyle: widget.useFrostedStyle,
               )
             : _MaterialSearchField(
                 controller: _controller,
@@ -191,6 +195,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
                 onSubmitted: _handleSubmitted,
                 isFocused: _focusNode.hasFocus,
                 focusProgress: _focusController.value,
+                useFrostedStyle: widget.useFrostedStyle,
               );
 
         return CompositedTransformTarget(
@@ -548,6 +553,7 @@ class _MacSearchField extends StatelessWidget {
     required this.onSubmitted,
     required this.isFocused,
     required this.focusProgress,
+    required this.useFrostedStyle,
   });
 
   final TextEditingController controller;
@@ -557,6 +563,7 @@ class _MacSearchField extends StatelessWidget {
   final ValueChanged<String> onSubmitted;
   final bool isFocused;
   final double focusProgress;
+  final bool useFrostedStyle;
 
   static const Color _accentColor = Color(0xFF1B66FF);
 
@@ -596,18 +603,26 @@ class _MacSearchField extends StatelessWidget {
           color: iconColor,
         ),
       ),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: baseRadius,
-        border: Border.all(color: baseBorderColor, width: 0.9),
-        boxShadow: [
-          BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.28) : Colors.black.withOpacity(0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+      decoration: useFrostedStyle
+          ? BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: baseRadius,
+              border: Border.all(color: Colors.transparent, width: 0.9),
+            )
+          : BoxDecoration(
+              color: backgroundColor,
+              borderRadius: baseRadius,
+              border: Border.all(color: baseBorderColor, width: 0.9),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withOpacity(0.28)
+                      : Colors.black.withOpacity(0.08),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
       textInputAction: TextInputAction.search,
       keyboardType: TextInputType.text,
       maxLines: 1,
@@ -616,7 +631,7 @@ class _MacSearchField extends StatelessWidget {
       clearButtonMode: cupertino.OverlayVisibilityMode.editing,
     );
 
-    return Stack(
+    Widget fieldStack = Stack(
       clipBehavior: Clip.none,
       children: [
         textField,
@@ -642,6 +657,30 @@ class _MacSearchField extends StatelessWidget {
           ),
       ],
     );
+
+    if (useFrostedStyle) {
+      final Color frostedFill =
+          isDark ? Colors.black.withOpacity(0.28) : Colors.white.withOpacity(0.55);
+      final Color frostedBorder =
+          Colors.white.withOpacity(isDark ? 0.18 : 0.28);
+
+      fieldStack = ClipRRect(
+        borderRadius: baseRadius,
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: frostedFill,
+              borderRadius: baseRadius,
+              border: Border.all(color: frostedBorder, width: 0.9),
+            ),
+            child: fieldStack,
+          ),
+        ),
+      );
+    }
+
+    return fieldStack;
   }
 }
 
@@ -654,6 +693,7 @@ class _MaterialSearchField extends StatelessWidget {
     required this.onSubmitted,
     required this.isFocused,
     required this.focusProgress,
+    required this.useFrostedStyle,
   });
 
   final TextEditingController controller;
@@ -663,6 +703,7 @@ class _MaterialSearchField extends StatelessWidget {
   final ValueChanged<String> onSubmitted;
   final bool isFocused;
   final double focusProgress;
+  final bool useFrostedStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -675,7 +716,61 @@ class _MaterialSearchField extends StatelessWidget {
 
     final BorderRadius baseRadius = BorderRadius.circular(18);
 
-    final baseField = DecoratedBox(
+    final Widget textFieldBody = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Center(
+        child: TextField(
+          controller: controller,
+          focusNode: focusNode,
+          onChanged: onChanged,
+          onSubmitted: onSubmitted,
+          cursorColor: colorScheme.primary,
+          cursorWidth: 2.4,
+          textInputAction: TextInputAction.search,
+          keyboardType: TextInputType.text,
+          maxLines: 1,
+          style: theme.textTheme.bodyMedium,
+          decoration: InputDecoration(
+            icon: Icon(
+              Icons.search,
+              color: isFocused ? colorScheme.primary : theme.iconTheme.color,
+            ),
+            hintText: placeholder,
+            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6),
+            ),
+            border: InputBorder.none,
+            isDense: true,
+          ),
+        ),
+      ),
+    );
+
+    Widget baseField;
+
+    if (useFrostedStyle) {
+      final bool isDarkMode = theme.brightness == Brightness.dark;
+      final Color frostedFill =
+          isDarkMode ? Colors.black.withOpacity(0.28) : Colors.white.withOpacity(0.55);
+      final Color frostedBorder =
+          Colors.white.withOpacity(isDarkMode ? 0.16 : 0.26);
+
+      baseField = ClipRRect(
+        borderRadius: baseRadius,
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: frostedFill,
+              borderRadius: baseRadius,
+              border: Border.all(color: frostedBorder, width: 0.9),
+            ),
+            child: textFieldBody,
+          ),
+        ),
+      );
+    } else {
+      baseField = DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surfaceVariant.withOpacity(0.85),
           borderRadius: baseRadius,
@@ -688,38 +783,11 @@ class _MaterialSearchField extends StatelessWidget {
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Center(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              cursorColor: colorScheme.primary,
-              cursorWidth: 2.4,
-              textInputAction: TextInputAction.search,
-              keyboardType: TextInputType.text,
-              maxLines: 1,
-              style: theme.textTheme.bodyMedium,
-              decoration: InputDecoration(
-                icon: Icon(
-                  Icons.search,
-                  color: isFocused ? colorScheme.primary : theme.iconTheme.color,
-                ),
-                hintText: placeholder,
-                hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6),
-                ),
-                border: InputBorder.none,
-                isDense: true,
-              ),
-            ),
-          ),
-        ),
+        child: textFieldBody,
       );
+    }
 
-    return Stack(
+    Widget fieldStack = Stack(
       clipBehavior: Clip.none,
       children: [
         baseField,
@@ -745,5 +813,7 @@ class _MaterialSearchField extends StatelessWidget {
           ),
       ],
     );
+
+    return fieldStack;
   }
 }

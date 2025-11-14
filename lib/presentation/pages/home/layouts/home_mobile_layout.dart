@@ -19,6 +19,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
           sectionLabel,
           statsLabel,
           neteaseState,
+          blurBackground: _lyricsVisible,
         );
         final theme = Theme.of(context);
         final bool isDarkMode = theme.brightness == Brightness.dark;
@@ -164,6 +165,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
     String sectionLabel,
     String? statsLabel,
     NeteaseState neteaseState,
+    {bool blurBackground = false}
   ) {
     final bool supportsSearch = _selectedIndex != 4;
     final theme = Theme.of(context);
@@ -212,6 +214,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
           suggestions: _searchSuggestions,
           onSuggestionSelected: _handleSearchSuggestionTapped,
           onInteract: _dismissLyricsOverlay,
+          useFrostedStyle: blurBackground,
         ),
         if (statsLabel != null) ...[
           const SizedBox(height: 8),

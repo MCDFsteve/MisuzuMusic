@@ -165,9 +165,9 @@ class MobileNowPlayingBar extends StatelessWidget {
           ),
           if (data.track != null) ...[
             const SizedBox(height: 10),
-            _MobileProgressSlider(
-              position: data.position,
-              duration: data.duration,
+            _MobileProgressObserver(
+              fallbackPosition: data.position,
+              fallbackDuration: data.duration,
               activeColor: iconColor,
               enabled: data.canControl,
             ),
@@ -363,6 +363,75 @@ class _PlayPauseButton extends StatelessWidget {
         ),
         onPressed: enabled ? onPressed : null,
       ),
+    );
+  }
+}
+
+class _ProgressSnapshot {
+  const _ProgressSnapshot({
+    required this.position,
+    required this.duration,
+    required this.canInteract,
+  });
+
+  final Duration position;
+  final Duration duration;
+  final bool canInteract;
+}
+
+class _MobileProgressObserver extends StatelessWidget {
+  const _MobileProgressObserver({
+    required this.fallbackPosition,
+    required this.fallbackDuration,
+    required this.activeColor,
+    required this.enabled,
+  });
+
+  final Duration fallbackPosition;
+  final Duration fallbackDuration;
+  final Color activeColor;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocSelector<PlayerBloc, PlayerBlocState, _ProgressSnapshot>(
+      selector: (state) {
+        if (state is PlayerPlaying) {
+          return _ProgressSnapshot(
+            position: state.position,
+            duration: state.duration,
+            canInteract: enabled && state.duration.inMilliseconds > 0,
+          );
+        }
+        if (state is PlayerPaused) {
+          return _ProgressSnapshot(
+            position: state.position,
+            duration: state.duration,
+            canInteract: enabled && state.duration.inMilliseconds > 0,
+          );
+        }
+        if (state is PlayerLoading && state.track != null) {
+          return _ProgressSnapshot(
+            position: state.position,
+            duration: state.duration,
+            canInteract: false,
+          );
+        }
+        return _ProgressSnapshot(
+          position: fallbackPosition,
+          duration: fallbackDuration,
+          canInteract:
+              enabled && fallbackDuration.inMilliseconds > 0,
+        );
+      },
+      builder: (context, snapshot) {
+        return _MobileProgressSlider(
+          position: snapshot.position,
+          duration: snapshot.duration,
+          activeColor: activeColor,
+          enabled: snapshot.canInteract,
+        );
+      },
     );
   }
 }

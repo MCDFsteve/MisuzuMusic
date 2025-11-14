@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -1742,7 +1743,7 @@ class _TrackDetailView extends StatelessWidget {
 
         final double scrollVerticalPadding = isCompactLayout ? 0 : 22;
         final double leadingSpacer = isCompactLayout ? 120 : 18;
-        final double trailingSpacer = isCompactLayout ? 160 : 0;
+        final double trailingSpacer = isCompactLayout ? 320 : 0;
 
         return Align(
           alignment: Alignment.centerRight,
