@@ -26,21 +26,18 @@ class ArtistDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = MacosTheme.of(context);
-    return Scaffold(
-      backgroundColor: theme.canvasColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: theme.typography.body.color,
-        title: Text('歌手：${artist.name}'),
-      ),
-      body: ArtistDetailView(
-        artist: artist,
-        tracks: tracks,
-        onAddToPlaylist: onAddToPlaylist,
-        onAddAllToPlaylist: onAddAllToPlaylist,
-        onViewArtist: onViewArtist,
-        onViewAlbum: onViewAlbum,
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(title: '歌手：${artist.name}'),
+      body: ColoredBox(
+        color: theme.canvasColor,
+        child: ArtistDetailView(
+          artist: artist,
+          tracks: tracks,
+          onAddToPlaylist: onAddToPlaylist,
+          onAddAllToPlaylist: onAddAllToPlaylist,
+          onViewArtist: onViewArtist,
+          onViewAlbum: onViewAlbum,
+        ),
       ),
     );
   }

@@ -7,12 +7,14 @@ class MusicLibraryView extends StatefulWidget {
     this.onDetailStateChanged,
     this.onViewArtist,
     this.onViewAlbum,
+    this.controller,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
   final ValueChanged<bool>? onDetailStateChanged;
   final ValueChanged<Track>? onViewArtist;
   final ValueChanged<Track>? onViewAlbum;
+  final MusicLibraryViewController? controller;
 
   @override
   State<MusicLibraryView> createState() => _MusicLibraryViewState();
@@ -25,11 +27,27 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
   @override
   void initState() {
     super.initState();
+    widget.controller?._attach(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _notifyDetailState();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant MusicLibraryView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?._detach(this);
+      widget.controller?._attach(this);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller?._detach(this);
+    super.dispose();
   }
 
   bool get canNavigateBack => _showList;
@@ -630,6 +648,22 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       },
     );
   }
+}
+
+class MusicLibraryViewController {
+  _MusicLibraryViewState? _state;
+
+  void _attach(_MusicLibraryViewState state) {
+    _state = state;
+  }
+
+  void _detach(_MusicLibraryViewState state) {
+    if (identical(_state, state)) {
+      _state = null;
+    }
+  }
+
+  void exitToOverview() => _state?.exitToOverview();
 }
 
 class _ExitLibraryOverviewIntent extends Intent {

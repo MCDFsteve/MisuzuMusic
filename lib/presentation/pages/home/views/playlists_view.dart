@@ -8,6 +8,7 @@ class PlaylistsView extends StatefulWidget {
     this.searchQuery = '',
     this.onViewArtist,
     this.onViewAlbum,
+    this.controller,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
@@ -15,6 +16,7 @@ class PlaylistsView extends StatefulWidget {
   final String searchQuery;
   final ValueChanged<Track>? onViewArtist;
   final ValueChanged<Track>? onViewAlbum;
+  final PlaylistsViewController? controller;
 
   @override
   State<PlaylistsView> createState() => _PlaylistsViewState();
@@ -35,6 +37,27 @@ class _PlaylistsViewState extends State<PlaylistsView> {
       _activePlaylistId = null;
     });
     _notifyDetailState();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller?._attach(this);
+  }
+
+  @override
+  void didUpdateWidget(covariant PlaylistsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?._detach(this);
+      widget.controller?._attach(this);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller?._detach(this);
+    super.dispose();
   }
 
   void _notifyDetailState() {
@@ -565,6 +588,24 @@ class _PlaylistsViewState extends State<PlaylistsView> {
 
     return const _ResolvedArtwork(path: null, hasArtwork: false);
   }
+}
+
+class PlaylistsViewController {
+  _PlaylistsViewState? _state;
+
+  void _attach(_PlaylistsViewState state) {
+    _state = state;
+  }
+
+  void _detach(_PlaylistsViewState state) {
+    if (identical(_state, state)) {
+      _state = null;
+    }
+  }
+
+  void exitToOverview() => _state?.exitToOverview();
+
+  void openPlaylistById(String id) => _state?.openPlaylistById(id);
 }
 
 class _ResolvedArtwork {

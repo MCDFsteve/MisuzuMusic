@@ -14,10 +14,8 @@ extension _HomePageMobileLayout on _HomePageContentState {
             ? _composeNeteaseStatsLabel(neteaseState)
             : _composeHeaderStatsLabel(libraryState);
         final currentTrack = _playerTrack(playerState);
-        final header = _buildMobileHeader(
-          context,
+        final appBar = _buildMobileAppBar(
           sectionLabel,
-          statsLabel,
           neteaseState,
         );
         final theme = Theme.of(context);
@@ -41,6 +39,11 @@ extension _HomePageMobileLayout on _HomePageContentState {
         );
         final double lyricsBottomInset =
             navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
+
+        final header = _buildMobileHeader(
+          context,
+          statsLabel,
+        );
 
         final layeredBody = SafeArea(
           top: true,
@@ -128,6 +131,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
         );
 
         return AdaptiveScaffold(
+          appBar: appBar,
           body: themedBody,
           bottomNavigationBar: AdaptiveBottomNavigationBar(
             items: _mobileDestinations,
@@ -153,11 +157,23 @@ extension _HomePageMobileLayout on _HomePageContentState {
     return navBarHeight + safeAreaBottom + visualGap;
   }
 
+  AdaptiveAppBar _buildMobileAppBar(
+    String sectionLabel,
+    NeteaseState neteaseState,
+  ) {
+    final actions = _buildMobileAppBarActions(neteaseState);
+    final leading = _buildMobileLeading();
+    return AdaptiveAppBar(
+      title: sectionLabel,
+      leading: leading,
+      actions: actions.isEmpty ? null : actions,
+      useNativeToolbar: true,
+    );
+  }
+
   Widget _buildMobileHeader(
     BuildContext context,
-    String sectionLabel,
     String? statsLabel,
-    NeteaseState neteaseState,
   ) {
     final bool supportsSearch = _selectedIndex != 4;
     final theme = Theme.of(context);
@@ -165,40 +181,11 @@ extension _HomePageMobileLayout on _HomePageContentState {
       alpha: 0.8,
     );
     final bodySmall = theme.textTheme.bodySmall;
-    final headingStyle = theme.textTheme.titleMedium ??
-        const TextStyle(fontSize: 20, fontWeight: FontWeight.w600);
-    final leading = _buildMobileLeading();
-    final actionButtons = _buildMobileActionButtons(neteaseState);
 
-    final children = <Widget>[
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (leading != null) ...[
-            SizedBox(height: 36, width: 36, child: leading),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Text(
-              sectionLabel,
-              locale: const Locale('zh-Hans', 'zh'),
-              style: headingStyle.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-          ),
-          for (int i = 0; i < actionButtons.length; i++) ...[
-            if (i > 0) const SizedBox(width: 4),
-            actionButtons[i],
-          ],
-        ],
-      ),
-    ];
+    final children = <Widget>[];
 
     if (supportsSearch) {
-      children.addAll([
-        const SizedBox(height: 12),
+      children.add(
         LibrarySearchField(
           query: _searchQuery,
           onQueryChanged: _onSearchQueryChanged,
@@ -207,24 +194,24 @@ extension _HomePageMobileLayout on _HomePageContentState {
           onSuggestionSelected: _handleSearchSuggestionTapped,
           onInteract: _dismissLyricsOverlay,
         ),
-        if (statsLabel != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            statsLabel,
-            locale: const Locale('zh-Hans', 'zh'),
-            style: bodySmall?.copyWith(color: secondaryColor),
-          ),
-        ],
-      ]);
-    } else if (statsLabel != null) {
-      children.addAll([
-        const SizedBox(height: 8),
+      );
+    }
+
+    if (statsLabel != null) {
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: 8));
+      }
+      children.add(
         Text(
           statsLabel,
           locale: const Locale('zh-Hans', 'zh'),
           style: bodySmall?.copyWith(color: secondaryColor),
         ),
-      ]);
+      );
+    }
+
+    if (children.isEmpty) {
+      return const SizedBox(height: 12);
     }
 
     final double bottomPadding = supportsSearch ? 12 : 8;
@@ -235,31 +222,6 @@ extension _HomePageMobileLayout on _HomePageContentState {
         children: children,
       ),
     );
-  }
-
-  List<Widget> _buildMobileActionButtons(NeteaseState neteaseState) {
-    final actions = _buildMobileAppBarActions(neteaseState);
-    if (actions.isEmpty) {
-      return const <Widget>[];
-    }
-
-    return actions
-        .map(
-          (action) => CupertinoButton(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            minSize: 32,
-            onPressed: action.onPressed,
-            child: action.icon != null
-                ? Icon(action.icon, size: 22)
-                : (action.title != null
-                    ? Text(
-                        action.title!,
-                        locale: const Locale('zh-Hans', 'zh'),
-                      )
-                    : const Icon(Icons.more_horiz, size: 20)),
-          ),
-        )
-        .toList(growable: false);
   }
 
   List<AdaptiveAppBarAction> _buildMobileAppBarActions(
@@ -295,7 +257,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
           iosSymbol: 'rectangle.portrait.and.arrow.right',
           icon: CupertinoIcons.square_arrow_right,
           onPressed: () {
-            _neteaseViewKey.currentState?.prepareForLogout();
+            _neteaseViewController.prepareForLogout();
             context.read<NeteaseCubit>().logout();
           },
         ),
@@ -313,17 +275,17 @@ extension _HomePageMobileLayout on _HomePageContentState {
         if (_hasActiveDetail) {
           onPressed = _clearActiveDetail;
         } else if (_musicLibraryCanNavigateBack) {
-          onPressed = () => _musicLibraryViewKey.currentState?.exitToOverview();
+          onPressed = _musicLibraryViewController.exitToOverview;
         }
         break;
       case 1:
         if (_playlistsCanNavigateBack) {
-          onPressed = () => _playlistsViewKey.currentState?.exitToOverview();
+          onPressed = _playlistsViewController.exitToOverview;
         }
         break;
       case 2:
         if (_neteaseCanNavigateBack) {
-          onPressed = () => _neteaseViewKey.currentState?.exitToOverview();
+          onPressed = _neteaseViewController.exitToOverview;
         }
         break;
       default:
@@ -334,11 +296,54 @@ extension _HomePageMobileLayout on _HomePageContentState {
       return null;
     }
 
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      minSize: 32,
+    return _AdaptiveLeadingButton(onPressed: onPressed);
+  }
+}
+
+class _AdaptiveLeadingButton extends StatelessWidget {
+  const _AdaptiveLeadingButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurface;
+
+    if (PlatformInfo.isIOS) {
+      return AdaptiveButton.child(
+        onPressed: onPressed,
+        style: AdaptiveButtonStyle.plain,
+        size: AdaptiveButtonSize.small,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        minSize: const Size(32, 32),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(CupertinoIcons.chevron_left, size: 18, color: color),
+            const SizedBox(width: 2),
+            Text(
+              '返回',
+              locale: const Locale('zh-Hans', 'zh'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w500,
+                  ) ??
+                  TextStyle(color: color, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return AdaptiveButton.icon(
       onPressed: onPressed,
-      child: const Icon(CupertinoIcons.chevron_left, size: 22),
+      icon: Icons.arrow_back_rounded,
+      iconColor: color,
+      style: AdaptiveButtonStyle.plain,
+      size: AdaptiveButtonSize.small,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      minSize: const Size(40, 40),
     );
   }
 }
