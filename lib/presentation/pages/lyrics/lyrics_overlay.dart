@@ -1266,6 +1266,7 @@ class _LyricsLayout extends StatelessWidget {
               ? MacosTheme.of(context).brightness == Brightness.dark
               : Theme.of(context).brightness == Brightness.dark;
           final bool useCompactLayout = !isMac && constraints.maxWidth < 860;
+          final double coverSize = _resolveCoverSize(constraints.maxWidth);
 
           final Widget lyricsPanel = _LyricsPanel(
             isDarkMode: isDarkMode,
@@ -1281,16 +1282,46 @@ class _LyricsLayout extends StatelessWidget {
             onActiveIndexChanged: onActiveIndexChanged,
             onActiveLineChanged: onActiveLineChanged,
             bottomSafeInset: bottomSafeInset,
+            isCompactLayout: useCompactLayout,
+            onTapToggleDetail: useCompactLayout ? onToggleTrackDetail : null,
           );
 
           if (useCompactLayout) {
+            final Widget compactLyricsPanel = KeyedSubtree(
+              key: const ValueKey('compact-lyrics-panel'),
+              child: lyricsPanel,
+            );
+
+            final Widget compactDetailPanel = KeyedSubtree(
+              key: const ValueKey('compact-track-detail'),
+              child: _TrackDetailView(
+                track: normalizedTrack,
+                coverSize: coverSize,
+                isMac: isMac,
+                isLoadingDetail: isLoadingTrackDetail,
+                isSavingDetail: isSavingTrackDetail,
+                detailContent: trackDetailContent,
+                detailError: trackDetailError,
+                detailFileName: trackDetailFileName,
+                onToggleDetail: onToggleTrackDetail,
+                onEditDetail: onEditTrackDetail,
+                isCompactLayout: true,
+              ),
+            );
+
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: lyricsPanel,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: showTrackDetail
+                    ? compactDetailPanel
+                    : compactLyricsPanel,
+              ),
             );
           }
 
-          final double coverSize = _resolveCoverSize(constraints.maxWidth);
           final DividerThemeData dividerTheme = DividerTheme.of(context);
           final Color dividerColor = isMac
               ? MacosTheme.of(context).dividerColor.withOpacity(0.35)
@@ -1315,6 +1346,7 @@ class _LyricsLayout extends StatelessWidget {
                     detailFileName: trackDetailFileName,
                     onToggleDetail: onToggleTrackDetail,
                     onEditDetail: onEditTrackDetail,
+                    isCompactLayout: false,
                   ),
                 ),
                 Container(
@@ -1357,6 +1389,7 @@ class _TrackInfoPanel extends StatelessWidget {
     required this.detailFileName,
     required this.onToggleDetail,
     required this.onEditDetail,
+    this.isCompactLayout = false,
   });
 
   final Track track;
@@ -1370,6 +1403,7 @@ class _TrackInfoPanel extends StatelessWidget {
   final String? detailFileName;
   final VoidCallback onToggleDetail;
   final VoidCallback onEditDetail;
+  final bool isCompactLayout;
 
   @override
   Widget build(BuildContext context) {
@@ -1390,6 +1424,7 @@ class _TrackInfoPanel extends StatelessWidget {
               detailFileName: detailFileName,
               onToggleDetail: onToggleDetail,
               onEditDetail: onEditDetail,
+              isCompactLayout: isCompactLayout,
             )
           : _CoverColumn(
               key: const ValueKey('track-cover-view'),
@@ -1539,6 +1574,7 @@ class _TrackDetailView extends StatelessWidget {
     required this.detailFileName,
     required this.onToggleDetail,
     required this.onEditDetail,
+    this.isCompactLayout = false,
   });
 
   final Track track;
@@ -1551,6 +1587,7 @@ class _TrackDetailView extends StatelessWidget {
   final String? detailFileName;
   final VoidCallback onToggleDetail;
   final VoidCallback onEditDetail;
+  final bool isCompactLayout;
 
   @override
   Widget build(BuildContext context) {
@@ -1703,6 +1740,10 @@ class _TrackDetailView extends StatelessWidget {
           ),
         );
 
+        final double scrollVerticalPadding = isCompactLayout ? 0 : 22;
+        final double leadingSpacer = isCompactLayout ? 120 : 18;
+        final double trailingSpacer = isCompactLayout ? 160 : 0;
+
         return Align(
           alignment: Alignment.centerRight,
           child: MouseRegion(
@@ -1718,14 +1759,14 @@ class _TrackDetailView extends StatelessWidget {
                     context,
                   ).copyWith(scrollbars: false),
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                       horizontal: 0,
-                      vertical: 22,
+                      vertical: scrollVerticalPadding,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 18),
+                        SizedBox(height: leadingSpacer),
                         Text(
                           track.title,
                           locale: const Locale('zh-Hans', 'zh'),
@@ -1757,6 +1798,7 @@ class _TrackDetailView extends StatelessWidget {
                             alignment: Alignment.centerLeft,
                             child: editLink,
                           ),
+                        SizedBox(height: trailingSpacer),
                       ],
                     ),
                   ),
@@ -1785,6 +1827,8 @@ class _LyricsPanel extends StatelessWidget {
     required this.onActiveIndexChanged,
     required this.onActiveLineChanged,
     required this.bottomSafeInset,
+    this.isCompactLayout = false,
+    this.onTapToggleDetail,
   });
 
   final bool isDarkMode;
@@ -1800,11 +1844,15 @@ class _LyricsPanel extends StatelessWidget {
   final ValueChanged<int> onActiveIndexChanged;
   final ValueChanged<LyricsLine?> onActiveLineChanged;
   final double bottomSafeInset;
+  final bool isCompactLayout;
+  final VoidCallback? onTapToggleDetail;
 
   @override
   Widget build(BuildContext context) {
+    final double horizontalPadding = isCompactLayout ? 0 : 24;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final behavior = ScrollConfiguration.of(
@@ -1813,7 +1861,7 @@ class _LyricsPanel extends StatelessWidget {
           final viewportHeight = constraints.maxHeight;
           return BlocBuilder<LyricsCubit, LyricsState>(
             builder: (context, state) {
-              final Widget content = ScrollConfiguration(
+              Widget content = ScrollConfiguration(
                 behavior: behavior,
                 child: _buildLyricsContent(
                   context,
@@ -1824,6 +1872,14 @@ class _LyricsPanel extends StatelessWidget {
                   showTranslation,
                 ),
               );
+
+              if (onTapToggleDetail != null) {
+                content = GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onTapToggleDetail,
+                  child: content,
+                );
+              }
 
               final bool canToggle =
                   state is LyricsLoaded && _hasAnyTranslation(state.lyrics);

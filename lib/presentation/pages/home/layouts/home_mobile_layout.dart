@@ -127,8 +127,14 @@ extension _HomePageMobileLayout on _HomePageContentState {
           child: Material(color: Colors.transparent, child: backgroundStack),
         );
 
+        final bodyWithFocusDismiss = Listener(
+          behavior: HitTestBehavior.deferToChild,
+          onPointerDown: _handleMobileGlobalPointerDown,
+          child: themedBody,
+        );
+
         return AdaptiveScaffold(
-          body: themedBody,
+          body: bodyWithFocusDismiss,
           bottomNavigationBar: AdaptiveBottomNavigationBar(
             items: _mobileDestinations,
             selectedIndex: _selectedIndex,
@@ -340,5 +346,24 @@ extension _HomePageMobileLayout on _HomePageContentState {
       onPressed: onPressed,
       child: const Icon(CupertinoIcons.chevron_left, size: 22),
     );
+  }
+
+  void _handleMobileGlobalPointerDown(PointerDownEvent event) {
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus == null) {
+      return;
+    }
+
+    final focusContext = primaryFocus.context;
+    final renderObject = focusContext?.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
+      final topLeft = renderObject.localToGlobal(Offset.zero);
+      final Rect focusBounds = topLeft & renderObject.size;
+      if (focusBounds.contains(event.position)) {
+        return;
+      }
+    }
+
+    primaryFocus.unfocus();
   }
 }
