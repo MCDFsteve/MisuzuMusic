@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +35,8 @@ const bool _desktopLyricsVerboseLogging = false;
 final RegExp _desktopLyricsHanCharacterRegExp = RegExp(
   r'[\u3400-\u4DBF\u4E00-\u9FFF]',
 );
+
+enum _CompactLyricsStage { cover, lyrics, detail }
 
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
@@ -75,6 +78,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   StreamSubscription<PlayerBlocState>? _playerSubscription;
   PlayerBlocState? _lastProcessedPlayerState;
   bool _showTrackDetailPanel = false;
+  _CompactLyricsStage _compactLyricsStage = _CompactLyricsStage.cover;
   bool _isLoadingTrackDetail = false;
   bool _isSavingTrackDetail = false;
   String? _trackDetailContent;
@@ -157,6 +161,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _isLoadingTrackDetail = false;
     _isSavingTrackDetail = false;
     _showTrackDetailPanel = false;
+    _compactLyricsStage = _CompactLyricsStage.cover;
     _trackDetailRequestToken++;
   }
 
@@ -165,10 +170,13 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   }
 
   void _toggleTrackDetailPanel() {
-    if (!mounted) {
+    _setTrackDetailPanelVisibility(!_showTrackDetailPanel);
+  }
+
+  void _setTrackDetailPanelVisibility(bool shouldShow) {
+    if (!mounted || _showTrackDetailPanel == shouldShow) {
       return;
     }
-    final shouldShow = !_showTrackDetailPanel;
     setState(() {
       _showTrackDetailPanel = shouldShow;
       if (!shouldShow) {
@@ -178,6 +186,20 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (shouldShow) {
       unawaited(_ensureTrackDetailLoaded());
     }
+  }
+
+  void _cycleCompactLyricsStage() {
+    if (!mounted) {
+      return;
+    }
+    final stages = _CompactLyricsStage.values;
+    final nextIndex = (_compactLyricsStage.index + 1) % stages.length;
+    final nextStage = stages[nextIndex];
+    setState(() {
+      _compactLyricsStage = nextStage;
+    });
+    final bool shouldShowDetail = nextStage == _CompactLyricsStage.detail;
+    _setTrackDetailPanelVisibility(shouldShowDetail);
   }
 
   Future<void> _ensureTrackDetailLoaded({bool force = false}) async {
@@ -1197,6 +1219,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           onToggleTrackDetail: _toggleTrackDetailPanel,
           onEditTrackDetail: _openTrackDetailEditor,
           bottomSafeInset: widget.bottomSafeInset,
+          compactStage: _compactLyricsStage,
+          onCycleCompactStage: _cycleCompactLyricsStage,
         ),
       ),
     );
@@ -1226,6 +1250,8 @@ class _LyricsLayout extends StatelessWidget {
     required this.onToggleTrackDetail,
     required this.onEditTrackDetail,
     required this.bottomSafeInset,
+    required this.compactStage,
+    required this.onCycleCompactStage,
   });
 
   final Track track;
@@ -1249,6 +1275,8 @@ class _LyricsLayout extends StatelessWidget {
   final VoidCallback onToggleTrackDetail;
   final VoidCallback onEditTrackDetail;
   final double bottomSafeInset;
+  final _CompactLyricsStage compactStage;
+  final VoidCallback onCycleCompactStage;
 
   @override
   Widget build(BuildContext context) {
@@ -1266,6 +1294,7 @@ class _LyricsLayout extends StatelessWidget {
               ? MacosTheme.of(context).brightness == Brightness.dark
               : Theme.of(context).brightness == Brightness.dark;
           final bool useCompactLayout = !isMac && constraints.maxWidth < 860;
+          final double coverSize = _resolveCoverSize(constraints.maxWidth);
 
           final Widget lyricsPanel = _LyricsPanel(
             isDarkMode: isDarkMode,
@@ -1281,16 +1310,68 @@ class _LyricsLayout extends StatelessWidget {
             onActiveIndexChanged: onActiveIndexChanged,
             onActiveLineChanged: onActiveLineChanged,
             bottomSafeInset: bottomSafeInset,
+            isCompactLayout: useCompactLayout,
+            onTapToggleDetail: useCompactLayout ? onCycleCompactStage : null,
           );
 
           if (useCompactLayout) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            final Widget compactCoverPanel = KeyedSubtree(
+              key: const ValueKey('compact-cover-panel'),
+              child: _CoverColumn(
+                track: normalizedTrack,
+                coverSize: coverSize,
+                isMac: isMac,
+                onTap: onCycleCompactStage,
+              ),
+            );
+
+            final Widget compactLyricsPanel = KeyedSubtree(
+              key: const ValueKey('compact-lyrics-panel'),
               child: lyricsPanel,
+            );
+
+            final Widget compactDetailPanel = KeyedSubtree(
+              key: const ValueKey('compact-track-detail'),
+              child: _TrackDetailView(
+                track: normalizedTrack,
+                coverSize: coverSize,
+                isMac: isMac,
+                isLoadingDetail: isLoadingTrackDetail,
+                isSavingDetail: isSavingTrackDetail,
+                detailContent: trackDetailContent,
+                detailError: trackDetailError,
+                detailFileName: trackDetailFileName,
+                onToggleDetail: onCycleCompactStage,
+                onEditDetail: onEditTrackDetail,
+                isCompactLayout: true,
+                bottomSafeInset: bottomSafeInset,
+              ),
+            );
+
+            Widget stageChild = compactLyricsPanel;
+            switch (compactStage) {
+              case _CompactLyricsStage.cover:
+                stageChild = compactCoverPanel;
+                break;
+              case _CompactLyricsStage.lyrics:
+                stageChild = compactLyricsPanel;
+                break;
+              case _CompactLyricsStage.detail:
+                stageChild = compactDetailPanel;
+                break;
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: stageChild,
+              ),
             );
           }
 
-          final double coverSize = _resolveCoverSize(constraints.maxWidth);
           final DividerThemeData dividerTheme = DividerTheme.of(context);
           final Color dividerColor = isMac
               ? MacosTheme.of(context).dividerColor.withOpacity(0.35)
@@ -1315,6 +1396,7 @@ class _LyricsLayout extends StatelessWidget {
                     detailFileName: trackDetailFileName,
                     onToggleDetail: onToggleTrackDetail,
                     onEditDetail: onEditTrackDetail,
+                    isCompactLayout: false,
                   ),
                 ),
                 Container(
@@ -1357,6 +1439,7 @@ class _TrackInfoPanel extends StatelessWidget {
     required this.detailFileName,
     required this.onToggleDetail,
     required this.onEditDetail,
+    this.isCompactLayout = false,
   });
 
   final Track track;
@@ -1370,6 +1453,7 @@ class _TrackInfoPanel extends StatelessWidget {
   final String? detailFileName;
   final VoidCallback onToggleDetail;
   final VoidCallback onEditDetail;
+  final bool isCompactLayout;
 
   @override
   Widget build(BuildContext context) {
@@ -1390,6 +1474,7 @@ class _TrackInfoPanel extends StatelessWidget {
               detailFileName: detailFileName,
               onToggleDetail: onToggleDetail,
               onEditDetail: onEditDetail,
+              isCompactLayout: isCompactLayout,
             )
           : _CoverColumn(
               key: const ValueKey('track-cover-view'),
@@ -1539,6 +1624,8 @@ class _TrackDetailView extends StatelessWidget {
     required this.detailFileName,
     required this.onToggleDetail,
     required this.onEditDetail,
+    this.isCompactLayout = false,
+    this.bottomSafeInset = 0,
   });
 
   final Track track;
@@ -1551,6 +1638,8 @@ class _TrackDetailView extends StatelessWidget {
   final String? detailFileName;
   final VoidCallback onToggleDetail;
   final VoidCallback onEditDetail;
+  final bool isCompactLayout;
+  final double bottomSafeInset;
 
   @override
   Widget build(BuildContext context) {
@@ -1703,64 +1792,155 @@ class _TrackDetailView extends StatelessWidget {
           ),
         );
 
+        final double scrollVerticalPadding = isCompactLayout ? 0 : 22;
+        final double leadingSpacer = isCompactLayout ? 120 : 18;
+        final double trailingSpacer =
+            isCompactLayout ? (bottomSafeInset + 24) : 0;
+
+        List<Widget> buildDetailChildren(Widget detailSection) {
+          return [
+            SizedBox(height: leadingSpacer),
+            Text(
+              track.title,
+              locale: const Locale('zh-Hans', 'zh'),
+              style: headerStyle.copyWith(fontSize: 18),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${track.artist} · ${track.album}',
+              locale: const Locale('zh-Hans', 'zh'),
+              style: metaStyle,
+            ),
+            const SizedBox(height: 22),
+            Text(
+              '歌曲详情',
+              locale: const Locale('zh-Hans', 'zh'),
+              style: bodyStyle.copyWith(
+                fontWeight: FontWeight.w600,
+                color: bodyStyle.color?.withOpacity(0.82) ??
+                    (isDarkMode
+                        ? Colors.white.withOpacity(0.82)
+                        : Colors.black.withOpacity(0.78)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            detailSection,
+            if (!isSavingDetail)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: editLink,
+              ),
+            SizedBox(height: trailingSpacer),
+          ];
+        }
+
+        Widget buildCompactDetailBody() {
+          final ScrollBehavior innerBehavior = ScrollConfiguration.of(
+            context,
+          ).copyWith(scrollbars: false);
+          final Color surfaceColor = isDarkMode
+              ? Colors.white.withOpacity(0.035)
+              : Colors.black.withOpacity(0.035);
+
+          Widget buildScrollableDetail() {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: surfaceColor,
+                ),
+                child: ScrollConfiguration(
+                  behavior: innerBehavior,
+                  child: Scrollbar(
+                    thumbVisibility: false,
+                    radius: const Radius.circular(10),
+                    child: SingleChildScrollView(
+                      primary: false,
+                      padding: const EdgeInsets.fromLTRB(0, 8, 12, 12),
+                      child: detailBody,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 0,
+              vertical: scrollVerticalPadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: leadingSpacer),
+                Text(
+                  track.title,
+                  locale: const Locale('zh-Hans', 'zh'),
+                  style: headerStyle.copyWith(fontSize: 18),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${track.artist} · ${track.album}',
+                  locale: const Locale('zh-Hans', 'zh'),
+                  style: metaStyle,
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  '歌曲详情',
+                  locale: const Locale('zh-Hans', 'zh'),
+                  style: bodyStyle.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: bodyStyle.color?.withOpacity(0.82) ??
+                        (isDarkMode
+                            ? Colors.white.withOpacity(0.82)
+                            : Colors.black.withOpacity(0.78)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(child: buildScrollableDetail()),
+                if (!isSavingDetail)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: editLink,
+                  ),
+                SizedBox(height: trailingSpacer),
+              ],
+            ),
+          );
+        }
+
+        Widget buildDefaultDetailBody() {
+          return ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: 0,
+                vertical: scrollVerticalPadding,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: buildDetailChildren(detailBody),
+              ),
+            ),
+          );
+        }
+
+        final Widget detailContentWidget = isCompactLayout
+            ? buildCompactDetailBody()
+            : buildDefaultDetailBody();
+
         return Align(
-          alignment: Alignment.centerRight,
+          alignment: isCompactLayout ? Alignment.center : Alignment.centerRight,
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: onToggleDetail,
               child: SizedBox(
-                width: displayWidth,
+                width: isCompactLayout ? double.infinity : displayWidth,
                 height: panelHeight,
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(
-                    context,
-                  ).copyWith(scrollbars: false),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 0,
-                      vertical: 22,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 18),
-                        Text(
-                          track.title,
-                          locale: const Locale('zh-Hans', 'zh'),
-                          style: headerStyle.copyWith(fontSize: 18),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${track.artist} · ${track.album}',
-                          locale: const Locale('zh-Hans', 'zh'),
-                          style: metaStyle,
-                        ),
-                        const SizedBox(height: 22),
-                        Text(
-                          '歌曲详情',
-                          locale: const Locale('zh-Hans', 'zh'),
-                          style: bodyStyle.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color:
-                                bodyStyle.color?.withOpacity(0.82) ??
-                                (isDarkMode
-                                    ? Colors.white.withOpacity(0.82)
-                                    : Colors.black.withOpacity(0.78)),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        detailBody,
-                        if (!isSavingDetail)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: editLink,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
+                child: detailContentWidget,
               ),
             ),
           ),
@@ -1785,6 +1965,8 @@ class _LyricsPanel extends StatelessWidget {
     required this.onActiveIndexChanged,
     required this.onActiveLineChanged,
     required this.bottomSafeInset,
+    this.isCompactLayout = false,
+    this.onTapToggleDetail,
   });
 
   final bool isDarkMode;
@@ -1800,11 +1982,15 @@ class _LyricsPanel extends StatelessWidget {
   final ValueChanged<int> onActiveIndexChanged;
   final ValueChanged<LyricsLine?> onActiveLineChanged;
   final double bottomSafeInset;
+  final bool isCompactLayout;
+  final VoidCallback? onTapToggleDetail;
 
   @override
   Widget build(BuildContext context) {
+    final double horizontalPadding = isCompactLayout ? 0 : 24;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final behavior = ScrollConfiguration.of(
@@ -1813,7 +1999,7 @@ class _LyricsPanel extends StatelessWidget {
           final viewportHeight = constraints.maxHeight;
           return BlocBuilder<LyricsCubit, LyricsState>(
             builder: (context, state) {
-              final Widget content = ScrollConfiguration(
+              Widget content = ScrollConfiguration(
                 behavior: behavior,
                 child: _buildLyricsContent(
                   context,
@@ -1824,6 +2010,14 @@ class _LyricsPanel extends StatelessWidget {
                   showTranslation,
                 ),
               );
+
+              if (onTapToggleDetail != null) {
+                content = GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onTapToggleDetail,
+                  child: content,
+                );
+              }
 
               final bool canToggle =
                   state is LyricsLoaded && _hasAnyTranslation(state.lyrics);

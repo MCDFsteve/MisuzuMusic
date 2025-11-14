@@ -7,6 +7,8 @@ import 'package:macos_ui/macos_ui.dart';
 
 import 'package:misuzu_music/presentation/widgets/common/hover_glow_overlay.dart';
 
+import '../context_menu/macos_context_menu.dart';
+
 class CollectionSummaryCard extends StatelessWidget {
   const CollectionSummaryCard({
     super.key,
@@ -109,7 +111,7 @@ class CollectionSummaryCard extends StatelessWidget {
           if (onSecondaryTap != null) {
             onSecondaryTap!();
           } else if (onRemove != null) {
-            _showContextMenu(context, details.globalPosition, subtitle);
+            _showContextMenu(context, details.globalPosition);
           }
         },
         onSecondaryTap: onContextMenuRequested != null
@@ -125,7 +127,7 @@ class CollectionSummaryCard extends StatelessWidget {
           if (onSecondaryTap != null) {
             onSecondaryTap!();
           } else if (onRemove != null) {
-            _showContextMenu(context, details.globalPosition, subtitle);
+            _showContextMenu(context, details.globalPosition);
           }
         },
         child: Row(
@@ -236,27 +238,23 @@ class CollectionSummaryCard extends StatelessWidget {
   Future<void> _showContextMenu(
     BuildContext context,
     Offset position,
-    String subtitle,
   ) async {
-    if (onRemove == null) {
+    final removeHandler = onRemove;
+    if (removeHandler == null) {
       return;
     }
 
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final result = await showMenu<String>(
+    await MacosContextMenu.show(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        overlay.size.width - position.dx,
-        overlay.size.height - position.dy,
-      ),
-      items: [
-        PopupMenuItem(value: 'remove', child: Text(contextMenuLabel ?? '移除',locale: Locale("zh-Hans", "zh"),)),
+      globalPosition: position,
+      actions: [
+        MacosContextMenuAction(
+          label: contextMenuLabel ?? '移除',
+          icon: CupertinoIcons.trash,
+          destructive: true,
+          onSelected: removeHandler,
+        ),
       ],
     );
-    if (result == 'remove') {
-      onRemove?.call();
-    }
   }
 }

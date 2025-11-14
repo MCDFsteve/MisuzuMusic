@@ -304,63 +304,45 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
         ? '确定要卸载 "$name" 吗？卸载后将移除该神秘代码导入的所有歌曲。'
         : '确定要移除 "$name" 目录吗？这将从音乐库中移除该目录中的所有歌曲。';
 
-    final confirmed = prefersMacLikeUi()
-        ? await showPlaylistModalDialog<bool>(
-            context: context,
-            builder: (_) => PlaylistModalScaffold(
-              title: title,
-              maxWidth: 360,
-              body: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isWebDav
-                        ? CupertinoIcons.cloud
-                        : CupertinoIcons.exclamationmark_triangle,
-                    size: 52,
-                    color: isWebDav
-                        ? MacosColors.systemBlueColor
-                        : CupertinoColors.systemYellow,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    message,
-                    locale: Locale("zh-Hans", "zh"),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-              actions: [
-                SheetActionButton.secondary(
-                  label: '取消',
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                SheetActionButton.primary(
-                  label: '移除',
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-              contentSpacing: 16,
-              actionsSpacing: 14,
+    final confirmed = await showPlaylistModalDialog<bool>(
+      context: context,
+      builder: (_) => PlaylistModalScaffold(
+        title: title,
+        maxWidth: 360,
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isWebDav
+                  ? CupertinoIcons.cloud
+                  : CupertinoIcons.exclamationmark_triangle,
+              size: 52,
+              color: isWebDav
+                  ? MacosColors.systemBlueColor
+                  : CupertinoColors.systemYellow,
             ),
-          )
-        : await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text(title, locale: Locale("zh-Hans", "zh")),
-              content: Text(message, locale: Locale("zh-Hans", "zh")),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('取消', locale: Locale("zh-Hans", "zh")),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('移除', locale: Locale("zh-Hans", "zh")),
-                ),
-              ],
+            const SizedBox(height: 12),
+            Text(
+              message,
+              locale: Locale("zh-Hans", "zh"),
+              textAlign: TextAlign.center,
             ),
-          );
+          ],
+        ),
+        actions: [
+          SheetActionButton.secondary(
+            label: '取消',
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          SheetActionButton.primary(
+            label: '移除',
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+        contentSpacing: 16,
+        actionsSpacing: 14,
+      ),
+    );
 
     if (confirmed != true) {
       return;

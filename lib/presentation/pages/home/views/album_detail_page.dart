@@ -240,23 +240,26 @@ class _OverviewContextMenuTarget extends StatelessWidget {
     final macTheme = MacosTheme.of(context);
     final isDark = macTheme.brightness == Brightness.dark;
 
+    void showMenu(Offset position) {
+      unawaited(
+        MacosContextMenu.show(
+          context: context,
+          globalPosition: position,
+          actions: [
+            MacosContextMenuAction(
+              label: '全部添加到歌单',
+              icon: CupertinoIcons.music_note_list,
+              onSelected: onAddAllToPlaylist,
+            ),
+          ],
+        ),
+      );
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onSecondaryTapDown: (details) {
-        unawaited(
-          MacosContextMenu.show(
-            context: context,
-            globalPosition: details.globalPosition,
-            actions: [
-              MacosContextMenuAction(
-                label: '全部添加到歌单',
-                icon: CupertinoIcons.music_note_list,
-                onSelected: onAddAllToPlaylist,
-              ),
-            ],
-          ),
-        );
-      },
+      onSecondaryTapDown: (details) => showMenu(details.globalPosition),
+      onLongPressStart: (details) => showMenu(details.globalPosition),
       child: HoverGlowOverlay(
         isDarkMode: isDark,
         borderRadius: BorderRadius.circular(16),

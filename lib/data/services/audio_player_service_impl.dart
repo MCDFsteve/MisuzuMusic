@@ -67,9 +67,12 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   bool _restoringSession = false;
   int _activePlayTransitions = 0;
 
+  bool get _hasPendingRestorePosition =>
+      _restoringSession && _pendingRestorePosition != null;
+
   // Shuffle management
-  List<int> _shuffleIndexes = [];  // 洗牌后的索引列表
-  int _shufflePosition = 0;        // 当前在洗牌列表中的位置
+  List<int> _shuffleIndexes = []; // 洗牌后的索引列表
+  int _shufflePosition = 0; // 当前在洗牌列表中的位置
 
   StreamSubscription? _playerStateSubscription;
   StreamSubscription? _positionSubscription;
@@ -110,6 +113,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     // Listen to position changes
     _positionSubscription = _audioPlayer.positionStream.listen(
       (position) {
+        if (_shouldIgnorePositionDuringRestore(position)) {
+          return;
+        }
         _positionSubject.add(position);
         if (_currentTrack == null) {
           return;
@@ -193,10 +199,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _configStore.setValue(StorageKeys.playbackQueueIndex, _currentIndex);
   }
 
-  Future<void> _persistPosition(
-    Duration position, {
-    bool force = false,
-  }) async {
+  Future<void> _persistPosition(Duration position, {bool force = false}) async {
     final now = DateTime.now();
     if (!force &&
         _restoringSession &&
@@ -213,6 +216,24 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       StorageKeys.playbackPosition,
       position.inMilliseconds,
     );
+  }
+
+  bool _shouldIgnorePositionDuringRestore(Duration position) {
+    if (!_hasPendingRestorePosition) {
+      return false;
+    }
+
+    final pending = _pendingRestorePosition!;
+    final diff = (position - pending).inMilliseconds.abs();
+    if (diff <= 750) {
+      _restoringSession = false;
+      _pendingRestorePosition = null;
+      return false;
+    }
+
+    final pendingMillis = pending.inMilliseconds;
+    final looksLikeReset = pendingMillis > 0 && position.inMilliseconds == 0;
+    return looksLikeReset;
   }
 
   Future<void> _clearPersistedQueue() async {
@@ -296,7 +317,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       print('🎵 AudioService: 文件路径 - ${playableTrack.filePath}');
 
       _updateCurrentTrack(playableTrack);
-      _positionSubject.add(Duration.zero);
+      if (!_hasPendingRestorePosition) {
+        _positionSubject.add(Duration.zero);
+      }
       await _setAudioSource(playableTrack);
       final playFuture = _audioPlayer.play();
       if (Platform.isWindows) {
@@ -356,7 +379,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
       print('🎵 AudioService: 预加载音轨 - ${playableTrack.title}');
       _updateCurrentTrack(playableTrack);
-      _positionSubject.add(Duration.zero);
+      if (!_hasPendingRestorePosition) {
+        _positionSubject.add(Duration.zero);
+      }
       await _setAudioSource(playableTrack);
 
       final index = _queue.indexWhere(
@@ -432,14 +457,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       await _audioPlayer.seek(position);
       _positionSubject.add(position);
       await _persistPosition(position, force: true);
-      if (_restoringSession && _pendingRestorePosition != null) {
-        final diff =
-            (position - _pendingRestorePosition!).inMilliseconds.abs();
-        if (diff <= 500) {
-          _restoringSession = false;
-          _pendingRestorePosition = null;
-        }
-      }
     } catch (e) {
       throw AudioPlaybackException('Failed to seek: ${e.toString()}');
     }
@@ -625,7 +642,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   int _getRandomIndex() {
     if (_queue.length <= 1) return 0;
 
-    _logShuffle('_getRandomIndex() position=$_shufflePosition length=${_shuffleIndexes.length}');
+    _logShuffle(
+      '_getRandomIndex() position=$_shufflePosition length=${_shuffleIndexes.length}',
+    );
 
     // 如果洗牌列表为空，重新生成洗牌列表
     if (_shuffleIndexes.isEmpty) {
@@ -651,7 +670,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   int _getPreviousShuffleIndex() {
     if (_queue.length <= 1) return 0;
 
-    _logShuffle('_getPreviousShuffleIndex() position=$_shufflePosition length=${_shuffleIndexes.length}');
+    _logShuffle(
+      '_getPreviousShuffleIndex() position=$_shufflePosition length=${_shuffleIndexes.length}',
+    );
 
     // 如果洗牌列表为空，先生成洗牌列表
     if (_shuffleIndexes.isEmpty) {
@@ -687,7 +708,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   void _generateShuffleOrder() {
     if (_queue.isEmpty) return;
 
-    _logShuffle('regenerate order queue=${_queue.length} current=$_currentIndex');
+    _logShuffle(
+      'regenerate order queue=${_queue.length} current=$_currentIndex',
+    );
 
     // 创建索引列表，但排除当前正在播放的歌曲
     _shuffleIndexes = <int>[];
@@ -708,7 +731,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
     _shufflePosition = 0;
     final preview = _shuffleIndexes.take(5).toList();
-    _logShuffle('order ready length=${_shuffleIndexes.length} preview=$preview');
+    _logShuffle(
+      'order ready length=${_shuffleIndexes.length} preview=$preview',
+    );
   }
 
   void _logShuffle(String message) {

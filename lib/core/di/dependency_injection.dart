@@ -33,6 +33,7 @@ import '../../domain/usecases/player_usecases.dart';
 import '../theme/theme_controller.dart';
 import '../../domain/usecases/lyrics_usecases.dart';
 import '../storage/storage_path_provider.dart';
+import '../storage/sandbox_path_codec.dart';
 import '../storage/binary_config_store.dart';
 import '../../data/storage/playlist_file_storage.dart';
 import '../../data/storage/netease_session_store.dart';
@@ -56,6 +57,7 @@ class DependencyInjection {
       await configStore.init();
       sl.registerSingleton(storagePathProvider);
       sl.registerSingleton(configStore);
+      sl.registerLazySingleton(() => SandboxPathCodec());
       sl.registerLazySingleton(() => PlaylistFileStorage(sl()));
       sl.registerLazySingleton(() => NeteaseSessionStore(sl()));
 
@@ -66,7 +68,7 @@ class DependencyInjection {
       // Data sources
       print('📊 注册数据源...');
       sl.registerLazySingleton<MusicLocalDataSource>(
-        () => MusicLocalDataSourceImpl(sl(), sl()),
+        () => MusicLocalDataSourceImpl(sl(), sl(), sl()),
       );
 
       sl.registerLazySingleton<LyricsLocalDataSource>(

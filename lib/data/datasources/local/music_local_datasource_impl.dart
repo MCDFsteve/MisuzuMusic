@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 import '../../../core/error/exceptions.dart';
+import '../../../core/storage/sandbox_path_codec.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../models/music_models.dart';
 import '../../storage/playlist_file_storage.dart';
@@ -14,8 +15,13 @@ import 'music_local_datasource.dart';
 class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   final DatabaseHelper _databaseHelper;
   final PlaylistFileStorage _playlistStorage;
+  final SandboxPathCodec _sandboxPathCodec;
 
-  MusicLocalDataSourceImpl(this._databaseHelper, this._playlistStorage);
+  MusicLocalDataSourceImpl(
+    this._databaseHelper,
+    this._playlistStorage,
+    this._sandboxPathCodec,
+  );
 
   @override
   Future<List<TrackModel>> getAllTracks() async {
@@ -25,7 +31,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         orderBy:
             'title COLLATE NOCASE ASC, artist COLLATE NOCASE ASC, album COLLATE NOCASE ASC',
       );
-      return maps.map((map) => TrackModel.fromMap(map)).toList();
+      return _mapTrackRecords(maps);
     } catch (e) {
       throw DatabaseException('Failed to get all tracks: ${e.toString()}');
     }
@@ -41,7 +47,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         limit: 1,
       );
       if (maps.isNotEmpty) {
-        return TrackModel.fromMap(maps.first);
+        return _mapTrackRecord(maps.first);
       }
       return null;
     } catch (e) {
@@ -58,7 +64,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         whereArgs: [artist],
         orderBy: 'album, track_number',
       );
-      return maps.map((map) => TrackModel.fromMap(map)).toList();
+      return _mapTrackRecords(maps);
     } catch (e) {
       throw DatabaseException(
         'Failed to get tracks by artist: ${e.toString()}',
@@ -75,7 +81,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         whereArgs: [album],
         orderBy: 'track_number',
       );
-      return maps.map((map) => TrackModel.fromMap(map)).toList();
+      return _mapTrackRecords(maps);
     } catch (e) {
       throw DatabaseException('Failed to get tracks by album: ${e.toString()}');
     }
@@ -85,7 +91,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   Future<List<TrackModel>> searchTracks(String query) async {
     try {
       final maps = await _databaseHelper.searchTracks(query);
-      return maps.map((map) => TrackModel.fromMap(map)).toList();
+      return _mapTrackRecords(maps);
     } catch (e) {
       throw DatabaseException('Failed to search tracks: ${e.toString()}');
     }
@@ -143,6 +149,11 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   }
 
   Future<TrackModel> _prepareTrackForInsert(TrackModel track) async {
+    final ensured = await _ensureContentHash(track);
+    return _encodeSandboxPaths(ensured);
+  }
+
+  Future<TrackModel> _ensureContentHash(TrackModel track) async {
     if (track.contentHash != null && track.contentHash!.isNotEmpty) {
       return track;
     }
@@ -153,20 +164,40 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
     }
 
     if (track.sourceType == TrackSourceType.mystery) {
-      final hash = track.contentHash ??
+      final hash =
+          track.contentHash ??
           sha1.convert(utf8.encode(track.filePath)).toString();
       return track.copyWith(contentHash: hash);
     }
 
     if (track.sourceType == TrackSourceType.local) {
-      final file = File(track.filePath);
+      final resolved = await _sandboxPathCodec.decode(track.filePath);
+      final file = File(resolved);
       if (await file.exists()) {
         final hash = await _computeFileHash(file);
-        return track.copyWith(contentHash: hash);
+        return track.copyWith(contentHash: hash, filePath: resolved);
       }
     }
 
     return track;
+  }
+
+  Future<TrackModel> _encodeSandboxPaths(TrackModel track) async {
+    var updated = track;
+    final encodedFilePath = await _sandboxPathCodec.encode(track.filePath);
+    if (encodedFilePath != track.filePath) {
+      updated = updated.copyWith(filePath: encodedFilePath);
+    }
+
+    final artworkPath = track.artworkPath;
+    if (artworkPath != null && artworkPath.isNotEmpty) {
+      final encodedArtwork = await _sandboxPathCodec.encode(artworkPath);
+      if (encodedArtwork != artworkPath) {
+        updated = updated.copyWith(artworkPath: encodedArtwork);
+      }
+    }
+
+    return updated;
   }
 
   Future<String> _computeFileHash(File file) async {
@@ -186,19 +217,43 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
     return digest.toString();
   }
 
+  Future<TrackModel> _mapTrackRecord(Map<String, Object?> raw) async {
+    final map = Map<String, dynamic>.from(raw);
+    final storedFilePath = map['file_path'] as String;
+    map['file_path'] = await _sandboxPathCodec.decode(storedFilePath);
+
+    final artworkPath = map['artwork_path'] as String?;
+    if (artworkPath != null && artworkPath.isNotEmpty) {
+      map['artwork_path'] = await _sandboxPathCodec.decode(artworkPath);
+    }
+
+    return TrackModel.fromMap(map);
+  }
+
+  Future<List<TrackModel>> _mapTrackRecords(
+    List<Map<String, Object?>> rows,
+  ) async {
+    final result = <TrackModel>[];
+    for (final row in rows) {
+      result.add(await _mapTrackRecord(row));
+    }
+    return result;
+  }
+
   @override
   Future<TrackModel?> getTrackByFilePath(String filePath) async {
     try {
+      final normalizedPath = await _sandboxPathCodec.encode(filePath);
       final maps = await _databaseHelper.query(
         'tracks',
         where: 'file_path = ?',
-        whereArgs: [filePath],
+        whereArgs: [normalizedPath],
         limit: 1,
       );
       if (maps.isEmpty) {
         return null;
       }
-      return TrackModel.fromMap(maps.first);
+      return _mapTrackRecord(maps.first);
     } catch (e) {
       throw DatabaseException(
         'Failed to get track by file path: ${e.toString()}',
@@ -216,7 +271,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         limit: 1,
       );
       if (byHash.isNotEmpty) {
-        return TrackModel.fromMap(byHash.first);
+        return _mapTrackRecord(byHash.first);
       }
 
       // Fallback to ID match for legacy playlists that stored track IDs.
@@ -230,21 +285,22 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         return null;
       }
 
-      final model = TrackModel.fromMap(byId.first);
-      final prepared = await _prepareTrackForInsert(model);
-      if (prepared.contentHash != model.contentHash) {
+      final model = await _mapTrackRecord(byId.first);
+      final ensured = await _ensureContentHash(model);
+      if (ensured.contentHash != null &&
+          ensured.contentHash != model.contentHash) {
         try {
           await _databaseHelper.update(
             'tracks',
-            {'content_hash': prepared.contentHash},
+            {'content_hash': ensured.contentHash},
             where: 'id = ?',
-            whereArgs: [prepared.id],
+            whereArgs: [ensured.id],
           );
         } catch (_) {
           // Ignored
         }
       }
-      return prepared;
+      return ensured;
     } catch (e) {
       throw DatabaseException(
         'Failed to get track by content hash: ${e.toString()}',
@@ -292,7 +348,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         return null;
       }
 
-      return TrackModel.fromMap(candidates.first);
+      return _mapTrackRecord(candidates.first);
     } catch (e) {
       throw DatabaseException('Failed to find matching track: ${e.toString()}');
     }
@@ -306,7 +362,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         where: 'source_type = ? AND source_id = ?',
         whereArgs: [TrackSourceType.webdav.name, sourceId],
       );
-      return maps.map((map) => TrackModel.fromMap(map)).toList();
+      return _mapTrackRecords(maps);
     } catch (e) {
       throw DatabaseException('Failed to get WebDAV tracks: ${e.toString()}');
     }
@@ -323,7 +379,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         where: 'source_type = ? AND source_id = ?',
         whereArgs: [sourceType.name, sourceId],
       );
-      return maps.map((map) => TrackModel.fromMap(map)).toList();
+      return _mapTrackRecords(maps);
     } catch (e) {
       throw DatabaseException('Failed to get tracks: ${e.toString()}');
     }

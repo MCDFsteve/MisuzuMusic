@@ -94,6 +94,9 @@ flutter_icons:
   macos:
     generate: true
     image_path: icons/icon2.png
+  ios:
+    generate: true
+    image_path: icons/icon2.png
   windows:
     generate: true
     image_path: icons/icon.png

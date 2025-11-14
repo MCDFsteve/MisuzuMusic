@@ -141,9 +141,16 @@ class TrackListTile extends StatelessWidget {
       return row;
     }
 
+    void _handleContextMenuRequest(Offset globalPosition) {
+      onSecondaryTap!(globalPosition);
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onSecondaryTapUp: (details) => onSecondaryTap!(details.globalPosition),
+      onSecondaryTapUp:
+          (details) => _handleContextMenuRequest(details.globalPosition),
+      onLongPressStart:
+          (details) => _handleContextMenuRequest(details.globalPosition),
       child: row,
     );
   }

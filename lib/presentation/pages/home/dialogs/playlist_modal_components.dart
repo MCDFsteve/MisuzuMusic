@@ -74,49 +74,52 @@ class _SheetActionButtonState extends State<_SheetActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    final macTheme = MacosTheme.of(context);
-    final isDark = macTheme.brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
+    final primaryColor = macTheme?.primaryColor ?? theme.colorScheme.primary;
     final isPrimary = widget.variant == _SheetActionVariant.primary;
     final enabled = _isEnabled;
 
     final baseBackground = isPrimary
-        ? macTheme.primaryColor.withOpacity(isDark ? 0.88 : 0.84)
+        ? primaryColor.withOpacity(isDark ? 0.88 : 0.84)
         : (isDark
               ? Colors.white.withOpacity(0.06)
               : Colors.black.withOpacity(0.04));
     final hoverBackground = isPrimary
-        ? macTheme.primaryColor
+        ? primaryColor
         : (isDark
               ? Colors.white.withOpacity(0.1)
               : Colors.black.withOpacity(0.08));
     final pressBackground = isPrimary
-        ? macTheme.primaryColor.withOpacity(isDark ? 0.84 : 0.9)
+        ? primaryColor.withOpacity(isDark ? 0.84 : 0.9)
         : (isDark
               ? Colors.white.withOpacity(0.14)
               : Colors.black.withOpacity(0.12));
     final disabledBackground = isPrimary
-        ? macTheme.primaryColor.withOpacity(0.28)
+        ? primaryColor.withOpacity(0.28)
         : (isDark
               ? Colors.white.withOpacity(0.03)
               : Colors.black.withOpacity(0.03));
 
     final baseBorder = isPrimary
-        ? macTheme.primaryColor.withOpacity(isDark ? 0.55 : 0.42)
+        ? primaryColor.withOpacity(isDark ? 0.55 : 0.42)
         : (isDark
               ? Colors.white.withOpacity(0.14)
               : Colors.black.withOpacity(0.1));
     final hoverBorder = isPrimary
-        ? macTheme.primaryColor.withOpacity(isDark ? 0.75 : 0.58)
+        ? primaryColor.withOpacity(isDark ? 0.75 : 0.58)
         : (isDark
               ? Colors.white.withOpacity(0.2)
               : Colors.black.withOpacity(0.16));
     final pressBorder = isPrimary
-        ? macTheme.primaryColor.withOpacity(isDark ? 0.68 : 0.5)
+        ? primaryColor.withOpacity(isDark ? 0.68 : 0.5)
         : (isDark
               ? Colors.white.withOpacity(0.24)
               : Colors.black.withOpacity(0.2));
     final disabledBorder = isPrimary
-        ? macTheme.primaryColor.withOpacity(0.18)
+        ? primaryColor.withOpacity(0.18)
         : Colors.transparent;
 
     final baseTextColor = isPrimary
@@ -145,7 +148,7 @@ class _SheetActionButtonState extends State<_SheetActionButton> {
     final boxShadow = isPrimary && enabled && (_hovering || _pressing)
         ? [
             BoxShadow(
-              color: macTheme.primaryColor.withOpacity(
+              color: primaryColor.withOpacity(
                 _pressing ? (isDark ? 0.45 : 0.28) : (isDark ? 0.36 : 0.24),
               ),
               blurRadius: 14,
@@ -163,11 +166,14 @@ class _SheetActionButtonState extends State<_SheetActionButton> {
         child: ProgressCircle(radius: 5),
       );
     } else {
+      final typography = macTheme?.typography;
       child = Text(
         widget.label,
         locale: Locale("zh-Hans", "zh"),
         key: ValueKey(widget.label),
-        style: macTheme.typography.body.copyWith(
+        style: (typography?.body ?? theme.textTheme.bodyMedium ??
+                const TextStyle())
+            .copyWith(
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: textColor,
@@ -425,13 +431,47 @@ Future<T?> showPlaylistModalDialog<T>({
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       );
-      return FadeTransition(
+      final dialog = FadeTransition(
         opacity: curved,
         child: ScaleTransition(
           scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
           child: child,
         ),
       );
+      return _PlaylistModalBarrierWrapper(
+        dismissible: barrierDismissible,
+        child: dialog,
+      );
     },
   );
+}
+
+class _PlaylistModalBarrierWrapper extends StatelessWidget {
+  const _PlaylistModalBarrierWrapper({
+    required this.child,
+    required this.dismissible,
+  });
+
+  final Widget child;
+  final bool dismissible;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: dismissible
+                  ? () => Navigator.of(context).maybePop()
+                  : null,
+            ),
+          ),
+          Center(child: child),
+        ],
+      ),
+    );
+  }
 }

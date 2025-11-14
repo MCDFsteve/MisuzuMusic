@@ -167,12 +167,13 @@ class _UnifiedSettingsView extends StatelessWidget {
 
   Widget _buildAdaptiveAppearanceSection(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     final secondary = theme.textTheme.bodySmall?.color?.withOpacity(0.8) ??
         theme.colorScheme.onSurfaceVariant.withOpacity(0.8);
 
-    return AdaptiveCard(
+    return _SettingsCard(
+      isDarkMode: isDarkMode,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      borderRadius: BorderRadius.circular(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -201,13 +202,14 @@ class _UnifiedSettingsView extends StatelessWidget {
   }
 
   Widget _buildAdaptiveAboutSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     final dividerColor =
-        Theme.of(context).colorScheme.outlineVariant.withOpacity(0.35);
+        theme.colorScheme.outlineVariant.withOpacity(isDarkMode ? 0.3 : 0.35);
 
-    return AdaptiveCard(
+    return _SettingsCard(
+      isDarkMode: isDarkMode,
       padding: EdgeInsets.zero,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
       child: FutureBuilder<PackageInfo>(
         future: _packageInfoFuture,
         builder: (context, snapshot) {
@@ -275,10 +277,12 @@ class _UnifiedSettingsView extends StatelessWidget {
   }
 
   Widget _buildAdaptiveDeveloperSection(BuildContext context) {
-    return AdaptiveCard(
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    return _SettingsCard(
+      isDarkMode: isDarkMode,
       padding: EdgeInsets.zero,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -319,10 +323,12 @@ class _SettingsCard extends StatelessWidget {
   const _SettingsCard({
     required this.child,
     required this.isDarkMode,
+    this.padding = const EdgeInsets.all(24),
   });
 
   final Widget child;
   final bool isDarkMode;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -331,7 +337,7 @@ class _SettingsCard extends StatelessWidget {
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: padding,
           decoration: BoxDecoration(
             color: isDarkMode
                 ? const Color(0xFF1C1C1E).withOpacity(0.3)
