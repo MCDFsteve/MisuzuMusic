@@ -7,6 +7,7 @@ import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
 import '../../utils/track_display_utils.dart';
 import '../common/artwork_thumbnail.dart';
+import '../common/player_transport_button.dart';
 
 class MobileNowPlayingBar extends StatelessWidget {
   const MobileNowPlayingBar({
@@ -25,12 +26,28 @@ class MobileNowPlayingBar extends StatelessWidget {
     final data = _resolvePlayerData(playerState);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final loadingState = playerState is PlayerLoading
+        ? playerState as PlayerLoading
+        : null;
+    final bool showPauseVisual =
+        !(playerState is PlayerPaused ||
+            playerState is PlayerStopped ||
+            playerState is PlayerError ||
+            playerState is PlayerInitial);
+    final bool showLoadingIndicator =
+        loadingState != null && loadingState.track == null;
     final backgroundColor = theme.colorScheme.surface.withValues(
       alpha: isDark ? 0.65 : 0.9,
     );
     final borderColor = isLyricsActive
         ? theme.colorScheme.primary.withValues(alpha: 0.6)
         : Colors.transparent;
+    final Color iconColor = isDark
+        ? Colors.white
+        : theme.colorScheme.onSurface.withValues(alpha: 0.95);
+    final Color secondaryIconColor = isDark
+        ? Colors.white70
+        : theme.colorScheme.onSurface.withValues(alpha: 0.72);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -98,25 +115,52 @@ class MobileNowPlayingBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _ControlButton(
-                icon: CupertinoIcons.backward_fill,
-                onPressed: data.canSkipPrevious
-                    ? () => _skipPrevious(context)
-                    : null,
+              SizedBox(
+                width: 32,
+                height: 48,
+                child: PlayerTransportButton(
+                  key: const ValueKey('mobile_prev_button'),
+                  tooltip: '上一首',
+                  enabled: data.canSkipPrevious,
+                  baseColor: secondaryIconColor,
+                  hoverColor: iconColor,
+                  dimWhenDisabled: false,
+                  iconBuilder: (color) => Icon(
+                    CupertinoIcons.backward_fill,
+                    color: color,
+                    size: 22,
+                  ),
+                  onPressed: data.canSkipPrevious
+                      ? () => _skipPrevious(context)
+                      : null,
+                ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               _PlayPauseButton(
-                isPlaying: data.isPlaying,
-                isLoading: data.isLoading,
+                showPauseVisual: showPauseVisual,
+                showLoadingIndicator: showLoadingIndicator,
                 enabled: data.canControl,
+                baseColor: iconColor.withOpacity(0.85),
+                hoverColor: iconColor,
                 onPressed: data.canControl
                     ? () => _togglePlayPause(context, data.isPlaying)
                     : null,
               ),
-              const SizedBox(width: 4),
-              _ControlButton(
-                icon: CupertinoIcons.forward_fill,
-                onPressed: data.canSkipNext ? () => _skipNext(context) : null,
+              const SizedBox(width: 2),
+              SizedBox(
+                width: 32,
+                height: 48,
+                child: PlayerTransportButton(
+                  key: const ValueKey('mobile_next_button'),
+                  tooltip: '下一首',
+                  enabled: data.canSkipNext,
+                  baseColor: secondaryIconColor,
+                  hoverColor: iconColor,
+                  dimWhenDisabled: false,
+                  iconBuilder: (color) =>
+                      Icon(CupertinoIcons.forward_fill, color: color, size: 22),
+                  onPressed: data.canSkipNext ? () => _skipNext(context) : null,
+                ),
               ),
             ],
           ),
@@ -163,7 +207,6 @@ class MobileNowPlayingBar extends StatelessWidget {
     Duration position = Duration.zero;
     Duration duration = Duration.zero;
     bool isPlaying = false;
-    bool isLoading = false;
     List<Track> queue = const [];
     int currentIndex = 0;
 
@@ -184,7 +227,6 @@ class MobileNowPlayingBar extends StatelessWidget {
       track = state.track;
       position = state.position;
       duration = state.duration;
-      isLoading = true;
       queue = state.queue;
       currentIndex = state.currentIndex;
     } else if (state is PlayerStopped) {
@@ -209,6 +251,10 @@ class MobileNowPlayingBar extends StatelessWidget {
         ? position.inMilliseconds / duration.inMilliseconds
         : 0.0;
 
+    final bool canSkipNext =
+        queue.length > 1 && currentIndex < queue.length - 1;
+    final bool canSkipPrevious = queue.length > 1 && currentIndex > 0;
+
     return _PlayerBarData(
       track: track,
       title: displayInfo?.title ?? '暂无播放',
@@ -219,10 +265,9 @@ class MobileNowPlayingBar extends StatelessWidget {
       artworkPath: track?.artworkPath,
       remoteArtworkUrl: remoteArtworkUrl,
       isPlaying: isPlaying,
-      isLoading: isLoading,
       canControl: track != null,
-      canSkipNext: queue.length > 1 && currentIndex < queue.length - 1,
-      canSkipPrevious: queue.length > 1 && currentIndex > 0,
+      canSkipNext: canSkipNext,
+      canSkipPrevious: canSkipPrevious,
       progress: progress.isFinite ? progress : 0,
     );
   }
@@ -236,7 +281,6 @@ class _PlayerBarData {
     required this.artworkPath,
     required this.remoteArtworkUrl,
     required this.isPlaying,
-    required this.isLoading,
     required this.canControl,
     required this.canSkipNext,
     required this.canSkipPrevious,
@@ -249,7 +293,6 @@ class _PlayerBarData {
   final String? artworkPath;
   final String? remoteArtworkUrl;
   final bool isPlaying;
-  final bool isLoading;
   final bool canControl;
   final bool canSkipNext;
   final bool canSkipPrevious;
@@ -258,70 +301,76 @@ class _PlayerBarData {
 
 class _PlayPauseButton extends StatelessWidget {
   const _PlayPauseButton({
-    required this.isPlaying,
-    required this.isLoading,
+    required this.showPauseVisual,
+    required this.showLoadingIndicator,
     required this.enabled,
+    required this.baseColor,
+    required this.hoverColor,
     this.onPressed,
   });
 
-  final bool isPlaying;
-  final bool isLoading;
+  final bool showPauseVisual;
+  final bool showLoadingIndicator;
   final bool enabled;
+  final Color baseColor;
+  final Color hoverColor;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading && !isPlaying) {
+    final theme = Theme.of(context);
+
+    if (showLoadingIndicator) {
       return SizedBox(
-        width: 36,
-        height: 36,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.4,
-          valueColor: AlwaysStoppedAnimation<Color>(
-            Theme.of(context).colorScheme.primary,
+        width: 46,
+        height: 46,
+        child: Center(
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: baseColor.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
           ),
         ),
       );
     }
 
-    return _ControlButton(
-      icon: isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
-      highlighted: true,
-      onPressed: enabled ? onPressed : null,
-    );
-  }
-}
-
-class _ControlButton extends StatelessWidget {
-  const _ControlButton({
-    required this.icon,
-    this.onPressed,
-    this.highlighted = false,
-  });
-
-  final IconData icon;
-  final VoidCallback? onPressed;
-  final bool highlighted;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = highlighted
-        ? theme.colorScheme.onPrimary
-        : theme.colorScheme.onSurface.withValues(
-            alpha: onPressed == null ? 0.35 : 0.8,
-          );
-    final background = highlighted
-        ? theme.colorScheme.primary
-        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5);
-
-    return Material(
-      color: background,
-      shape: const CircleBorder(),
-      child: IconButton(
-        icon: Icon(icon, color: color, size: 18),
-        onPressed: onPressed,
-        splashRadius: 20,
+    return SizedBox(
+      width: 46,
+      height: 46,
+      child: PlayerTransportButton(
+        key: const ValueKey('mobile_play_button'),
+        tooltip: showPauseVisual ? '暂停' : '播放',
+        enabled: enabled,
+        baseColor: baseColor,
+        hoverColor: hoverColor,
+        iconBuilder: (color) => Center(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            switchInCurve: Curves.easeOutBack,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) =>
+                ScaleTransition(scale: animation, child: child),
+            child: Icon(
+              showPauseVisual
+                  ? CupertinoIcons.pause_fill
+                  : CupertinoIcons.play_fill,
+              key: ValueKey<bool>(showPauseVisual),
+              color: color,
+              size: 34,
+            ),
+          ),
+        ),
+        onPressed: enabled ? onPressed : null,
       ),
     );
   }
