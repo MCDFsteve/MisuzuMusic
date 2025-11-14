@@ -14,19 +14,31 @@ extension _HomePageMobileLayout on _HomePageContentState {
             ? _composeNeteaseStatsLabel(neteaseState)
             : _composeHeaderStatsLabel(libraryState);
         final currentTrack = _playerTrack(playerState);
-        final appBar = _buildMobileAppBar(
+        final double statusBarInset = MediaQuery.of(context).padding.top;
+        final header = _buildMobileHeader(
+          context,
           sectionLabel,
+          statsLabel,
           neteaseState,
+          blurBackground: _lyricsVisible,
+        );
+        final Widget headerSection = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: _lyricsVisible
+              ? const SizedBox.shrink(key: ValueKey('mobile_header_hidden'))
+              : KeyedSubtree(
+                  key: const ValueKey('mobile_header_visible'),
+                  child: Padding(
+                    padding: EdgeInsets.only(top: statusBarInset),
+                    child: header,
+                  ),
+                ),
         );
         final theme = Theme.of(context);
         final bool isDarkMode = theme.brightness == Brightness.dark;
         final Color fallbackColor = theme.colorScheme.surface;
-        final Color overlayTop = isDarkMode
-            ? Colors.black.withValues(alpha: 0.58)
-            : Colors.white.withValues(alpha: 0.72);
-        final Color overlayBottom = isDarkMode
-            ? Colors.black.withValues(alpha: 0.72)
-            : Colors.white.withValues(alpha: 0.65);
 
         final mainContent = KeyedSubtree(
           key: const ValueKey<String>('mobile_content_stack'),
@@ -40,13 +52,8 @@ extension _HomePageMobileLayout on _HomePageContentState {
         final double lyricsBottomInset =
             navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
 
-        final header = _buildMobileHeader(
-          context,
-          statsLabel,
-        );
-
         final layeredBody = SafeArea(
-          top: true,
+          top: false,
           bottom: false,
           child: Stack(
             children: [
@@ -54,7 +61,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    header,
+                    headerSection,
                     Expanded(
                       child: IgnorePointer(
                         ignoring: _lyricsVisible,
@@ -106,17 +113,6 @@ extension _HomePageMobileLayout on _HomePageContentState {
                 fallbackColor: fallbackColor,
               ),
             ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [overlayTop, overlayBottom],
-                  ),
-                ),
-              ),
-            ),
             Positioned.fill(child: layeredBody),
           ],
         );
@@ -130,13 +126,26 @@ extension _HomePageMobileLayout on _HomePageContentState {
           child: Material(color: Colors.transparent, child: backgroundStack),
         );
 
+        final bodyWithFocusDismiss = Listener(
+          behavior: HitTestBehavior.deferToChild,
+          onPointerDown: _handleMobileGlobalPointerDown,
+          child: themedBody,
+        );
+
+        final visibleSectionIndices = _mobileDestinationSectionIndices;
+        final navSelectedIndex =
+            _mobileNavigationSelectedIndex(visibleSectionIndices);
+        final navItems = _mobileDestinations;
+
         return AdaptiveScaffold(
-          appBar: appBar,
-          body: themedBody,
+          body: bodyWithFocusDismiss,
           bottomNavigationBar: AdaptiveBottomNavigationBar(
-            items: _mobileDestinations,
-            selectedIndex: _selectedIndex,
-            onTap: _handleNavigationChange,
+            items: navItems,
+            selectedIndex: navSelectedIndex,
+            onTap: (visibleIndex) {
+              final targetSection = visibleSectionIndices[visibleIndex];
+              _handleNavigationChange(targetSection);
+            },
             selectedItemColor: const Color(0xFF1B66FF),
           ),
         );
@@ -157,23 +166,12 @@ extension _HomePageMobileLayout on _HomePageContentState {
     return navBarHeight + safeAreaBottom + visualGap;
   }
 
-  AdaptiveAppBar _buildMobileAppBar(
-    String sectionLabel,
-    NeteaseState neteaseState,
-  ) {
-    final actions = _buildMobileAppBarActions(neteaseState);
-    final leading = _buildMobileLeading();
-    return AdaptiveAppBar(
-      title: sectionLabel,
-      leading: leading,
-      actions: actions.isEmpty ? null : actions,
-      useNativeToolbar: true,
-    );
-  }
-
   Widget _buildMobileHeader(
     BuildContext context,
+    String sectionLabel,
     String? statsLabel,
+    NeteaseState neteaseState,
+    {bool blurBackground = false}
   ) {
     final bool supportsSearch = _selectedIndex != 4;
     final theme = Theme.of(context);
@@ -181,11 +179,40 @@ extension _HomePageMobileLayout on _HomePageContentState {
       alpha: 0.8,
     );
     final bodySmall = theme.textTheme.bodySmall;
+    final headingStyle = theme.textTheme.titleMedium ??
+        const TextStyle(fontSize: 20, fontWeight: FontWeight.w600);
+    final leading = _buildMobileLeading();
+    final actionButtons = _buildMobileActionButtons(neteaseState);
 
-    final children = <Widget>[];
+    final children = <Widget>[
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (leading != null) ...[
+            SizedBox(height: 36, width: 36, child: leading),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Text(
+              sectionLabel,
+              locale: const Locale('zh-Hans', 'zh'),
+              style: headingStyle.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+          for (int i = 0; i < actionButtons.length; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            actionButtons[i],
+          ],
+        ],
+      ),
+    ];
 
     if (supportsSearch) {
-      children.add(
+      children.addAll([
+        const SizedBox(height: 12),
         LibrarySearchField(
           query: _searchQuery,
           onQueryChanged: _onSearchQueryChanged,
@@ -193,25 +220,26 @@ extension _HomePageMobileLayout on _HomePageContentState {
           suggestions: _searchSuggestions,
           onSuggestionSelected: _handleSearchSuggestionTapped,
           onInteract: _dismissLyricsOverlay,
+          useFrostedStyle: blurBackground,
         ),
-      );
-    }
-
-    if (statsLabel != null) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: 8));
-      }
-      children.add(
+        if (statsLabel != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            statsLabel,
+            locale: const Locale('zh-Hans', 'zh'),
+            style: bodySmall?.copyWith(color: secondaryColor),
+          ),
+        ],
+      ]);
+    } else if (statsLabel != null) {
+      children.addAll([
+        const SizedBox(height: 8),
         Text(
           statsLabel,
           locale: const Locale('zh-Hans', 'zh'),
           style: bodySmall?.copyWith(color: secondaryColor),
         ),
-      );
-    }
-
-    if (children.isEmpty) {
-      return const SizedBox(height: 12);
+      ]);
     }
 
     final double bottomPadding = supportsSearch ? 12 : 8;
@@ -222,6 +250,31 @@ extension _HomePageMobileLayout on _HomePageContentState {
         children: children,
       ),
     );
+  }
+
+  List<Widget> _buildMobileActionButtons(NeteaseState neteaseState) {
+    final actions = _buildMobileAppBarActions(neteaseState);
+    if (actions.isEmpty) {
+      return const <Widget>[];
+    }
+
+    return actions
+        .map(
+          (action) => CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            minSize: 32,
+            onPressed: action.onPressed,
+            child: action.icon != null
+                ? Icon(action.icon, size: 22)
+                : (action.title != null
+                    ? Text(
+                        action.title!,
+                        locale: const Locale('zh-Hans', 'zh'),
+                      )
+                    : const Icon(Icons.more_horiz, size: 20)),
+          ),
+        )
+        .toList(growable: false);
   }
 
   List<AdaptiveAppBarAction> _buildMobileAppBarActions(
@@ -242,6 +295,13 @@ extension _HomePageMobileLayout on _HomePageContentState {
     if (_selectedIndex == 1) {
       actions.add(
         AdaptiveAppBarAction(
+          iosSymbol: 'arrow.up.arrow.down.circle',
+          icon: CupertinoIcons.arrow_up_arrow_down_circle,
+          onPressed: _showPlaylistSortOptions,
+        ),
+      );
+      actions.add(
+        AdaptiveAppBarAction(
           iosSymbol: 'plus.circle',
           icon: CupertinoIcons.add_circled,
           onPressed: _handleCreatePlaylistFromHeader,
@@ -257,7 +317,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
           iosSymbol: 'rectangle.portrait.and.arrow.right',
           icon: CupertinoIcons.square_arrow_right,
           onPressed: () {
-            _neteaseViewController.prepareForLogout();
+            _neteaseViewKey.currentState?.prepareForLogout();
             context.read<NeteaseCubit>().logout();
           },
         ),
@@ -265,6 +325,42 @@ extension _HomePageMobileLayout on _HomePageContentState {
     }
 
     return actions;
+  }
+
+  Future<void> _showPlaylistSortOptions() async {
+    final playlistsCubit = context.read<PlaylistsCubit>();
+    final currentMode = playlistsCubit.state.sortMode;
+
+    final selectedMode = await showPlaylistModalDialog<TrackSortMode>(
+      context: context,
+      builder: (dialogContext) => _PlaylistModalScaffold(
+        title: '选择排序方式',
+        maxWidth: 360,
+        contentSpacing: 18,
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: TrackSortMode.values
+              .map(
+                (mode) => _MobileSortModeTile(
+                  mode: mode,
+                  isSelected: mode == currentMode,
+                  onSelected: () => Navigator.of(dialogContext).pop(mode),
+                ),
+              )
+              .toList(growable: false),
+        ),
+        actions: [
+          _SheetActionButton.secondary(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedMode != null && selectedMode != currentMode) {
+      playlistsCubit.changeSortMode(selectedMode);
+    }
   }
 
   Widget? _buildMobileLeading() {
@@ -275,17 +371,17 @@ extension _HomePageMobileLayout on _HomePageContentState {
         if (_hasActiveDetail) {
           onPressed = _clearActiveDetail;
         } else if (_musicLibraryCanNavigateBack) {
-          onPressed = _musicLibraryViewController.exitToOverview;
+          onPressed = () => _musicLibraryViewKey.currentState?.exitToOverview();
         }
         break;
       case 1:
         if (_playlistsCanNavigateBack) {
-          onPressed = _playlistsViewController.exitToOverview;
+          onPressed = () => _playlistsViewKey.currentState?.exitToOverview();
         }
         break;
       case 2:
         if (_neteaseCanNavigateBack) {
-          onPressed = _neteaseViewController.exitToOverview;
+          onPressed = () => _neteaseViewKey.currentState?.exitToOverview();
         }
         break;
       default:
@@ -296,54 +392,97 @@ extension _HomePageMobileLayout on _HomePageContentState {
       return null;
     }
 
-    return _AdaptiveLeadingButton(onPressed: onPressed);
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minSize: 32,
+      onPressed: onPressed,
+      child: const Icon(CupertinoIcons.chevron_left, size: 22),
+    );
+  }
+
+  void _handleMobileGlobalPointerDown(PointerDownEvent event) {
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus == null) {
+      return;
+    }
+
+    final focusContext = primaryFocus.context;
+    final renderObject = focusContext?.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
+      final topLeft = renderObject.localToGlobal(Offset.zero);
+      final Rect focusBounds = topLeft & renderObject.size;
+      if (focusBounds.contains(event.position)) {
+        return;
+      }
+    }
+
+    primaryFocus.unfocus();
   }
 }
 
-class _AdaptiveLeadingButton extends StatelessWidget {
-  const _AdaptiveLeadingButton({required this.onPressed});
+class _MobileSortModeTile extends StatelessWidget {
+  const _MobileSortModeTile({
+    required this.mode,
+    required this.isSelected,
+    required this.onSelected,
+  });
 
-  final VoidCallback onPressed;
+  final TrackSortMode mode;
+  final bool isSelected;
+  final VoidCallback onSelected;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurface;
+    final baseColor =
+        theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
+    final background = isSelected
+        ? theme.colorScheme.primary.withOpacity(0.12)
+        : theme.colorScheme.surface.withOpacity(0.35);
+    final borderColor = isSelected
+        ? theme.colorScheme.primary.withOpacity(0.45)
+        : theme.dividerColor.withOpacity(0.2);
 
-    if (PlatformInfo.isIOS) {
-      return AdaptiveButton.child(
-        onPressed: onPressed,
-        style: AdaptiveButtonStyle.plain,
-        size: AdaptiveButtonSize.small,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        minSize: const Size(32, 32),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onSelected,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: 0.8),
+        ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(CupertinoIcons.chevron_left, size: 18, color: color),
-            const SizedBox(width: 2),
-            Text(
-              '返回',
-              locale: const Locale('zh-Hans', 'zh'),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w500,
-                  ) ??
-                  TextStyle(color: color, fontWeight: FontWeight.w500),
+            Expanded(
+              child: Text(
+                mode.displayName,
+                locale: const Locale('zh-Hans', 'zh'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: baseColor,
+                    ) ??
+                    TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: baseColor,
+                    ),
+              ),
             ),
+            if (isSelected)
+              Icon(
+                CupertinoIcons.check_mark_circled_solid,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
           ],
         ),
-      );
-    }
-
-    return AdaptiveButton.icon(
-      onPressed: onPressed,
-      icon: Icons.arrow_back_rounded,
-      iconColor: color,
-      style: AdaptiveButtonStyle.plain,
-      size: AdaptiveButtonSize.small,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      minSize: const Size(40, 40),
+      ),
     );
   }
 }
