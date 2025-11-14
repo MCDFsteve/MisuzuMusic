@@ -39,7 +39,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
           0,
           _mobileNowPlayingBottomPadding(context) - 20,
         );
-        final double contentBottomPadding =
+        final double lyricsBottomInset =
             navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
 
         final layeredBody = SafeArea(
@@ -48,25 +48,22 @@ extension _HomePageMobileLayout on _HomePageContentState {
           child: Stack(
             children: [
               Positioned.fill(
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: contentBottomPadding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      header,
-                      Expanded(
-                        child: IgnorePointer(
-                          ignoring: _lyricsVisible,
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 260),
-                            curve: Curves.easeInOut,
-                            opacity: _lyricsVisible ? 0 : 1,
-                            child: mainContent,
-                          ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header,
+                    Expanded(
+                      child: IgnorePointer(
+                        ignoring: _lyricsVisible,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeInOut,
+                          opacity: _lyricsVisible ? 0 : 1,
+                          child: mainContent,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               Positioned.fill(
@@ -74,7 +71,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
                   isVisible: _lyricsVisible,
                   builder: () => _buildLyricsOverlay(
                     isMac: false,
-                    bottomSafeInset: contentBottomPadding,
+                    bottomSafeInset: lyricsBottomInset,
                   ),
                 ),
               ),
