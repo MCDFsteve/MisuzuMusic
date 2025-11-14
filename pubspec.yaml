@@ -59,6 +59,7 @@ dependencies:
   # Japanese Text Processing
 
   # Platform Specific UI
+  adaptive_platform_ui: ^0.1.100
   macos_ui: ^2.2.0
 
   # Utilities

@@ -13,6 +13,22 @@ class _HomePageContentState extends State<HomePageContent> {
 
   static const double _navMinWidth = 80;
   static const double _navMaxWidth = 220;
+  static const List<AdaptiveNavigationDestination> _mobileDestinations = [
+    AdaptiveNavigationDestination(
+      icon: CupertinoIcons.music_note_list,
+      label: '音乐库',
+    ),
+    AdaptiveNavigationDestination(
+      icon: CupertinoIcons.square_stack_3d_up,
+      label: '歌单',
+    ),
+    AdaptiveNavigationDestination(icon: CupertinoIcons.cloud, label: '网络'),
+    AdaptiveNavigationDestination(
+      icon: CupertinoIcons.music_note,
+      label: '播放队列',
+    ),
+    AdaptiveNavigationDestination(icon: CupertinoIcons.settings, label: '设置'),
+  ];
   String _searchQuery = '';
   String _activeSearchQuery = '';
   List<LibrarySearchSuggestion> _searchSuggestions = const [];
@@ -76,7 +92,7 @@ class _HomePageContentState extends State<HomePageContent> {
             _showErrorDialog(context, state.message);
           }
         },
-        child: _buildMacOSLayout(),
+        child: prefersMacLikeUi() ? _buildMacOSLayout() : _buildMobileLayout(),
       ),
     );
   }
@@ -328,44 +344,7 @@ class _HomePageContentState extends State<HomePageContent> {
   Widget _buildMacOSLayout() {
     return BlocConsumer<PlayerBloc, PlayerBlocState>(
       buildWhen: _shouldRebuildForPlayerState,
-      listener: (context, playerState) {
-        bool shouldHideLyrics = false;
-        Track? nextTrack = _playerTrack(playerState);
-
-        if (playerState is PlayerInitial || playerState is PlayerError) {
-          shouldHideLyrics = true;
-          nextTrack = null;
-        } else if (playerState is PlayerStopped) {
-          final hasQueuedTracks = playerState.queue.isNotEmpty;
-          if (!hasQueuedTracks) {
-            shouldHideLyrics = true;
-            nextTrack = null;
-          }
-        }
-
-        if (!mounted) {
-          return;
-        }
-
-        // 保持当前歌词组件状态，避免切歌过渡时触发 dispose 导致桌面歌词被关闭。
-        if (!shouldHideLyrics && nextTrack == null && _lyricsVisible) {
-          nextTrack = _lyricsActiveTrack;
-        }
-
-        final bool needsHideUpdate = shouldHideLyrics && _lyricsVisible;
-        final bool trackChanged = _lyricsActiveTrack != nextTrack;
-
-        if (!needsHideUpdate && !trackChanged) {
-          return;
-        }
-
-        setState(() {
-          if (needsHideUpdate) {
-            _lyricsVisible = false;
-          }
-          _lyricsActiveTrack = nextTrack;
-        });
-      },
+      listener: (context, playerState) => _handlePlayerStateChange(playerState),
       builder: (context, playerState) {
         final artworkSource = _currentArtworkSources(playerState);
         final currentTrack = _playerTrack(playerState);
@@ -583,7 +562,132 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
+  Widget _buildMobileLayout() {
+    return BlocConsumer<PlayerBloc, PlayerBlocState>(
+      buildWhen: _shouldRebuildForPlayerState,
+      listener: (context, playerState) => _handlePlayerStateChange(playerState),
+      builder: (context, playerState) {
+        final libraryState = context.watch<MusicLibraryBloc>().state;
+        final neteaseState = context.watch<NeteaseCubit>().state;
+        final sectionLabel = _currentSectionLabel(_selectedIndex);
+        final String? statsLabel = _selectedIndex == 2
+            ? _composeNeteaseStatsLabel(neteaseState)
+            : _composeHeaderStatsLabel(libraryState);
+        final currentTrack = _playerTrack(playerState);
+        final searchHeader = _buildMobileSearchHeader(context, statsLabel);
+        final actions = _buildMobileAppBarActions(neteaseState);
+        final leading = _buildMobileLeading();
+
+        final mainContent = KeyedSubtree(
+          key: const ValueKey<String>('mobile_content_stack'),
+          child: _buildMainContent(),
+        );
+
+        final layeredBody = Stack(
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: _lyricsVisible,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeInOut,
+                  opacity: _lyricsVisible ? 0 : 1,
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (searchHeader != null) searchHeader,
+                        Expanded(child: mainContent),
+                        const SizedBox(height: 12),
+                        MobileNowPlayingBar(
+                          playerState: playerState,
+                          isLyricsActive: _lyricsVisible,
+                          onArtworkTap: currentTrack == null
+                              ? null
+                              : () => _toggleLyrics(playerState),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: _LyricsOverlaySwitcher(
+                isVisible: _lyricsVisible,
+                builder: () => _buildLyricsOverlay(isMac: false),
+              ),
+            ),
+          ],
+        );
+
+        return AdaptiveScaffold(
+          appBar: AdaptiveAppBar(
+            title: sectionLabel,
+            useNativeToolbar: false,
+            leading: leading,
+            actions: actions.isEmpty ? null : actions,
+          ),
+          body: layeredBody,
+          bottomNavigationBar: AdaptiveBottomNavigationBar(
+            items: _mobileDestinations,
+            selectedIndex: _selectedIndex,
+            onTap: _handleNavigationChange,
+            selectedItemColor: const Color(0xFF1B66FF),
+          ),
+        );
+      },
+    );
+  }
+
+  void _handlePlayerStateChange(PlayerBlocState playerState) {
+    bool shouldHideLyrics = false;
+    Track? nextTrack = _playerTrack(playerState);
+
+    if (playerState is PlayerInitial || playerState is PlayerError) {
+      shouldHideLyrics = true;
+      nextTrack = null;
+    } else if (playerState is PlayerStopped) {
+      final hasQueuedTracks = playerState.queue.isNotEmpty;
+      if (!hasQueuedTracks) {
+        shouldHideLyrics = true;
+        nextTrack = null;
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    // 保持当前歌词组件状态，避免切歌过渡时触发 dispose 导致桌面歌词被关闭。
+    if (!shouldHideLyrics && nextTrack == null && _lyricsVisible) {
+      nextTrack = _lyricsActiveTrack;
+    }
+
+    final bool needsHideUpdate = shouldHideLyrics && _lyricsVisible;
+    final bool trackChanged = _lyricsActiveTrack != nextTrack;
+
+    if (!needsHideUpdate && !trackChanged) {
+      return;
+    }
+
+    setState(() {
+      if (needsHideUpdate) {
+        _lyricsVisible = false;
+      }
+      _lyricsActiveTrack = nextTrack;
+    });
+  }
+
   Widget _buildMainContent() {
+    final pages = _buildSectionPages();
+    final int safeIndex = _selectedIndex.clamp(0, pages.length - 1);
+
+    return _AnimatedPageStack(activeIndex: safeIndex, children: pages);
+  }
+
+  List<Widget> _buildSectionPages() {
     final libraryView = MusicLibraryView(
       key: _musicLibraryViewKey,
       onAddToPlaylist: _handleAddTrackToPlaylist,
@@ -653,9 +757,134 @@ class _HomePageContentState extends State<HomePageContent> {
       const SettingsView(),
     ];
 
-    final int safeIndex = _selectedIndex.clamp(0, pages.length - 1);
+    return pages;
+  }
 
-    return _AnimatedPageStack(activeIndex: safeIndex, children: pages);
+  Widget? _buildMobileSearchHeader(BuildContext context, String? statsLabel) {
+    final bool supportsSearch = _selectedIndex != 4;
+    final theme = Theme.of(context);
+    final secondaryColor = theme.colorScheme.onSurfaceVariant.withValues(
+      alpha: 0.8,
+    );
+    final bodySmall = theme.textTheme.bodySmall;
+
+    if (!supportsSearch) {
+      if (statsLabel == null) {
+        return null;
+      }
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        child: Text(
+          statsLabel,
+          locale: const Locale('zh-Hans', 'zh'),
+          style: bodySmall?.copyWith(color: secondaryColor),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LibrarySearchField(
+            query: _searchQuery,
+            onQueryChanged: _onSearchQueryChanged,
+            onPreviewChanged: _handleSearchPreviewChanged,
+            suggestions: _searchSuggestions,
+            onSuggestionSelected: _handleSearchSuggestionTapped,
+            onInteract: _dismissLyricsOverlay,
+          ),
+          if (statsLabel != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              statsLabel,
+              locale: const Locale('zh-Hans', 'zh'),
+              style: bodySmall?.copyWith(color: secondaryColor),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<AdaptiveAppBarAction> _buildMobileAppBarActions(
+    NeteaseState neteaseState,
+  ) {
+    final actions = <AdaptiveAppBarAction>[];
+
+    if (_selectedIndex == 0) {
+      actions.add(
+        AdaptiveAppBarAction(
+          iosSymbol: 'folder.badge.plus',
+          icon: CupertinoIcons.folder_badge_plus,
+          onPressed: _selectMusicFolder,
+        ),
+      );
+    }
+
+    if (_selectedIndex == 1) {
+      actions.add(
+        AdaptiveAppBarAction(
+          iosSymbol: 'plus.circle',
+          icon: CupertinoIcons.add_circled,
+          onPressed: _handleCreatePlaylistFromHeader,
+        ),
+      );
+    }
+
+    if (_selectedIndex == 2 &&
+        neteaseState.hasSession &&
+        !neteaseState.isSubmittingCookie) {
+      actions.add(
+        AdaptiveAppBarAction(
+          iosSymbol: 'rectangle.portrait.and.arrow.right',
+          icon: CupertinoIcons.square_arrow_right,
+          onPressed: () {
+            _neteaseViewKey.currentState?.prepareForLogout();
+            context.read<NeteaseCubit>().logout();
+          },
+        ),
+      );
+    }
+
+    return actions;
+  }
+
+  Widget? _buildMobileLeading() {
+    VoidCallback? onPressed;
+
+    switch (_selectedIndex) {
+      case 0:
+        if (_hasActiveDetail) {
+          onPressed = _clearActiveDetail;
+        } else if (_musicLibraryCanNavigateBack) {
+          onPressed = () => _musicLibraryViewKey.currentState?.exitToOverview();
+        }
+        break;
+      case 1:
+        if (_playlistsCanNavigateBack) {
+          onPressed = () => _playlistsViewKey.currentState?.exitToOverview();
+        }
+        break;
+      case 2:
+        if (_neteaseCanNavigateBack) {
+          onPressed = () => _neteaseViewKey.currentState?.exitToOverview();
+        }
+        break;
+      default:
+        onPressed = null;
+    }
+
+    if (onPressed == null) {
+      return null;
+    }
+
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: const Icon(CupertinoIcons.chevron_left, size: 22),
+    );
   }
 
   Widget _buildDetailContent() {
@@ -706,10 +935,7 @@ class _HomePageContentState extends State<HomePageContent> {
         await playlistsCubit.ensurePlaylistTracks(newId, force: true);
       }
     } else if (result is _PlaylistSelectionResult) {
-      await playlistsCubit.ensurePlaylistTracks(
-        result.playlistId,
-        force: true,
-      );
+      await playlistsCubit.ensurePlaylistTracks(result.playlistId, force: true);
     }
   }
 
@@ -750,10 +976,7 @@ class _HomePageContentState extends State<HomePageContent> {
       final remaining = tracks.skip(1).toList(growable: false);
       PlaylistBulkAddResult? bulkResult;
       if (remaining.isNotEmpty) {
-        bulkResult = await playlistsCubit.addTracksToPlaylist(
-          newId,
-          remaining,
-        );
+        bulkResult = await playlistsCubit.addTracksToPlaylist(newId, remaining);
         if (bulkResult.hasError) {
           await _showPlaylistActionDialog(
             title: '添加到歌单',
@@ -2231,10 +2454,12 @@ class _LyricsOverlaySwitcher extends StatelessWidget {
     required _LyricsOverlayBuilder builder,
   }) : _builder = builder;
 
-  static const ValueKey<String> _visibleKey =
-      ValueKey<String>('lyrics_overlay_visible');
-  static const ValueKey<String> _hiddenKey =
-      ValueKey<String>('lyrics_overlay_hidden');
+  static const ValueKey<String> _visibleKey = ValueKey<String>(
+    'lyrics_overlay_visible',
+  );
+  static const ValueKey<String> _hiddenKey = ValueKey<String>(
+    'lyrics_overlay_hidden',
+  );
 
   final bool isVisible;
   final _LyricsOverlayBuilder _builder;
@@ -2258,26 +2483,17 @@ class _LyricsOverlaySwitcher extends StatelessWidget {
         final key = child.key;
         if (key == _visibleKey) {
           final slideAnimation = animation.drive(
-            Tween<Offset>(
-              begin: const Offset(0, 0.12),
-              end: Offset.zero,
-            ),
+            Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero),
           );
           return SlideTransition(
             position: slideAnimation,
-            child: FadeTransition(
-              opacity: animation,
-              child: child,
-            ),
+            child: FadeTransition(opacity: animation, child: child),
           );
         }
         return child;
       },
       child: isVisible
-          ? KeyedSubtree(
-              key: _visibleKey,
-              child: _builder(),
-            )
+          ? KeyedSubtree(key: _visibleKey, child: _builder())
           : const _LyricsOverlayPlaceholder(),
     );
   }
@@ -2285,13 +2501,10 @@ class _LyricsOverlaySwitcher extends StatelessWidget {
 
 class _LyricsOverlayPlaceholder extends StatelessWidget {
   const _LyricsOverlayPlaceholder()
-      : super(key: _LyricsOverlaySwitcher._hiddenKey);
+    : super(key: _LyricsOverlaySwitcher._hiddenKey);
 
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
-      ignoring: true,
-      child: SizedBox.shrink(),
-    );
+    return const IgnorePointer(ignoring: true, child: SizedBox.shrink());
   }
 }

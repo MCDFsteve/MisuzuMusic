@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -47,12 +48,14 @@ import '../widgets/macos/collection/collection_overview_grid.dart';
 import '../widgets/macos/collection/collection_summary_card.dart';
 import '../widgets/macos/macos_player_control_bar.dart';
 import '../widgets/macos/macos_track_list_view.dart';
+import '../widgets/mobile/mobile_now_playing_bar.dart';
 import '../widgets/macos/context_menu/macos_context_menu.dart';
 import 'package:misuzu_music/presentation/widgets/dialogs/frosted_selection_modal.dart';
 import 'lyrics/lyrics_overlay.dart';
 import 'settings/settings_view.dart';
 import '../utils/track_display_utils.dart';
-import '../../core/utils/track_field_normalizer.dart' show isUnknownMetadataValue;
+import '../../core/utils/track_field_normalizer.dart'
+    show isUnknownMetadataValue;
 
 part 'home/home_page_content.dart';
 part 'home/widgets/macos_glass_header.dart';
@@ -150,15 +153,16 @@ class _MediaControlShortcutScopeState
   );
   static final Map<LogicalKeySet, Intent> _baseShortcuts =
       <LogicalKeySet, Intent>{
-    LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious):
-        const _PreviousTrackIntent(),
-    LogicalKeySet(LogicalKeyboardKey.mediaPlayPause):
-        const _TogglePlayPauseIntent(),
-    LogicalKeySet(LogicalKeyboardKey.mediaTrackNext): const _NextTrackIntent(),
-    LogicalKeySet(LogicalKeyboardKey.f7): const _PreviousTrackIntent(),
-    LogicalKeySet(LogicalKeyboardKey.f8): const _TogglePlayPauseIntent(),
-    LogicalKeySet(LogicalKeyboardKey.f9): const _NextTrackIntent(),
-  };
+        LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious):
+            const _PreviousTrackIntent(),
+        LogicalKeySet(LogicalKeyboardKey.mediaPlayPause):
+            const _TogglePlayPauseIntent(),
+        LogicalKeySet(LogicalKeyboardKey.mediaTrackNext):
+            const _NextTrackIntent(),
+        LogicalKeySet(LogicalKeyboardKey.f7): const _PreviousTrackIntent(),
+        LogicalKeySet(LogicalKeyboardKey.f8): const _TogglePlayPauseIntent(),
+        LogicalKeySet(LogicalKeyboardKey.f9): const _NextTrackIntent(),
+      };
 
   @override
   void initState() {

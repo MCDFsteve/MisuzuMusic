@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:window_manager/window_manager.dart' as wm;
@@ -9,6 +11,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 
 import 'core/di/dependency_injection.dart';
 import 'core/theme/theme_controller.dart';
+import 'core/utils/platform_utils.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/desktop_lyrics/desktop_lyrics_window_app.dart';
 import 'presentation/desktop_lyrics/desktop_lyrics_window_manager.dart';
@@ -130,29 +133,49 @@ class MisuzuMusicApp extends StatelessWidget {
     return AnimatedBuilder(
       animation: themeController,
       builder: (context, _) {
-        final materialBrightness = switch (themeController.themeMode) {
+        final themeMode = themeController.themeMode;
+        final platformBrightness =
+            WidgetsBinding.instance.platformDispatcher.platformBrightness;
+        final effectiveBrightness = switch (themeMode) {
           ThemeMode.dark => Brightness.dark,
           ThemeMode.light => Brightness.light,
-          ThemeMode.system =>
-            WidgetsBinding.instance.platformDispatcher.platformBrightness,
+          ThemeMode.system => platformBrightness,
         };
 
         // Windows 平台使用微软雅黑，避免字体显示不一致
         final fontFamily = Platform.isWindows ? 'Microsoft YaHei' : null;
 
-        final materialTheme = ThemeData(
-          useMaterial3: true,
-          brightness: materialBrightness,
-          fontFamily: fontFamily,
-          colorScheme: materialBrightness == Brightness.dark
-              ? const ColorScheme.dark(
-                  primary: Color(0xFF3E73FF),
-                  secondary: Color(0xFF3E73FF),
-                )
-              : const ColorScheme.light(
-                  primary: Color(0xFF1B66FF),
-                  secondary: Color(0xFF1B66FF),
-                ),
+        ThemeData buildMaterialTheme(Brightness brightness) {
+          final isDark = brightness == Brightness.dark;
+          return ThemeData(
+            useMaterial3: true,
+            brightness: brightness,
+            fontFamily: fontFamily,
+            colorScheme: isDark
+                ? const ColorScheme.dark(
+                    primary: Color(0xFF3E73FF),
+                    secondary: Color(0xFF3E73FF),
+                  )
+                : const ColorScheme.light(
+                    primary: Color(0xFF1B66FF),
+                    secondary: Color(0xFF1B66FF),
+                  ),
+          );
+        }
+
+        final materialLightTheme = buildMaterialTheme(Brightness.light);
+        final materialDarkTheme = buildMaterialTheme(Brightness.dark);
+        final activeMaterialTheme = effectiveBrightness == Brightness.dark
+            ? materialDarkTheme
+            : materialLightTheme;
+
+        final cupertinoLightTheme = const CupertinoThemeData(
+          brightness: Brightness.light,
+          primaryColor: Color(0xFF1B66FF),
+        );
+        final cupertinoDarkTheme = const CupertinoThemeData(
+          brightness: Brightness.dark,
+          primaryColor: Color(0xFF3E73FF),
         );
 
         // Windows 平台为 MacosThemeData 设置微软雅黑字体
@@ -172,27 +195,43 @@ class MisuzuMusicApp extends StatelessWidget {
               )
             : MacosThemeData.dark();
 
-        return MacosApp(
-          title: 'Misuzu Music',
-          debugShowCheckedModeBanner: false,
-          theme: macosLightTheme,
-          darkTheme: macosDarkTheme,
-          themeMode: themeController.themeMode,
-          home: const HomePage(),
-          builder: (context, child) {
-            return Theme(
-              data: materialTheme,
-              child: ScaffoldMessenger(
-                child: Scaffold(
-                  backgroundColor: Colors.transparent,
-                  body: Material(
-                    type: MaterialType.transparency,
-                    child: child ?? const SizedBox.shrink(),
+        if (prefersMacLikeUi()) {
+          return MacosApp(
+            title: 'Misuzu Music',
+            debugShowCheckedModeBanner: false,
+            theme: macosLightTheme,
+            darkTheme: macosDarkTheme,
+            themeMode: themeController.themeMode,
+            home: const HomePage(),
+            builder: (context, child) {
+              return Theme(
+                data: activeMaterialTheme,
+                child: ScaffoldMessenger(
+                  child: Scaffold(
+                    backgroundColor: Colors.transparent,
+                    body: Material(
+                      type: MaterialType.transparency,
+                      child: child ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          );
+        }
+
+        return AdaptiveApp(
+          title: 'Misuzu Music',
+          themeMode: themeMode,
+          materialLightTheme: materialLightTheme,
+          materialDarkTheme: materialDarkTheme,
+          cupertinoLightTheme: cupertinoLightTheme,
+          cupertinoDarkTheme: cupertinoDarkTheme,
+          material: (context, platform) =>
+              const MaterialAppData(debugShowCheckedModeBanner: false),
+          cupertino: (context, platform) =>
+              const CupertinoAppData(debugShowCheckedModeBanner: false),
+          home: const HomePage(),
         );
       },
     );
