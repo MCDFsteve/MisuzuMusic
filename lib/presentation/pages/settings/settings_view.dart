@@ -59,6 +59,19 @@ class _UnifiedSettingsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_isMobilePlatform(context)) {
+      return _buildAdaptiveMobileSettings(context);
+    }
+
+    return _buildDesktopSettings(context);
+  }
+
+  bool _isMobilePlatform(BuildContext context) {
+    final platform = Theme.of(context).platform;
+    return platform == TargetPlatform.iOS || platform == TargetPlatform.android;
+  }
+
+  Widget _buildDesktopSettings(BuildContext context) {
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
@@ -131,6 +144,173 @@ class _UnifiedSettingsView extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildAdaptiveMobileSettings(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 24;
+    final sections = <Widget>[
+      _buildAdaptiveAppearanceSection(context),
+      _buildAdaptiveAboutSection(context),
+      _buildAdaptiveDeveloperSection(context),
+    ];
+
+    return SafeArea(
+      child: ListView.separated(
+        padding: EdgeInsets.fromLTRB(16, 24, 16, bottomPadding),
+        itemCount: sections.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
+        itemBuilder: (context, index) => sections[index],
+      ),
+    );
+  }
+
+  Widget _buildAdaptiveAppearanceSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final secondary = theme.textTheme.bodySmall?.color?.withOpacity(0.8) ??
+        theme.colorScheme.onSurfaceVariant.withOpacity(0.8);
+
+    return AdaptiveCard(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      borderRadius: BorderRadius.circular(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '外观',
+            locale: const Locale('zh-Hans', 'zh'),
+            style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ) ??
+                const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '自定义应用的外观和主题',
+            locale: const Locale('zh-Hans', 'zh'),
+            style: theme.textTheme.bodySmall?.copyWith(color: secondary),
+          ),
+          const SizedBox(height: 16),
+          _ThemeModeControl(
+            currentMode: currentMode,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdaptiveAboutSection(BuildContext context) {
+    final dividerColor =
+        Theme.of(context).colorScheme.outlineVariant.withOpacity(0.35);
+
+    return AdaptiveCard(
+      padding: EdgeInsets.zero,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: FutureBuilder<PackageInfo>(
+        future: _packageInfoFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          }
+
+          final info = snapshot.data;
+          final appName = info?.appName.isNotEmpty == true
+              ? info!.appName
+              : 'Misuzu Music';
+          final version = info?.version ?? '未知版本';
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildAdaptiveInfoTile(
+                context,
+                leading: const Icon(Icons.badge_outlined),
+                title: '项目名称',
+                subtitle: appName,
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                indent: 16,
+                endIndent: 16,
+                color: dividerColor,
+              ),
+              _buildAdaptiveInfoTile(
+                context,
+                leading: const Icon(Icons.tag_outlined),
+                title: '版本号',
+                subtitle: version,
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                indent: 16,
+                endIndent: 16,
+                color: dividerColor,
+              ),
+              _buildAdaptiveInfoTile(
+                context,
+                leading: const Icon(Icons.link_outlined),
+                title: 'GitHub 仓库',
+                subtitle: _repositoryUrl.toString(),
+                trailing: const Icon(Icons.open_in_new),
+                onTap: _openRepository,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAdaptiveDeveloperSection(BuildContext context) {
+    return AdaptiveCard(
+      padding: EdgeInsets.zero,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildAdaptiveInfoTile(
+            context,
+            leading: const Icon(Icons.terminal_outlined),
+            title: '终端输出',
+            subtitle: '查看 print 和 debugPrint 的实时日志',
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showTerminalOutputDialog(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdaptiveInfoTile(
+    BuildContext context, {
+    required Widget leading,
+    required String title,
+    required String subtitle,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    return AdaptiveListTile(
+      leading: leading,
+      title: Text(title, locale: const Locale('zh-Hans', 'zh')),
+      subtitle: Text(subtitle, locale: const Locale('zh-Hans', 'zh')),
+      trailing: trailing,
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      backgroundColor: Colors.transparent,
     );
   }
 }
@@ -722,16 +902,21 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = MacosTheme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
-    final platform = Theme.of(context).platform;
+    final macTheme = MacosTheme.maybeOf(context);
+    final materialTheme = Theme.of(context);
+    final isDarkMode =
+        (macTheme?.brightness ?? materialTheme.brightness) == Brightness.dark;
+    final platform = materialTheme.platform;
     final bool useAdaptiveSegments =
         platform == TargetPlatform.iOS || platform == TargetPlatform.android;
+    final baseTextStyle = macTheme?.typography.body ??
+        materialTheme.textTheme.bodyMedium ??
+        const TextStyle(fontSize: 14);
 
     final label = Text(
       '主题模式',
       locale: const Locale('zh-Hans', 'zh'),
-      style: theme.typography.body.copyWith(
+      style: baseTextStyle.copyWith(
         fontWeight: FontWeight.w500,
         color: isDarkMode
             ? Colors.white.withOpacity(0.9)
@@ -805,7 +990,7 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
                       child: Center(
                         child: AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 200),
-                          style: theme.typography.body.copyWith(
+                          style: baseTextStyle.copyWith(
                             fontSize: 10,
                             fontWeight: isSelected
                                 ? FontWeight.w600
