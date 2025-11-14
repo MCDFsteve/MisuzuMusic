@@ -14,9 +14,12 @@ extension _HomePageMobileLayout on _HomePageContentState {
             ? _composeNeteaseStatsLabel(neteaseState)
             : _composeHeaderStatsLabel(libraryState);
         final currentTrack = _playerTrack(playerState);
-        final searchHeader = _buildMobileSearchHeader(context, statsLabel);
-        final actions = _buildMobileAppBarActions(neteaseState);
-        final leading = _buildMobileLeading();
+        final header = _buildMobileHeader(
+          context,
+          sectionLabel,
+          statsLabel,
+          neteaseState,
+        );
         final theme = Theme.of(context);
         final bool isDarkMode = theme.brightness == Brightness.dark;
         final Color fallbackColor = theme.colorScheme.surface;
@@ -40,7 +43,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
             navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
 
         final layeredBody = SafeArea(
-          top: false,
+          top: true,
           bottom: false,
           child: Stack(
             children: [
@@ -50,7 +53,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (searchHeader != null) searchHeader,
+                      header,
                       Expanded(
                         child: IgnorePointer(
                           ignoring: _lyricsVisible,
@@ -128,12 +131,6 @@ extension _HomePageMobileLayout on _HomePageContentState {
         );
 
         return AdaptiveScaffold(
-          appBar: AdaptiveAppBar(
-            title: sectionLabel,
-            useNativeToolbar: false,
-            leading: leading,
-            actions: actions.isEmpty ? null : actions,
-          ),
           body: themedBody,
           bottomNavigationBar: AdaptiveBottomNavigationBar(
             items: _mobileDestinations,
@@ -159,52 +156,113 @@ extension _HomePageMobileLayout on _HomePageContentState {
     return navBarHeight + safeAreaBottom + visualGap;
   }
 
-  Widget? _buildMobileSearchHeader(BuildContext context, String? statsLabel) {
+  Widget _buildMobileHeader(
+    BuildContext context,
+    String sectionLabel,
+    String? statsLabel,
+    NeteaseState neteaseState,
+  ) {
     final bool supportsSearch = _selectedIndex != 4;
     final theme = Theme.of(context);
     final secondaryColor = theme.colorScheme.onSurfaceVariant.withValues(
       alpha: 0.8,
     );
     final bodySmall = theme.textTheme.bodySmall;
+    final headingStyle = theme.textTheme.titleMedium ??
+        const TextStyle(fontSize: 20, fontWeight: FontWeight.w600);
+    final leading = _buildMobileLeading();
+    final actionButtons = _buildMobileActionButtons(neteaseState);
 
-    if (!supportsSearch) {
-      if (statsLabel == null) {
-        return null;
-      }
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-        child: Text(
+    final children = <Widget>[
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (leading != null) ...[
+            SizedBox(height: 36, width: 36, child: leading),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Text(
+              sectionLabel,
+              locale: const Locale('zh-Hans', 'zh'),
+              style: headingStyle.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+          for (int i = 0; i < actionButtons.length; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            actionButtons[i],
+          ],
+        ],
+      ),
+    ];
+
+    if (supportsSearch) {
+      children.addAll([
+        const SizedBox(height: 12),
+        LibrarySearchField(
+          query: _searchQuery,
+          onQueryChanged: _onSearchQueryChanged,
+          onPreviewChanged: _handleSearchPreviewChanged,
+          suggestions: _searchSuggestions,
+          onSuggestionSelected: _handleSearchSuggestionTapped,
+          onInteract: _dismissLyricsOverlay,
+        ),
+        if (statsLabel != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            statsLabel,
+            locale: const Locale('zh-Hans', 'zh'),
+            style: bodySmall?.copyWith(color: secondaryColor),
+          ),
+        ],
+      ]);
+    } else if (statsLabel != null) {
+      children.addAll([
+        const SizedBox(height: 8),
+        Text(
           statsLabel,
           locale: const Locale('zh-Hans', 'zh'),
           style: bodySmall?.copyWith(color: secondaryColor),
         ),
-      );
+      ]);
     }
 
+    final double bottomPadding = supportsSearch ? 12 : 8;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LibrarySearchField(
-            query: _searchQuery,
-            onQueryChanged: _onSearchQueryChanged,
-            onPreviewChanged: _handleSearchPreviewChanged,
-            suggestions: _searchSuggestions,
-            onSuggestionSelected: _handleSearchSuggestionTapped,
-            onInteract: _dismissLyricsOverlay,
-          ),
-          if (statsLabel != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              statsLabel,
-              locale: const Locale('zh-Hans', 'zh'),
-              style: bodySmall?.copyWith(color: secondaryColor),
-            ),
-          ],
-        ],
+        children: children,
       ),
     );
+  }
+
+  List<Widget> _buildMobileActionButtons(NeteaseState neteaseState) {
+    final actions = _buildMobileAppBarActions(neteaseState);
+    if (actions.isEmpty) {
+      return const <Widget>[];
+    }
+
+    return actions
+        .map(
+          (action) => CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            minSize: 32,
+            onPressed: action.onPressed,
+            child: action.icon != null
+                ? Icon(action.icon, size: 22)
+                : (action.title != null
+                    ? Text(
+                        action.title!,
+                        locale: const Locale('zh-Hans', 'zh'),
+                      )
+                    : const Icon(Icons.more_horiz, size: 20)),
+          ),
+        )
+        .toList(growable: false);
   }
 
   List<AdaptiveAppBarAction> _buildMobileAppBarActions(
@@ -281,6 +339,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
 
     return CupertinoButton(
       padding: EdgeInsets.zero,
+      minSize: 32,
       onPressed: onPressed,
       child: const Icon(CupertinoIcons.chevron_left, size: 22),
     );
