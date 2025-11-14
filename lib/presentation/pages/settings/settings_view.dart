@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -723,20 +724,42 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
   Widget build(BuildContext context) {
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    final platform = Theme.of(context).platform;
+    final bool useAdaptiveSegments =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.android;
+
+    final label = Text(
+      '主题模式',
+      locale: const Locale('zh-Hans', 'zh'),
+      style: theme.typography.body.copyWith(
+        fontWeight: FontWeight.w500,
+        color: isDarkMode
+            ? Colors.white.withOpacity(0.9)
+            : Colors.black.withOpacity(0.8),
+      ),
+    );
+
+    if (useAdaptiveSegments) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          label,
+          const SizedBox(height: 12),
+          AdaptiveSegmentedControl(
+            labels: _tabs,
+            selectedIndex: _currentIndex,
+            onValueChanged: _handleTap,
+            height: 34,
+            shrinkWrap: true,
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '主题模式',
-          locale: Locale("zh-Hans", "zh"),
-          style: theme.typography.body.copyWith(
-            fontWeight: FontWeight.w500,
-            color: isDarkMode
-                ? Colors.white.withOpacity(0.9)
-                : Colors.black.withOpacity(0.8),
-          ),
-        ),
+        label,
         const SizedBox(height: 8),
         Container(
           width: 252,
