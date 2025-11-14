@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/constants/app_constants.dart' show PlayMode;
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
@@ -161,6 +162,25 @@ class MobileNowPlayingBar extends StatelessWidget {
                   onPressed: data.canSkipNext ? () => _skipNext(context) : null,
                 ),
               ),
+              const SizedBox(width: 4),
+              SizedBox(
+                width: 32,
+                height: 48,
+                child: PlayerTransportButton(
+                  key: const ValueKey('mobile_play_mode_button'),
+                  tooltip: _playModeTooltip(data.playMode),
+                  enabled: true,
+                  baseColor: secondaryIconColor,
+                  hoverColor: iconColor,
+                  dimWhenDisabled: false,
+                  iconBuilder: (color) => Icon(
+                    _playModeIcon(data.playMode),
+                    color: color,
+                    size: 20,
+                  ),
+                  onPressed: () => _cyclePlayMode(context),
+                ),
+              ),
             ],
           ),
           if (data.track != null) ...[
@@ -194,6 +214,62 @@ class MobileNowPlayingBar extends StatelessWidget {
     context.read<PlayerBloc>().add(const PlayerSkipPrevious());
   }
 
+  void _cyclePlayMode(BuildContext context) {
+    final bloc = context.read<PlayerBloc>();
+    final current = _currentPlayMode(bloc.state);
+    final next = _playModeNext(current);
+    bloc.add(PlayerSetPlayMode(next));
+  }
+
+  PlayMode _currentPlayMode(PlayerBlocState state) {
+    if (state is PlayerPlaying) {
+      return state.playMode;
+    }
+    if (state is PlayerPaused) {
+      return state.playMode;
+    }
+    if (state is PlayerLoading) {
+      return state.playMode;
+    }
+    if (state is PlayerStopped) {
+      return state.playMode;
+    }
+    return PlayMode.repeatAll;
+  }
+
+  PlayMode _playModeNext(PlayMode current) {
+    switch (current) {
+      case PlayMode.repeatAll:
+        return PlayMode.repeatOne;
+      case PlayMode.repeatOne:
+        return PlayMode.shuffle;
+      case PlayMode.shuffle:
+        return PlayMode.repeatAll;
+    }
+  }
+
+  IconData _playModeIcon(PlayMode mode) {
+    switch (mode) {
+      case PlayMode.repeatAll:
+        return CupertinoIcons.repeat;
+      case PlayMode.repeatOne:
+        return CupertinoIcons.repeat_1;
+      case PlayMode.shuffle:
+        return CupertinoIcons.shuffle;
+    }
+  }
+
+  String _playModeTooltip(PlayMode mode) {
+    switch (mode) {
+      case PlayMode.repeatAll:
+        return '列表循环';
+      case PlayMode.repeatOne:
+        return '单曲循环';
+      case PlayMode.shuffle:
+        return '随机播放';
+    }
+  }
+
   _PlayerBarData _resolvePlayerData(PlayerBlocState state) {
     Track? track;
     Duration position = Duration.zero;
@@ -201,6 +277,7 @@ class MobileNowPlayingBar extends StatelessWidget {
     bool isPlaying = false;
     List<Track> queue = const [];
     int currentIndex = 0;
+    PlayMode playMode = PlayMode.repeatAll;
 
     if (state is PlayerPlaying) {
       track = state.track;
@@ -209,21 +286,25 @@ class MobileNowPlayingBar extends StatelessWidget {
       isPlaying = true;
       queue = state.queue;
       currentIndex = state.currentIndex;
+      playMode = state.playMode;
     } else if (state is PlayerPaused) {
       track = state.track;
       position = state.position;
       duration = state.duration;
       queue = state.queue;
       currentIndex = state.currentIndex;
+      playMode = state.playMode;
     } else if (state is PlayerLoading) {
       track = state.track;
       position = state.position;
       duration = state.duration;
       queue = state.queue;
       currentIndex = state.currentIndex;
+      playMode = state.playMode;
     } else if (state is PlayerStopped) {
       queue = state.queue;
       currentIndex = 0;
+      playMode = state.playMode;
     }
 
     final displayInfo = track != null ? deriveTrackDisplayInfo(track) : null;
@@ -258,6 +339,7 @@ class MobileNowPlayingBar extends StatelessWidget {
       canSkipPrevious: canSkipPrevious,
       position: position,
       duration: duration,
+      playMode: playMode,
     );
   }
 }
@@ -275,6 +357,7 @@ class _PlayerBarData {
     required this.canSkipPrevious,
     required this.position,
     required this.duration,
+    required this.playMode,
   });
 
   final Track? track;
@@ -288,6 +371,7 @@ class _PlayerBarData {
   final bool canSkipPrevious;
   final Duration position;
   final Duration duration;
+  final PlayMode playMode;
 }
 
 class _PlayPauseButton extends StatelessWidget {

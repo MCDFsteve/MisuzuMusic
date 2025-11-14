@@ -36,6 +36,8 @@ final RegExp _desktopLyricsHanCharacterRegExp = RegExp(
   r'[\u3400-\u4DBF\u4E00-\u9FFF]',
 );
 
+enum _CompactLyricsStage { cover, lyrics, detail }
+
 class LyricsOverlay extends StatefulWidget {
   const LyricsOverlay({
     super.key,
@@ -76,6 +78,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   StreamSubscription<PlayerBlocState>? _playerSubscription;
   PlayerBlocState? _lastProcessedPlayerState;
   bool _showTrackDetailPanel = false;
+  _CompactLyricsStage _compactLyricsStage = _CompactLyricsStage.cover;
   bool _isLoadingTrackDetail = false;
   bool _isSavingTrackDetail = false;
   String? _trackDetailContent;
@@ -158,6 +161,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _isLoadingTrackDetail = false;
     _isSavingTrackDetail = false;
     _showTrackDetailPanel = false;
+    _compactLyricsStage = _CompactLyricsStage.cover;
     _trackDetailRequestToken++;
   }
 
@@ -166,10 +170,13 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   }
 
   void _toggleTrackDetailPanel() {
-    if (!mounted) {
+    _setTrackDetailPanelVisibility(!_showTrackDetailPanel);
+  }
+
+  void _setTrackDetailPanelVisibility(bool shouldShow) {
+    if (!mounted || _showTrackDetailPanel == shouldShow) {
       return;
     }
-    final shouldShow = !_showTrackDetailPanel;
     setState(() {
       _showTrackDetailPanel = shouldShow;
       if (!shouldShow) {
@@ -179,6 +186,20 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (shouldShow) {
       unawaited(_ensureTrackDetailLoaded());
     }
+  }
+
+  void _cycleCompactLyricsStage() {
+    if (!mounted) {
+      return;
+    }
+    final stages = _CompactLyricsStage.values;
+    final nextIndex = (_compactLyricsStage.index + 1) % stages.length;
+    final nextStage = stages[nextIndex];
+    setState(() {
+      _compactLyricsStage = nextStage;
+    });
+    final bool shouldShowDetail = nextStage == _CompactLyricsStage.detail;
+    _setTrackDetailPanelVisibility(shouldShowDetail);
   }
 
   Future<void> _ensureTrackDetailLoaded({bool force = false}) async {
@@ -1198,6 +1219,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           onToggleTrackDetail: _toggleTrackDetailPanel,
           onEditTrackDetail: _openTrackDetailEditor,
           bottomSafeInset: widget.bottomSafeInset,
+          compactStage: _compactLyricsStage,
+          onCycleCompactStage: _cycleCompactLyricsStage,
         ),
       ),
     );
@@ -1227,6 +1250,8 @@ class _LyricsLayout extends StatelessWidget {
     required this.onToggleTrackDetail,
     required this.onEditTrackDetail,
     required this.bottomSafeInset,
+    required this.compactStage,
+    required this.onCycleCompactStage,
   });
 
   final Track track;
@@ -1250,6 +1275,8 @@ class _LyricsLayout extends StatelessWidget {
   final VoidCallback onToggleTrackDetail;
   final VoidCallback onEditTrackDetail;
   final double bottomSafeInset;
+  final _CompactLyricsStage compactStage;
+  final VoidCallback onCycleCompactStage;
 
   @override
   Widget build(BuildContext context) {
@@ -1284,10 +1311,20 @@ class _LyricsLayout extends StatelessWidget {
             onActiveLineChanged: onActiveLineChanged,
             bottomSafeInset: bottomSafeInset,
             isCompactLayout: useCompactLayout,
-            onTapToggleDetail: useCompactLayout ? onToggleTrackDetail : null,
+            onTapToggleDetail: useCompactLayout ? onCycleCompactStage : null,
           );
 
           if (useCompactLayout) {
+            final Widget compactCoverPanel = KeyedSubtree(
+              key: const ValueKey('compact-cover-panel'),
+              child: _CoverColumn(
+                track: normalizedTrack,
+                coverSize: coverSize,
+                isMac: isMac,
+                onTap: onCycleCompactStage,
+              ),
+            );
+
             final Widget compactLyricsPanel = KeyedSubtree(
               key: const ValueKey('compact-lyrics-panel'),
               child: lyricsPanel,
@@ -1304,12 +1341,25 @@ class _LyricsLayout extends StatelessWidget {
                 detailContent: trackDetailContent,
                 detailError: trackDetailError,
                 detailFileName: trackDetailFileName,
-                onToggleDetail: onToggleTrackDetail,
+                onToggleDetail: onCycleCompactStage,
                 onEditDetail: onEditTrackDetail,
                 isCompactLayout: true,
                 bottomSafeInset: bottomSafeInset,
               ),
             );
+
+            Widget stageChild = compactLyricsPanel;
+            switch (compactStage) {
+              case _CompactLyricsStage.cover:
+                stageChild = compactCoverPanel;
+                break;
+              case _CompactLyricsStage.lyrics:
+                stageChild = compactLyricsPanel;
+                break;
+              case _CompactLyricsStage.detail:
+                stageChild = compactDetailPanel;
+                break;
+            }
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1317,9 +1367,7 @@ class _LyricsLayout extends StatelessWidget {
                 duration: const Duration(milliseconds: 220),
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
-                child: showTrackDetail
-                    ? compactDetailPanel
-                    : compactLyricsPanel,
+                child: stageChild,
               ),
             );
           }
@@ -1793,9 +1841,6 @@ class _TrackDetailView extends StatelessWidget {
           final Color surfaceColor = isDarkMode
               ? Colors.white.withOpacity(0.035)
               : Colors.black.withOpacity(0.035);
-          final Color borderColor = isDarkMode
-              ? Colors.white.withOpacity(0.08)
-              : Colors.black.withOpacity(0.08);
 
           Widget buildScrollableDetail() {
             return ClipRRect(
@@ -1803,7 +1848,6 @@ class _TrackDetailView extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: surfaceColor,
-                  border: Border.all(color: borderColor),
                 ),
                 child: ScrollConfiguration(
                   behavior: innerBehavior,

@@ -425,13 +425,47 @@ Future<T?> showPlaylistModalDialog<T>({
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       );
-      return FadeTransition(
+      final dialog = FadeTransition(
         opacity: curved,
         child: ScaleTransition(
           scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
           child: child,
         ),
       );
+      return _PlaylistModalBarrierWrapper(
+        dismissible: barrierDismissible,
+        child: dialog,
+      );
     },
   );
+}
+
+class _PlaylistModalBarrierWrapper extends StatelessWidget {
+  const _PlaylistModalBarrierWrapper({
+    required this.child,
+    required this.dismissible,
+  });
+
+  final Widget child;
+  final bool dismissible;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: dismissible
+                  ? () => Navigator.of(context).maybePop()
+                  : null,
+            ),
+          ),
+          Center(child: child),
+        ],
+      ),
+    );
+  }
 }

@@ -295,6 +295,13 @@ extension _HomePageMobileLayout on _HomePageContentState {
     if (_selectedIndex == 1) {
       actions.add(
         AdaptiveAppBarAction(
+          iosSymbol: 'arrow.up.arrow.down.circle',
+          icon: CupertinoIcons.arrow_up_arrow_down_circle,
+          onPressed: _showPlaylistSortOptions,
+        ),
+      );
+      actions.add(
+        AdaptiveAppBarAction(
           iosSymbol: 'plus.circle',
           icon: CupertinoIcons.add_circled,
           onPressed: _handleCreatePlaylistFromHeader,
@@ -318,6 +325,42 @@ extension _HomePageMobileLayout on _HomePageContentState {
     }
 
     return actions;
+  }
+
+  Future<void> _showPlaylistSortOptions() async {
+    final playlistsCubit = context.read<PlaylistsCubit>();
+    final currentMode = playlistsCubit.state.sortMode;
+
+    final selectedMode = await showPlaylistModalDialog<TrackSortMode>(
+      context: context,
+      builder: (dialogContext) => _PlaylistModalScaffold(
+        title: '选择排序方式',
+        maxWidth: 360,
+        contentSpacing: 18,
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: TrackSortMode.values
+              .map(
+                (mode) => _MobileSortModeTile(
+                  mode: mode,
+                  isSelected: mode == currentMode,
+                  onSelected: () => Navigator.of(dialogContext).pop(mode),
+                ),
+              )
+              .toList(growable: false),
+        ),
+        actions: [
+          _SheetActionButton.secondary(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedMode != null && selectedMode != currentMode) {
+      playlistsCubit.changeSortMode(selectedMode);
+    }
   }
 
   Widget? _buildMobileLeading() {
@@ -374,5 +417,72 @@ extension _HomePageMobileLayout on _HomePageContentState {
     }
 
     primaryFocus.unfocus();
+  }
+}
+
+class _MobileSortModeTile extends StatelessWidget {
+  const _MobileSortModeTile({
+    required this.mode,
+    required this.isSelected,
+    required this.onSelected,
+  });
+
+  final TrackSortMode mode;
+  final bool isSelected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final baseColor =
+        theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
+    final background = isSelected
+        ? theme.colorScheme.primary.withOpacity(0.12)
+        : theme.colorScheme.surface.withOpacity(0.35);
+    final borderColor = isSelected
+        ? theme.colorScheme.primary.withOpacity(0.45)
+        : theme.dividerColor.withOpacity(0.2);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onSelected,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: 0.8),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                mode.displayName,
+                locale: const Locale('zh-Hans', 'zh'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: baseColor,
+                    ) ??
+                    TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: baseColor,
+                    ),
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                CupertinoIcons.check_mark_circled_solid,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
