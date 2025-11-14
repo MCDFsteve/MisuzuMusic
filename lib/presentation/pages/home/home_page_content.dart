@@ -586,6 +586,7 @@ class _HomePageContentState extends State<HomePageContent> {
       buildWhen: _shouldRebuildForPlayerState,
       listener: (context, playerState) => _handlePlayerStateChange(playerState),
       builder: (context, playerState) {
+        final artworkSource = _currentArtworkSources(playerState);
         final libraryState = context.watch<MusicLibraryBloc>().state;
         final neteaseState = context.watch<NeteaseCubit>().state;
         final sectionLabel = _currentSectionLabel(_selectedIndex);
@@ -596,6 +597,15 @@ class _HomePageContentState extends State<HomePageContent> {
         final searchHeader = _buildMobileSearchHeader(context, statsLabel);
         final actions = _buildMobileAppBarActions(neteaseState);
         final leading = _buildMobileLeading();
+        final theme = Theme.of(context);
+        final bool isDarkMode = theme.brightness == Brightness.dark;
+        final Color fallbackColor = theme.colorScheme.surface;
+        final Color overlayTop = isDarkMode
+            ? Colors.black.withValues(alpha: 0.58)
+            : Colors.white.withValues(alpha: 0.72);
+        final Color overlayBottom = isDarkMode
+            ? Colors.black.withValues(alpha: 0.72)
+            : Colors.white.withValues(alpha: 0.65);
 
         final mainContent = KeyedSubtree(
           key: const ValueKey<String>('mobile_content_stack'),
@@ -656,13 +666,37 @@ class _HomePageContentState extends State<HomePageContent> {
           ),
         );
 
+        final Widget backgroundStack = Stack(
+          children: [
+            Positioned.fill(
+              child: _ArtworkBackgroundSwitcher(
+                sources: artworkSource,
+                isDarkMode: isDarkMode,
+                fallbackColor: fallbackColor,
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [overlayTop, overlayBottom],
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(child: layeredBody),
+          ],
+        );
+
         final macosThemeData = Theme.of(context).brightness == Brightness.dark
             ? MacosThemeData.dark()
             : MacosThemeData.light();
 
         final themedBody = MacosTheme(
           data: macosThemeData,
-          child: Material(color: Colors.transparent, child: layeredBody),
+          child: Material(color: Colors.transparent, child: backgroundStack),
         );
 
         return AdaptiveScaffold(
