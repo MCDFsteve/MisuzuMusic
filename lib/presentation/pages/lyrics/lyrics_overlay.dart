@@ -1257,10 +1257,34 @@ class _LyricsLayout extends StatelessWidget {
       color: Colors.transparent,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final double coverSize = _resolveCoverSize(constraints.maxWidth);
           final bool isDarkMode = isMac
               ? MacosTheme.of(context).brightness == Brightness.dark
               : Theme.of(context).brightness == Brightness.dark;
+          final bool useCompactLayout = !isMac && constraints.maxWidth < 860;
+
+          final Widget lyricsPanel = _LyricsPanel(
+            isDarkMode: isDarkMode,
+            scrollController: lyricsScrollController,
+            track: normalizedTrack,
+            showTranslation: showTranslation,
+            onToggleTranslation: onToggleTranslation,
+            onDownloadLrc: onDownloadLrc,
+            onReportError: onReportError,
+            onToggleDesktopLyrics: onToggleDesktopLyrics,
+            isDesktopLyricsActive: isDesktopLyricsActive,
+            isDesktopLyricsBusy: isDesktopLyricsBusy,
+            onActiveIndexChanged: onActiveIndexChanged,
+            onActiveLineChanged: onActiveLineChanged,
+          );
+
+          if (useCompactLayout) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: lyricsPanel,
+            );
+          }
+
+          final double coverSize = _resolveCoverSize(constraints.maxWidth);
           final DividerThemeData dividerTheme = DividerTheme.of(context);
           final Color dividerColor = isMac
               ? MacosTheme.of(context).dividerColor.withOpacity(0.35)
@@ -1295,23 +1319,7 @@ class _LyricsLayout extends StatelessWidget {
                   ),
                   color: dividerColor.withOpacity(0.35),
                 ),
-                Expanded(
-                  flex: 13,
-                  child: _LyricsPanel(
-                    isDarkMode: isDarkMode,
-                    scrollController: lyricsScrollController,
-                    track: normalizedTrack,
-                    showTranslation: showTranslation,
-                    onToggleTranslation: onToggleTranslation,
-                    onDownloadLrc: onDownloadLrc,
-                    onReportError: onReportError,
-                    onToggleDesktopLyrics: onToggleDesktopLyrics,
-                    isDesktopLyricsActive: isDesktopLyricsActive,
-                    isDesktopLyricsBusy: isDesktopLyricsBusy,
-                    onActiveIndexChanged: onActiveIndexChanged,
-                    onActiveLineChanged: onActiveLineChanged,
-                  ),
-                ),
+                Expanded(flex: 13, child: lyricsPanel),
               ],
             ),
           );

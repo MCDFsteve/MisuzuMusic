@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:window_manager/window_manager.dart' as wm;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -202,6 +203,9 @@ class MisuzuMusicApp extends StatelessWidget {
             theme: macosLightTheme,
             darkTheme: macosDarkTheme,
             themeMode: themeController.themeMode,
+            locale: WidgetsBinding.instance.platformDispatcher.locale,
+            localizationsDelegates: _appLocalizationsDelegates,
+            supportedLocales: _supportedLocales,
             home: const HomePage(),
             builder: (context, child) {
               return Theme(
@@ -227,6 +231,9 @@ class MisuzuMusicApp extends StatelessWidget {
           materialDarkTheme: materialDarkTheme,
           cupertinoLightTheme: cupertinoLightTheme,
           cupertinoDarkTheme: cupertinoDarkTheme,
+          locale: WidgetsBinding.instance.platformDispatcher.locale,
+          localizationsDelegates: _appLocalizationsDelegates,
+          supportedLocales: _supportedLocales,
           material: (context, platform) =>
               const MaterialAppData(debugShowCheckedModeBanner: false),
           cupertino: (context, platform) =>
@@ -237,6 +244,19 @@ class MisuzuMusicApp extends StatelessWidget {
     );
   }
 }
+
+const List<Locale> _supportedLocales = <Locale>[
+  Locale('en', 'US'),
+  Locale('zh', 'CN'),
+  Locale('zh', 'TW'),
+  Locale('ja', 'JP'),
+];
+
+const List<LocalizationsDelegate<dynamic>> _appLocalizationsDelegates = <LocalizationsDelegate<dynamic>>[
+  GlobalMaterialLocalizations.delegate,
+  GlobalWidgetsLocalizations.delegate,
+  GlobalCupertinoLocalizations.delegate,
+];
 
 /// 为 Windows 平台创建使用微软雅黑字体的 MacosTypography
 MacosTypography _createWindowsTypography(MacosTypography original) {

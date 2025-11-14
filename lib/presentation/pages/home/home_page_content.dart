@@ -13,22 +13,41 @@ class _HomePageContentState extends State<HomePageContent> {
 
   static const double _navMinWidth = 80;
   static const double _navMaxWidth = 220;
-  static const List<AdaptiveNavigationDestination> _mobileDestinations = [
-    AdaptiveNavigationDestination(
-      icon: CupertinoIcons.music_note_list,
-      label: '音乐库',
-    ),
-    AdaptiveNavigationDestination(
-      icon: CupertinoIcons.square_stack_3d_up,
-      label: '歌单',
-    ),
-    AdaptiveNavigationDestination(icon: CupertinoIcons.cloud, label: '网络'),
-    AdaptiveNavigationDestination(
-      icon: CupertinoIcons.music_note,
-      label: '播放队列',
-    ),
-    AdaptiveNavigationDestination(icon: CupertinoIcons.settings, label: '设置'),
+  static const List<AdaptiveNavigationDestination> _iosMobileDestinations = [
+    AdaptiveNavigationDestination(icon: 'music.note.list', label: '音乐库'),
+    AdaptiveNavigationDestination(icon: 'square.stack.3d.up', label: '歌单'),
+    AdaptiveNavigationDestination(icon: 'cloud', label: '网络'),
+    AdaptiveNavigationDestination(icon: 'music.note', label: '播放队列'),
+    AdaptiveNavigationDestination(icon: 'gearshape', label: '设置'),
   ];
+
+  static const List<AdaptiveNavigationDestination> _defaultMobileDestinations =
+      [
+        AdaptiveNavigationDestination(
+          icon: CupertinoIcons.music_note_list,
+          label: '音乐库',
+        ),
+        AdaptiveNavigationDestination(
+          icon: CupertinoIcons.square_stack_3d_up,
+          label: '歌单',
+        ),
+        AdaptiveNavigationDestination(icon: CupertinoIcons.cloud, label: '网络'),
+        AdaptiveNavigationDestination(
+          icon: CupertinoIcons.music_note,
+          label: '播放队列',
+        ),
+        AdaptiveNavigationDestination(
+          icon: CupertinoIcons.settings,
+          label: '设置',
+        ),
+      ];
+
+  List<AdaptiveNavigationDestination> get _mobileDestinations {
+    return defaultTargetPlatform == TargetPlatform.iOS
+        ? _iosMobileDestinations
+        : _defaultMobileDestinations;
+  }
+
   String _searchQuery = '';
   String _activeSearchQuery = '';
   List<LibrarySearchSuggestion> _searchSuggestions = const [];
@@ -583,43 +602,67 @@ class _HomePageContentState extends State<HomePageContent> {
           child: _buildMainContent(),
         );
 
-        final layeredBody = Stack(
-          children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                ignoring: _lyricsVisible,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeInOut,
-                  opacity: _lyricsVisible ? 0 : 1,
-                  child: SafeArea(
-                    top: false,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (searchHeader != null) searchHeader,
-                        Expanded(child: mainContent),
-                        const SizedBox(height: 12),
-                        MobileNowPlayingBar(
-                          playerState: playerState,
-                          isLyricsActive: _lyricsVisible,
-                          onArtworkTap: currentTrack == null
-                              ? null
-                              : () => _toggleLyrics(playerState),
+        final double bottomReservedHeight = _mobileNowPlayingBottomPadding(
+          context,
+        );
+
+        final layeredBody = SafeArea(
+          top: false,
+          bottom: false,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomReservedHeight),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          ignoring: _lyricsVisible,
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeInOut,
+                            opacity: _lyricsVisible ? 0 : 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (searchHeader != null) searchHeader,
+                                Expanded(child: mainContent),
+                              ],
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                      Positioned.fill(
+                        child: _LyricsOverlaySwitcher(
+                          isVisible: _lyricsVisible,
+                          builder: () => _buildLyricsOverlay(isMac: false),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                MobileNowPlayingBar(
+                  playerState: playerState,
+                  isLyricsActive: _lyricsVisible,
+                  onArtworkTap: currentTrack == null
+                      ? null
+                      : () => _toggleLyrics(playerState),
+                ),
+              ],
             ),
-            Positioned.fill(
-              child: _LyricsOverlaySwitcher(
-                isVisible: _lyricsVisible,
-                builder: () => _buildLyricsOverlay(isMac: false),
-              ),
-            ),
-          ],
+          ),
+        );
+
+        final macosThemeData = Theme.of(context).brightness == Brightness.dark
+            ? MacosThemeData.dark()
+            : MacosThemeData.light();
+
+        final themedBody = MacosTheme(
+          data: macosThemeData,
+          child: Material(color: Colors.transparent, child: layeredBody),
         );
 
         return AdaptiveScaffold(
@@ -629,7 +672,7 @@ class _HomePageContentState extends State<HomePageContent> {
             leading: leading,
             actions: actions.isEmpty ? null : actions,
           ),
-          body: layeredBody,
+          body: themedBody,
           bottomNavigationBar: AdaptiveBottomNavigationBar(
             items: _mobileDestinations,
             selectedIndex: _selectedIndex,
@@ -758,6 +801,19 @@ class _HomePageContentState extends State<HomePageContent> {
     ];
 
     return pages;
+  }
+
+  double _mobileNowPlayingBottomPadding(BuildContext context) {
+    final double safeAreaBottom = MediaQuery.of(context).padding.bottom;
+    final bool isiOS = defaultTargetPlatform == TargetPlatform.iOS;
+    final bool isAndroid = defaultTargetPlatform == TargetPlatform.android;
+    final double navBarHeight = isiOS
+        ? 88.0
+        : isAndroid
+        ? 72.0
+        : 64.0;
+    const double visualGap = 12.0;
+    return navBarHeight + safeAreaBottom + visualGap;
   }
 
   Widget? _buildMobileSearchHeader(BuildContext context, String? statsLabel) {
