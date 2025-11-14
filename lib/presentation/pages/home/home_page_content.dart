@@ -41,6 +41,7 @@ class _HomePageContentState extends State<HomePageContent> {
           label: '设置',
         ),
       ];
+  static const double _mobileNowPlayingBarHeight = 118;
 
   List<AdaptiveNavigationDestination> get _mobileDestinations {
     return defaultTargetPlatform == TargetPlatform.iOS
@@ -612,57 +613,65 @@ class _HomePageContentState extends State<HomePageContent> {
           child: _buildMainContent(),
         );
 
-        final double bottomReservedHeight = _mobileNowPlayingBottomPadding(
-          context,
+        final double navReservedHeight = math.max(
+          0,
+          _mobileNowPlayingBottomPadding(context) - 20,
         );
+        final double contentBottomPadding =
+            navReservedHeight + _mobileNowPlayingBarHeight;
 
         final layeredBody = SafeArea(
           top: false,
           bottom: false,
-          child: Padding(
-            padding: EdgeInsets.only(bottom: bottomReservedHeight),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Stack(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: contentBottomPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Positioned.fill(
+                      if (searchHeader != null) searchHeader,
+                      Expanded(
                         child: IgnorePointer(
                           ignoring: _lyricsVisible,
                           child: AnimatedOpacity(
                             duration: const Duration(milliseconds: 260),
                             curve: Curves.easeInOut,
                             opacity: _lyricsVisible ? 0 : 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (searchHeader != null) searchHeader,
-                                Expanded(child: mainContent),
-                              ],
-                            ),
+                            child: mainContent,
                           ),
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: _LyricsOverlaySwitcher(
-                          isVisible: _lyricsVisible,
-                          builder: () => _buildLyricsOverlay(isMac: false),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                MobileNowPlayingBar(
-                  playerState: playerState,
-                  isLyricsActive: _lyricsVisible,
-                  onArtworkTap: currentTrack == null
-                      ? null
-                      : () => _toggleLyrics(playerState),
+              ),
+              Positioned.fill(
+                child: _LyricsOverlaySwitcher(
+                  isVisible: _lyricsVisible,
+                  builder: () => _buildLyricsOverlay(
+                    isMac: false,
+                    bottomSafeInset: contentBottomPadding,
+                  ),
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: navReservedHeight,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: MobileNowPlayingBar(
+                    playerState: playerState,
+                    isLyricsActive: _lyricsVisible,
+                    onArtworkTap: currentTrack == null
+                        ? null
+                        : () => _toggleLyrics(playerState),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
 
@@ -1947,7 +1956,10 @@ class _HomePageContentState extends State<HomePageContent> {
     return '网络歌曲共 $totalTracks 首歌曲';
   }
 
-  Widget _buildLyricsOverlay({required bool isMac}) {
+  Widget _buildLyricsOverlay({
+    required bool isMac,
+    double bottomSafeInset = 0,
+  }) {
     final track = _lyricsActiveTrack;
     if (track == null) {
       return const SizedBox.shrink();
@@ -1957,6 +1969,7 @@ class _HomePageContentState extends State<HomePageContent> {
       key: ValueKey('lyrics_overlay_${isMac ? 'mac' : 'material'}'),
       initialTrack: track,
       isMac: isMac,
+      bottomSafeInset: bottomSafeInset,
     );
   }
 

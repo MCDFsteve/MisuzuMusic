@@ -40,10 +40,12 @@ class LyricsOverlay extends StatefulWidget {
     super.key,
     required this.initialTrack,
     required this.isMac,
+    this.bottomSafeInset = 0,
   });
 
   final Track initialTrack;
   final bool isMac;
+  final double bottomSafeInset;
 
   @override
   State<LyricsOverlay> createState() => _LyricsOverlayState();
@@ -1194,6 +1196,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           trackDetailFileName: _trackDetailFileName,
           onToggleTrackDetail: _toggleTrackDetailPanel,
           onEditTrackDetail: _openTrackDetailEditor,
+          bottomSafeInset: widget.bottomSafeInset,
         ),
       ),
     );
@@ -1222,6 +1225,7 @@ class _LyricsLayout extends StatelessWidget {
     required this.trackDetailFileName,
     required this.onToggleTrackDetail,
     required this.onEditTrackDetail,
+    required this.bottomSafeInset,
   });
 
   final Track track;
@@ -1244,6 +1248,7 @@ class _LyricsLayout extends StatelessWidget {
   final String? trackDetailFileName;
   final VoidCallback onToggleTrackDetail;
   final VoidCallback onEditTrackDetail;
+  final double bottomSafeInset;
 
   @override
   Widget build(BuildContext context) {
@@ -1275,6 +1280,7 @@ class _LyricsLayout extends StatelessWidget {
             isDesktopLyricsBusy: isDesktopLyricsBusy,
             onActiveIndexChanged: onActiveIndexChanged,
             onActiveLineChanged: onActiveLineChanged,
+            bottomSafeInset: bottomSafeInset,
           );
 
           if (useCompactLayout) {
@@ -1778,6 +1784,7 @@ class _LyricsPanel extends StatelessWidget {
     required this.isDesktopLyricsBusy,
     required this.onActiveIndexChanged,
     required this.onActiveLineChanged,
+    required this.bottomSafeInset,
   });
 
   final bool isDarkMode;
@@ -1792,6 +1799,7 @@ class _LyricsPanel extends StatelessWidget {
   final bool isDesktopLyricsBusy;
   final ValueChanged<int> onActiveIndexChanged;
   final ValueChanged<LyricsLine?> onActiveLineChanged;
+  final double bottomSafeInset;
 
   @override
   Widget build(BuildContext context) {
@@ -1824,7 +1832,7 @@ class _LyricsPanel extends StatelessWidget {
                 children: [
                   Positioned.fill(child: content),
                   Positioned(
-                    bottom: 190,
+                    bottom: bottomSafeInset + 190,
                     right: 6,
                     child: _ReportErrorButton(
                       isDarkMode: isDarkMode,
@@ -1832,7 +1840,7 @@ class _LyricsPanel extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    bottom: 130,
+                    bottom: bottomSafeInset + 130,
                     right: 6,
                     child: _DownloadLrcButton(
                       isDarkMode: isDarkMode,
@@ -1841,7 +1849,7 @@ class _LyricsPanel extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    bottom: 75,
+                    bottom: bottomSafeInset + 75,
                     right: 6,
                     child: _DesktopLyricsToggleButton(
                       isDarkMode: isDarkMode,
@@ -1851,7 +1859,7 @@ class _LyricsPanel extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    bottom: 20,
+                    bottom: bottomSafeInset + 20,
                     right: 6,
                     child: _TranslationToggleButton(
                       isDarkMode: isDarkMode,
