@@ -14,6 +14,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
             ? _composeNeteaseStatsLabel(neteaseState)
             : _composeHeaderStatsLabel(libraryState);
         final currentTrack = _playerTrack(playerState);
+        final double statusBarInset = MediaQuery.of(context).padding.top;
         final header = _buildMobileHeader(
           context,
           sectionLabel,
@@ -21,15 +22,23 @@ extension _HomePageMobileLayout on _HomePageContentState {
           neteaseState,
           blurBackground: _lyricsVisible,
         );
+        final Widget headerSection = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: _lyricsVisible
+              ? const SizedBox.shrink(key: ValueKey('mobile_header_hidden'))
+              : KeyedSubtree(
+                  key: const ValueKey('mobile_header_visible'),
+                  child: Padding(
+                    padding: EdgeInsets.only(top: statusBarInset),
+                    child: header,
+                  ),
+                ),
+        );
         final theme = Theme.of(context);
         final bool isDarkMode = theme.brightness == Brightness.dark;
         final Color fallbackColor = theme.colorScheme.surface;
-        final Color overlayTop = isDarkMode
-            ? Colors.black.withValues(alpha: 0.58)
-            : Colors.white.withValues(alpha: 0.72);
-        final Color overlayBottom = isDarkMode
-            ? Colors.black.withValues(alpha: 0.72)
-            : Colors.white.withValues(alpha: 0.65);
 
         final mainContent = KeyedSubtree(
           key: const ValueKey<String>('mobile_content_stack'),
@@ -44,7 +53,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
             navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
 
         final layeredBody = SafeArea(
-          top: true,
+          top: false,
           bottom: false,
           child: Stack(
             children: [
@@ -52,7 +61,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    header,
+                    headerSection,
                     Expanded(
                       child: IgnorePointer(
                         ignoring: _lyricsVisible,
@@ -102,17 +111,6 @@ extension _HomePageMobileLayout on _HomePageContentState {
                 sources: artworkSource,
                 isDarkMode: isDarkMode,
                 fallbackColor: fallbackColor,
-              ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [overlayTop, overlayBottom],
-                  ),
-                ),
               ),
             ),
             Positioned.fill(child: layeredBody),
