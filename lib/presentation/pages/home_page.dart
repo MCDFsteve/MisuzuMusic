@@ -59,6 +59,8 @@ import '../../core/utils/track_field_normalizer.dart'
     show isUnknownMetadataValue;
 
 part 'home/home_page_content.dart';
+part 'home/layouts/home_macos_layout.dart';
+part 'home/layouts/home_mobile_layout.dart';
 part 'home/widgets/macos_glass_header.dart';
 part 'home/widgets/macos_navigation_pane.dart';
 part 'home/widgets/blurred_artwork_background.dart';
