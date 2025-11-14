@@ -36,9 +36,6 @@ class MobileNowPlayingBar extends StatelessWidget {
             playerState is PlayerInitial);
     final bool showLoadingIndicator =
         loadingState != null && loadingState.track == null;
-    final backgroundColor = theme.colorScheme.surface.withValues(
-      alpha: isDark ? 0.65 : 0.9,
-    );
     final borderColor = isLyricsActive
         ? theme.colorScheme.primary.withValues(alpha: 0.6)
         : Colors.transparent;
@@ -48,14 +45,16 @@ class MobileNowPlayingBar extends StatelessWidget {
     final Color secondaryIconColor = isDark
         ? Colors.white70
         : theme.colorScheme.onSurface.withValues(alpha: 0.72);
+    final borderRadius = BorderRadius.circular(20);
+    final Color cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
       decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(20),
+        color: cardColor,
+        borderRadius: borderRadius,
         border: Border.all(color: borderColor, width: 1.2),
         boxShadow: [
           BoxShadow(
@@ -77,7 +76,8 @@ class MobileNowPlayingBar extends StatelessWidget {
                   remoteImageUrl: data.remoteArtworkUrl,
                   size: 48,
                   borderRadius: BorderRadius.circular(14),
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  backgroundColor:
+                      theme.colorScheme.surfaceContainerHighest,
                   borderColor: theme.dividerColor.withValues(alpha: 0.4),
                   placeholder: Icon(
                     CupertinoIcons.music_note,
@@ -106,9 +106,8 @@ class MobileNowPlayingBar extends StatelessWidget {
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.textTheme.bodySmall?.color == null
                             ? null
-                            : theme.textTheme.bodySmall!.color!.withValues(
-                                alpha: 0.7,
-                              ),
+                            : theme.textTheme.bodySmall!.color!
+                                .withValues(alpha: 0.7),
                       ),
                     ),
                   ],
@@ -130,9 +129,8 @@ class MobileNowPlayingBar extends StatelessWidget {
                     color: color,
                     size: 22,
                   ),
-                  onPressed: data.canSkipPrevious
-                      ? () => _skipPrevious(context)
-                      : null,
+                  onPressed:
+                      data.canSkipPrevious ? () => _skipPrevious(context) : null,
                 ),
               ),
               const SizedBox(width: 2),
@@ -169,14 +167,14 @@ class MobileNowPlayingBar extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: LinearProgressIndicator(
-                value: data.progress.isNaN ? 0 : data.progress.clamp(0.0, 1.0),
+                value: data.progress.isNaN
+                    ? 0
+                    : data.progress.clamp(0.0, 1.0),
                 minHeight: 4,
                 backgroundColor: theme.colorScheme.onSurface.withValues(
                   alpha: isDark ? 0.15 : 0.08,
                 ),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  theme.colorScheme.primary,
-                ),
+                valueColor: AlwaysStoppedAnimation<Color>(iconColor),
               ),
             ),
           ],
