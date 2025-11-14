@@ -42,11 +42,43 @@ class _HomePageContentState extends State<HomePageContent> {
         ),
       ];
   static const double _mobileNowPlayingBarHeight = 118;
+  static const String _iosSandboxFolderName = 'MisuzuMusic';
+
+  bool get _shouldHideNeteaseOnIOSMobile =>
+      defaultTargetPlatform == TargetPlatform.iOS;
+
+  List<int> get _mobileDestinationSectionIndices {
+    return _shouldHideNeteaseOnIOSMobile
+        ? const [0, 1, 3, 4]
+        : const [0, 1, 2, 3, 4];
+  }
 
   List<AdaptiveNavigationDestination> get _mobileDestinations {
-    return defaultTargetPlatform == TargetPlatform.iOS
+    final baseDestinations = defaultTargetPlatform == TargetPlatform.iOS
         ? _iosMobileDestinations
         : _defaultMobileDestinations;
+    return _mobileDestinationSectionIndices
+        .map((index) => baseDestinations[index])
+        .toList(growable: false);
+  }
+
+  int _mobileNavigationSelectedIndex(List<int> sectionOrder) {
+    final navIndex = sectionOrder.indexOf(_selectedIndex);
+    if (navIndex != -1) {
+      return navIndex;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (sectionOrder.contains(_selectedIndex)) {
+        return;
+      }
+      setState(() {
+        _selectedIndex = sectionOrder.first;
+      });
+    });
+    return 0;
   }
 
   String _searchQuery = '';
@@ -1536,6 +1568,11 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<void> _selectLocalFolder() async {
+    if (Platform.isIOS) {
+      await _selectIOSMisuzuFolder();
+      return;
+    }
+
     try {
       print('🎵 开始选择音乐文件夹...');
 
@@ -1583,6 +1620,227 @@ class _HomePageContentState extends State<HomePageContent> {
         _showErrorDialog(context, e.toString());
       }
     }
+  }
+
+  Future<void> _selectIOSMisuzuFolder() async {
+    try {
+      final selectedPath = await _showMisuzuMusicFolderPicker();
+      if (!mounted || selectedPath == null) {
+        return;
+      }
+
+      print('🎵 iOS 选择的 MisuzuMusic 文件夹: $selectedPath');
+      context.read<MusicLibraryBloc>().add(ScanDirectoryEvent(selectedPath));
+
+      if (!prefersMacLikeUi()) {
+        final folderName = p.basename(selectedPath);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    locale: Locale("zh-Hans", "zh"),
+                    '正在扫描 MisuzuMusic/$folderName',
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 10),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ 选择 MisuzuMusic 文件夹时出错: $e');
+      if (mounted) {
+        _showErrorDialog(context, e.toString());
+      }
+    }
+  }
+
+  Future<String?> _showMisuzuMusicFolderPicker() async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final rootDir = Directory(p.join(documentsDir.path, _iosSandboxFolderName));
+    if (!await rootDir.exists()) {
+      await rootDir.create(recursive: true);
+    }
+
+    Future<List<_MisuzuFolderOption>> loadOptions() async {
+      final folders = <_MisuzuFolderOption>[
+        _MisuzuFolderOption(
+          path: rootDir.path,
+          name: 'MisuzuMusic（根目录）',
+          description: '扫描整个 MisuzuMusic 文件夹',
+          isRoot: true,
+        ),
+      ];
+
+      await for (final entity in rootDir.list(followLinks: false)) {
+        if (entity is Directory) {
+          final folderName = p.basename(entity.path);
+          folders.add(
+            _MisuzuFolderOption(
+              path: entity.path,
+              name: folderName,
+              description: 'Files 路径：MisuzuMusic/$folderName',
+            ),
+          );
+        }
+      }
+
+      folders.sort((a, b) {
+        if (a.isRoot && !b.isRoot) {
+          return -1;
+        }
+        if (!a.isRoot && b.isRoot) {
+          return 1;
+        }
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+
+      return folders;
+    }
+
+    var options = await loadOptions();
+    var refreshing = false;
+
+    return showPlaylistModalDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            Future<void> refreshOptions() async {
+              setState(() {
+                refreshing = true;
+              });
+              final updated = await loadOptions();
+              setState(() {
+                options = updated;
+                refreshing = false;
+              });
+            }
+
+            final theme = Theme.of(context);
+            final isDark = theme.brightness == Brightness.dark;
+            final subFolderCount = options.isEmpty ? 0 : options.length - 1;
+
+            return _PlaylistModalScaffold(
+              title: '选择 MisuzuMusic 文件夹',
+              body: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: isDark
+                          ? Colors.white.withOpacity(0.05)
+                          : Colors.black.withOpacity(0.03),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.05),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      locale: Locale("zh-Hans", "zh"),
+                      'Files 路径：我的 iPhone > Misuzu Music > MisuzuMusic',
+                      style:
+                          theme.textTheme.bodySmall?.copyWith(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.75)
+                                : Colors.black.withOpacity(0.7),
+                          ) ??
+                          TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? Colors.white.withOpacity(0.75)
+                                : Colors.black.withOpacity(0.7),
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          locale: Locale("zh-Hans", "zh"),
+                          '当前 MisuzuMusic 中共有 $subFolderCount 个子文件夹',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '刷新',
+                        onPressed: refreshing ? null : refreshOptions,
+                        icon: refreshing
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(CupertinoIcons.refresh),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 280),
+                    child: Scrollbar(
+                      thumbVisibility: options.length > 4,
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final option = options[index];
+                          return _MisuzuFolderTile(
+                            option: option,
+                            onTap: () =>
+                                Navigator.of(dialogContext).pop(option.path),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  if (subFolderCount == 0) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      locale: Locale("zh-Hans", "zh"),
+                      '暂未检测到子文件夹，也可以直接选择 MisuzuMusic 根目录。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                _SheetActionButton.secondary(
+                  label: '取消',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+              ],
+              maxWidth: 420,
+              contentSpacing: 18,
+              actionsSpacing: 16,
+            );
+          },
+        );
+      },
+    );
   }
 
   // ignore: unused_element
@@ -2103,5 +2361,121 @@ class _LyricsOverlayPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const IgnorePointer(ignoring: true, child: SizedBox.shrink());
+  }
+}
+
+class _MisuzuFolderOption {
+  const _MisuzuFolderOption({
+    required this.path,
+    required this.name,
+    required this.description,
+    this.isRoot = false,
+  });
+
+  final String path;
+  final String name;
+  final String description;
+  final bool isRoot;
+}
+
+class _MisuzuFolderTile extends StatelessWidget {
+  const _MisuzuFolderTile({required this.option, required this.onTap});
+
+  final _MisuzuFolderOption option;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final titleStyle =
+        theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: isDark
+              ? Colors.white.withOpacity(0.92)
+              : Colors.black.withOpacity(0.9),
+        ) ??
+        TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: isDark
+              ? Colors.white.withOpacity(0.92)
+              : Colors.black.withOpacity(0.9),
+        );
+    final descriptionStyle =
+        theme.textTheme.bodySmall?.copyWith(
+          color: isDark
+              ? Colors.white.withOpacity(0.68)
+              : Colors.black.withOpacity(0.65),
+        ) ??
+        TextStyle(
+          fontSize: 12,
+          color: isDark
+              ? Colors.white.withOpacity(0.68)
+              : Colors.black.withOpacity(0.65),
+        );
+
+    return _HoverableCard(
+      baseColor: isDark
+          ? Colors.white.withOpacity(0.06)
+          : Colors.black.withOpacity(0.04),
+      hoverColor: isDark
+          ? Colors.white.withOpacity(0.1)
+          : Colors.black.withOpacity(0.08),
+      borderColor: isDark
+          ? Colors.white.withOpacity(0.14)
+          : Colors.black.withOpacity(0.08),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              option.isRoot
+                  ? CupertinoIcons.folder_fill
+                  : CupertinoIcons.folder_solid,
+              size: 22,
+              color: isDark
+                  ? Colors.white.withOpacity(0.92)
+                  : Colors.black.withOpacity(0.78),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  locale: Locale("zh-Hans", "zh"),
+                  option.name,
+                  style: titleStyle,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  locale: Locale("zh-Hans", "zh"),
+                  option.description,
+                  style: descriptionStyle,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            CupertinoIcons.chevron_right,
+            size: 16,
+            color: isDark
+                ? Colors.white.withOpacity(0.45)
+                : Colors.black.withOpacity(0.3),
+          ),
+        ],
+      ),
+    );
   }
 }

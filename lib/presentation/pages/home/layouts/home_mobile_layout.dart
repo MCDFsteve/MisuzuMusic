@@ -134,12 +134,20 @@ extension _HomePageMobileLayout on _HomePageContentState {
           child: themedBody,
         );
 
+        final visibleSectionIndices = _mobileDestinationSectionIndices;
+        final navSelectedIndex =
+            _mobileNavigationSelectedIndex(visibleSectionIndices);
+        final navItems = _mobileDestinations;
+
         return AdaptiveScaffold(
           body: bodyWithFocusDismiss,
           bottomNavigationBar: AdaptiveBottomNavigationBar(
-            items: _mobileDestinations,
-            selectedIndex: _selectedIndex,
-            onTap: _handleNavigationChange,
+            items: navItems,
+            selectedIndex: navSelectedIndex,
+            onTap: (visibleIndex) {
+              final targetSection = visibleSectionIndices[visibleIndex];
+              _handleNavigationChange(targetSection);
+            },
             selectedItemColor: const Color(0xFF1B66FF),
           ),
         );
