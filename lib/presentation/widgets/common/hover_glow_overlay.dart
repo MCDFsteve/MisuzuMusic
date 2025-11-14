@@ -32,6 +32,7 @@ class _HoverGlowOverlayState extends State<HoverGlowOverlay>
   final GlobalKey _containerKey = GlobalKey();
   Alignment _glowAlignment = Alignment.center;
   bool _hovering = false;
+  bool _isTouchInteractionActive = false;
   Size _lastSize = Size.zero;
   late AnimationController _controller;
 
@@ -68,6 +69,62 @@ class _HoverGlowOverlayState extends State<HoverGlowOverlay>
     setState(() {
       _glowAlignment = Alignment(dx * 2 - 1, dy * 2 - 1);
     });
+  }
+
+  void _activateGlow(Offset position) {
+    _updateAlignment(position);
+    if (_hovering) {
+      return;
+    }
+    setState(() {
+      _hovering = true;
+    });
+    _controller.forward();
+  }
+
+  void _deactivateGlow() {
+    if (!_hovering) {
+      return;
+    }
+    setState(() {
+      _hovering = false;
+    });
+    _controller.reverse();
+  }
+
+  bool _isTouchKind(PointerDeviceKind kind) {
+    return kind == PointerDeviceKind.touch || kind == PointerDeviceKind.stylus;
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (!_isTouchKind(event.kind)) {
+      return;
+    }
+    _isTouchInteractionActive = true;
+    _activateGlow(event.localPosition);
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (!_isTouchKind(event.kind) || !_isTouchInteractionActive) {
+      return;
+    }
+    _updateAlignment(event.localPosition);
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    if (!_isTouchKind(event.kind)) {
+      return;
+    }
+    _isTouchInteractionActive = false;
+    _deactivateGlow();
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    if (!_isTouchKind(event.kind)) {
+      return;
+    }
+    _isTouchInteractionActive = false;
+    _deactivateGlow();
   }
 
   @override
@@ -119,25 +176,18 @@ class _HoverGlowOverlayState extends State<HoverGlowOverlay>
       );
     }
 
-    return MouseRegion(
-      cursor: cursor,
-      onEnter: (event) {
-        _updateAlignment(event.localPosition);
-        setState(() {
-          _hovering = true;
-        });
-        _controller.forward();
-      },
-      onHover: (event) {
-        _updateAlignment(event.localPosition);
-      },
-      onExit: (event) {
-        setState(() {
-          _hovering = false;
-        });
-        _controller.reverse();
-      },
-      child: layeredChild,
+    return Listener(
+      onPointerDown: _handlePointerDown,
+      onPointerMove: _handlePointerMove,
+      onPointerUp: _handlePointerUp,
+      onPointerCancel: _handlePointerCancel,
+      child: MouseRegion(
+        cursor: cursor,
+        onEnter: (event) => _activateGlow(event.localPosition),
+        onHover: (event) => _updateAlignment(event.localPosition),
+        onExit: (_) => _deactivateGlow(),
+        child: layeredChild,
+      ),
     );
   }
 }
