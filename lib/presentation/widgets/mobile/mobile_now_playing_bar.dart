@@ -36,9 +36,6 @@ class MobileNowPlayingBar extends StatelessWidget {
             playerState is PlayerInitial);
     final bool showLoadingIndicator =
         loadingState != null && loadingState.track == null;
-    final borderColor = isLyricsActive
-        ? theme.colorScheme.primary.withValues(alpha: 0.6)
-        : Colors.transparent;
     final Color iconColor = isDark
         ? Colors.white
         : theme.colorScheme.onSurface.withValues(alpha: 0.95);
@@ -47,10 +44,11 @@ class MobileNowPlayingBar extends StatelessWidget {
         : theme.colorScheme.onSurface.withValues(alpha: 0.72);
     final borderRadius = BorderRadius.circular(20);
     final Color cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final borderColor = isLyricsActive ? cardColor : Colors.transparent;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+      margin: const EdgeInsets.fromLTRB(6, 0, 6, 0),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
       decoration: BoxDecoration(
         color: cardColor,
