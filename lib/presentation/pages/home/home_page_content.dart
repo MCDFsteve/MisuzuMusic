@@ -93,12 +93,12 @@ class _HomePageContentState extends State<HomePageContent> {
   Album? _activeAlbumDetail;
   List<Track> _activeAlbumTracks = const [];
   final FocusNode _shortcutFocusNode = FocusNode();
-  final PlaylistsViewController _playlistsViewController =
-      PlaylistsViewController();
-  final MusicLibraryViewController _musicLibraryViewController =
-      MusicLibraryViewController();
-  final NeteaseViewController _neteaseViewController =
-      NeteaseViewController();
+  final GlobalKey<_PlaylistsViewState> _playlistsViewKey =
+      GlobalKey<_PlaylistsViewState>();
+  final GlobalKey<_MusicLibraryViewState> _musicLibraryViewKey =
+      GlobalKey<_MusicLibraryViewState>();
+  final GlobalKey<_NeteaseViewState> _neteaseViewKey =
+      GlobalKey<_NeteaseViewState>();
   bool _musicLibraryCanNavigateBack = false;
   bool _playlistsCanNavigateBack = false;
   bool _neteaseCanNavigateBack = false;
@@ -166,7 +166,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
   void _showArtistDetail(Artist artist, List<Track> tracks) {
     _searchDebounce?.cancel();
-    _musicLibraryViewController.exitToOverview();
+    _musicLibraryViewKey.currentState?.exitToOverview();
     setState(() {
       _selectedIndex = 0;
       _activeArtistDetail = artist;
@@ -181,7 +181,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
   void _showAlbumDetail(Album album, List<Track> tracks) {
     _searchDebounce?.cancel();
-    _musicLibraryViewController.exitToOverview();
+    _musicLibraryViewKey.currentState?.exitToOverview();
     setState(() {
       _selectedIndex = 0;
       _activeAlbumDetail = album;
@@ -333,7 +333,7 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _playlistsViewController.openPlaylistById(playlistId);
+      _playlistsViewKey.currentState?.openPlaylistById(playlistId);
     });
   }
 
@@ -441,7 +441,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
   List<Widget> _buildSectionPages() {
     final libraryView = MusicLibraryView(
-      controller: _musicLibraryViewController,
+      key: _musicLibraryViewKey,
       onAddToPlaylist: _handleAddTrackToPlaylist,
       onDetailStateChanged: (value) {
         if (_musicLibraryCanNavigateBack != value) {
@@ -464,7 +464,7 @@ class _HomePageContentState extends State<HomePageContent> {
     );
 
     final playlistsSection = PlaylistsView(
-      controller: _playlistsViewController,
+      key: _playlistsViewKey,
       onAddToPlaylist: _handleAddTrackToPlaylist,
       onDetailStateChanged: (value) {
         if (_playlistsCanNavigateBack != value) {
@@ -479,7 +479,7 @@ class _HomePageContentState extends State<HomePageContent> {
     );
 
     final neteaseSection = NeteaseView(
-      controller: _neteaseViewController,
+      key: _neteaseViewKey,
       onAddToPlaylist: _handleAddTrackToPlaylist,
       onDetailStateChanged: (value) {
         if (_neteaseCanNavigateBack != value) {

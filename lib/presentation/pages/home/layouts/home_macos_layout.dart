@@ -28,6 +28,8 @@ extension _HomePageDesktopLayout on _HomePageContentState {
         bool logoutEnabled = false;
         VoidCallback? onLogout;
         String logoutTooltip = '退出登录';
+        final playlistsViewState = _playlistsViewKey.currentState;
+        final musicLibraryViewState = _musicLibraryViewKey.currentState;
 
         switch (_selectedIndex) {
           case 0:
@@ -40,7 +42,7 @@ extension _HomePageDesktopLayout on _HomePageContentState {
               canNavigateBack = _musicLibraryCanNavigateBack;
               backTooltip = '返回音乐库';
               if (canNavigateBack) {
-                onNavigateBack = _musicLibraryViewController.exitToOverview;
+                onNavigateBack = () => musicLibraryViewState?.exitToOverview();
                 final musicState = context.read<MusicLibraryBloc>().state;
                 if (musicState is MusicLibraryLoaded) {
                   sortMode = musicState.sortMode;
@@ -58,7 +60,7 @@ extension _HomePageDesktopLayout on _HomePageContentState {
             canNavigateBack = _playlistsCanNavigateBack;
             backTooltip = '返回歌单列表';
             if (canNavigateBack) {
-              onNavigateBack = _playlistsViewController.exitToOverview;
+              onNavigateBack = () => playlistsViewState?.exitToOverview();
               sortMode = context.read<PlaylistsCubit>().state.sortMode;
               onSortModeChanged = (mode) {
                 context.read<PlaylistsCubit>().changeSortMode(mode);
@@ -70,14 +72,15 @@ extension _HomePageDesktopLayout on _HomePageContentState {
             canNavigateBack = _neteaseCanNavigateBack;
             backTooltip = '返回网络歌曲歌单列表';
             if (canNavigateBack) {
-              onNavigateBack = _neteaseViewController.exitToOverview;
+              onNavigateBack = () =>
+                  _neteaseViewKey.currentState?.exitToOverview();
             }
             if (neteaseState.hasSession) {
               showLogoutButton = true;
               logoutEnabled = !neteaseState.isSubmittingCookie;
               logoutTooltip = '退出网络歌曲登录';
               onLogout = () {
-                _neteaseViewController.prepareForLogout();
+                _neteaseViewKey.currentState?.prepareForLogout();
                 context.read<NeteaseCubit>().logout();
               };
             }

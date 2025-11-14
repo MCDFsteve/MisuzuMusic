@@ -8,7 +8,6 @@ class NeteaseView extends StatefulWidget {
     this.searchQuery = '',
     this.onViewArtist,
     this.onViewAlbum,
-    this.controller,
   });
 
   final ValueChanged<Track>? onAddToPlaylist;
@@ -16,7 +15,6 @@ class NeteaseView extends StatefulWidget {
   final String searchQuery;
   final ValueChanged<Track>? onViewArtist;
   final ValueChanged<Track>? onViewAlbum;
-  final NeteaseViewController? controller;
 
   @override
   State<NeteaseView> createState() => _NeteaseViewState();
@@ -128,23 +126,7 @@ class _NeteaseViewState extends State<NeteaseView> {
   @override
   void dispose() {
     _toastTimer?.cancel();
-    widget.controller?._detach(this);
     super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    widget.controller?._attach(this);
-  }
-
-  @override
-  void didUpdateWidget(covariant NeteaseView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller?._detach(this);
-      widget.controller?._attach(this);
-    }
   }
 
   void _showToast(String message, {bool isError = false}) {
@@ -455,26 +437,6 @@ class _NeteaseViewState extends State<NeteaseView> {
       _showToast(error, isError: true);
     }
   }
-}
-
-class NeteaseViewController {
-  _NeteaseViewState? _state;
-
-  void _attach(_NeteaseViewState state) {
-    _state = state;
-  }
-
-  void _detach(_NeteaseViewState state) {
-    if (identical(_state, state)) {
-      _state = null;
-    }
-  }
-
-  void exitToOverview() => _state?.exitToOverview();
-
-  void prepareForLogout() => _state?.prepareForLogout();
-
-  void openPlaylistById(int playlistId) => _state?.openPlaylistById(playlistId);
 }
 
 Future<int?> _showNeteasePlaylistSelectionSheet(

@@ -31,18 +31,21 @@ class AlbumDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = MacosTheme.of(context);
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(title: '专辑：${album.title}'),
-      body: ColoredBox(
-        color: theme.canvasColor,
-        child: AlbumDetailView(
-          album: album,
-          tracks: tracks,
-          onAddToPlaylist: onAddToPlaylist,
-          onAddAllToPlaylist: onAddAllToPlaylist,
-          onViewArtist: onViewArtist,
-          onViewAlbum: onViewAlbum,
-        ),
+    return Scaffold(
+      backgroundColor: theme.canvasColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: theme.typography.body.color,
+        title: Text('专辑：${album.title}'),
+      ),
+      body: AlbumDetailView(
+        album: album,
+        tracks: tracks,
+        onAddToPlaylist: onAddToPlaylist,
+        onAddAllToPlaylist: onAddAllToPlaylist,
+        onViewArtist: onViewArtist,
+        onViewAlbum: onViewAlbum,
       ),
     );
   }
