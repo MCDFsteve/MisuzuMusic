@@ -1,6 +1,5 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -8,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/theme/theme_controller.dart';
-import '../../../core/utils/platform_utils.dart';
 import '../../../core/widgets/modal_dialog.dart';
 import '../../developer/developer_log_collector.dart';
 import '../../widgets/common/adaptive_scrollbar.dart';
@@ -40,14 +38,7 @@ class SettingsView extends StatelessWidget {
       builder: (context, _) {
         final mode = themeController.themeMode;
 
-        if (prefersMacLikeUi()) {
-          return _MacOSSettingsView(
-            currentMode: mode,
-            onChanged: themeController.setThemeMode,
-          );
-        }
-
-        return _MobileSettingsView(
+        return _UnifiedSettingsView(
           currentMode: mode,
           onChanged: themeController.setThemeMode,
         );
@@ -56,8 +47,8 @@ class SettingsView extends StatelessWidget {
   }
 }
 
-class _MacOSSettingsView extends StatelessWidget {
-  const _MacOSSettingsView({
+class _UnifiedSettingsView extends StatelessWidget {
+  const _UnifiedSettingsView({
     required this.currentMode,
     required this.onChanged,
   });
@@ -94,92 +85,6 @@ class _MacOSSettingsView extends StatelessWidget {
                           ),
                           const SizedBox(height: 20),
                           _ThemeModeControl(
-                            currentMode: currentMode,
-                            onChanged: onChanged,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _SettingsCard(
-                      isDarkMode: isDarkMode,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SettingsSection(
-                            title: '关于',
-                            subtitle: '了解项目名称、版本号与仓库链接',
-                            isDarkMode: isDarkMode,
-                          ),
-                          const SizedBox(height: 20),
-                          _AboutSection(packageInfoFuture: _packageInfoFuture),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _SettingsCard(
-                      isDarkMode: isDarkMode,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SettingsSection(
-                            title: '开发者选项',
-                            subtitle: '访问调试输出等工具',
-                            isDarkMode: isDarkMode,
-                          ),
-                          const SizedBox(height: 20),
-                          _DeveloperOptionsList(isDarkMode: isDarkMode),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _MobileSettingsView extends StatelessWidget {
-  const _MobileSettingsView({
-    required this.currentMode,
-    required this.onChanged,
-  });
-
-  final ThemeMode currentMode;
-  final ValueChanged<ThemeMode> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return AdaptiveScrollbar(
-      isDarkMode: isDarkMode,
-      builder: (controller) {
-        return CustomScrollView(
-          controller: controller,
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
-              sliver: SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SettingsCard(
-                      isDarkMode: isDarkMode,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SettingsSection(
-                            title: '外观',
-                            subtitle: '自定义应用的外观和主题',
-                            isDarkMode: isDarkMode,
-                          ),
-                          const SizedBox(height: 20),
-                          _MobileThemeModeControl(
                             currentMode: currentMode,
                             onChanged: onChanged,
                           ),
@@ -948,179 +853,6 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
       case 2:
       default:
         return ThemeMode.system;
-    }
-  }
-}
-
-class _MobileThemeModeControl extends StatelessWidget {
-  const _MobileThemeModeControl({
-    required this.currentMode,
-    required this.onChanged,
-  });
-
-  final ThemeMode currentMode;
-  final ValueChanged<ThemeMode> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: Text(
-            '主题模式',
-            style: TextStyle(
-              fontSize: 16,
-              locale: Locale("zh-Hans", "zh"),
-              fontWeight: FontWeight.w500,
-              color: isDarkMode
-                  ? Colors.white.withOpacity(0.9)
-                  : Colors.black.withOpacity(0.8),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...ThemeMode.values.map((mode) => _ThemeOption(
-              mode: mode,
-              isSelected: mode == currentMode,
-              onTap: () => onChanged(mode),
-              isDarkMode: isDarkMode,
-            )),
-      ],
-    );
-  }
-}
-
-class _ThemeOption extends StatelessWidget {
-  const _ThemeOption({
-    required this.mode,
-    required this.isSelected,
-    required this.onTap,
-    required this.isDarkMode,
-  });
-
-  final ThemeMode mode;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool isDarkMode;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = _getModeTitle(mode);
-    final description = _getModeDescription(mode);
-    final icon = _getModeIcon(mode);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? (isDarkMode
-                      ? Colors.white.withOpacity(0.1)
-                      : Colors.black.withOpacity(0.05))
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? (isDarkMode
-                        ? Colors.white.withOpacity(0.2)
-                        : Colors.black.withOpacity(0.1))
-                    : Colors.transparent,
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: isDarkMode
-                      ? Colors.white.withOpacity(0.7)
-                      : Colors.black.withOpacity(0.6),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        locale: Locale("zh-Hans", "zh"),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: isDarkMode ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        description,
-                        locale: Locale("zh-Hans", "zh"),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDarkMode
-                              ? Colors.white.withOpacity(0.6)
-                              : Colors.black.withOpacity(0.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isSelected)
-                  Icon(
-                    CupertinoIcons.checkmark_circle_fill,
-                    size: 20,
-                    color: isDarkMode
-                        ? Colors.white.withOpacity(0.8)
-                        : Colors.black.withOpacity(0.7),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _getModeTitle(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return '浅色模式';
-      case ThemeMode.dark:
-        return '深色模式';
-      case ThemeMode.system:
-        return '跟随系统';
-    }
-  }
-
-  String _getModeDescription(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return '使用浅色主题';
-      case ThemeMode.dark:
-        return '使用深色主题';
-      case ThemeMode.system:
-        return '根据系统设置自动切换';
-    }
-  }
-
-  IconData _getModeIcon(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return CupertinoIcons.sun_max_fill;
-      case ThemeMode.dark:
-        return CupertinoIcons.moon_fill;
-      case ThemeMode.system:
-        return CupertinoIcons.gear_alt_fill;
     }
   }
 }
