@@ -1307,6 +1307,7 @@ class _LyricsLayout extends StatelessWidget {
                 onToggleDetail: onToggleTrackDetail,
                 onEditDetail: onEditTrackDetail,
                 isCompactLayout: true,
+                bottomSafeInset: bottomSafeInset,
               ),
             );
 
@@ -1576,6 +1577,7 @@ class _TrackDetailView extends StatelessWidget {
     required this.onToggleDetail,
     required this.onEditDetail,
     this.isCompactLayout = false,
+    this.bottomSafeInset = 0,
   });
 
   final Track track;
@@ -1589,6 +1591,7 @@ class _TrackDetailView extends StatelessWidget {
   final VoidCallback onToggleDetail;
   final VoidCallback onEditDetail;
   final bool isCompactLayout;
+  final double bottomSafeInset;
 
   @override
   Widget build(BuildContext context) {
@@ -1743,67 +1746,157 @@ class _TrackDetailView extends StatelessWidget {
 
         final double scrollVerticalPadding = isCompactLayout ? 0 : 22;
         final double leadingSpacer = isCompactLayout ? 120 : 18;
-        final double trailingSpacer = isCompactLayout ? 320 : 0;
+        final double trailingSpacer =
+            isCompactLayout ? (bottomSafeInset + 24) : 0;
+
+        List<Widget> buildDetailChildren(Widget detailSection) {
+          return [
+            SizedBox(height: leadingSpacer),
+            Text(
+              track.title,
+              locale: const Locale('zh-Hans', 'zh'),
+              style: headerStyle.copyWith(fontSize: 18),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${track.artist} · ${track.album}',
+              locale: const Locale('zh-Hans', 'zh'),
+              style: metaStyle,
+            ),
+            const SizedBox(height: 22),
+            Text(
+              '歌曲详情',
+              locale: const Locale('zh-Hans', 'zh'),
+              style: bodyStyle.copyWith(
+                fontWeight: FontWeight.w600,
+                color: bodyStyle.color?.withOpacity(0.82) ??
+                    (isDarkMode
+                        ? Colors.white.withOpacity(0.82)
+                        : Colors.black.withOpacity(0.78)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            detailSection,
+            if (!isSavingDetail)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: editLink,
+              ),
+            SizedBox(height: trailingSpacer),
+          ];
+        }
+
+        Widget buildCompactDetailBody() {
+          final ScrollBehavior innerBehavior = ScrollConfiguration.of(
+            context,
+          ).copyWith(scrollbars: false);
+          final Color surfaceColor = isDarkMode
+              ? Colors.white.withOpacity(0.035)
+              : Colors.black.withOpacity(0.035);
+          final Color borderColor = isDarkMode
+              ? Colors.white.withOpacity(0.08)
+              : Colors.black.withOpacity(0.08);
+
+          Widget buildScrollableDetail() {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: surfaceColor,
+                  border: Border.all(color: borderColor),
+                ),
+                child: ScrollConfiguration(
+                  behavior: innerBehavior,
+                  child: Scrollbar(
+                    thumbVisibility: false,
+                    radius: const Radius.circular(10),
+                    child: SingleChildScrollView(
+                      primary: false,
+                      padding: const EdgeInsets.fromLTRB(0, 8, 12, 12),
+                      child: detailBody,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 0,
+              vertical: scrollVerticalPadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: leadingSpacer),
+                Text(
+                  track.title,
+                  locale: const Locale('zh-Hans', 'zh'),
+                  style: headerStyle.copyWith(fontSize: 18),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${track.artist} · ${track.album}',
+                  locale: const Locale('zh-Hans', 'zh'),
+                  style: metaStyle,
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  '歌曲详情',
+                  locale: const Locale('zh-Hans', 'zh'),
+                  style: bodyStyle.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: bodyStyle.color?.withOpacity(0.82) ??
+                        (isDarkMode
+                            ? Colors.white.withOpacity(0.82)
+                            : Colors.black.withOpacity(0.78)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(child: buildScrollableDetail()),
+                if (!isSavingDetail)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: editLink,
+                  ),
+                SizedBox(height: trailingSpacer),
+              ],
+            ),
+          );
+        }
+
+        Widget buildDefaultDetailBody() {
+          return ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: 0,
+                vertical: scrollVerticalPadding,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: buildDetailChildren(detailBody),
+              ),
+            ),
+          );
+        }
+
+        final Widget detailContentWidget = isCompactLayout
+            ? buildCompactDetailBody()
+            : buildDefaultDetailBody();
 
         return Align(
-          alignment: Alignment.centerRight,
+          alignment: isCompactLayout ? Alignment.center : Alignment.centerRight,
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: onToggleDetail,
               child: SizedBox(
-                width: displayWidth,
+                width: isCompactLayout ? double.infinity : displayWidth,
                 height: panelHeight,
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(
-                    context,
-                  ).copyWith(scrollbars: false),
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 0,
-                      vertical: scrollVerticalPadding,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(height: leadingSpacer),
-                        Text(
-                          track.title,
-                          locale: const Locale('zh-Hans', 'zh'),
-                          style: headerStyle.copyWith(fontSize: 18),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${track.artist} · ${track.album}',
-                          locale: const Locale('zh-Hans', 'zh'),
-                          style: metaStyle,
-                        ),
-                        const SizedBox(height: 22),
-                        Text(
-                          '歌曲详情',
-                          locale: const Locale('zh-Hans', 'zh'),
-                          style: bodyStyle.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color:
-                                bodyStyle.color?.withOpacity(0.82) ??
-                                (isDarkMode
-                                    ? Colors.white.withOpacity(0.82)
-                                    : Colors.black.withOpacity(0.78)),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        detailBody,
-                        if (!isSavingDetail)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: editLink,
-                          ),
-                        SizedBox(height: trailingSpacer),
-                      ],
-                    ),
-                  ),
-                ),
+                child: detailContentWidget,
               ),
             ),
           ),
