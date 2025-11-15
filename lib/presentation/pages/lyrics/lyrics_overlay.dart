@@ -1963,6 +1963,10 @@ class _TrackDetailView extends StatelessWidget {
   }
 }
 
+const double _kLyricsPanelButtonSpacing = 55.0;
+const double _kLyricsPanelTopSpacing = 60.0;
+const double _kLyricsPanelBaseBottomInset = 20.0;
+
 class _LyricsPanel extends StatelessWidget {
   const _LyricsPanel({
     required this.isDarkMode,
@@ -2036,46 +2040,48 @@ class _LyricsPanel extends StatelessWidget {
                   state is LyricsLoaded && _hasAnyTranslation(state.lyrics);
               final bool showDesktopLyricsButton =
                   !isMobilePlatform(Theme.of(context).platform);
+              final bool canDownload = state is LyricsLoaded;
+
+              final List<Widget> floatingButtons = [
+                _TranslationToggleButton(
+                  isDarkMode: isDarkMode,
+                  isActive: showTranslation,
+                  isEnabled: canToggle,
+                  onPressed: canToggle ? onToggleTranslation : null,
+                ),
+                const SizedBox(height: _kLyricsPanelButtonSpacing),
+                if (showDesktopLyricsButton) ...[
+                  _DesktopLyricsToggleButton(
+                    isDarkMode: isDarkMode,
+                    isActive: isDesktopLyricsActive,
+                    isBusy: isDesktopLyricsBusy,
+                    onPressed: onToggleDesktopLyrics,
+                  ),
+                  const SizedBox(height: _kLyricsPanelButtonSpacing),
+                ],
+                _DownloadLrcButton(
+                  isDarkMode: isDarkMode,
+                  isEnabled: canDownload,
+                  onPressed: canDownload ? onDownloadLrc : null,
+                ),
+                const SizedBox(height: _kLyricsPanelTopSpacing),
+                _ReportErrorButton(
+                  isDarkMode: isDarkMode,
+                  onPressed: onReportError,
+                ),
+              ];
 
               return Stack(
                 children: [
                   Positioned.fill(child: content),
                   Positioned(
-                    bottom: bottomSafeInset + 190,
+                    bottom: bottomSafeInset + _kLyricsPanelBaseBottomInset,
                     right: 6,
-                    child: _ReportErrorButton(
-                      isDarkMode: isDarkMode,
-                      onPressed: onReportError,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: bottomSafeInset + 130,
-                    right: 6,
-                    child: _DownloadLrcButton(
-                      isDarkMode: isDarkMode,
-                      isEnabled: state is LyricsLoaded,
-                      onPressed: state is LyricsLoaded ? onDownloadLrc : null,
-                    ),
-                  ),
-                  if (showDesktopLyricsButton)
-                    Positioned(
-                      bottom: bottomSafeInset + 75,
-                      right: 6,
-                      child: _DesktopLyricsToggleButton(
-                        isDarkMode: isDarkMode,
-                        isActive: isDesktopLyricsActive,
-                        isBusy: isDesktopLyricsBusy,
-                        onPressed: onToggleDesktopLyrics,
-                      ),
-                    ),
-                  Positioned(
-                    bottom: bottomSafeInset + 20,
-                    right: 6,
-                    child: _TranslationToggleButton(
-                      isDarkMode: isDarkMode,
-                      isActive: showTranslation,
-                      isEnabled: canToggle,
-                      onPressed: canToggle ? onToggleTranslation : null,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      verticalDirection: VerticalDirection.up,
+                      children: floatingButtons,
                     ),
                   ),
                 ],
