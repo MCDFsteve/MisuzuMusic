@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +12,10 @@ import 'package:macos_ui/macos_ui.dart';
 import 'package:window_manager/window_manager.dart' as wm;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
+import 'l10n/app_localizations.dart';
+
 import 'core/di/dependency_injection.dart';
+import 'core/localization/locale_controller.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/utils/platform_utils.dart';
 import 'presentation/pages/home_page.dart';
@@ -131,11 +135,14 @@ class MisuzuMusicApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeController = sl<ThemeController>();
+    final localeController = sl<LocaleController>();
+    final listenable = Listenable.merge([themeController, localeController]);
 
     return AnimatedBuilder(
-      animation: themeController,
+      animation: listenable,
       builder: (context, _) {
         final themeMode = themeController.themeMode;
+        final locale = localeController.locale;
         final platformBrightness =
             WidgetsBinding.instance.platformDispatcher.platformBrightness;
         final effectiveBrightness = switch (themeMode) {
@@ -210,9 +217,9 @@ class MisuzuMusicApp extends StatelessWidget {
             theme: macosLightTheme,
             darkTheme: macosDarkTheme,
             themeMode: themeController.themeMode,
-            locale: WidgetsBinding.instance.platformDispatcher.locale,
+            locale: locale,
             localizationsDelegates: _appLocalizationsDelegates,
-            supportedLocales: _supportedLocales,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: const HomePage(),
             builder: (context, child) {
               final overlayWrappedChild =
@@ -240,9 +247,9 @@ class MisuzuMusicApp extends StatelessWidget {
           materialDarkTheme: materialDarkTheme,
           cupertinoLightTheme: cupertinoLightTheme,
           cupertinoDarkTheme: cupertinoDarkTheme,
-          locale: WidgetsBinding.instance.platformDispatcher.locale,
+          locale: locale,
           localizationsDelegates: _appLocalizationsDelegates,
-          supportedLocales: _supportedLocales,
+          supportedLocales: AppLocalizations.supportedLocales,
           material: (context, platform) =>
               const MaterialAppData(debugShowCheckedModeBanner: false),
           cupertino: (context, platform) =>
@@ -256,14 +263,8 @@ class MisuzuMusicApp extends StatelessWidget {
   }
 }
 
-const List<Locale> _supportedLocales = <Locale>[
-  Locale('en', 'US'),
-  Locale('zh', 'CN'),
-  Locale('zh', 'TW'),
-  Locale('ja', 'JP'),
-];
-
 const List<LocalizationsDelegate<dynamic>> _appLocalizationsDelegates = <LocalizationsDelegate<dynamic>>[
+  AppLocalizations.delegate,
   GlobalMaterialLocalizations.delegate,
   GlobalWidgetsLocalizations.delegate,
   GlobalCupertinoLocalizations.delegate,

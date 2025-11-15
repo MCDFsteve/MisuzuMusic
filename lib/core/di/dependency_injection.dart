@@ -30,6 +30,7 @@ import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../domain/usecases/music_usecases.dart';
 import '../../domain/usecases/player_usecases.dart';
+import '../localization/locale_controller.dart';
 import '../theme/theme_controller.dart';
 import '../../domain/usecases/lyrics_usecases.dart';
 import '../storage/storage_path_provider.dart';
@@ -139,6 +140,7 @@ class DependencyInjection {
       sl.registerSingleton<AudioHandler>(audioHandler);
 
       sl.registerLazySingleton(() => ThemeController(sl()));
+      sl.registerLazySingleton(() => LocaleController(sl()));
 
       // Use cases
       print('⚙️ 注册用例...');
@@ -180,6 +182,7 @@ class DependencyInjection {
       // Initialize services
       print('🚀 初始化服务...');
       await sl<ThemeController>().load();
+      await sl<LocaleController>().load();
 
       print('✅ 依赖注入初始化完成！');
     } catch (e) {

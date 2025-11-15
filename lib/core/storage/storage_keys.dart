@@ -7,6 +7,7 @@ class StorageKeys {
   static const playbackQueueIndex = 'audio.queueIndex';
   static const playbackPosition = 'audio.queuePosition';
   static const themeMode = 'ui.themeMode';
+  static const locale = 'ui.locale';
   static const playbackHistory = 'history.entries';
   static const lyricsSettings = 'lyrics.settings';
   static const libraryDirectories = 'library.directories';

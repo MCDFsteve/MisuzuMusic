@@ -1,0 +1,69 @@
+{
+  "@@locale": "en",
+  "settingsAppearanceTitle": "Appearance",
+  "settingsAppearanceSubtitle": "Customize the app's look and theme",
+  "settingsAboutTitle": "About",
+  "settingsAboutSubtitle": "See the project name, version, and repository link",
+  "settingsDeveloperTitle": "Developer Options",
+  "settingsDeveloperSubtitle": "Access debugging tools",
+  "settingsUnknownVersion": "Unknown version",
+  "settingsProjectNameLabel": "App Name",
+  "settingsVersionLabel": "Version",
+  "settingsRepositoryLabel": "GitHub Repository",
+  "settingsDeveloperTerminalTitle": "Terminal Output",
+  "settingsDeveloperTerminalSubtitle": "View real-time print and debugPrint logs",
+  "settingsDeveloperLogExplanation": "Shows every print/debugPrint since launch. Quickly search or filter.",
+  "settingsDeveloperClearSearch": "Clear search",
+  "settingsDeveloperSearchHint": "Search log content or timestamps...",
+  "settingsDeveloperEmptyLogs": "No output is available yet.",
+  "settingsDeveloperNoFilterResult": "No logs match the current filters.",
+  "settingsDeveloperLogFilterAll": "All",
+  "settingsDeveloperLogFilterInfo": "Only info logs",
+  "settingsDeveloperLogFilterError": "Only errors",
+  "settingsDeveloperLogCount": "Total {total} entries, {filtered} after filters.",
+  "@settingsDeveloperLogCount": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "filtered": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsThemeModeLabel": "Theme mode",
+  "settingsThemeModeLight": "Light",
+  "settingsThemeModeDark": "Dark",
+  "settingsThemeModeSystem": "System",
+  "settingsLanguageLabel": "App language",
+  "settingsLanguageDescription": "Change the interface language",
+  "settingsLanguageSystem": "Follow system",
+  "settingsLanguageChinese": "Simplified Chinese",
+  "settingsLanguageEnglish": "English",
+  "settingsAboutProjectLine": "Project name: {name}",
+  "@settingsAboutProjectLine": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "settingsAboutVersionLine": "Version: {version}",
+  "@settingsAboutVersionLine": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "settingsAboutRepositoryLine": "GitHub: {url}",
+  "@settingsAboutRepositoryLine": {
+    "placeholders": {
+      "url": {}
+    }
+  },
+  "settingsRepositoryOpenFailed": "Unable to open {url}",
+  "@settingsRepositoryOpenFailed": {
+    "placeholders": {
+      "url": {}
+    }
+  },
+  "actionClear": "Clear",
+  "actionClose": "Close"
+}

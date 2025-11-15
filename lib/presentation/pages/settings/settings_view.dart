@@ -6,7 +6,10 @@ import 'package:macos_ui/macos_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../l10n/app_localizations.dart';
+
 import '../../../core/di/dependency_injection.dart';
+import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/modal_dialog.dart';
 import '../../developer/developer_log_collector.dart';
@@ -17,13 +20,18 @@ final Future<PackageInfo> _packageInfoFuture = PackageInfo.fromPlatform();
 final Uri _repositoryUrl =
     Uri.parse('https://github.com/MCDFsteve/MisuzuMusic');
 
-Future<void> _openRepository() async {
+Future<void> _openRepository(BuildContext context) async {
   final result = await launchUrl(
     _repositoryUrl,
     mode: LaunchMode.externalApplication,
   );
   if (!result) {
-    debugPrint('无法打开 $_repositoryUrl');
+    final l10n = AppLocalizations.of(context);
+    final fallback = 'Unable to open $_repositoryUrl';
+    final message =
+        l10n?.settingsRepositoryOpenFailed(_repositoryUrl.toString()) ??
+            fallback;
+    debugPrint(message);
   }
 }
 
@@ -33,15 +41,19 @@ class SettingsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeController = sl<ThemeController>();
+    final localeController = sl<LocaleController>();
+    final listenable = Listenable.merge([themeController, localeController]);
 
     return AnimatedBuilder(
-      animation: themeController,
+      animation: listenable,
       builder: (context, _) {
         final mode = themeController.themeMode;
 
         return _UnifiedSettingsView(
           currentMode: mode,
           onChanged: themeController.setThemeMode,
+          currentLocale: localeController.locale,
+          onLocaleChanged: localeController.setLocale,
         );
       },
     );
@@ -52,10 +64,14 @@ class _UnifiedSettingsView extends StatelessWidget {
   const _UnifiedSettingsView({
     required this.currentMode,
     required this.onChanged,
+    required this.currentLocale,
+    required this.onLocaleChanged,
   });
 
   final ThemeMode currentMode;
   final ValueChanged<ThemeMode> onChanged;
+  final Locale? currentLocale;
+  final Future<void> Function(Locale?) onLocaleChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +88,7 @@ class _UnifiedSettingsView extends StatelessWidget {
   }
 
   Widget _buildDesktopSettings(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
@@ -93,14 +110,19 @@ class _UnifiedSettingsView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _SettingsSection(
-                            title: '外观',
-                            subtitle: '自定义应用的外观和主题',
+                            title: l10n.settingsAppearanceTitle,
+                            subtitle: l10n.settingsAppearanceSubtitle,
                             isDarkMode: isDarkMode,
                           ),
                           const SizedBox(height: 20),
                           _ThemeModeControl(
                             currentMode: currentMode,
                             onChanged: onChanged,
+                          ),
+                          const SizedBox(height: 16),
+                          _LanguageControl(
+                            currentLocale: currentLocale,
+                            onLocaleChanged: onLocaleChanged,
                           ),
                         ],
                       ),
@@ -112,8 +134,8 @@ class _UnifiedSettingsView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _SettingsSection(
-                            title: '关于',
-                            subtitle: '了解项目名称、版本号与仓库链接',
+                            title: l10n.settingsAboutTitle,
+                            subtitle: l10n.settingsAboutSubtitle,
                             isDarkMode: isDarkMode,
                           ),
                           const SizedBox(height: 20),
@@ -128,8 +150,8 @@ class _UnifiedSettingsView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _SettingsSection(
-                            title: '开发者选项',
-                            subtitle: '访问调试输出等工具',
+                            title: l10n.settingsDeveloperTitle,
+                            subtitle: l10n.settingsDeveloperSubtitle,
                             isDarkMode: isDarkMode,
                           ),
                           const SizedBox(height: 20),
@@ -170,6 +192,7 @@ class _UnifiedSettingsView extends StatelessWidget {
   Widget _buildAdaptiveAppearanceSection(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
     final secondary = theme.textTheme.bodySmall?.color?.withOpacity(0.8) ??
         theme.colorScheme.onSurfaceVariant.withOpacity(0.8);
 
@@ -180,8 +203,7 @@ class _UnifiedSettingsView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '外观',
-            locale: const Locale('zh-Hans', 'zh'),
+            l10n.settingsAppearanceTitle,
             style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ) ??
@@ -189,14 +211,18 @@ class _UnifiedSettingsView extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '自定义应用的外观和主题',
-            locale: const Locale('zh-Hans', 'zh'),
+            l10n.settingsAppearanceSubtitle,
             style: theme.textTheme.bodySmall?.copyWith(color: secondary),
           ),
           const SizedBox(height: 16),
           _ThemeModeControl(
             currentMode: currentMode,
             onChanged: onChanged,
+          ),
+          const SizedBox(height: 16),
+          _LanguageControl(
+            currentLocale: currentLocale,
+            onLocaleChanged: onLocaleChanged,
           ),
         ],
       ),
@@ -206,6 +232,7 @@ class _UnifiedSettingsView extends StatelessWidget {
   Widget _buildAdaptiveAboutSection(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
 
     return _SettingsCard(
       isDarkMode: isDarkMode,
@@ -230,7 +257,7 @@ class _UnifiedSettingsView extends StatelessWidget {
           final appName = info?.appName.isNotEmpty == true
               ? info!.appName
               : 'Misuzu Music';
-          final version = info?.version ?? '未知版本';
+          final version = info?.version ?? l10n.settingsUnknownVersion;
 
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -238,22 +265,22 @@ class _UnifiedSettingsView extends StatelessWidget {
               _buildAdaptiveInfoTile(
                 context,
                 leading: const Icon(Icons.badge_outlined),
-                title: '项目名称',
+                title: l10n.settingsProjectNameLabel,
                 subtitle: appName,
               ),
               _buildAdaptiveInfoTile(
                 context,
                 leading: const Icon(Icons.tag_outlined),
-                title: '版本号',
+                title: l10n.settingsVersionLabel,
                 subtitle: version,
               ),
               _buildAdaptiveInfoTile(
                 context,
                 leading: const Icon(Icons.link_outlined),
-                title: 'GitHub 仓库',
+                title: l10n.settingsRepositoryLabel,
                 subtitle: _repositoryUrl.toString(),
                 trailing: const Icon(Icons.open_in_new),
-                onTap: _openRepository,
+                onTap: () => _openRepository(context),
               ),
             ],
           );
@@ -265,6 +292,7 @@ class _UnifiedSettingsView extends StatelessWidget {
   Widget _buildAdaptiveDeveloperSection(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
 
     return _SettingsCard(
       isDarkMode: isDarkMode,
@@ -275,8 +303,8 @@ class _UnifiedSettingsView extends StatelessWidget {
           _buildAdaptiveInfoTile(
             context,
             leading: const Icon(Icons.terminal_outlined),
-            title: '终端输出',
-            subtitle: '查看 print 和 debugPrint 的实时日志',
+            title: l10n.settingsDeveloperTerminalTitle,
+            subtitle: l10n.settingsDeveloperTerminalSubtitle,
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _showTerminalOutputDialog(context),
           ),
@@ -321,23 +349,21 @@ class _UnifiedSettingsView extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  locale: const Locale('zh-Hans', 'zh'),
-                  style: titleStyle,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  locale: const Locale('zh-Hans', 'zh'),
-                  style: subtitleStyle,
-                ),
-              ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: titleStyle,
             ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: subtitleStyle,
+            ),
+          ],
+        ),
           ),
           if (trailing != null) ...[
             const SizedBox(width: 12),
@@ -443,7 +469,6 @@ class _SettingsSection extends StatelessWidget {
       children: [
         Text(
           title,
-          locale: Locale("zh-Hans", "zh"),
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -455,7 +480,6 @@ class _SettingsSection extends StatelessWidget {
         Expanded(
           child: Text(
             subtitle,
-            locale: Locale("zh-Hans", "zh"),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w400,
@@ -480,6 +504,7 @@ class _AboutSection extends StatelessWidget {
     final TextStyle bodyStyle = macTheme?.typography.body ??
         DefaultTextStyle.of(context).style ??
         const TextStyle(fontSize: 14);
+    final l10n = AppLocalizations.of(context)!;
 
     return FutureBuilder<PackageInfo>(
       future: packageInfoFuture,
@@ -488,20 +513,20 @@ class _AboutSection extends StatelessWidget {
         final appName = info?.appName.isNotEmpty == true
             ? info!.appName
             : 'Misuzu Music';
-        final version = info?.version ?? '未知版本';
+        final version = info?.version ?? l10n.settingsUnknownVersion;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('项目名称：$appName', style: bodyStyle),
+            Text(l10n.settingsAboutProjectLine(appName), style: bodyStyle),
             const SizedBox(height: 8),
-            Text('版本号：$version', style: bodyStyle),
+            Text(l10n.settingsAboutVersionLine(version), style: bodyStyle),
             const SizedBox(height: 8),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: _openRepository,
+              onTap: () => _openRepository(context),
               child: Text(
-                'GitHub：${_repositoryUrl.toString()}',
+                l10n.settingsAboutRepositoryLine(_repositoryUrl.toString()),
                 style: bodyStyle,
               ),
             ),
@@ -519,11 +544,12 @@ class _DeveloperOptionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
         _DeveloperOptionTile(
-          title: '终端输出',
-          subtitle: '查看 print 和 debugPrint 的实时日志',
+          title: l10n.settingsDeveloperTerminalTitle,
+          subtitle: l10n.settingsDeveloperTerminalSubtitle,
           icon: Icons.terminal,
           isDarkMode: isDarkMode,
           onTap: () => _showTerminalOutputDialog(context),
@@ -582,7 +608,6 @@ class _DeveloperOptionTile extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        locale: Locale("zh-Hans", "zh"),
                         style: TextStyle(
                           color: titleColor,
                           fontSize: 14,
@@ -593,7 +618,6 @@ class _DeveloperOptionTile extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        locale: Locale("zh-Hans", "zh"),
                         style: TextStyle(
                           color: subtitleColor,
                           fontSize: 12,
@@ -622,13 +646,14 @@ Future<void> _showTerminalOutputDialog(BuildContext context) async {
     context: context,
     barrierDismissible: true,
     builder: (dialogContext) {
+      final l10n = AppLocalizations.of(dialogContext)!;
       final theme = Theme.of(dialogContext);
       final macTheme = MacosTheme.maybeOf(dialogContext);
       final brightness = macTheme?.brightness ?? theme.brightness;
       final isDark = brightness == Brightness.dark;
 
       return PlaylistModalScaffold(
-        title: '终端输出',
+        title: l10n.settingsDeveloperTerminalTitle,
         maxWidth: 720,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         body: _DeveloperLogsDialog(
@@ -638,11 +663,11 @@ Future<void> _showTerminalOutputDialog(BuildContext context) async {
         actions: [
           TextButton(
             onPressed: collector.clear,
-            child: const Text('清空'),
+            child: Text(l10n.actionClear),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('关闭'),
+            child: Text(l10n.actionClose),
           ),
         ],
       );
@@ -719,11 +744,14 @@ class _DeveloperLogsDialogState extends State<_DeveloperLogsDialog> {
     }).toList();
   }
 
-  String _filterDescription(_DeveloperLogFilter filter) {
+  String _filterDescription(
+    AppLocalizations l10n,
+    _DeveloperLogFilter filter,
+  ) {
     return switch (filter) {
-      _DeveloperLogFilter.all => '全部',
-      _DeveloperLogFilter.info => '仅普通输出',
-      _DeveloperLogFilter.error => '仅错误',
+      _DeveloperLogFilter.all => l10n.settingsDeveloperLogFilterAll,
+      _DeveloperLogFilter.info => l10n.settingsDeveloperLogFilterInfo,
+      _DeveloperLogFilter.error => l10n.settingsDeveloperLogFilterError,
     };
   }
 
@@ -737,6 +765,7 @@ class _DeveloperLogsDialogState extends State<_DeveloperLogsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final Color logBackground = widget.isDarkMode
         ? const Color(0xFF111111)
         : const Color(0xFFF4F4F4);
@@ -771,8 +800,7 @@ class _DeveloperLogsDialogState extends State<_DeveloperLogsDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '展示应用启动以来所有 print 与 debugPrint 输出，可快速搜索或过滤。',
-              locale: Locale("zh-Hans", "zh"),
+              l10n.settingsDeveloperLogExplanation,
               style: TextStyle(
                 fontSize: 12,
                 color: widget.isDarkMode
@@ -789,14 +817,14 @@ class _DeveloperLogsDialogState extends State<_DeveloperLogsDialog> {
                 suffixIcon: _searchController.text.isEmpty
                     ? null
                     : IconButton(
-                        tooltip: '清除搜索',
+                        tooltip: l10n.settingsDeveloperClearSearch,
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           _searchController.clear();
                           _searchFocusNode.requestFocus();
                         },
                       ),
-                hintText: '搜索日志内容或时间戳...',
+                hintText: l10n.settingsDeveloperSearchHint,
                 border: const OutlineInputBorder(),
                 isDense: true,
               ),
@@ -808,8 +836,7 @@ class _DeveloperLogsDialogState extends State<_DeveloperLogsDialog> {
                     (filter) => ButtonSegment<_DeveloperLogFilter>(
                       value: filter,
                       label: Text(
-                        _filterDescription(filter),
-                        locale: Locale("zh-Hans", "zh"),
+                        _filterDescription(l10n, filter),
                       ),
                       icon: Icon(_filterIcon(filter), size: 16),
                     ),
@@ -843,9 +870,8 @@ class _DeveloperLogsDialogState extends State<_DeveloperLogsDialog> {
                         return Center(
                           child: Text(
                             logs.isEmpty
-                                ? '当前没有可显示的输出。'
-                                : '没有匹配筛选条件的日志。',
-                            locale: Locale("zh-Hans", "zh"),
+                                ? l10n.settingsDeveloperEmptyLogs
+                                : l10n.settingsDeveloperNoFilterResult,
                             style: TextStyle(
                               fontSize: 13,
                               color: widget.isDarkMode
@@ -893,8 +919,7 @@ class _DeveloperLogsDialogState extends State<_DeveloperLogsDialog> {
               builder: (context, logs, _) {
                 final filtered = _filterEntries(logs);
                 return Text(
-                  '总计 ${logs.length} 条，筛选后 ${filtered.length} 条。',
-                  locale: Locale("zh-Hans", "zh"),
+                  l10n.settingsDeveloperLogCount(logs.length, filtered.length),
                   style: TextStyle(
                     fontSize: 12,
                     color: widget.isDarkMode
@@ -932,7 +957,6 @@ class _ThemeModeControl extends StatefulWidget {
 }
 
 class _ThemeModeControlState extends State<_ThemeModeControl> {
-  static const _tabs = ['浅色', '深色', '系统'];
   late int _currentIndex;
 
   @override
@@ -954,6 +978,8 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final tabs = _tabs(context, l10n);
     final macTheme = MacosTheme.maybeOf(context);
     final materialTheme = Theme.of(context);
     final isDarkMode =
@@ -966,8 +992,7 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
         const TextStyle(fontSize: 14);
 
     final label = Text(
-      '主题模式',
-      locale: const Locale('zh-Hans', 'zh'),
+      l10n.settingsThemeModeLabel,
       style: baseTextStyle.copyWith(
         fontWeight: FontWeight.w500,
         color: isDarkMode
@@ -983,7 +1008,7 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
           label,
           const SizedBox(height: 12),
           AdaptiveSegmentedControl(
-            labels: _tabs,
+            labels: tabs,
             selectedIndex: _currentIndex,
             onValueChanged: _handleTap,
             height: 34,
@@ -1007,16 +1032,16 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
                 : Colors.black.withOpacity(0.12),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Stack(
-            children: [
-              AnimatedAlign(
-                duration: const Duration(milliseconds: 420),
-                curve: Curves.elasticOut,
-                alignment: _alignmentForIndex(_currentIndex),
-                child: FractionallySizedBox(
-                  widthFactor: 1 / _tabs.length,
-                  heightFactor: 1,
-                  child: Padding(
+            child: Stack(
+              children: [
+                AnimatedAlign(
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.elasticOut,
+                  alignment: _alignmentForIndex(_currentIndex, tabs.length),
+                  child: FractionallySizedBox(
+                    widthFactor: 1 / tabs.length,
+                    heightFactor: 1,
+                    child: Padding(
                     padding: const EdgeInsets.all(2),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -1031,8 +1056,8 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
-                children: List.generate(_tabs.length, (index) {
-                  final label = _tabs[index];
+                children: List.generate(tabs.length, (index) {
+                  final label = tabs[index];
                   final isSelected = index == _currentIndex;
                   return SizedBox(
                     width: 84,
@@ -1055,7 +1080,7 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
                                     ? Colors.white.withOpacity(0.85)
                                     : Colors.black.withOpacity(0.75)),
                           ),
-                          child: Text(label,locale: Locale("zh-Hans", "zh"),),
+                          child: Text(label),
                         ),
                       ),
                     ),
@@ -1084,12 +1109,20 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
     }
   }
 
-  Alignment _alignmentForIndex(int index) {
-    if (_tabs.length == 1) {
+  Alignment _alignmentForIndex(int index, int count) {
+    if (count == 1) {
       return Alignment.center;
     }
-    final step = 2 / (_tabs.length - 1);
+    final step = 2 / (count - 1);
     return Alignment(-1 + (step * index), 0);
+  }
+
+  List<String> _tabs(BuildContext context, AppLocalizations l10n) {
+    return <String>[
+      l10n.settingsThemeModeLight,
+      l10n.settingsThemeModeDark,
+      l10n.settingsThemeModeSystem,
+    ];
   }
 
   int _modeToIndex(ThemeMode mode) {
@@ -1116,3 +1149,160 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
     }
   }
 }
+
+class _LanguageControl extends StatefulWidget {
+  const _LanguageControl({
+    required this.currentLocale,
+    required this.onLocaleChanged,
+  });
+
+  final Locale? currentLocale;
+  final Future<void> Function(Locale?) onLocaleChanged;
+
+  @override
+  State<_LanguageControl> createState() => _LanguageControlState();
+}
+
+class _LanguageControlState extends State<_LanguageControl> {
+  late _LanguageOption _currentOption;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentOption = _localeToOption(widget.currentLocale);
+  }
+
+  @override
+  void didUpdateWidget(covariant _LanguageControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = _localeToOption(widget.currentLocale);
+    if (next != _currentOption) {
+      setState(() {
+        _currentOption = next;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final macTheme = MacosTheme.maybeOf(context);
+    final materialTheme = Theme.of(context);
+    final isDarkMode =
+        (macTheme?.brightness ?? materialTheme.brightness) == Brightness.dark;
+    final platform = materialTheme.platform;
+    final bool useAdaptiveSegments =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.android;
+    final baseTextStyle = macTheme?.typography.body ??
+        materialTheme.textTheme.bodyMedium ??
+        const TextStyle(fontSize: 14);
+
+    final labels = _labels(l10n);
+    final selectedIndex = _LanguageOption.values.indexOf(_currentOption);
+
+    final label = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.settingsLanguageLabel,
+          style: baseTextStyle.copyWith(
+            fontWeight: FontWeight.w500,
+            color: isDarkMode
+                ? Colors.white.withOpacity(0.9)
+                : Colors.black.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.settingsLanguageDescription,
+          style: baseTextStyle.copyWith(
+            fontSize: 12,
+            color: isDarkMode
+                ? Colors.white.withOpacity(0.7)
+                : Colors.black.withOpacity(0.6),
+          ),
+        ),
+      ],
+    );
+
+    if (useAdaptiveSegments) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          label,
+          const SizedBox(height: 8),
+          AdaptiveSegmentedControl(
+            labels: labels,
+            selectedIndex: selectedIndex,
+            onValueChanged: _handleTap,
+            height: 34,
+            shrinkWrap: true,
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        label,
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: List.generate(labels.length, (index) {
+            final isSelected = index == selectedIndex;
+            return ChoiceChip(
+              label: Text(labels[index]),
+              selected: isSelected,
+              onSelected: (_) => _handleTap(index),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  void _handleTap(int index) {
+    final option = _LanguageOption.values[index];
+    if (_currentOption == option) {
+      return;
+    }
+    setState(() {
+      _currentOption = option;
+    });
+    widget.onLocaleChanged(_optionToLocale(option));
+  }
+
+  _LanguageOption _localeToOption(Locale? locale) {
+    if (locale == null) {
+      return _LanguageOption.system;
+    }
+    switch (locale.languageCode) {
+      case 'zh':
+        return _LanguageOption.chinese;
+      case 'en':
+        return _LanguageOption.english;
+      default:
+        return _LanguageOption.system;
+    }
+  }
+
+  Locale? _optionToLocale(_LanguageOption option) {
+    return switch (option) {
+      _LanguageOption.system => null,
+      _LanguageOption.chinese => const Locale('zh'),
+      _LanguageOption.english => const Locale('en'),
+    };
+  }
+
+  List<String> _labels(AppLocalizations l10n) {
+    return <String>[
+      l10n.settingsLanguageSystem,
+      l10n.settingsLanguageChinese,
+      l10n.settingsLanguageEnglish,
+    ];
+  }
+}
+
+enum _LanguageOption { system, chinese, english }

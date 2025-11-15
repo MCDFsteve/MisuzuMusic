@@ -1,0 +1,69 @@
+{
+  "@@locale": "zh",
+  "settingsAppearanceTitle": "外观",
+  "settingsAppearanceSubtitle": "自定义应用的外观和主题",
+  "settingsAboutTitle": "关于",
+  "settingsAboutSubtitle": "了解项目名称、版本号与仓库链接",
+  "settingsDeveloperTitle": "开发者选项",
+  "settingsDeveloperSubtitle": "访问调试输出等工具",
+  "settingsUnknownVersion": "未知版本",
+  "settingsProjectNameLabel": "项目名称",
+  "settingsVersionLabel": "版本号",
+  "settingsRepositoryLabel": "GitHub 仓库",
+  "settingsDeveloperTerminalTitle": "终端输出",
+  "settingsDeveloperTerminalSubtitle": "查看 print 和 debugPrint 的实时日志",
+  "settingsDeveloperLogExplanation": "展示应用启动以来所有 print 与 debugPrint 输出，可快速搜索或过滤。",
+  "settingsDeveloperClearSearch": "清除搜索",
+  "settingsDeveloperSearchHint": "搜索日志内容或时间戳...",
+  "settingsDeveloperEmptyLogs": "当前没有可显示的输出。",
+  "settingsDeveloperNoFilterResult": "没有匹配筛选条件的日志。",
+  "settingsDeveloperLogFilterAll": "全部",
+  "settingsDeveloperLogFilterInfo": "仅普通输出",
+  "settingsDeveloperLogFilterError": "仅错误",
+  "settingsDeveloperLogCount": "总计 {total} 条，筛选后 {filtered} 条。",
+  "@settingsDeveloperLogCount": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "filtered": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsThemeModeLabel": "主题模式",
+  "settingsThemeModeLight": "浅色",
+  "settingsThemeModeDark": "深色",
+  "settingsThemeModeSystem": "系统",
+  "settingsLanguageLabel": "界面语言",
+  "settingsLanguageDescription": "切换界面文本语言",
+  "settingsLanguageSystem": "跟随系统",
+  "settingsLanguageChinese": "简体中文",
+  "settingsLanguageEnglish": "英语",
+  "settingsAboutProjectLine": "项目名称：{name}",
+  "@settingsAboutProjectLine": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "settingsAboutVersionLine": "版本号：{version}",
+  "@settingsAboutVersionLine": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "settingsAboutRepositoryLine": "GitHub：{url}",
+  "@settingsAboutRepositoryLine": {
+    "placeholders": {
+      "url": {}
+    }
+  },
+  "settingsRepositoryOpenFailed": "无法打开链接 {url}",
+  "@settingsRepositoryOpenFailed": {
+    "placeholders": {
+      "url": {}
+    }
+  },
+  "actionClear": "清空",
+  "actionClose": "关闭"
+}
