@@ -95,12 +95,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _desktopLyricsBridge = sl<DesktopLyricsBridge>();
     _songDetailService = sl<SongDetailService>();
     _neteaseIdResolver = sl<NeteaseIdResolver>();
-    _lyricsCubit = LyricsCubit(
-      findLyricsFile: sl<FindLyricsFile>(),
-      loadLyricsFromFile: sl<LoadLyricsFromFile>(),
-      fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
-      getLyrics: sl<GetLyrics>(),
-    )..loadLyricsForTrack(_currentTrack);
+    _lyricsCubit = context.read<LyricsCubit>();
+    _ensureLyricsLoaded(_currentTrack);
     _resetDesktopLineCache();
 
     final initialPlayerState = context.read<PlayerBloc>().state;
@@ -117,7 +113,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (widget.initialTrack != oldWidget.initialTrack) {
       _currentTrack = widget.initialTrack;
       _resetTrackDetailState();
-      _lyricsCubit.loadLyricsForTrack(_currentTrack);
+      _ensureLyricsLoaded(_currentTrack);
       _resetScroll();
       _activeLyricsLines = const [];
       _activeDesktopLine = null;
@@ -139,7 +135,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     }
     unawaited(_playerSubscription?.cancel());
     _lyricsScrollController.dispose();
-    _lyricsCubit.close();
     super.dispose();
   }
 
@@ -163,6 +158,15 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _showTrackDetailPanel = false;
     _compactLyricsStage = _CompactLyricsStage.cover;
     _trackDetailRequestToken++;
+  }
+
+  void _ensureLyricsLoaded(Track track) {
+    final currentState = _lyricsCubit.state;
+    final bool needsLoad = currentState is! LyricsLoaded ||
+        currentState.lyrics.trackId != track.id;
+    if (needsLoad) {
+      unawaited(_lyricsCubit.loadLyricsForTrack(track));
+    }
   }
 
   String _detailCacheKeyForTrack(Track track) {
@@ -210,6 +214,23 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     final track = _currentTrack;
     final cacheKey = _detailCacheKeyForTrack(track);
 
+    if (!force) {
+      final cached = _songDetailService.getCachedDetail(
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+      );
+      if (cached != null) {
+        setState(() {
+          _trackDetailContent = cached.content;
+          _trackDetailFileName = cached.fileName;
+          _trackDetailLoadedKey = cacheKey;
+          _trackDetailError = null;
+        });
+        return;
+      }
+    }
+
     if (!force &&
         _trackDetailLoadedKey == cacheKey &&
         _trackDetailContent != null &&
@@ -233,6 +254,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         title: track.title,
         artist: track.artist,
         album: track.album,
+        forceRefresh: force,
       );
 
       if (!mounted || currentRequestId != _trackDetailRequestToken) {
@@ -852,7 +874,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           _resetTrackDetailState();
         });
       }
-      _lyricsCubit.loadLyricsForTrack(nextTrack);
+      _ensureLyricsLoaded(nextTrack);
       _resetScroll();
       _activeLyricsLines = const [];
       _activeDesktopLine = null;
@@ -1168,10 +1190,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   Widget build(BuildContext context) {
     final bool isMac = widget.isMac;
 
-    return BlocProvider.value(
-      value: _lyricsCubit,
-      child: BlocListener<LyricsCubit, LyricsState>(
-        listener: (context, state) {
+    return BlocListener<LyricsCubit, LyricsState>(
+      listener: (context, state) {
           if (state is LyricsLoaded || state is LyricsEmpty) {
             _resetScroll();
           }
@@ -1196,32 +1216,31 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             }
           }
         },
-        child: _LyricsLayout(
-          track: _currentTrack,
-          lyricsScrollController: _lyricsScrollController,
-          isMac: isMac,
-          showTranslation: _showTranslation,
-          onToggleTranslation: _toggleTranslationVisibility,
-          onDownloadLrc: _downloadLrcFile,
-          onReportError: _reportError,
-          onToggleDesktopLyrics: () =>
-              unawaited(_toggleDesktopLyricsAssistant()),
-          isDesktopLyricsActive: _desktopLyricsActive,
-          isDesktopLyricsBusy: _desktopLyricsBusy,
-          onActiveIndexChanged: _handleActiveIndexChanged,
-          onActiveLineChanged: _handleActiveLineChanged,
-          showTrackDetail: _showTrackDetailPanel,
-          isLoadingTrackDetail: _isLoadingTrackDetail,
-          isSavingTrackDetail: _isSavingTrackDetail,
-          trackDetailContent: _trackDetailContent,
-          trackDetailError: _trackDetailError,
-          trackDetailFileName: _trackDetailFileName,
-          onToggleTrackDetail: _toggleTrackDetailPanel,
-          onEditTrackDetail: _openTrackDetailEditor,
-          bottomSafeInset: widget.bottomSafeInset,
-          compactStage: _compactLyricsStage,
-          onCycleCompactStage: _cycleCompactLyricsStage,
-        ),
+      child: _LyricsLayout(
+        track: _currentTrack,
+        lyricsScrollController: _lyricsScrollController,
+        isMac: isMac,
+        showTranslation: _showTranslation,
+        onToggleTranslation: _toggleTranslationVisibility,
+        onDownloadLrc: _downloadLrcFile,
+        onReportError: _reportError,
+        onToggleDesktopLyrics:
+            () => unawaited(_toggleDesktopLyricsAssistant()),
+        isDesktopLyricsActive: _desktopLyricsActive,
+        isDesktopLyricsBusy: _desktopLyricsBusy,
+        onActiveIndexChanged: _handleActiveIndexChanged,
+        onActiveLineChanged: _handleActiveLineChanged,
+        showTrackDetail: _showTrackDetailPanel,
+        isLoadingTrackDetail: _isLoadingTrackDetail,
+        isSavingTrackDetail: _isSavingTrackDetail,
+        trackDetailContent: _trackDetailContent,
+        trackDetailError: _trackDetailError,
+        trackDetailFileName: _trackDetailFileName,
+        onToggleTrackDetail: _toggleTrackDetailPanel,
+        onEditTrackDetail: _openTrackDetailEditor,
+        bottomSafeInset: widget.bottomSafeInset,
+        compactStage: _compactLyricsStage,
+        onCycleCompactStage: _cycleCompactLyricsStage,
       ),
     );
   }

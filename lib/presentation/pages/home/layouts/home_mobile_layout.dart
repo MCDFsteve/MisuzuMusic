@@ -283,6 +283,16 @@ extension _HomePageMobileLayout on _HomePageContentState {
     final actions = <AdaptiveAppBarAction>[];
 
     if (_selectedIndex == 0) {
+      final libraryState = context.read<MusicLibraryBloc>().state;
+      if (libraryState is MusicLibraryLoaded) {
+        actions.add(
+          AdaptiveAppBarAction(
+            iosSymbol: 'arrow.up.arrow.down.circle',
+            icon: CupertinoIcons.arrow_up_arrow_down_circle,
+            onPressed: _showMusicLibrarySortOptions,
+          ),
+        );
+      }
       actions.add(
         AdaptiveAppBarAction(
           iosSymbol: 'folder.badge.plus',
@@ -325,6 +335,47 @@ extension _HomePageMobileLayout on _HomePageContentState {
     }
 
     return actions;
+  }
+
+  Future<void> _showMusicLibrarySortOptions() async {
+    final libraryState = context.read<MusicLibraryBloc>().state;
+    if (libraryState is! MusicLibraryLoaded) {
+      return;
+    }
+    final currentMode = libraryState.sortMode;
+
+    final selectedMode = await showPlaylistModalDialog<TrackSortMode>(
+      context: context,
+      builder: (dialogContext) => _PlaylistModalScaffold(
+        title: '选择排序方式',
+        maxWidth: 360,
+        contentSpacing: 18,
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: TrackSortMode.values
+              .map(
+                (mode) => _MobileSortModeTile(
+                  mode: mode,
+                  isSelected: mode == currentMode,
+                  onSelected: () => Navigator.of(dialogContext).pop(mode),
+                ),
+              )
+              .toList(growable: false),
+        ),
+        actions: [
+          _SheetActionButton.secondary(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedMode != null && selectedMode != currentMode) {
+      context
+          .read<MusicLibraryBloc>()
+          .add(ChangeSortModeEvent(selectedMode));
+    }
   }
 
   Future<void> _showPlaylistSortOptions() async {

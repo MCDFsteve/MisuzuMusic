@@ -103,10 +103,13 @@ class _HomePageContentState extends State<HomePageContent> {
   bool _playlistsCanNavigateBack = false;
   bool _neteaseCanNavigateBack = false;
   late final VoidCallback _focusManagerListener;
+  late final SongDetailService _songDetailService;
+  String? _prefetchedLyricsTrackId;
 
   @override
   void initState() {
     super.initState();
+    _songDetailService = sl<SongDetailService>();
     _focusManagerListener = () {
       final primary = FocusManager.instance.primaryFocus;
       if (primary == null && mounted && !_shortcutFocusNode.hasFocus) {
@@ -393,9 +396,36 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
+  void _prefetchTrackResources(Track? track) {
+    if (!mounted || track == null) {
+      return;
+    }
+    if (_prefetchedLyricsTrackId == track.id) {
+      return;
+    }
+    _prefetchedLyricsTrackId = track.id;
+    try {
+      context.read<LyricsCubit>().loadLyricsForTrack(track);
+    } catch (error) {
+      debugPrint('[HomeContent] 预加载歌词失败: $error');
+    }
+    unawaited(
+      _songDetailService
+          .prefetchDetail(
+            title: track.title,
+            artist: track.artist,
+            album: track.album,
+          )
+          .catchError((error) {
+        debugPrint('[HomeContent] 歌曲详情预加载失败: $error');
+      }),
+    );
+  }
+
   void _handlePlayerStateChange(PlayerBlocState playerState) {
     bool shouldHideLyrics = false;
-    Track? nextTrack = _playerTrack(playerState);
+    final Track? playerTrack = _playerTrack(playerState);
+    Track? nextTrack = playerTrack;
 
     if (playerState is PlayerInitial || playerState is PlayerError) {
       shouldHideLyrics = true;
@@ -411,6 +441,8 @@ class _HomePageContentState extends State<HomePageContent> {
     if (!mounted) {
       return;
     }
+
+    _prefetchTrackResources(playerTrack);
 
     // 保持当前歌词组件状态，避免切歌过渡时触发 dispose 导致桌面歌词被关闭。
     if (!shouldHideLyrics && nextTrack == null && _lyricsVisible) {

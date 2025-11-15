@@ -50,6 +50,144 @@ class MobileNowPlayingBar extends StatelessWidget {
     final Color cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final borderColor = isLyricsActive ? cardColor : Colors.transparent;
 
+    final bool showTrackInfo = !isLyricsActive;
+    final double transportButtonSize = isLyricsActive ? 48 : 32;
+    final double transportIconSize = isLyricsActive ? 26 : 22;
+    final double playModeIconSize = isLyricsActive ? 26 : 20;
+    final double playPauseSize = isLyricsActive ? 60 : 46;
+    final double playPauseIconSize = isLyricsActive ? 40 : 34;
+
+    final Widget prevButton = SizedBox(
+      width: transportButtonSize,
+      height: transportButtonSize,
+      child: PlayerTransportButton(
+        key: const ValueKey('mobile_prev_button'),
+        tooltip: '上一首',
+        enabled: data.canSkipPrevious,
+        baseColor: secondaryIconColor,
+        hoverColor: iconColor,
+        dimWhenDisabled: false,
+        iconBuilder: (color) => Icon(
+          CupertinoIcons.backward_fill,
+          color: color,
+          size: transportIconSize,
+        ),
+        onPressed: data.canSkipPrevious ? () => _skipPrevious(context) : null,
+      ),
+    );
+
+    final Widget nextButton = SizedBox(
+      width: transportButtonSize,
+      height: transportButtonSize,
+      child: PlayerTransportButton(
+        key: const ValueKey('mobile_next_button'),
+        tooltip: '下一首',
+        enabled: data.canSkipNext,
+        baseColor: secondaryIconColor,
+        hoverColor: iconColor,
+        dimWhenDisabled: false,
+        iconBuilder: (color) => Icon(
+          CupertinoIcons.forward_fill,
+          color: color,
+          size: transportIconSize,
+        ),
+        onPressed: data.canSkipNext ? () => _skipNext(context) : null,
+      ),
+    );
+
+    final Widget playModeButton = SizedBox(
+      width: transportButtonSize,
+      height: transportButtonSize,
+      child: PlayerTransportButton(
+        key: const ValueKey('mobile_play_mode_button'),
+        tooltip: _playModeTooltip(data.playMode),
+        enabled: true,
+        baseColor: secondaryIconColor,
+        hoverColor: iconColor,
+        dimWhenDisabled: false,
+        iconBuilder: (color) => Icon(
+          _playModeIcon(data.playMode),
+          color: color,
+          size: playModeIconSize,
+        ),
+        onPressed: () => _cyclePlayMode(context),
+      ),
+    );
+
+    final Widget playPauseButton = _PlayPauseButton(
+      showPauseVisual: showPauseVisual,
+      showLoadingIndicator: showLoadingIndicator,
+      enabled: data.canControl,
+      baseColor: iconColor.withOpacity(0.85),
+      hoverColor: iconColor,
+      onPressed: data.canControl
+          ? () => _togglePlayPause(context, data.isPlaying)
+          : null,
+      dimension: playPauseSize,
+      iconSize: playPauseIconSize,
+    );
+
+    final Widget controlsRow = isLyricsActive
+        ? Row(
+            key: const ValueKey('lyrics_controls_expanded'),
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [prevButton, playPauseButton, nextButton, playModeButton],
+          )
+        : Row(
+            key: const ValueKey('lyrics_controls_compact'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              prevButton,
+              const SizedBox(width: 2),
+              playPauseButton,
+              const SizedBox(width: 2),
+              nextButton,
+              const SizedBox(width: 4),
+              playModeButton,
+            ],
+          );
+
+    final Widget trackInfoColumn = Column(
+      key: const ValueKey('lyrics_track_info_column'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          data.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          data.subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.textTheme.bodySmall?.color == null
+                ? null
+                : theme.textTheme.bodySmall!.color!.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+
+    final Widget infoAndControls = Row(
+      key: const ValueKey('lyrics_info_controls_row'),
+      children: [
+        Expanded(child: trackInfoColumn),
+        const SizedBox(width: 8),
+        controlsRow,
+      ],
+    );
+
+    final Widget controlsOnly = Align(
+      key: const ValueKey('lyrics_controls_only'),
+      alignment: Alignment.center,
+      child: controlsRow,
+    );
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.fromLTRB(6, 0, 6, 0),
@@ -78,8 +216,7 @@ class MobileNowPlayingBar extends StatelessWidget {
                   remoteImageUrl: data.remoteArtworkUrl,
                   size: 48,
                   borderRadius: BorderRadius.circular(14),
-                  backgroundColor:
-                      theme.colorScheme.surfaceContainerHighest,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
                   borderColor: theme.dividerColor.withValues(alpha: 0.4),
                   placeholder: Icon(
                     CupertinoIcons.music_note,
@@ -89,96 +226,11 @@ class MobileNowPlayingBar extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      data.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      data.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.textTheme.bodySmall?.color == null
-                            ? null
-                            : theme.textTheme.bodySmall!.color!
-                                .withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 32,
-                height: 48,
-                child: PlayerTransportButton(
-                  key: const ValueKey('mobile_prev_button'),
-                  tooltip: '上一首',
-                  enabled: data.canSkipPrevious,
-                  baseColor: secondaryIconColor,
-                  hoverColor: iconColor,
-                  dimWhenDisabled: false,
-                  iconBuilder: (color) => Icon(
-                    CupertinoIcons.backward_fill,
-                    color: color,
-                    size: 22,
-                  ),
-                  onPressed:
-                      data.canSkipPrevious ? () => _skipPrevious(context) : null,
-                ),
-              ),
-              const SizedBox(width: 2),
-              _PlayPauseButton(
-                showPauseVisual: showPauseVisual,
-                showLoadingIndicator: showLoadingIndicator,
-                enabled: data.canControl,
-                baseColor: iconColor.withOpacity(0.85),
-                hoverColor: iconColor,
-                onPressed: data.canControl
-                    ? () => _togglePlayPause(context, data.isPlaying)
-                    : null,
-              ),
-              const SizedBox(width: 2),
-              SizedBox(
-                width: 32,
-                height: 48,
-                child: PlayerTransportButton(
-                  key: const ValueKey('mobile_next_button'),
-                  tooltip: '下一首',
-                  enabled: data.canSkipNext,
-                  baseColor: secondaryIconColor,
-                  hoverColor: iconColor,
-                  dimWhenDisabled: false,
-                  iconBuilder: (color) =>
-                      Icon(CupertinoIcons.forward_fill, color: color, size: 22),
-                  onPressed: data.canSkipNext ? () => _skipNext(context) : null,
-                ),
-              ),
-              const SizedBox(width: 4),
-              SizedBox(
-                width: 32,
-                height: 48,
-                child: PlayerTransportButton(
-                  key: const ValueKey('mobile_play_mode_button'),
-                  tooltip: _playModeTooltip(data.playMode),
-                  enabled: true,
-                  baseColor: secondaryIconColor,
-                  hoverColor: iconColor,
-                  dimWhenDisabled: false,
-                  iconBuilder: (color) => Icon(
-                    _playModeIcon(data.playMode),
-                    color: color,
-                    size: 20,
-                  ),
-                  onPressed: () => _cyclePlayMode(context),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: showTrackInfo ? infoAndControls : controlsOnly,
                 ),
               ),
             ],
@@ -382,6 +434,8 @@ class _PlayPauseButton extends StatelessWidget {
     required this.baseColor,
     required this.hoverColor,
     this.onPressed,
+    required this.dimension,
+    required this.iconSize,
   });
 
   final bool showPauseVisual;
@@ -390,6 +444,8 @@ class _PlayPauseButton extends StatelessWidget {
   final Color baseColor;
   final Color hoverColor;
   final VoidCallback? onPressed;
+  final double dimension;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -397,21 +453,21 @@ class _PlayPauseButton extends StatelessWidget {
 
     if (showLoadingIndicator) {
       return SizedBox(
-        width: 46,
-        height: 46,
+        width: dimension,
+        height: dimension,
         child: Center(
           child: Container(
-            width: 32,
-            height: 32,
+            width: math.max(32, dimension - 14),
+            height: math.max(32, dimension - 14),
             decoration: BoxDecoration(
               color: baseColor.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Center(
+            child: Center(
               child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                width: math.max(18, dimension - 30),
+                height: math.max(18, dimension - 30),
+                child: const CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
           ),
@@ -420,8 +476,8 @@ class _PlayPauseButton extends StatelessWidget {
     }
 
     return SizedBox(
-      width: 46,
-      height: 46,
+      width: dimension,
+      height: dimension,
       child: PlayerTransportButton(
         key: const ValueKey('mobile_play_button'),
         tooltip: showPauseVisual ? '暂停' : '播放',
@@ -441,7 +497,7 @@ class _PlayPauseButton extends StatelessWidget {
                   : CupertinoIcons.play_fill,
               key: ValueKey<bool>(showPauseVisual),
               color: color,
-              size: 34,
+              size: iconSize,
             ),
           ),
         ),
@@ -504,8 +560,7 @@ class _MobileProgressObserver extends StatelessWidget {
         return _ProgressSnapshot(
           position: fallbackPosition,
           duration: fallbackDuration,
-          canInteract:
-              enabled && fallbackDuration.inMilliseconds > 0,
+          canInteract: enabled && fallbackDuration.inMilliseconds > 0,
         );
       },
       builder: (context, snapshot) {
@@ -540,8 +595,7 @@ class _MobileProgressSlider extends StatefulWidget {
 class _MobileProgressSliderState extends State<_MobileProgressSlider> {
   double? _dragValue;
 
-  bool get _canSeek =>
-      widget.enabled && widget.duration.inMilliseconds > 0;
+  bool get _canSeek => widget.enabled && widget.duration.inMilliseconds > 0;
 
   double get _maxPosition =>
       math.max(1.0, widget.duration.inMilliseconds.toDouble());
@@ -549,7 +603,8 @@ class _MobileProgressSliderState extends State<_MobileProgressSlider> {
   @override
   void didUpdateWidget(covariant _MobileProgressSlider oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final shouldReset = widget.duration != oldWidget.duration ||
+    final shouldReset =
+        widget.duration != oldWidget.duration ||
         (widget.position == Duration.zero &&
             oldWidget.position != Duration.zero) ||
         !widget.enabled;
@@ -588,9 +643,11 @@ class _MobileProgressSliderState extends State<_MobileProgressSlider> {
 
   @override
   Widget build(BuildContext context) {
-    final sliderValue = (_dragValue ??
-            widget.position.inMilliseconds.toDouble())
-        .clamp(0.0, _maxPosition);
+    final sliderValue =
+        (_dragValue ?? widget.position.inMilliseconds.toDouble()).clamp(
+          0.0,
+          _maxPosition,
+        );
 
     final canInteract = _canSeek;
     final sliderTheme = SliderTheme.of(context).copyWith(

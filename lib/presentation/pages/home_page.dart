@@ -33,6 +33,8 @@ import '../../domain/repositories/netease_repository.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../domain/usecases/music_usecases.dart';
 import '../../domain/usecases/player_usecases.dart';
+import '../../domain/usecases/lyrics_usecases.dart';
+import '../../data/services/song_detail_service.dart';
 import '../blocs/music_library/music_library_bloc.dart';
 import '../blocs/playback_history/playback_history_cubit.dart';
 import '../blocs/playback_history/playback_history_state.dart';
@@ -40,6 +42,7 @@ import '../blocs/player/player_bloc.dart';
 import '../blocs/playlists/playlists_cubit.dart';
 import '../blocs/netease/netease_cubit.dart';
 import '../blocs/netease/netease_state.dart';
+import '../blocs/lyrics/lyrics_cubit.dart';
 import '../widgets/common/adaptive_scrollbar.dart';
 import '../widgets/common/artwork_thumbnail.dart';
 import '../widgets/common/library_search_field.dart';
@@ -120,6 +123,14 @@ class HomePage extends StatelessWidget {
             skipToPrevious: sl<SkipToPrevious>(),
             audioPlayerService: sl<AudioPlayerService>(),
           )..add(const PlayerRestoreLastSession()),
+        ),
+        BlocProvider(
+          create: (context) => LyricsCubit(
+            findLyricsFile: sl<FindLyricsFile>(),
+            loadLyricsFromFile: sl<LoadLyricsFromFile>(),
+            fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
+            getLyrics: sl<GetLyrics>(),
+          ),
         ),
         BlocProvider(
           create: (context) =>

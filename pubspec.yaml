@@ -160,3 +160,5 @@ rename:
 dependency_overrides:
   desktop_multi_window:
     path: third_party/plugins/desktop_multi_window
+  audio_service:
+    path: third_party/plugins/audio_service

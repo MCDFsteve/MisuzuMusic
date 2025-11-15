@@ -10,6 +10,8 @@ class SongDetailService {
   SongDetailService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
+  final Map<String, SongDetailResult> _detailCache = {};
+  final Map<String, Future<SongDetailResult>> _inFlightRequests = {};
 
   static final RegExp _sanitizeRegExp = RegExp(
     r'[\p{P}\p{S}\s]+',
@@ -59,7 +61,74 @@ class SongDetailService {
     return trimmed;
   }
 
+  String _cacheKey({
+    required String title,
+    String? artist,
+    String? album,
+  }) {
+    final normalizedTitle = title.trim().toLowerCase();
+    final normalizedArtist = artist?.trim().toLowerCase() ?? '';
+    final normalizedAlbum = album?.trim().toLowerCase() ?? '';
+    return '$normalizedTitle::$normalizedArtist::$normalizedAlbum';
+  }
+
+  SongDetailResult? getCachedDetail({
+    required String title,
+    String? artist,
+    String? album,
+  }) {
+    final key = _cacheKey(title: title, artist: artist, album: album);
+    return _detailCache[key];
+  }
+
+  Future<SongDetailResult> prefetchDetail({
+    required String title,
+    String? artist,
+    String? album,
+  }) {
+    return fetchDetail(title: title, artist: artist, album: album);
+  }
+
   Future<SongDetailResult> fetchDetail({
+    required String title,
+    String? artist,
+    String? album,
+    bool forceRefresh = false,
+  }) async {
+    final cacheKey = _cacheKey(title: title, artist: artist, album: album);
+
+    if (!forceRefresh) {
+      final cached = _detailCache[cacheKey];
+      if (cached != null) {
+        return cached;
+      }
+
+      final pending = _inFlightRequests[cacheKey];
+      if (pending != null) {
+        return pending;
+      }
+    } else {
+      _detailCache.remove(cacheKey);
+      _inFlightRequests.remove(cacheKey);
+    }
+
+    final future = _performFetchDetail(
+      title: title,
+      artist: artist,
+      album: album,
+    );
+    _inFlightRequests[cacheKey] = future;
+
+    try {
+      final result = await future;
+      _detailCache[cacheKey] = result;
+      return result;
+    } finally {
+      _inFlightRequests.remove(cacheKey);
+    }
+  }
+
+  Future<SongDetailResult> _performFetchDetail({
     required String title,
     String? artist,
     String? album,
@@ -161,12 +230,15 @@ class SongDetailService {
         throw const NetworkException('歌曲详情保存响应缺少文件名');
       }
 
-      return SongDetailResult(
+      final result = SongDetailResult(
         fileName: fileName,
         content: savedContent ?? content,
         exists: true,
         created: created,
       );
+      final cacheKey = _cacheKey(title: title, artist: artist, album: album);
+      _detailCache[cacheKey] = result;
+      return result;
     } catch (e) {
       if (e is AppException) {
         rethrow;
