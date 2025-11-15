@@ -7,13 +7,24 @@ import '../../core/constants/app_constants.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/services/audio_player_service.dart';
 
-class MisuzuAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
+class MisuzuAudioHandler extends BaseAudioHandler
+    with QueueHandler, SeekHandler {
   MisuzuAudioHandler(this._audioPlayerService) {
-    _subscriptions.add(_audioPlayerService.playerStateStream.listen(_handlePlayerState));
-    _subscriptions.add(_audioPlayerService.currentTrackStream.listen(_handleTrackChange));
-    _subscriptions.add(_audioPlayerService.queueStream.listen(_handleQueueChange));
-    _subscriptions.add(_audioPlayerService.positionStream.listen((_) => _updatePlaybackState()));
-    _subscriptions.add(_audioPlayerService.playModeStream.listen((_) => _updatePlaybackState()));
+    _subscriptions.add(
+      _audioPlayerService.playerStateStream.listen(_handlePlayerState),
+    );
+    _subscriptions.add(
+      _audioPlayerService.currentTrackStream.listen(_handleTrackChange),
+    );
+    _subscriptions.add(
+      _audioPlayerService.queueStream.listen(_handleQueueChange),
+    );
+    _subscriptions.add(
+      _audioPlayerService.positionStream.listen((_) => _updatePlaybackState()),
+    );
+    _subscriptions.add(
+      _audioPlayerService.playModeStream.listen((_) => _updatePlaybackState()),
+    );
   }
 
   final AudioPlayerService _audioPlayerService;
@@ -157,7 +168,9 @@ class MisuzuAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
       case PlayerState.loading:
         return AudioProcessingState.loading;
       case PlayerState.stopped:
-        return AudioProcessingState.idle;
+        return _latestTrack == null
+            ? AudioProcessingState.idle
+            : AudioProcessingState.completed;
     }
   }
 
@@ -186,7 +199,8 @@ class MisuzuAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
     }
 
     // 检查是否是网络URL
-    if (artworkPath.startsWith('http://') || artworkPath.startsWith('https://')) {
+    if (artworkPath.startsWith('http://') ||
+        artworkPath.startsWith('https://')) {
       return Uri.tryParse(artworkPath);
     }
 
@@ -199,5 +213,4 @@ class MisuzuAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
     // 如果本地文件不存在，返回null而不是尝试解析可能无效的URI
     return null;
   }
-
 }

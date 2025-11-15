@@ -716,6 +716,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       print('⏭️ AudioService: 忽略自动切歌事件（手动切换进行中）');
       return;
     }
+    if (_requiresAudioSession) {
+      unawaited(_ensureAudioSessionReady());
+    }
     switch (_playMode) {
       case PlayMode.repeatAll:
       case PlayMode.repeatOne:
