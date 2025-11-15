@@ -15,19 +15,20 @@ extension _HomePageDesktopLayout on _HomePageContentState {
             .state;
         final NeteaseState neteaseState = context.watch<NeteaseCubit>().state;
 
+        final l10n = context.l10n;
         final String? statsLabel = _selectedIndex == 2
             ? _composeNeteaseStatsLabel(neteaseState)
             : _composeHeaderStatsLabel(libraryState);
         bool showBackButton = false;
         bool canNavigateBack = false;
         VoidCallback? onNavigateBack;
-        String backTooltip = '返回上一层';
+        String backTooltip = l10n.homeBackTooltipDefault;
         TrackSortMode? sortMode;
         ValueChanged<TrackSortMode>? onSortModeChanged;
         bool showLogoutButton = false;
         bool logoutEnabled = false;
         VoidCallback? onLogout;
-        String logoutTooltip = '退出登录';
+        String logoutTooltip = l10n.homeLogoutTooltipDefault;
         final playlistsViewState = _playlistsViewKey.currentState;
         final musicLibraryViewState = _musicLibraryViewKey.currentState;
 
@@ -36,11 +37,11 @@ extension _HomePageDesktopLayout on _HomePageContentState {
             showBackButton = true;
             if (_hasActiveDetail) {
               canNavigateBack = true;
-              backTooltip = '返回音乐库';
+              backTooltip = l10n.homeBackTooltipLibrary;
               onNavigateBack = _clearActiveDetail;
             } else {
               canNavigateBack = _musicLibraryCanNavigateBack;
-              backTooltip = '返回音乐库';
+              backTooltip = l10n.homeBackTooltipLibrary;
               if (canNavigateBack) {
                 onNavigateBack = () => musicLibraryViewState?.exitToOverview();
                 final musicState = context.read<MusicLibraryBloc>().state;
@@ -58,7 +59,7 @@ extension _HomePageDesktopLayout on _HomePageContentState {
           case 1:
             showBackButton = true;
             canNavigateBack = _playlistsCanNavigateBack;
-            backTooltip = '返回歌单列表';
+            backTooltip = l10n.homeBackTooltipPlaylists;
             if (canNavigateBack) {
               onNavigateBack = () => playlistsViewState?.exitToOverview();
               sortMode = context.read<PlaylistsCubit>().state.sortMode;
@@ -70,7 +71,7 @@ extension _HomePageDesktopLayout on _HomePageContentState {
           case 2:
             showBackButton = true;
             canNavigateBack = _neteaseCanNavigateBack;
-            backTooltip = '返回网络歌曲歌单列表';
+            backTooltip = l10n.homeBackTooltipNetease;
             if (canNavigateBack) {
               onNavigateBack = () =>
                   _neteaseViewKey.currentState?.exitToOverview();
@@ -78,7 +79,7 @@ extension _HomePageDesktopLayout on _HomePageContentState {
             if (neteaseState.hasSession) {
               showLogoutButton = true;
               logoutEnabled = !neteaseState.isSubmittingCookie;
-              logoutTooltip = '退出网络歌曲登录';
+              logoutTooltip = l10n.homeLogoutTooltipNetease;
               onLogout = () {
                 _neteaseViewKey.currentState?.prepareForLogout();
                 context.read<NeteaseCubit>().logout();

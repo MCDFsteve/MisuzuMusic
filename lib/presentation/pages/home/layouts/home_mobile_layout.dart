@@ -347,7 +347,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
     final selectedMode = await showPlaylistModalDialog<TrackSortMode>(
       context: context,
       builder: (dialogContext) => _PlaylistModalScaffold(
-        title: '选择排序方式',
+        title: context.l10n.glassHeaderSortTitle,
         maxWidth: 360,
         contentSpacing: 18,
         body: Column(
@@ -364,7 +364,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
         ),
         actions: [
           _SheetActionButton.secondary(
-            label: '取消',
+            label: context.l10n.actionCancel,
             onPressed: () => Navigator.of(dialogContext).pop(),
           ),
         ],
@@ -385,7 +385,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
     final selectedMode = await showPlaylistModalDialog<TrackSortMode>(
       context: context,
       builder: (dialogContext) => _PlaylistModalScaffold(
-        title: '选择排序方式',
+        title: context.l10n.glassHeaderSortTitle,
         maxWidth: 360,
         contentSpacing: 18,
         body: Column(
@@ -402,7 +402,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
         ),
         actions: [
           _SheetActionButton.secondary(
-            label: '取消',
+            label: context.l10n.actionCancel,
             onPressed: () => Navigator.of(dialogContext).pop(),
           ),
         ],

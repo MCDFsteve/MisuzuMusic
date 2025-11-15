@@ -65,5 +65,198 @@
     }
   },
   "actionClear": "Clear",
-  "actionClose": "Close"
+  "actionClose": "Close",
+  "navLibrary": "Library",
+  "navPlaylists": "Song Lists",
+  "navOnlineTracks": "Online Tracks",
+  "navQueue": "Queue",
+  "navSettings": "Settings",
+  "glassHeaderBackTooltip": "Go back",
+  "glassHeaderLogoutTooltip": "Sign out",
+  "glassHeaderSortTooltip": "Change sort order",
+  "glassHeaderCreatePlaylistTooltip": "Create playlist",
+  "glassHeaderSelectFolderTooltip": "Pick music folder",
+  "windowMinimize": "Minimize",
+  "windowRestore": "Restore",
+  "windowMaximize": "Maximize",
+  "windowClose": "Close",
+  "glassHeaderSortTitle": "Choose sort order",
+  "actionCancel": "Cancel",
+  "homeBackTooltipDefault": "Go back",
+  "homeBackTooltipLibrary": "Back to library",
+  "homeBackTooltipPlaylists": "Back to playlist list",
+  "homeBackTooltipNetease": "Back to online playlists",
+  "homeLogoutTooltipDefault": "Sign out",
+  "homeLogoutTooltipNetease": "Sign out of online service",
+  "homePullCloudPlaylistTitle": "Import cloud playlist",
+  "homePullCloudPlaylistConfirm": "Import",
+  "homePullCloudPlaylistDescription": "Enter the cloud playlist ID (min 5 characters, letters/numbers/underscore).",
+  "homePullCloudPlaylistSuccess": "Imported cloud playlist (ID: {cloudId})",
+  "@homePullCloudPlaylistSuccess": {
+    "placeholders": {
+      "cloudId": {}
+    }
+  },
+  "homePullCloudPlaylistProgress": "Importing cloud playlist...",
+  "homePullCloudPlaylistAddCurrent": "Playlist imported and current track added",
+  "homePullCloudPlaylistAlready": "Playlist imported; track already existed",
+  "actionOk": "OK",
+  "homeAddToPlaylistTitle": "Add to playlist",
+  "homeAddToPlaylistEmpty": "No tracks available to add",
+  "homeAddToPlaylistFailed": "Failed to add to playlist",
+  "playlistDefaultName": "Playlist",
+  "homeAddToPlaylistExists": "Selected tracks already exist in the playlist",
+  "homeAddToPlaylistSummary": "Added {count} tracks to “{playlist}”",
+  "@homeAddToPlaylistSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "playlist": {}
+    }
+  },
+  "homeAddToPlaylistSummaryWithSkipped": "{base} ({skipped} already existed)",
+  "@homeAddToPlaylistSummaryWithSkipped": {
+    "placeholders": {
+      "base": {},
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "homeSongMissingArtist": "This track has no artist info",
+  "homeLibraryNotReady": "Library is still loading",
+  "homeArtistNotFound": "Artist not found in library",
+  "homeSongMissingAlbum": "This track has no album info",
+  "homeAlbumNotFound": "Album not found in library",
+  "homeSongLabel": "Song: {title}",
+  "@homeSongLabel": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "homeArtistLabel": "Artist: {name}",
+  "@homeArtistLabel": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "homeArtistDescription": "{count} tracks",
+  "@homeArtistDescription": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeAlbumLabel": "Album: {title}",
+  "@homeAlbumLabel": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "homeAlbumDescription": "{artist} • {count} tracks",
+  "@homeAlbumDescription": {
+    "placeholders": {
+      "artist": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeSearchQuerySuggestion": "Search “{query}”",
+  "@homeSearchQuerySuggestion": {
+    "placeholders": {
+      "query": {}
+    }
+  },
+  "homeSearchQueryDescription": "Continue searching across all content",
+  "homeArtistNotFoundDialog": "No songs found for this artist",
+  "homeAlbumNotFoundDialog": "No songs found for this album",
+  "homeOnlineMusicLabel": "Online music",
+  "homeQueueLabel": "Play queue",
+  "homeLibraryStats": "{total} tracks · {hours} h {minutes} m",
+  "@homeLibraryStats": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "homeOnlineNotLoggedIn": "Not signed in to online music",
+  "homeOnlinePlaylists": "Online playlists",
+  "homeOnlineStats": "{total} online tracks",
+  "@homeOnlineStats": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "homeMysteryCodeInvalid": "Invalid code",
+  "homeSelectFolderTitle": "Choose music folder",
+  "homeScanningFolder": "Scanning folder: {name}",
+  "@homeScanningFolder": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "homeScanningMisuzuFolder": "Scanning MisuzuMusic/{folder}",
+  "@homeScanningMisuzuFolder": {
+    "placeholders": {
+      "folder": {}
+    }
+  },
+  "homeMisuzuRootName": "MisuzuMusic (root)",
+  "homeMisuzuRootDescription": "Scan the entire MisuzuMusic folder",
+  "homeMisuzuFilesPath": "Files path: MisuzuMusic/{folder}",
+  "@homeMisuzuFilesPath": {
+    "placeholders": {
+      "folder": {}
+    }
+  },
+  "homePickMisuzuFolderTitle": "Pick MisuzuMusic folder",
+  "homeMisuzuFilesHint": "Files path: On My iPhone > Misuzu Music > MisuzuMusic",
+  "homeMisuzuSubfolderCount": "{count} subfolders detected",
+  "@homeMisuzuSubfolderCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "actionRefresh": "Refresh",
+  "homeMisuzuNoSubfolders": "No subfolders detected yet. You can still pick the MisuzuMusic root.",
+  "homeWebDavLibrary": "WebDAV library",
+  "homeWebDavScanSummary": "Added {count} new tracks",
+  "@homeWebDavScanSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeWebDavScanSummaryWithSource": "Added {count} new tracks\nSource: {source}",
+  "@homeWebDavScanSummaryWithSource": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "source": {}
+    }
+  },
+  "homeScanCompletedTitle": "Scan complete",
+  "homeScanCompletedMessage": "✅ Scan completed! {message}",
+  "@homeScanCompletedMessage": {
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "homeErrorTitle": "Error occurred"
 }

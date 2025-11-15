@@ -11,36 +11,50 @@ class _HomePageContentState extends State<HomePageContent> {
   int _selectedIndex = 0;
   double _navigationWidth = 200;
 
+  AppLocalizations get l10n => context.l10n;
+
   static const double _navMinWidth = 80;
   static const double _navMaxWidth = 220;
-  static const List<AdaptiveNavigationDestination> _iosMobileDestinations = [
-    AdaptiveNavigationDestination(icon: 'music.note.list', label: '音乐库'),
-    AdaptiveNavigationDestination(icon: 'square.stack.3d.up', label: '歌单'),
-    AdaptiveNavigationDestination(icon: 'cloud', label: '网络'),
-    AdaptiveNavigationDestination(icon: 'music.note', label: '播放队列'),
-    AdaptiveNavigationDestination(icon: 'gearshape', label: '设置'),
-  ];
+  List<AdaptiveNavigationDestination> get _mobileDestinations {
+    final l10n = context.l10n;
+    final iosDestinations = <AdaptiveNavigationDestination>[
+      AdaptiveNavigationDestination(icon: 'music.note.list', label: l10n.navLibrary),
+      AdaptiveNavigationDestination(icon: 'square.stack.3d.up', label: l10n.navPlaylists),
+      AdaptiveNavigationDestination(icon: 'cloud', label: l10n.navOnlineTracks),
+      AdaptiveNavigationDestination(icon: 'music.note', label: l10n.navQueue),
+      AdaptiveNavigationDestination(icon: 'gearshape', label: l10n.navSettings),
+    ];
 
-  static const List<AdaptiveNavigationDestination> _defaultMobileDestinations =
-      [
-        AdaptiveNavigationDestination(
-          icon: CupertinoIcons.music_note_list,
-          label: '音乐库',
-        ),
-        AdaptiveNavigationDestination(
-          icon: CupertinoIcons.square_stack_3d_up,
-          label: '歌单',
-        ),
-        AdaptiveNavigationDestination(icon: CupertinoIcons.cloud, label: '网络'),
-        AdaptiveNavigationDestination(
-          icon: CupertinoIcons.music_note,
-          label: '播放队列',
-        ),
-        AdaptiveNavigationDestination(
-          icon: CupertinoIcons.settings,
-          label: '设置',
-        ),
-      ];
+    final defaultDestinations = <AdaptiveNavigationDestination>[
+      AdaptiveNavigationDestination(
+        icon: CupertinoIcons.music_note_list,
+        label: l10n.navLibrary,
+      ),
+      AdaptiveNavigationDestination(
+        icon: CupertinoIcons.square_stack_3d_up,
+        label: l10n.navPlaylists,
+      ),
+      AdaptiveNavigationDestination(
+        icon: CupertinoIcons.cloud,
+        label: l10n.navOnlineTracks,
+      ),
+      AdaptiveNavigationDestination(
+        icon: CupertinoIcons.music_note,
+        label: l10n.navQueue,
+      ),
+      AdaptiveNavigationDestination(
+        icon: CupertinoIcons.settings,
+        label: l10n.navSettings,
+      ),
+    ];
+
+    final baseDestinations = defaultTargetPlatform == TargetPlatform.iOS
+        ? iosDestinations
+        : defaultDestinations;
+    return _mobileDestinationSectionIndices
+        .map((index) => baseDestinations[index])
+        .toList(growable: false);
+  }
   static const double _mobileNowPlayingBarHeight = 118;
   static const String _iosSandboxFolderName = 'MisuzuMusic';
 
@@ -51,15 +65,6 @@ class _HomePageContentState extends State<HomePageContent> {
     return _shouldHideNeteaseOnIOSMobile
         ? const [0, 1, 3, 4]
         : const [0, 1, 2, 3, 4];
-  }
-
-  List<AdaptiveNavigationDestination> get _mobileDestinations {
-    final baseDestinations = defaultTargetPlatform == TargetPlatform.iOS
-        ? _iosMobileDestinations
-        : _defaultMobileDestinations;
-    return _mobileDestinationSectionIndices
-        .map((index) => baseDestinations[index])
-        .toList(growable: false);
   }
 
   int _mobileNavigationSelectedIndex(List<int> sectionOrder) {
@@ -232,10 +237,10 @@ class _HomePageContentState extends State<HomePageContent> {
 
     final cloudId = await showCloudPlaylistIdDialog(
       context,
-      title: '拉取云歌单',
-      confirmLabel: '拉取',
+      title: l10n.homePullCloudPlaylistTitle,
+      confirmLabel: l10n.homePullCloudPlaylistConfirm,
       invalidMessage: playlistsCubit.cloudIdRuleDescription,
-      description: '输入云端歌单的 ID，至少 5 位，支持字母、数字和下划线。',
+      description: l10n.homePullCloudPlaylistDescription,
       validator: playlistsCubit.isValidCloudPlaylistId,
     );
     if (!mounted || cloudId == null) {
@@ -243,11 +248,11 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     String? playlistId;
-    String successMessage = '已拉取云歌单（ID: $cloudId）';
+    String successMessage = l10n.homePullCloudPlaylistSuccess(cloudId);
     String? errorMessage;
 
     await _runWithBlockingProgress(
-      title: '正在拉取云歌单...',
+      title: l10n.homePullCloudPlaylistProgress,
       task: () async {
         final result = await playlistsCubit.importPlaylistFromCloud(cloudId);
         final (id, error) = result;
@@ -262,9 +267,9 @@ class _HomePageContentState extends State<HomePageContent> {
             initialTrack,
           );
           if (added) {
-            successMessage = '已拉取云歌单并添加当前歌曲';
+            successMessage = l10n.homePullCloudPlaylistAddCurrent;
           } else {
-            successMessage = '云歌单已拉取，歌曲已存在于该歌单';
+            successMessage = l10n.homePullCloudPlaylistAlready;
           }
         }
       },
@@ -345,7 +350,7 @@ class _HomePageContentState extends State<HomePageContent> {
     messenger?.clearSnackBars();
     messenger?.showSnackBar(
       SnackBar(
-        content: Text(locale: Locale("zh-Hans", "zh"), message),
+        content: Text(message),
         backgroundColor: isError ? Colors.redAccent : Colors.green,
         duration: const Duration(seconds: 3),
       ),
@@ -356,7 +361,7 @@ class _HomePageContentState extends State<HomePageContent> {
     required String title,
     required String message,
     bool isError = false,
-    String confirmLabel = '好的',
+    String? confirmLabel,
   }) async {
     if (!mounted) {
       return;
@@ -381,14 +386,12 @@ class _HomePageContentState extends State<HomePageContent> {
           children: [
             MacosIcon(icon, size: 22, color: iconColor),
             const SizedBox(width: 12),
-            Expanded(
-              child: Text(message, locale: const Locale('zh-Hans', 'zh')),
-            ),
+            Expanded(child: Text(message)),
           ],
         ),
         actions: [
           _SheetActionButton.primary(
-            label: confirmLabel,
+            label: confirmLabel ?? l10n.actionOk,
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -599,8 +602,8 @@ class _HomePageContentState extends State<HomePageContent> {
   Future<void> _handleAddTracksToPlaylist(List<Track> tracks) async {
     if (tracks.isEmpty) {
       await _showPlaylistActionDialog(
-        title: '添加到歌单',
-        message: '当前没有可添加的歌曲',
+        title: l10n.homeAddToPlaylistTitle,
+        message: l10n.homeAddToPlaylistEmpty,
         isError: true,
       );
       return;
@@ -636,8 +639,9 @@ class _HomePageContentState extends State<HomePageContent> {
         bulkResult = await playlistsCubit.addTracksToPlaylist(newId, remaining);
         if (bulkResult.hasError) {
           await _showPlaylistActionDialog(
-            title: '添加到歌单',
-            message: bulkResult.errorMessage ?? '添加到歌单失败',
+            title: l10n.homeAddToPlaylistTitle,
+            message:
+                bulkResult.errorMessage ?? l10n.homeAddToPlaylistFailed,
             isError: true,
           );
           return;
@@ -646,11 +650,11 @@ class _HomePageContentState extends State<HomePageContent> {
 
       await playlistsCubit.ensurePlaylistTracks(newId, force: true);
 
-      final playlistName = _playlistNameById(newId) ?? '歌单';
+      final playlistName = _playlistNameById(newId) ?? l10n.playlistDefaultName;
       final added = 1 + (bulkResult?.addedCount ?? 0);
       final skipped = bulkResult?.skippedCount ?? 0;
       await _showPlaylistActionDialog(
-        title: '添加到歌单',
+        title: l10n.homeAddToPlaylistTitle,
         message: _formatBulkAddMessage(playlistName, added, skipped),
         isError: false,
       );
@@ -663,11 +667,12 @@ class _HomePageContentState extends State<HomePageContent> {
         force: true,
       );
 
-      final playlistName = _playlistNameById(selection.playlistId) ?? '歌单';
+      final playlistName =
+          _playlistNameById(selection.playlistId) ?? l10n.playlistDefaultName;
 
       if (selection.addedCount > 0) {
         await _showPlaylistActionDialog(
-          title: '添加到歌单',
+          title: l10n.homeAddToPlaylistTitle,
           message: _formatBulkAddMessage(
             playlistName,
             selection.addedCount,
@@ -676,8 +681,8 @@ class _HomePageContentState extends State<HomePageContent> {
         );
       } else {
         await _showPlaylistActionDialog(
-          title: '添加到歌单',
-          message: '所选歌曲已存在于歌单',
+          title: l10n.homeAddToPlaylistTitle,
+          message: l10n.homeAddToPlaylistExists,
           isError: true,
         );
       }
@@ -695,11 +700,11 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   String _formatBulkAddMessage(String playlistName, int added, int skipped) {
-    final base = '已添加 $added 首歌曲到歌单 “$playlistName”';
+    final base = l10n.homeAddToPlaylistSummary(added, playlistName);
     if (skipped <= 0) {
       return base;
     }
-    return '$base（$skipped 首已存在）';
+    return l10n.homeAddToPlaylistSummaryWithSkipped(base, skipped);
   }
 
   MusicLibraryLoaded? _effectiveLibraryState() {
@@ -719,13 +724,13 @@ class _HomePageContentState extends State<HomePageContent> {
   void _viewTrackArtist(Track track) {
     final name = track.artist.trim();
     if (name.isEmpty) {
-      _showOperationSnackBar('该歌曲缺少歌手信息', isError: true);
+      _showOperationSnackBar(l10n.homeSongMissingArtist, isError: true);
       return;
     }
 
     final library = _effectiveLibraryState();
     if (library == null) {
-      _showOperationSnackBar('音乐库尚未加载完成', isError: true);
+      _showOperationSnackBar(l10n.homeLibraryNotReady, isError: true);
       return;
     }
 
@@ -735,7 +740,7 @@ class _HomePageContentState extends State<HomePageContent> {
         .where((t) => t.artist.trim().toLowerCase() == lowerName)
         .toList();
     if (artistTracks.isEmpty) {
-      _showOperationSnackBar('音乐库中未找到该歌手', isError: true);
+      _showOperationSnackBar(l10n.homeArtistNotFound, isError: true);
       return;
     }
 
@@ -756,13 +761,13 @@ class _HomePageContentState extends State<HomePageContent> {
     final albumName = track.album.trim();
     final artistName = track.artist.trim();
     if (albumName.isEmpty) {
-      _showOperationSnackBar('该歌曲缺少专辑信息', isError: true);
+      _showOperationSnackBar(l10n.homeSongMissingAlbum, isError: true);
       return;
     }
 
     final library = _effectiveLibraryState();
     if (library == null) {
-      _showOperationSnackBar('音乐库尚未加载完成', isError: true);
+      _showOperationSnackBar(l10n.homeLibraryNotReady, isError: true);
       return;
     }
 
@@ -778,7 +783,7 @@ class _HomePageContentState extends State<HomePageContent> {
         .toList();
 
     if (albumTracks.isEmpty) {
-      _showOperationSnackBar('音乐库中未找到该专辑', isError: true);
+      _showOperationSnackBar(l10n.homeAlbumNotFound, isError: true);
       return;
     }
 
@@ -1135,7 +1140,7 @@ class _HomePageContentState extends State<HomePageContent> {
       addSuggestion(
         LibrarySearchSuggestion(
           value: display.title,
-          label: '歌曲：${display.title}',
+          label: l10n.homeSongLabel(display.title),
           description: description ?? '${display.artist} • ${display.album}',
           type: LibrarySearchSuggestionType.track,
           payload: normalizedTrack,
@@ -1151,8 +1156,8 @@ class _HomePageContentState extends State<HomePageContent> {
       addSuggestion(
         LibrarySearchSuggestion(
           value: artist.name,
-          label: '歌手：${artist.name}',
-          description: '共 ${artist.trackCount} 首歌曲',
+          label: l10n.homeArtistLabel(artist.name),
+          description: l10n.homeArtistDescription(artist.trackCount),
           type: LibrarySearchSuggestionType.artist,
           payload: artist,
         ),
@@ -1167,8 +1172,9 @@ class _HomePageContentState extends State<HomePageContent> {
       addSuggestion(
         LibrarySearchSuggestion(
           value: album.title,
-          label: '专辑：${album.title}',
-          description: '${album.artist} • ${album.trackCount} 首',
+          label: l10n.homeAlbumLabel(album.title),
+          description:
+              l10n.homeAlbumDescription(album.artist, album.trackCount),
           type: LibrarySearchSuggestionType.album,
           payload: album,
         ),
@@ -1299,8 +1305,8 @@ class _HomePageContentState extends State<HomePageContent> {
       addSuggestion(
         LibrarySearchSuggestion(
           value: query,
-          label: '搜索“$query”',
-          description: '在全部内容中继续查找',
+          label: l10n.homeSearchQuerySuggestion(query),
+          description: l10n.homeSearchQueryDescription,
           type: LibrarySearchSuggestionType.track,
         ),
         prioritize: results.isEmpty,
@@ -1354,7 +1360,7 @@ class _HomePageContentState extends State<HomePageContent> {
         .where((track) => track.artist == artist.name)
         .toList();
     if (tracks.isEmpty) {
-      _showErrorDialog(context, '未找到该歌手的歌曲');
+      _showErrorDialog(context, l10n.homeArtistNotFoundDialog);
       debugPrint('[HomeContent] Artist detail aborted: no tracks');
       return;
     }
@@ -1391,7 +1397,7 @@ class _HomePageContentState extends State<HomePageContent> {
           });
 
     if (tracks.isEmpty) {
-      _showErrorDialog(context, '未找到该专辑的歌曲');
+      _showErrorDialog(context, l10n.homeAlbumNotFoundDialog);
       debugPrint('[HomeContent] Album detail aborted: no tracks');
       return;
     }
@@ -1425,17 +1431,17 @@ class _HomePageContentState extends State<HomePageContent> {
   String _currentSectionLabel(int index) {
     switch (index) {
       case 0:
-        return '音乐库';
+        return l10n.navLibrary;
       case 1:
-        return '歌单';
+        return l10n.navPlaylists;
       case 2:
-        return '网络歌曲';
+        return l10n.navOnlineTracks;
       case 3:
-        return '播放列表';
+        return l10n.navQueue;
       case 4:
-        return '设置';
+        return l10n.navSettings;
       default:
-        return '音乐库';
+        return l10n.navLibrary;
     }
   }
 
@@ -1496,12 +1502,12 @@ class _HomePageContentState extends State<HomePageContent> {
     final hours = totalDuration.inHours;
     final minutes = totalDuration.inMinutes.remainder(60);
 
-    return '共 $totalTracks 首歌曲 · ${hours} 小时 ${minutes} 分钟';
+    return l10n.homeLibraryStats(totalTracks, hours, minutes);
   }
 
   String? _composeNeteaseStatsLabel(NeteaseState state) {
     if (!state.hasSession) {
-      return '未登录网络歌曲';
+      return l10n.homeOnlineNotLoggedIn;
     }
     final totalTracks = state.playlists.fold<int>(
       0,
@@ -1509,9 +1515,9 @@ class _HomePageContentState extends State<HomePageContent> {
           sum + (playlist.trackCount > 0 ? playlist.trackCount : 0),
     );
     if (totalTracks <= 0) {
-      return '网络歌曲歌单';
+      return l10n.homeOnlinePlaylists;
     }
-    return '网络歌曲共 $totalTracks 首歌曲';
+    return l10n.homeOnlineStats(totalTracks);
   }
 
   Widget _buildLyricsOverlay({
@@ -1587,7 +1593,7 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     if (normalizedCode.toLowerCase() != 'irigas') {
-      _showErrorDialog(context, '神秘代码不正确');
+      _showErrorDialog(context, l10n.homeMysteryCodeInvalid);
       return;
     }
 
@@ -1609,7 +1615,7 @@ class _HomePageContentState extends State<HomePageContent> {
       print('🎵 开始选择音乐文件夹...');
 
       final result = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: '选择音乐文件夹',
+        dialogTitle: l10n.homeSelectFolderTitle,
       );
 
       if (result != null) {
@@ -1632,8 +1638,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        locale: Locale("zh-Hans", "zh"),
-                        '正在扫描文件夹: ${result.split('/').last}',
+                        l10n.homeScanningFolder(result.split('/').last),
                       ),
                     ),
                   ],
@@ -1677,10 +1682,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    locale: Locale("zh-Hans", "zh"),
-                    '正在扫描 MisuzuMusic/$folderName',
-                  ),
+                  child: Text(l10n.homeScanningMisuzuFolder(folderName)),
                 ),
               ],
             ),
@@ -1703,12 +1705,14 @@ class _HomePageContentState extends State<HomePageContent> {
       await rootDir.create(recursive: true);
     }
 
+    final localL10n = l10n;
+
     Future<List<_MisuzuFolderOption>> loadOptions() async {
       final folders = <_MisuzuFolderOption>[
         _MisuzuFolderOption(
           path: rootDir.path,
-          name: 'MisuzuMusic（根目录）',
-          description: '扫描整个 MisuzuMusic 文件夹',
+          name: localL10n.homeMisuzuRootName,
+          description: localL10n.homeMisuzuRootDescription,
           isRoot: true,
         ),
       ];
@@ -1720,7 +1724,7 @@ class _HomePageContentState extends State<HomePageContent> {
             _MisuzuFolderOption(
               path: entity.path,
               name: folderName,
-              description: 'Files 路径：MisuzuMusic/$folderName',
+              description: localL10n.homeMisuzuFilesPath(folderName),
             ),
           );
         }
@@ -1763,7 +1767,7 @@ class _HomePageContentState extends State<HomePageContent> {
             final subFolderCount = options.isEmpty ? 0 : options.length - 1;
 
             return _PlaylistModalScaffold(
-              title: '选择 MisuzuMusic 文件夹',
+              title: l10n.homePickMisuzuFolderTitle,
               body: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
@@ -1786,8 +1790,7 @@ class _HomePageContentState extends State<HomePageContent> {
                       ),
                     ),
                     child: Text(
-                      locale: Locale("zh-Hans", "zh"),
-                      'Files 路径：我的 iPhone > Misuzu Music > MisuzuMusic',
+                      l10n.homeMisuzuFilesHint,
                       style:
                           theme.textTheme.bodySmall?.copyWith(
                             color: isDark
@@ -1807,13 +1810,12 @@ class _HomePageContentState extends State<HomePageContent> {
                     children: [
                       Expanded(
                         child: Text(
-                          locale: Locale("zh-Hans", "zh"),
-                          '当前 MisuzuMusic 中共有 $subFolderCount 个子文件夹',
+                          l10n.homeMisuzuSubfolderCount(subFolderCount),
                           style: theme.textTheme.bodyMedium,
                         ),
                       ),
                       IconButton(
-                        tooltip: '刷新',
+                        tooltip: l10n.actionRefresh,
                         onPressed: refreshing ? null : refreshOptions,
                         icon: refreshing
                             ? const SizedBox(
@@ -1850,8 +1852,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   if (subFolderCount == 0) ...[
                     const SizedBox(height: 12),
                     Text(
-                      locale: Locale("zh-Hans", "zh"),
-                      '暂未检测到子文件夹，也可以直接选择 MisuzuMusic 根目录。',
+                      l10n.homeMisuzuNoSubfolders,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.primary,
                       ),
@@ -1861,7 +1862,7 @@ class _HomePageContentState extends State<HomePageContent> {
               ),
               actions: [
                 _SheetActionButton.secondary(
-                  label: '取消',
+                  label: l10n.actionCancel,
                   onPressed: () => Navigator.of(dialogContext).pop(),
                 ),
               ],
@@ -1919,14 +1920,14 @@ class _HomePageContentState extends State<HomePageContent> {
   String _friendlyNameFromPath(String path) {
     final normalized = path.trim().isEmpty ? '/' : path;
     if (normalized == '/') {
-      return 'WebDAV 音乐库';
+      return l10n.homeWebDavLibrary;
     }
     final segments = normalized
         .split('/')
         .where((segment) => segment.isNotEmpty)
         .toList();
     if (segments.isEmpty) {
-      return 'WebDAV 音乐库';
+      return l10n.homeWebDavLibrary;
     }
     return segments.last;
   }
@@ -1984,14 +1985,17 @@ class _HomePageContentState extends State<HomePageContent> {
     WebDavSource? webDavSource,
   }) {
     final message = webDavSource == null
-        ? '添加了 $tracksAdded 首新歌曲'
-        : '添加了 $tracksAdded 首新歌曲\n来源: ${webDavSource.name}';
+        ? l10n.homeWebDavScanSummary(tracksAdded)
+        : l10n.homeWebDavScanSummaryWithSource(
+            tracksAdded,
+            webDavSource.name,
+          );
     if (prefersMacLikeUi()) {
       showPlaylistModalDialog<void>(
         context: context,
         barrierDismissible: true,
         builder: (_) => PlaylistModalScaffold(
-          title: '扫描完成',
+          title: l10n.homeScanCompletedTitle,
           maxWidth: 360,
           body: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2004,14 +2008,13 @@ class _HomePageContentState extends State<HomePageContent> {
               const SizedBox(height: 12),
               Text(
                 message,
-                locale: Locale("zh-Hans", "zh"),
                 textAlign: TextAlign.center,
               ),
             ],
           ),
           actions: [
             SheetActionButton.primary(
-              label: '好',
+              label: l10n.actionOk,
               onPressed: () => Navigator.of(context).pop(),
             ),
           ],
@@ -2024,7 +2027,7 @@ class _HomePageContentState extends State<HomePageContent> {
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(locale: Locale("zh-Hans", "zh"), '✅ 扫描完成！$message'),
+          content: Text(l10n.homeScanCompletedMessage(message)),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
         ),
@@ -2037,7 +2040,7 @@ class _HomePageContentState extends State<HomePageContent> {
       showPlaylistModalDialog<void>(
         context: context,
         builder: (_) => PlaylistModalScaffold(
-          title: '发生错误',
+          title: l10n.homeErrorTitle,
           maxWidth: 360,
           body: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2050,14 +2053,13 @@ class _HomePageContentState extends State<HomePageContent> {
               const SizedBox(height: 12),
               Text(
                 message,
-                locale: Locale("zh-Hans", "zh"),
                 textAlign: TextAlign.center,
               ),
             ],
           ),
           actions: [
             SheetActionButton.primary(
-              label: '好',
+              label: l10n.actionOk,
               onPressed: () => Navigator.of(context).pop(),
             ),
           ],

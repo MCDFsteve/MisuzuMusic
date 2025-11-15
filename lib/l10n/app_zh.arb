@@ -65,5 +65,198 @@
     }
   },
   "actionClear": "清空",
-  "actionClose": "关闭"
+  "actionClose": "关闭",
+  "navLibrary": "音乐库",
+  "navPlaylists": "歌单",
+  "navOnlineTracks": "网络歌曲",
+  "navQueue": "播放队列",
+  "navSettings": "设置",
+  "glassHeaderBackTooltip": "返回上一层",
+  "glassHeaderLogoutTooltip": "退出登录",
+  "glassHeaderSortTooltip": "切换排序方式",
+  "glassHeaderCreatePlaylistTooltip": "新建歌单",
+  "glassHeaderSelectFolderTooltip": "选择音乐文件夹",
+  "windowMinimize": "最小化",
+  "windowRestore": "还原",
+  "windowMaximize": "最大化",
+  "windowClose": "关闭",
+  "glassHeaderSortTitle": "选择排序方式",
+  "actionCancel": "取消",
+  "homeBackTooltipDefault": "返回上一层",
+  "homeBackTooltipLibrary": "返回音乐库",
+  "homeBackTooltipPlaylists": "返回歌单列表",
+  "homeBackTooltipNetease": "返回网络歌曲歌单列表",
+  "homeLogoutTooltipDefault": "退出登录",
+  "homeLogoutTooltipNetease": "退出网络歌曲登录",
+  "homePullCloudPlaylistTitle": "拉取云歌单",
+  "homePullCloudPlaylistConfirm": "拉取",
+  "homePullCloudPlaylistDescription": "输入云端歌单的 ID，至少 5 位，支持字母、数字和下划线。",
+  "homePullCloudPlaylistSuccess": "已拉取云歌单（ID: {cloudId}）",
+  "@homePullCloudPlaylistSuccess": {
+    "placeholders": {
+      "cloudId": {}
+    }
+  },
+  "homePullCloudPlaylistProgress": "正在拉取云歌单...",
+  "homePullCloudPlaylistAddCurrent": "已拉取云歌单并添加当前歌曲",
+  "homePullCloudPlaylistAlready": "云歌单已拉取，歌曲已存在于该歌单",
+  "actionOk": "好的",
+  "homeAddToPlaylistTitle": "添加到歌单",
+  "homeAddToPlaylistEmpty": "当前没有可添加的歌曲",
+  "homeAddToPlaylistFailed": "添加到歌单失败",
+  "playlistDefaultName": "歌单",
+  "homeAddToPlaylistExists": "所选歌曲已存在于歌单",
+  "homeAddToPlaylistSummary": "已添加 {count} 首歌曲到歌单 “{playlist}”",
+  "@homeAddToPlaylistSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "playlist": {}
+    }
+  },
+  "homeAddToPlaylistSummaryWithSkipped": "{base}（{skipped} 首已存在）",
+  "@homeAddToPlaylistSummaryWithSkipped": {
+    "placeholders": {
+      "base": {},
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "homeSongMissingArtist": "该歌曲缺少歌手信息",
+  "homeLibraryNotReady": "音乐库尚未加载完成",
+  "homeArtistNotFound": "音乐库中未找到该歌手",
+  "homeSongMissingAlbum": "该歌曲缺少专辑信息",
+  "homeAlbumNotFound": "音乐库中未找到该专辑",
+  "homeSongLabel": "歌曲：{title}",
+  "@homeSongLabel": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "homeArtistLabel": "歌手：{name}",
+  "@homeArtistLabel": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "homeArtistDescription": "共 {count} 首歌曲",
+  "@homeArtistDescription": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeAlbumLabel": "专辑：{title}",
+  "@homeAlbumLabel": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "homeAlbumDescription": "{artist} • {count} 首",
+  "@homeAlbumDescription": {
+    "placeholders": {
+      "artist": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeSearchQuerySuggestion": "搜索“{query}”",
+  "@homeSearchQuerySuggestion": {
+    "placeholders": {
+      "query": {}
+    }
+  },
+  "homeSearchQueryDescription": "在全部内容中继续查找",
+  "homeArtistNotFoundDialog": "未找到该歌手的歌曲",
+  "homeAlbumNotFoundDialog": "未找到该专辑的歌曲",
+  "homeOnlineMusicLabel": "网络歌曲",
+  "homeQueueLabel": "播放队列",
+  "homeLibraryStats": "共 {total} 首歌曲 · {hours} 小时 {minutes} 分钟",
+  "@homeLibraryStats": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "homeOnlineNotLoggedIn": "未登录网络歌曲",
+  "homeOnlinePlaylists": "网络歌曲歌单",
+  "homeOnlineStats": "网络歌曲共 {total} 首歌曲",
+  "@homeOnlineStats": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "homeMysteryCodeInvalid": "神秘代码不正确",
+  "homeSelectFolderTitle": "选择音乐文件夹",
+  "homeScanningFolder": "正在扫描文件夹: {name}",
+  "@homeScanningFolder": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "homeScanningMisuzuFolder": "正在扫描 MisuzuMusic/{folder}",
+  "@homeScanningMisuzuFolder": {
+    "placeholders": {
+      "folder": {}
+    }
+  },
+  "homeMisuzuRootName": "MisuzuMusic（根目录）",
+  "homeMisuzuRootDescription": "扫描整个 MisuzuMusic 文件夹",
+  "homeMisuzuFilesPath": "Files 路径：MisuzuMusic/{folder}",
+  "@homeMisuzuFilesPath": {
+    "placeholders": {
+      "folder": {}
+    }
+  },
+  "homePickMisuzuFolderTitle": "选择 MisuzuMusic 文件夹",
+  "homeMisuzuFilesHint": "Files 路径：我的 iPhone > Misuzu Music > MisuzuMusic",
+  "homeMisuzuSubfolderCount": "当前 MisuzuMusic 中共有 {count} 个子文件夹",
+  "@homeMisuzuSubfolderCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "actionRefresh": "刷新",
+  "homeMisuzuNoSubfolders": "暂未检测到子文件夹，也可以直接选择 MisuzuMusic 根目录。",
+  "homeWebDavLibrary": "WebDAV 音乐库",
+  "homeWebDavScanSummary": "添加了 {count} 首新歌曲",
+  "@homeWebDavScanSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeWebDavScanSummaryWithSource": "添加了 {count} 首新歌曲\n来源: {source}",
+  "@homeWebDavScanSummaryWithSource": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "source": {}
+    }
+  },
+  "homeScanCompletedTitle": "扫描完成",
+  "homeScanCompletedMessage": "✅ 扫描完成！{message}",
+  "@homeScanCompletedMessage": {
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "homeErrorTitle": "发生错误"
 }

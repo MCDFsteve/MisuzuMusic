@@ -17,16 +17,20 @@ class _MacOSNavigationPane extends StatelessWidget {
   final ValueChanged<double> onResize;
   final bool enabled;
 
-  static const _items = <_NavigationItem>[
-    _NavigationItem(icon: CupertinoIcons.music_albums_fill, label: '音乐库'),
-    _NavigationItem(icon: CupertinoIcons.square_stack_3d_up, label: '歌单'),
-    _NavigationItem(icon: CupertinoIcons.cloud, label: '网络歌曲'),
-    _NavigationItem(icon: CupertinoIcons.music_note_list, label: '播放列表'),
-    _NavigationItem(icon: CupertinoIcons.settings, label: '设置'),
-  ];
+  List<_NavigationItem> _items(BuildContext context) {
+    final l10n = context.l10n;
+    return <_NavigationItem>[
+      _NavigationItem(icon: CupertinoIcons.music_albums_fill, label: l10n.navLibrary),
+      _NavigationItem(icon: CupertinoIcons.square_stack_3d_up, label: l10n.navPlaylists),
+      _NavigationItem(icon: CupertinoIcons.cloud, label: l10n.navOnlineTracks),
+      _NavigationItem(icon: CupertinoIcons.music_note_list, label: l10n.navQueue),
+      _NavigationItem(icon: CupertinoIcons.settings, label: l10n.navSettings),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final items = _items(context);
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
@@ -51,15 +55,15 @@ class _MacOSNavigationPane extends StatelessWidget {
                 ),
               ),
               child: LazyListView<_NavigationItem>(
-                items: _items,
-                pageSize: _items.length,
+                items: items,
+                pageSize: items.length,
                 preloadOffset: 80,
                 padding: const EdgeInsets.fromLTRB(0, 84, 0, 92),
                 separatorBuilder: (_, __) => const SizedBox(height: 6),
                 itemBuilder: (context, item, index) {
                   final bool active = selectedIndex == index;
                   return _NavigationTile(
-                    item: item,
+                    item: items[index],
                     active: active,
                     collapsed: collapsed,
                     textColor: textColor,
@@ -159,7 +163,6 @@ class _NavigationTile extends StatelessWidget {
                     Expanded(
                       child: Text(
                         item.label,
-                        locale: Locale("zh-Hans", "zh"),
                         style: theme.typography.body.copyWith(
                           color: effectiveLabelColor,
                           fontWeight: active

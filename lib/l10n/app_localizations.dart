@@ -313,6 +313,456 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'关闭'**
   String get actionClose;
+
+  /// No description provided for @navLibrary.
+  ///
+  /// In zh, this message translates to:
+  /// **'音乐库'**
+  String get navLibrary;
+
+  /// No description provided for @navPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单'**
+  String get navPlaylists;
+
+  /// No description provided for @navOnlineTracks.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络歌曲'**
+  String get navOnlineTracks;
+
+  /// No description provided for @navQueue.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放队列'**
+  String get navQueue;
+
+  /// No description provided for @navSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get navSettings;
+
+  /// No description provided for @glassHeaderBackTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回上一层'**
+  String get glassHeaderBackTooltip;
+
+  /// No description provided for @glassHeaderLogoutTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出登录'**
+  String get glassHeaderLogoutTooltip;
+
+  /// No description provided for @glassHeaderSortTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换排序方式'**
+  String get glassHeaderSortTooltip;
+
+  /// No description provided for @glassHeaderCreatePlaylistTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建歌单'**
+  String get glassHeaderCreatePlaylistTooltip;
+
+  /// No description provided for @glassHeaderSelectFolderTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择音乐文件夹'**
+  String get glassHeaderSelectFolderTooltip;
+
+  /// No description provided for @windowMinimize.
+  ///
+  /// In zh, this message translates to:
+  /// **'最小化'**
+  String get windowMinimize;
+
+  /// No description provided for @windowRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'还原'**
+  String get windowRestore;
+
+  /// No description provided for @windowMaximize.
+  ///
+  /// In zh, this message translates to:
+  /// **'最大化'**
+  String get windowMaximize;
+
+  /// No description provided for @windowClose.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get windowClose;
+
+  /// No description provided for @glassHeaderSortTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择排序方式'**
+  String get glassHeaderSortTitle;
+
+  /// No description provided for @actionCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get actionCancel;
+
+  /// No description provided for @homeBackTooltipDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回上一层'**
+  String get homeBackTooltipDefault;
+
+  /// No description provided for @homeBackTooltipLibrary.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回音乐库'**
+  String get homeBackTooltipLibrary;
+
+  /// No description provided for @homeBackTooltipPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回歌单列表'**
+  String get homeBackTooltipPlaylists;
+
+  /// No description provided for @homeBackTooltipNetease.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回网络歌曲歌单列表'**
+  String get homeBackTooltipNetease;
+
+  /// No description provided for @homeLogoutTooltipDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出登录'**
+  String get homeLogoutTooltipDefault;
+
+  /// No description provided for @homeLogoutTooltipNetease.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出网络歌曲登录'**
+  String get homeLogoutTooltipNetease;
+
+  /// No description provided for @homePullCloudPlaylistTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'拉取云歌单'**
+  String get homePullCloudPlaylistTitle;
+
+  /// No description provided for @homePullCloudPlaylistConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'拉取'**
+  String get homePullCloudPlaylistConfirm;
+
+  /// No description provided for @homePullCloudPlaylistDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入云端歌单的 ID，至少 5 位，支持字母、数字和下划线。'**
+  String get homePullCloudPlaylistDescription;
+
+  /// No description provided for @homePullCloudPlaylistSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已拉取云歌单（ID: {cloudId}）'**
+  String homePullCloudPlaylistSuccess(Object cloudId);
+
+  /// No description provided for @homePullCloudPlaylistProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在拉取云歌单...'**
+  String get homePullCloudPlaylistProgress;
+
+  /// No description provided for @homePullCloudPlaylistAddCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'已拉取云歌单并添加当前歌曲'**
+  String get homePullCloudPlaylistAddCurrent;
+
+  /// No description provided for @homePullCloudPlaylistAlready.
+  ///
+  /// In zh, this message translates to:
+  /// **'云歌单已拉取，歌曲已存在于该歌单'**
+  String get homePullCloudPlaylistAlready;
+
+  /// No description provided for @actionOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'好的'**
+  String get actionOk;
+
+  /// No description provided for @homeAddToPlaylistTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加到歌单'**
+  String get homeAddToPlaylistTitle;
+
+  /// No description provided for @homeAddToPlaylistEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前没有可添加的歌曲'**
+  String get homeAddToPlaylistEmpty;
+
+  /// No description provided for @homeAddToPlaylistFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加到歌单失败'**
+  String get homeAddToPlaylistFailed;
+
+  /// No description provided for @playlistDefaultName.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单'**
+  String get playlistDefaultName;
+
+  /// No description provided for @homeAddToPlaylistExists.
+  ///
+  /// In zh, this message translates to:
+  /// **'所选歌曲已存在于歌单'**
+  String get homeAddToPlaylistExists;
+
+  /// No description provided for @homeAddToPlaylistSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'已添加 {count} 首歌曲到歌单 “{playlist}”'**
+  String homeAddToPlaylistSummary(int count, Object playlist);
+
+  /// No description provided for @homeAddToPlaylistSummaryWithSkipped.
+  ///
+  /// In zh, this message translates to:
+  /// **'{base}（{skipped} 首已存在）'**
+  String homeAddToPlaylistSummaryWithSkipped(Object base, int skipped);
+
+  /// No description provided for @homeSongMissingArtist.
+  ///
+  /// In zh, this message translates to:
+  /// **'该歌曲缺少歌手信息'**
+  String get homeSongMissingArtist;
+
+  /// No description provided for @homeLibraryNotReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'音乐库尚未加载完成'**
+  String get homeLibraryNotReady;
+
+  /// No description provided for @homeArtistNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'音乐库中未找到该歌手'**
+  String get homeArtistNotFound;
+
+  /// No description provided for @homeSongMissingAlbum.
+  ///
+  /// In zh, this message translates to:
+  /// **'该歌曲缺少专辑信息'**
+  String get homeSongMissingAlbum;
+
+  /// No description provided for @homeAlbumNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'音乐库中未找到该专辑'**
+  String get homeAlbumNotFound;
+
+  /// No description provided for @homeSongLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌曲：{title}'**
+  String homeSongLabel(Object title);
+
+  /// No description provided for @homeArtistLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌手：{name}'**
+  String homeArtistLabel(Object name);
+
+  /// No description provided for @homeArtistDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 首歌曲'**
+  String homeArtistDescription(int count);
+
+  /// No description provided for @homeAlbumLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'专辑：{title}'**
+  String homeAlbumLabel(Object title);
+
+  /// No description provided for @homeAlbumDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'{artist} • {count} 首'**
+  String homeAlbumDescription(Object artist, int count);
+
+  /// No description provided for @homeSearchQuerySuggestion.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索“{query}”'**
+  String homeSearchQuerySuggestion(Object query);
+
+  /// No description provided for @homeSearchQueryDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'在全部内容中继续查找'**
+  String get homeSearchQueryDescription;
+
+  /// No description provided for @homeArtistNotFoundDialog.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到该歌手的歌曲'**
+  String get homeArtistNotFoundDialog;
+
+  /// No description provided for @homeAlbumNotFoundDialog.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到该专辑的歌曲'**
+  String get homeAlbumNotFoundDialog;
+
+  /// No description provided for @homeOnlineMusicLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络歌曲'**
+  String get homeOnlineMusicLabel;
+
+  /// No description provided for @homeQueueLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放队列'**
+  String get homeQueueLabel;
+
+  /// No description provided for @homeLibraryStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {total} 首歌曲 · {hours} 小时 {minutes} 分钟'**
+  String homeLibraryStats(int total, int hours, int minutes);
+
+  /// No description provided for @homeOnlineNotLoggedIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'未登录网络歌曲'**
+  String get homeOnlineNotLoggedIn;
+
+  /// No description provided for @homeOnlinePlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络歌曲歌单'**
+  String get homeOnlinePlaylists;
+
+  /// No description provided for @homeOnlineStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络歌曲共 {total} 首歌曲'**
+  String homeOnlineStats(int total);
+
+  /// No description provided for @homeMysteryCodeInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'神秘代码不正确'**
+  String get homeMysteryCodeInvalid;
+
+  /// No description provided for @homeSelectFolderTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择音乐文件夹'**
+  String get homeSelectFolderTitle;
+
+  /// No description provided for @homeScanningFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在扫描文件夹: {name}'**
+  String homeScanningFolder(Object name);
+
+  /// No description provided for @homeScanningMisuzuFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在扫描 MisuzuMusic/{folder}'**
+  String homeScanningMisuzuFolder(Object folder);
+
+  /// No description provided for @homeMisuzuRootName.
+  ///
+  /// In zh, this message translates to:
+  /// **'MisuzuMusic（根目录）'**
+  String get homeMisuzuRootName;
+
+  /// No description provided for @homeMisuzuRootDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描整个 MisuzuMusic 文件夹'**
+  String get homeMisuzuRootDescription;
+
+  /// No description provided for @homeMisuzuFilesPath.
+  ///
+  /// In zh, this message translates to:
+  /// **'Files 路径：MisuzuMusic/{folder}'**
+  String homeMisuzuFilesPath(Object folder);
+
+  /// No description provided for @homePickMisuzuFolderTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择 MisuzuMusic 文件夹'**
+  String get homePickMisuzuFolderTitle;
+
+  /// No description provided for @homeMisuzuFilesHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'Files 路径：我的 iPhone > Misuzu Music > MisuzuMusic'**
+  String get homeMisuzuFilesHint;
+
+  /// No description provided for @homeMisuzuSubfolderCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前 MisuzuMusic 中共有 {count} 个子文件夹'**
+  String homeMisuzuSubfolderCount(int count);
+
+  /// No description provided for @actionRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新'**
+  String get actionRefresh;
+
+  /// No description provided for @homeMisuzuNoSubfolders.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂未检测到子文件夹，也可以直接选择 MisuzuMusic 根目录。'**
+  String get homeMisuzuNoSubfolders;
+
+  /// No description provided for @homeWebDavLibrary.
+  ///
+  /// In zh, this message translates to:
+  /// **'WebDAV 音乐库'**
+  String get homeWebDavLibrary;
+
+  /// No description provided for @homeWebDavScanSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加了 {count} 首新歌曲'**
+  String homeWebDavScanSummary(int count);
+
+  /// No description provided for @homeWebDavScanSummaryWithSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加了 {count} 首新歌曲\n来源: {source}'**
+  String homeWebDavScanSummaryWithSource(int count, Object source);
+
+  /// No description provided for @homeScanCompletedTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描完成'**
+  String get homeScanCompletedTitle;
+
+  /// No description provided for @homeScanCompletedMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'✅ 扫描完成！{message}'**
+  String homeScanCompletedMessage(Object message);
+
+  /// No description provided for @homeErrorTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'发生错误'**
+  String get homeErrorTitle;
 }
 
 class _AppLocalizationsDelegate

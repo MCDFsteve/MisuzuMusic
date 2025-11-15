@@ -15,7 +15,7 @@ class _MacOSGlassHeader extends StatefulWidget {
     this.showBackButton = false,
     this.canNavigateBack = false,
     this.onNavigateBack,
-    this.backTooltip = '返回上一层',
+    required this.backTooltip,
     this.sortMode,
     this.onSortModeChanged,
     this.showCreatePlaylistButton = true,
@@ -24,7 +24,7 @@ class _MacOSGlassHeader extends StatefulWidget {
     this.showLogoutButton = false,
     this.logoutEnabled = true,
     this.onLogout,
-    this.logoutTooltip = '退出登录',
+    required this.logoutTooltip,
   });
 
   final double height;
@@ -411,7 +411,7 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                               padding: EdgeInsets.only(left: actionSpacing),
                               child: _HeaderTooltip(
                                 useMacStyle: !isWindowsStyle,
-                                message: '切换排序方式',
+                                message: context.l10n.glassHeaderSortTooltip,
                                 child: _wrapInteractiveRegion(
                                   key: _sortButtonKey,
                                   child: _SortModeButton(
@@ -483,7 +483,8 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                             isVisible: widget.showCreatePlaylistButton,
                             builder: () => _HeaderTooltip(
                               useMacStyle: !isWindowsStyle,
-                              message: '新建歌单',
+                              message:
+                                  context.l10n.glassHeaderCreatePlaylistTooltip,
                               child: _wrapInteractiveRegion(
                                 key: _createPlaylistButtonKey,
                                 child: _HeaderIconButton(
@@ -513,7 +514,8 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
                             isVisible: widget.showSelectFolderButton,
                             builder: () => _HeaderTooltip(
                               useMacStyle: !isWindowsStyle,
-                              message: '选择音乐文件夹',
+                              message:
+                                  context.l10n.glassHeaderSelectFolderTooltip,
                               child: _wrapInteractiveRegion(
                                 key: _selectFolderButtonKey,
                                 child: _HeaderIconButton(
@@ -684,14 +686,16 @@ class _WindowsWindowControlsState extends State<_WindowsWindowControls>
       mainAxisSize: MainAxisSize.min,
       children: [
         _WindowsCaptionButton(
-          tooltip: '最小化',
+          tooltip: context.l10n.windowMinimize,
           iconType: _CaptionIconType.minimize,
           foregroundColor: _iconColor,
           onPressed: () => windowManager.minimize(),
         ),
         const SizedBox(width: 4),
         _WindowsCaptionButton(
-          tooltip: _isMaximized ? '还原' : '最大化',
+          tooltip: _isMaximized
+              ? context.l10n.windowRestore
+              : context.l10n.windowMaximize,
           iconType: _isMaximized
               ? _CaptionIconType.restore
               : _CaptionIconType.maximize,
@@ -708,7 +712,7 @@ class _WindowsWindowControlsState extends State<_WindowsWindowControls>
         ),
         const SizedBox(width: 4),
         _WindowsCaptionButton(
-          tooltip: '关闭',
+          tooltip: context.l10n.windowClose,
           iconType: _CaptionIconType.close,
           foregroundColor: _iconColor,
           hoverBackgroundColor: const Color(0xFFD70022),
@@ -998,7 +1002,7 @@ class _SortModeButtonState extends State<_SortModeButton> {
     final selectedMode = await showPlaylistModalDialog(
       context: context,
       builder: (context) => _PlaylistModalScaffold(
-        title: '选择排序方式',
+        title: context.l10n.glassHeaderSortTitle,
         maxWidth: 280,
         body: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1012,7 +1016,7 @@ class _SortModeButtonState extends State<_SortModeButton> {
         ),
         actions: [
           SheetActionButton.secondary(
-            label: '取消',
+            label: context.l10n.actionCancel,
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],

@@ -61,6 +61,8 @@ import 'settings/settings_view.dart';
 import '../utils/track_display_utils.dart';
 import '../../core/utils/track_field_normalizer.dart'
     show isUnknownMetadataValue;
+import '../../l10n/app_localizations.dart';
+import '../../l10n/l10n.dart';
 
 part 'home/home_page_content.dart';
 part 'home/layouts/home_macos_layout.dart';
