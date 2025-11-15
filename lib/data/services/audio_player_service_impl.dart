@@ -18,6 +18,7 @@ import '../../domain/repositories/netease_repository.dart';
 import '../../domain/services/audio_player_service.dart';
 import '../../core/error/exceptions.dart';
 import '../../core/storage/binary_config_store.dart';
+import '../../core/storage/sandbox_path_codec.dart';
 import '../../core/storage/storage_keys.dart';
 import '../../core/constants/app_constants.dart' show PlayMode, PlayerState;
 
@@ -27,6 +28,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     this._playbackHistoryRepository,
     this._musicLibraryRepository,
     this._neteaseRepository,
+    this._sandboxPathCodec,
   ) {
     _initializeStreams();
     _restoreVolume();
@@ -40,6 +42,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   final PlaybackHistoryRepository _playbackHistoryRepository;
   final MusicLibraryRepository _musicLibraryRepository;
   final NeteaseRepository _neteaseRepository;
+  final SandboxPathCodec _sandboxPathCodec;
   final AudioPlayer _audioPlayer = AudioPlayer();
   static const List<Duration> _windowsPlaybackRetryDelays = <Duration>[
     Duration(milliseconds: 24),
@@ -278,7 +281,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return;
     }
 
-    final queueJson = jsonEncode(_queue.map(_trackToJson).toList());
+    final queuePayload = <Map<String, dynamic>>[];
+    for (final track in _queue) {
+      queuePayload.add(await _trackToJson(track));
+    }
+    final queueJson = jsonEncode(queuePayload);
     await _configStore.setValue(StorageKeys.playbackQueue, queueJson);
     await _configStore.setValue(StorageKeys.playbackQueueIndex, _currentIndex);
   }
@@ -326,16 +333,23 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _configStore.remove(StorageKeys.playbackPosition);
   }
 
-  Map<String, dynamic> _trackToJson(Track track) {
+  Future<Map<String, dynamic>> _trackToJson(Track track) async {
+    final encodedFilePath = await _sandboxPathCodec.encode(track.filePath);
+    String? encodedArtwork;
+    final artworkPath = track.artworkPath;
+    if (artworkPath != null && artworkPath.isNotEmpty) {
+      encodedArtwork = await _sandboxPathCodec.encode(artworkPath);
+    }
+
     return {
       'id': track.id,
       'title': track.title,
       'artist': track.artist,
       'album': track.album,
-      'filePath': track.filePath,
+      'filePath': encodedFilePath,
       'durationMs': track.duration.inMilliseconds,
       'dateAdded': track.dateAdded.toIso8601String(),
-      'artworkPath': track.artworkPath,
+      'artworkPath': encodedArtwork ?? track.artworkPath,
       'trackNumber': track.trackNumber,
       'year': track.year,
       'genre': track.genre,
@@ -347,7 +361,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     };
   }
 
-  Track _trackFromJson(Map<String, dynamic> json) {
+  Future<Track> _trackFromJson(Map<String, dynamic> json) async {
     final sourceTypeRaw = json['sourceType'] as String?;
     final sourceType = sourceTypeRaw == null
         ? TrackSourceType.local
@@ -362,19 +376,26 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         (key, value) => MapEntry(key.toString(), value.toString()),
       );
     }
+    final storedFilePath = json['filePath'] as String;
+    final decodedFilePath = await _sandboxPathCodec.decode(storedFilePath);
+    final storedArtworkPath = json['artworkPath'] as String?;
+    String? decodedArtwork;
+    if (storedArtworkPath != null && storedArtworkPath.isNotEmpty) {
+      decodedArtwork = await _sandboxPathCodec.decode(storedArtworkPath);
+    }
     return Track(
       id: json['id'] as String,
       title: json['title'] as String,
       artist: json['artist'] as String,
       album: json['album'] as String,
-      filePath: json['filePath'] as String,
+      filePath: decodedFilePath,
       duration: Duration(
         milliseconds: (json['durationMs'] as num?)?.toInt() ?? 0,
       ),
       dateAdded:
           DateTime.tryParse(json['dateAdded'] as String? ?? '') ??
           DateTime.now(),
-      artworkPath: json['artworkPath'] as String?,
+      artworkPath: decodedArtwork,
       trackNumber: (json['trackNumber'] as num?)?.toInt(),
       year: (json['year'] as num?)?.toInt(),
       genre: json['genre'] as String?,
@@ -852,7 +873,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       final queue = <Track>[];
       for (final item in decoded) {
         if (item is Map) {
-          queue.add(_trackFromJson(Map<String, dynamic>.from(item)));
+          queue.add(await _trackFromJson(Map<String, dynamic>.from(item)));
         }
       }
 

@@ -148,7 +148,9 @@ class _UnifiedSettingsView extends StatelessWidget {
   }
 
   Widget _buildAdaptiveMobileSettings(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom + 24;
+    const double extraBottomSpacing = 96;
+    final mediaPadding = MediaQuery.of(context).padding;
+    final bottomPadding = mediaPadding.bottom + 24 + extraBottomSpacing;
     final sections = <Widget>[
       _buildAdaptiveAppearanceSection(context),
       _buildAdaptiveAboutSection(context),
@@ -204,8 +206,6 @@ class _UnifiedSettingsView extends StatelessWidget {
   Widget _buildAdaptiveAboutSection(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-    final dividerColor =
-        theme.colorScheme.outlineVariant.withOpacity(isDarkMode ? 0.3 : 0.35);
 
     return _SettingsCard(
       isDarkMode: isDarkMode,
@@ -241,25 +241,11 @@ class _UnifiedSettingsView extends StatelessWidget {
                 title: '项目名称',
                 subtitle: appName,
               ),
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                indent: 16,
-                endIndent: 16,
-                color: dividerColor,
-              ),
               _buildAdaptiveInfoTile(
                 context,
                 leading: const Icon(Icons.tag_outlined),
                 title: '版本号',
                 subtitle: version,
-              ),
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                indent: 16,
-                endIndent: 16,
-                color: dividerColor,
               ),
               _buildAdaptiveInfoTile(
                 context,
@@ -307,14 +293,74 @@ class _UnifiedSettingsView extends StatelessWidget {
     Widget? trailing,
     VoidCallback? onTap,
   }) {
-    return AdaptiveListTile(
-      leading: leading,
-      title: Text(title, locale: const Locale('zh-Hans', 'zh')),
-      subtitle: Text(subtitle, locale: const Locale('zh-Hans', 'zh')),
-      trailing: trailing,
-      onTap: onTap,
+    final theme = Theme.of(context);
+    final TextStyle titleStyle = theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.onSurface,
+        ) ??
+        const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        );
+    final TextStyle subtitleStyle = theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ) ??
+        TextStyle(
+          fontSize: 13,
+          color: theme.colorScheme.onSurfaceVariant,
+        );
+
+    final child = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      backgroundColor: Colors.transparent,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          IconTheme.merge(
+            data: const IconThemeData(size: 24),
+            child: leading,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  locale: const Locale('zh-Hans', 'zh'),
+                  style: titleStyle,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  locale: const Locale('zh-Hans', 'zh'),
+                  style: subtitleStyle,
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 12),
+            IconTheme.merge(
+              data: const IconThemeData(size: 20),
+              child: trailing,
+            ),
+          ],
+        ],
+      ),
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          splashColor: theme.colorScheme.primary.withOpacity(0.08),
+          highlightColor: theme.colorScheme.primary.withOpacity(0.04),
+          child: child,
+        ),
+      ),
     );
   }
 }

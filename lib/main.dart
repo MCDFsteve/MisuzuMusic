@@ -6,6 +6,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/services.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:window_manager/window_manager.dart' as wm;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -143,6 +144,12 @@ class MisuzuMusicApp extends StatelessWidget {
           ThemeMode.system => platformBrightness,
         };
 
+        final SystemUiOverlayStyle? systemUiOverlayStyle =
+            _buildMobileSystemUiOverlayStyle(effectiveBrightness);
+        if (systemUiOverlayStyle != null) {
+          SystemChrome.setSystemUIOverlayStyle(systemUiOverlayStyle);
+        }
+
         // Windows 平台使用微软雅黑，避免字体显示不一致
         final fontFamily = Platform.isWindows ? 'Microsoft YaHei' : null;
 
@@ -208,6 +215,8 @@ class MisuzuMusicApp extends StatelessWidget {
             supportedLocales: _supportedLocales,
             home: const HomePage(),
             builder: (context, child) {
+              final overlayWrappedChild =
+                  _wrapWithSystemUiOverlay(child, systemUiOverlayStyle);
               return Theme(
                 data: activeMaterialTheme,
                 child: ScaffoldMessenger(
@@ -215,7 +224,7 @@ class MisuzuMusicApp extends StatelessWidget {
                     backgroundColor: Colors.transparent,
                     body: Material(
                       type: MaterialType.transparency,
-                      child: child ?? const SizedBox.shrink(),
+                      child: overlayWrappedChild,
                     ),
                   ),
                 ),
@@ -238,6 +247,8 @@ class MisuzuMusicApp extends StatelessWidget {
               const MaterialAppData(debugShowCheckedModeBanner: false),
           cupertino: (context, platform) =>
               const CupertinoAppData(debugShowCheckedModeBanner: false),
+          builder: (context, child) =>
+              _wrapWithSystemUiOverlay(child, systemUiOverlayStyle),
           home: const HomePage(),
         );
       },
@@ -273,5 +284,35 @@ MacosTypography _createWindowsTypography(MacosTypography original) {
     footnote: original.footnote.copyWith(fontFamily: fontFamily),
     caption1: original.caption1.copyWith(fontFamily: fontFamily),
     caption2: original.caption2.copyWith(fontFamily: fontFamily),
+  );
+}
+
+SystemUiOverlayStyle? _buildMobileSystemUiOverlayStyle(Brightness brightness) {
+  if (!(Platform.isIOS || Platform.isAndroid)) {
+    return null;
+  }
+
+  final bool isDark = brightness == Brightness.dark;
+
+  return SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+    // iOS 使用 statusBarBrightness 控制图标颜色，值与期望颜色相反
+    statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+  );
+}
+
+Widget _wrapWithSystemUiOverlay(
+  Widget? child,
+  SystemUiOverlayStyle? overlayStyle,
+) {
+  final wrappedChild = child ?? const SizedBox.shrink();
+  if (overlayStyle == null) {
+    return wrappedChild;
+  }
+
+  return AnnotatedRegion<SystemUiOverlayStyle>(
+    value: overlayStyle,
+    child: wrappedChild,
   );
 }

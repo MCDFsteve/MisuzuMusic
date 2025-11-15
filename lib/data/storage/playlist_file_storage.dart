@@ -5,16 +5,18 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
+import '../../core/storage/sandbox_path_codec.dart';
 import '../../core/storage/storage_path_provider.dart';
 import '../models/music_models.dart';
 
 class PlaylistFileStorage {
-  PlaylistFileStorage(this._pathProvider);
+  PlaylistFileStorage(this._pathProvider, this._sandboxPathCodec);
 
   static const _magic = [0x6d, 0x73, 0x7a]; // 'msz'
   static const int _version = 1;
 
   final StoragePathProvider _pathProvider;
+  final SandboxPathCodec _sandboxPathCodec;
 
   Future<Directory> _ensureDirectory() async {
     return _pathProvider.ensureBaseDir();
@@ -70,14 +72,16 @@ class PlaylistFileStorage {
     if (model == null) {
       return null;
     }
-    final file = await _fileForId(model.id);
-    await file.writeAsBytes(bytes, flush: true);
-    return model;
+    final decoded = await _decodeStoredPaths(model);
+    final file = await _fileForId(decoded.id);
+    final normalizedBytes = await _encodePlaylistBytes(decoded);
+    await file.writeAsBytes(normalizedBytes, flush: true);
+    return decoded;
   }
 
   Future<void> savePlaylist(PlaylistModel playlist) async {
     final file = await _fileForId(playlist.id);
-    final bytes = _encodePlaylist(playlist);
+    final bytes = await _encodePlaylistBytes(playlist);
     await file.writeAsBytes(bytes, flush: true);
   }
 
@@ -96,10 +100,26 @@ class PlaylistFileStorage {
   Future<PlaylistModel?> _readPlaylistFile(File file) async {
     try {
       final bytes = await file.readAsBytes();
-      return _parsePlaylistBytes(bytes);
+      final parsed = _parsePlaylistBytes(bytes);
+      if (parsed == null) {
+        return null;
+      }
+      return _decodeStoredPaths(parsed);
     } catch (_) {
       return null;
     }
+  }
+
+  Future<PlaylistModel> _decodeStoredPaths(PlaylistModel playlist) async {
+    final coverPath = playlist.coverPath;
+    if (coverPath == null || coverPath.isEmpty) {
+      return playlist;
+    }
+    final decoded = await _sandboxPathCodec.decode(coverPath);
+    if (decoded == coverPath) {
+      return playlist;
+    }
+    return playlist.copyWith(coverPath: decoded);
   }
 
   PlaylistModel? _parsePlaylistBytes(Uint8List bytes) {
@@ -172,6 +192,21 @@ class PlaylistFileStorage {
       description: description,
       coverPath: coverPath,
     );
+  }
+
+  Future<Uint8List> _encodePlaylistBytes(PlaylistModel playlist) async {
+    final coverPath = playlist.coverPath;
+    if (coverPath == null || coverPath.isEmpty) {
+      return _encodePlaylist(playlist);
+    }
+
+    final encoded = await _sandboxPathCodec.encode(coverPath);
+    if (encoded == coverPath) {
+      return _encodePlaylist(playlist);
+    }
+
+    final normalized = playlist.copyWith(coverPath: encoded);
+    return _encodePlaylist(normalized);
   }
 
   Uint8List _encodePlaylist(PlaylistModel playlist) {

@@ -58,7 +58,7 @@ class DependencyInjection {
       sl.registerSingleton(storagePathProvider);
       sl.registerSingleton(configStore);
       sl.registerLazySingleton(() => SandboxPathCodec());
-      sl.registerLazySingleton(() => PlaylistFileStorage(sl()));
+      sl.registerLazySingleton(() => PlaylistFileStorage(sl(), sl()));
       sl.registerLazySingleton(() => NeteaseSessionStore(sl()));
 
       // Core
@@ -110,7 +110,7 @@ class DependencyInjection {
       );
 
       sl.registerLazySingleton<PlaybackHistoryRepository>(
-        () => PlaybackHistoryRepositoryImpl(sl()),
+        () => PlaybackHistoryRepositoryImpl(sl(), sl()),
       );
 
       // Services
@@ -121,6 +121,7 @@ class DependencyInjection {
           sl<PlaybackHistoryRepository>(),
           sl<MusicLibraryRepository>(),
           sl<NeteaseRepository>(),
+          sl(),
         ),
       );
 
