@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' show Random;
 import 'dart:typed_data';
 
+import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart' hide PlayerState;
 import 'package:rxdart/rxdart.dart';
 import 'package:crypto/crypto.dart';
@@ -30,6 +31,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     _initializeStreams();
     _restoreVolume();
     _restorePlayMode();
+    if (_requiresAudioSession) {
+      unawaited(_configureAudioSession());
+    }
   }
 
   final BinaryConfigStore _configStore;
@@ -77,8 +81,13 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   StreamSubscription? _playerStateSubscription;
   StreamSubscription? _positionSubscription;
   StreamSubscription? _durationSubscription;
+  AudioSession? _audioSession;
+  StreamSubscription<AudioInterruptionEvent>? _audioInterruptionSubscription;
+  StreamSubscription<void>? _becomingNoisySubscription;
+  bool _pausedByInterruption = false;
 
   static const bool _enableShuffleDebugLogs = false;
+  bool get _requiresAudioSession => Platform.isIOS || Platform.isMacOS;
 
   void _initializeStreams() {
     // Listen to player state changes
@@ -137,6 +146,81 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       onError: (error) {
         _durationSubject.addError(AudioPlaybackException(error.toString()));
       },
+    );
+  }
+
+  Future<void> _configureAudioSession() async {
+    if (!_requiresAudioSession) {
+      return;
+    }
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.music());
+      await session.setActive(true);
+      _audioSession = session;
+
+      await _audioInterruptionSubscription?.cancel();
+      _audioInterruptionSubscription = session.interruptionEventStream.listen(
+        _handleAudioInterruption,
+      );
+
+      await _becomingNoisySubscription?.cancel();
+      _becomingNoisySubscription = session.becomingNoisyEventStream.listen(
+        (_) => _handleBecomingNoisyEvent(),
+      );
+    } catch (error) {
+      print('⚠️ AudioService: 配置音频会话失败 -> $error');
+    }
+  }
+
+  Future<void> _ensureAudioSessionReady() async {
+    if (!_requiresAudioSession) {
+      return;
+    }
+    if (_audioSession == null) {
+      await _configureAudioSession();
+      return;
+    }
+    try {
+      await _audioSession!.setActive(true);
+    } catch (error) {
+      print('⚠️ AudioService: 激活音频会话失败 -> $error');
+    }
+  }
+
+  void _handleAudioInterruption(AudioInterruptionEvent event) {
+    if (event.begin) {
+      print('🔇 AudioService: 音频会话被中断 -> ${event.type}');
+      if (event.type == AudioInterruptionType.pause && isPlaying) {
+        _pausedByInterruption = true;
+        unawaited(
+          pause().catchError(
+            (error) => print('⚠️ AudioService: 中断暂停失败 -> $error'),
+          ),
+        );
+      }
+    } else {
+      print('🔊 AudioService: 音频会话恢复');
+      if (_pausedByInterruption && !isPlaying) {
+        _pausedByInterruption = false;
+        unawaited(
+          resume().catchError(
+            (error) => print('⚠️ AudioService: 中断恢复失败 -> $error'),
+          ),
+        );
+      } else {
+        _pausedByInterruption = false;
+      }
+    }
+  }
+
+  void _handleBecomingNoisyEvent() {
+    if (!isPlaying) {
+      return;
+    }
+    print('🔈 AudioService: 检测到音频输出设备变化，自动暂停');
+    unawaited(
+      pause().catchError((error) => print('⚠️ AudioService: 自动暂停失败 -> $error')),
     );
   }
 
@@ -316,6 +400,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       print('🎵 AudioService: 开始播放 - ${playableTrack.title}');
       print('🎵 AudioService: 文件路径 - ${playableTrack.filePath}');
 
+      await _ensureAudioSessionReady();
       _updateCurrentTrack(playableTrack);
       if (!_hasPendingRestorePosition) {
         _positionSubject.add(Duration.zero);
@@ -429,6 +514,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> resume() async {
     try {
+      await _ensureAudioSessionReady();
       final playFuture = _audioPlayer.play();
       if (Platform.isWindows) {
         unawaited(_ensureWindowsPlaybackStarted(playFuture));
@@ -830,6 +916,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _playerStateSubscription?.cancel();
     await _positionSubscription?.cancel();
     await _durationSubscription?.cancel();
+    await _audioInterruptionSubscription?.cancel();
+    await _becomingNoisySubscription?.cancel();
     await _playerStateSubject.close();
     await _positionSubject.close();
     await _durationSubject.close();
@@ -837,6 +925,13 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _queueSubject.close();
     await _playModeSubject.close();
     await _audioPlayer.dispose();
+    if (_audioSession != null && _requiresAudioSession) {
+      try {
+        await _audioSession!.setActive(false);
+      } catch (error) {
+        print('⚠️ AudioService: 释放音频会话失败 -> $error');
+      }
+    }
   }
 
   Future<Track> _resolvePlayableTrack(

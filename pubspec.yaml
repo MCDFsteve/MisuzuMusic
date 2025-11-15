@@ -39,11 +39,12 @@ dependencies:
   equatable: ^2.0.5
   package_info_plus: ^9.0.0
   # Audio Processing
-  just_audio: ^0.9.34
+  just_audio: ^0.10.5
   just_audio_media_kit: ^2.1.0
   audio_metadata_reader: ^1.0.0+8
   audio_waveforms: ^1.0.5
   audio_service: ^0.18.18
+  audio_session: ^0.2.2
   media_kit_libs_linux: any
 
   # File System
