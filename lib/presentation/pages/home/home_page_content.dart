@@ -1765,6 +1765,7 @@ class _HomePageContentState extends State<HomePageContent> {
             final theme = Theme.of(context);
             final isDark = theme.brightness == Brightness.dark;
             final subFolderCount = options.isEmpty ? 0 : options.length - 1;
+            final filesRootLabel = _filesAppRootLabel(context, l10n);
 
             return _PlaylistModalScaffold(
               title: l10n.homePickMisuzuFolderTitle,
@@ -1790,7 +1791,7 @@ class _HomePageContentState extends State<HomePageContent> {
                       ),
                     ),
                     child: Text(
-                      l10n.homeMisuzuFilesHint,
+                      l10n.homeMisuzuFilesHint(filesRootLabel),
                       style:
                           theme.textTheme.bodySmall?.copyWith(
                             color: isDark

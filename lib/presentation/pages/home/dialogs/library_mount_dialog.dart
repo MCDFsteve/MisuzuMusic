@@ -67,6 +67,7 @@ class _IOSAppFolderInfoCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final l10n = context.l10n;
+    final filesRootLabel = _filesAppRootLabel(context, l10n);
     final titleStyle =
         theme.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w600,
@@ -127,7 +128,10 @@ class _IOSAppFolderInfoCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Text(l10n.libraryMountInfoCardDescription, style: bodyStyle),
+          Text(
+            l10n.libraryMountInfoCardDescription(filesRootLabel),
+            style: bodyStyle,
+          ),
         ],
       ),
     );

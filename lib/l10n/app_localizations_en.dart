@@ -397,8 +397,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homePickMisuzuFolderTitle => 'Pick MisuzuMusic folder';
 
   @override
-  String get homeMisuzuFilesHint =>
-      'Files path: On My iPhone > Misuzu Music > MisuzuMusic';
+  String homeMisuzuFilesHint(Object filesRoot) {
+    return 'Files path: $filesRoot > Misuzu Music > MisuzuMusic';
+  }
 
   @override
   String homeMisuzuSubfolderCount(int count) {
@@ -460,8 +461,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get libraryMountInfoCardTitle => 'Import via the MisuzuMusic folder';
 
   @override
-  String get libraryMountInfoCardDescription =>
-      'iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open On My iPhone > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it.\n3) Return to Misuzu Music and select the MisuzuMusic folder to start scanning.';
+  String libraryMountInfoCardDescription(Object filesRoot) {
+    return 'iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open $filesRoot > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it.\n3) Return to Misuzu Music and select the MisuzuMusic folder to start scanning.';
+  }
+
+  @override
+  String get filesRootOnMyIphone => 'On My iPhone';
+
+  @override
+  String get filesRootOnMyIpad => 'On My iPad';
 
   @override
   String get libraryMountMysteryDialogTitle => 'Enter mystery code';

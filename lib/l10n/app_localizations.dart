@@ -779,8 +779,8 @@ abstract class AppLocalizations {
   /// No description provided for @homeMisuzuFilesHint.
   ///
   /// In zh, this message translates to:
-  /// **'Files 路径：我的 iPhone > Misuzu Music > MisuzuMusic'**
-  String get homeMisuzuFilesHint;
+  /// **'Files 路径：{filesRoot} > Misuzu Music > MisuzuMusic'**
+  String homeMisuzuFilesHint(Object filesRoot);
 
   /// No description provided for @homeMisuzuSubfolderCount.
   ///
@@ -881,8 +881,20 @@ abstract class AppLocalizations {
   /// No description provided for @libraryMountInfoCardDescription.
   ///
   /// In zh, this message translates to:
-  /// **'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「我的 iPhone」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。'**
-  String get libraryMountInfoCardDescription;
+  /// **'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「{filesRoot}」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。'**
+  String libraryMountInfoCardDescription(Object filesRoot);
+
+  /// No description provided for @filesRootOnMyIphone.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的 iPhone'**
+  String get filesRootOnMyIphone;
+
+  /// No description provided for @filesRootOnMyIpad.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的 iPad'**
+  String get filesRootOnMyIpad;
 
   /// No description provided for @libraryMountMysteryDialogTitle.
   ///

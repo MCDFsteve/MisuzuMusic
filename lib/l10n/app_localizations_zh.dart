@@ -388,8 +388,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homePickMisuzuFolderTitle => '选择 MisuzuMusic 文件夹';
 
   @override
-  String get homeMisuzuFilesHint =>
-      'Files 路径：我的 iPhone > Misuzu Music > MisuzuMusic';
+  String homeMisuzuFilesHint(Object filesRoot) {
+    return 'Files 路径：$filesRoot > Misuzu Music > MisuzuMusic';
+  }
 
   @override
   String homeMisuzuSubfolderCount(int count) {
@@ -449,8 +450,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get libraryMountInfoCardTitle => '通过 MisuzuMusic 文件夹导入';
 
   @override
-  String get libraryMountInfoCardDescription =>
-      'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「我的 iPhone」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。';
+  String libraryMountInfoCardDescription(Object filesRoot) {
+    return 'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「$filesRoot」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。';
+  }
+
+  @override
+  String get filesRootOnMyIphone => '我的 iPhone';
+
+  @override
+  String get filesRootOnMyIpad => '我的 iPad';
 
   @override
   String get libraryMountMysteryDialogTitle => '输入神秘代码';

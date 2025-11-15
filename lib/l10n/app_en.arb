@@ -234,7 +234,12 @@
     }
   },
   "homePickMisuzuFolderTitle": "Pick MisuzuMusic folder",
-  "homeMisuzuFilesHint": "Files path: On My iPhone > Misuzu Music > MisuzuMusic",
+  "homeMisuzuFilesHint": "Files path: {filesRoot} > Misuzu Music > MisuzuMusic",
+  "@homeMisuzuFilesHint": {
+    "placeholders": {
+      "filesRoot": {}
+    }
+  },
   "homeMisuzuSubfolderCount": "{count} subfolders detected",
   "@homeMisuzuSubfolderCount": {
     "placeholders": {
@@ -278,7 +283,14 @@
   "libraryMountOptionLocalDescription": "Pick a folder on disk and scan the music inside.",
   "libraryMountOptionMysteryTitle": "Mystery code",
   "libraryMountInfoCardTitle": "Import via the MisuzuMusic folder",
-  "libraryMountInfoCardDescription": "iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open On My iPhone > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it.\n3) Return to Misuzu Music and select the MisuzuMusic folder to start scanning.",
+  "libraryMountInfoCardDescription": "iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open {filesRoot} > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it.\n3) Return to Misuzu Music and select the MisuzuMusic folder to start scanning.",
+  "@libraryMountInfoCardDescription": {
+    "placeholders": {
+      "filesRoot": {}
+    }
+  },
+  "filesRootOnMyIphone": "On My iPhone",
+  "filesRootOnMyIpad": "On My iPad",
   "libraryMountMysteryDialogTitle": "Enter mystery code",
   "libraryMountMysteryCodeFieldLabel": "Mystery code",
   "libraryMountMysteryCodeEmptyError": "Please enter a mystery code",

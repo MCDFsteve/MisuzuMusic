@@ -234,7 +234,12 @@
     }
   },
   "homePickMisuzuFolderTitle": "选择 MisuzuMusic 文件夹",
-  "homeMisuzuFilesHint": "Files 路径：我的 iPhone > Misuzu Music > MisuzuMusic",
+  "homeMisuzuFilesHint": "Files 路径：{filesRoot} > Misuzu Music > MisuzuMusic",
+  "@homeMisuzuFilesHint": {
+    "placeholders": {
+      "filesRoot": {}
+    }
+  },
   "homeMisuzuSubfolderCount": "当前 MisuzuMusic 中共有 {count} 个子文件夹",
   "@homeMisuzuSubfolderCount": {
     "placeholders": {
@@ -278,7 +283,14 @@
   "libraryMountOptionLocalDescription": "从磁盘选择文件夹并扫描其中的音乐文件。",
   "libraryMountOptionMysteryTitle": "神秘代码",
   "libraryMountInfoCardTitle": "通过 MisuzuMusic 文件夹导入",
-  "libraryMountInfoCardDescription": "iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「我的 iPhone」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。",
+  "libraryMountInfoCardDescription": "iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「{filesRoot}」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。",
+  "@libraryMountInfoCardDescription": {
+    "placeholders": {
+      "filesRoot": {}
+    }
+  },
+  "filesRootOnMyIphone": "我的 iPhone",
+  "filesRootOnMyIpad": "我的 iPad",
   "libraryMountMysteryDialogTitle": "输入神秘代码",
   "libraryMountMysteryCodeFieldLabel": "神秘代码",
   "libraryMountMysteryCodeEmptyError": "请输入神秘代码",

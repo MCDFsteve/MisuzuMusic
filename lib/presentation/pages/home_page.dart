@@ -163,6 +163,18 @@ class _MediaControlShortcutScope extends StatefulWidget {
       _MediaControlShortcutScopeState();
 }
 
+String _filesAppRootLabel(BuildContext context, AppLocalizations l10n) {
+  final platform = Theme.of(context).platform;
+  if (platform != TargetPlatform.iOS) {
+    return l10n.filesRootOnMyIphone;
+  }
+
+  final mediaQuery = MediaQuery.maybeOf(context);
+  final shortestSide = mediaQuery?.size.shortestSide ?? 0;
+  final isTablet = shortestSide >= 600;
+  return isTablet ? l10n.filesRootOnMyIpad : l10n.filesRootOnMyIphone;
+}
+
 class _MediaControlShortcutScopeState
     extends State<_MediaControlShortcutScope> {
   static const MethodChannel _hotKeyChannel = MethodChannel(
