@@ -168,9 +168,14 @@ class MisuzuAudioHandler extends BaseAudioHandler
       case PlayerState.loading:
         return AudioProcessingState.loading;
       case PlayerState.stopped:
-        return _latestTrack == null
-            ? AudioProcessingState.idle
-            : AudioProcessingState.completed;
+        final hasUpcomingTrack =
+            _audioPlayerService.currentTrack != null ||
+            (_audioPlayerService.queue.isNotEmpty &&
+                _audioPlayerService.currentIndex <
+                    _audioPlayerService.queue.length);
+        return hasUpcomingTrack
+            ? AudioProcessingState.completed
+            : AudioProcessingState.idle;
     }
   }
 
