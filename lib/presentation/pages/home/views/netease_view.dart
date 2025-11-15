@@ -383,10 +383,11 @@ class _NeteaseViewState extends State<NeteaseView> {
   }
 
   List<MacosContextMenuAction> _neteaseContextActions(Track track) {
+    final l10n = context.l10n;
     if (track.isNeteaseTrack) {
       return [
         MacosContextMenuAction(
-          label: '添加到网络歌曲歌单…',
+          label: l10n.contextMenuAddToOnlinePlaylist,
           icon: CupertinoIcons.cloud_upload,
           onSelected: () => _promptAddTrackToNeteasePlaylist(track),
         ),
@@ -397,7 +398,7 @@ class _NeteaseViewState extends State<NeteaseView> {
     }
     return [
       MacosContextMenuAction(
-        label: '添加到歌单',
+        label: l10n.contextMenuAddToPlaylist,
         icon: CupertinoIcons.add_circled,
         onSelected: () => widget.onAddToPlaylist?.call(track),
       ),

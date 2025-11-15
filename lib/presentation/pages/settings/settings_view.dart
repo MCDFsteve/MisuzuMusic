@@ -1023,72 +1023,12 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
       children: [
         label,
         const SizedBox(height: 8),
-        Container(
-          width: 252,
-          height: 24,
-          decoration: BoxDecoration(
-            color: isDarkMode
-                ? Colors.white.withOpacity(0.12)
-                : Colors.black.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-            child: Stack(
-              children: [
-                AnimatedAlign(
-                  duration: const Duration(milliseconds: 420),
-                  curve: Curves.elasticOut,
-                  alignment: _alignmentForIndex(_currentIndex, tabs.length),
-                  child: FractionallySizedBox(
-                    widthFactor: 1 / tabs.length,
-                    heightFactor: 1,
-                    child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: isDarkMode
-                            ? Colors.white.withOpacity(0.12)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(tabs.length, (index) {
-                  final label = tabs[index];
-                  final isSelected = index == _currentIndex;
-                  return SizedBox(
-                    width: 84,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _handleTap(index),
-                      child: Center(
-                        child: AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 200),
-                          style: baseTextStyle.copyWith(
-                            fontSize: 10,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: isSelected
-                                ? (isDarkMode
-                                    ? Colors.white
-                                    : Colors.black.withOpacity(0.85))
-                                : (isDarkMode
-                                    ? Colors.white.withOpacity(0.85)
-                                    : Colors.black.withOpacity(0.75)),
-                          ),
-                          child: Text(label),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ],
-          ),
+        _DesktopSegmentedSelector(
+          labels: tabs,
+          selectedIndex: _currentIndex,
+          onSelected: _handleTap,
+          isDarkMode: isDarkMode,
+          textStyle: baseTextStyle,
         ),
       ],
     );
@@ -1107,14 +1047,6 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
     if (mode != widget.currentMode) {
       widget.onChanged(mode);
     }
-  }
-
-  Alignment _alignmentForIndex(int index, int count) {
-    if (count == 1) {
-      return Alignment.center;
-    }
-    final step = 2 / (count - 1);
-    return Alignment(-1 + (step * index), 0);
   }
 
   List<String> _tabs(BuildContext context, AppLocalizations l10n) {
@@ -1247,17 +1179,12 @@ class _LanguageControlState extends State<_LanguageControl> {
       children: [
         label,
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: List.generate(labels.length, (index) {
-            final isSelected = index == selectedIndex;
-            return ChoiceChip(
-              label: Text(labels[index]),
-              selected: isSelected,
-              onSelected: (_) => _handleTap(index),
-            );
-          }),
+        _DesktopSegmentedSelector(
+          labels: labels,
+          selectedIndex: selectedIndex,
+          onSelected: _handleTap,
+          isDarkMode: isDarkMode,
+          textStyle: baseTextStyle,
         ),
       ],
     );
@@ -1306,3 +1233,107 @@ class _LanguageControlState extends State<_LanguageControl> {
 }
 
 enum _LanguageOption { system, chinese, english }
+
+class _DesktopSegmentedSelector extends StatelessWidget {
+  const _DesktopSegmentedSelector({
+    required this.labels,
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.isDarkMode,
+    required this.textStyle,
+    this.segmentWidth = 84,
+  });
+
+  final List<String> labels;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  final bool isDarkMode;
+  final TextStyle textStyle;
+  final double segmentWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final int count = labels.length;
+    if (count == 0) {
+      return const SizedBox.shrink();
+    }
+    final double totalWidth = segmentWidth * count;
+    final Color backgroundColor = isDarkMode
+        ? Colors.white.withOpacity(0.12)
+        : Colors.black.withOpacity(0.12);
+    final Color indicatorColor = isDarkMode
+        ? Colors.white.withOpacity(0.12)
+        : Colors.white;
+
+    return Container(
+      width: totalWidth,
+      height: 24,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.elasticOut,
+            alignment: _alignmentForIndex(selectedIndex, count),
+            child: FractionallySizedBox(
+              widthFactor: 1 / count,
+              heightFactor: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: indicatorColor,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(count, (index) {
+              final bool isSelected = index == selectedIndex;
+              final Color textColor = isSelected
+                  ? (isDarkMode
+                      ? Colors.white
+                      : Colors.black.withOpacity(0.85))
+                  : (isDarkMode
+                      ? Colors.white.withOpacity(0.85)
+                      : Colors.black.withOpacity(0.75));
+              return SizedBox(
+                width: segmentWidth,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onSelected(index),
+                  child: Center(
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
+                      style: textStyle.copyWith(
+                        fontSize: 10,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: textColor,
+                      ),
+                      child: Text(labels[index], maxLines: 1),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Alignment _alignmentForIndex(int index, int count) {
+    if (count <= 1) {
+      return Alignment.center;
+    }
+    final double step = 2 / (count - 1);
+    return Alignment(-1 + (step * index), 0);
+  }
+}

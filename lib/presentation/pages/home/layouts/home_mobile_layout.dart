@@ -510,8 +510,7 @@ class _MobileSortModeTile extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                mode.displayName,
-                locale: const Locale('zh-Hans', 'zh'),
+                mode.localizedLabel(context.l10n),
                 style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,

@@ -250,7 +250,7 @@ class _OverviewContextMenuTarget extends StatelessWidget {
           globalPosition: position,
           actions: [
             MacosContextMenuAction(
-              label: '全部添加到歌单',
+              label: context.l10n.contextMenuAddAllToPlaylist,
               icon: CupertinoIcons.music_note_list,
               onSelected: onAddAllToPlaylist,
             ),

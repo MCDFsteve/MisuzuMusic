@@ -161,6 +161,9 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
         ? Colors.white.withOpacity(0.18)
         : Colors.black.withOpacity(0.2);
     final railWidth = widget.thumbWidth * (_isHovering ? 2 : 1);
+    final platform = Theme.of(context).platform;
+    final bool isTouchDevice =
+        platform == TargetPlatform.android || platform == TargetPlatform.iOS;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -207,6 +210,8 @@ class _AdaptiveScrollbarState extends State<AdaptiveScrollbar> {
                       thumbExtent: _thumbExtent.clamp(0, availableHeight),
                       thumbOffset: _thumbOffset,
                       onDragTo: (dy) => _jumpToPosition(dy, trackExtent),
+                      onInteractionChanged:
+                          isTouchDevice ? _setHovering : null,
                     ),
                   ),
                 ),
@@ -277,6 +282,7 @@ class _ScrollbarRail extends StatelessWidget {
     required this.thumbExtent,
     required this.thumbOffset,
     required this.onDragTo,
+    this.onInteractionChanged,
   });
 
   final double height;
@@ -287,14 +293,25 @@ class _ScrollbarRail extends StatelessWidget {
   final double thumbExtent;
   final double thumbOffset;
   final ValueChanged<double> onDragTo;
+  final ValueChanged<bool>? onInteractionChanged;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onTapDown: (details) => onDragTo(details.localPosition.dy),
-      onVerticalDragStart: (details) => onDragTo(details.localPosition.dy),
+      onTapDown: (details) {
+        onInteractionChanged?.call(true);
+        onDragTo(details.localPosition.dy);
+      },
+      onTapUp: (_) => onInteractionChanged?.call(false),
+      onTapCancel: () => onInteractionChanged?.call(false),
+      onVerticalDragStart: (details) {
+        onInteractionChanged?.call(true);
+        onDragTo(details.localPosition.dy);
+      },
       onVerticalDragUpdate: (details) => onDragTo(details.localPosition.dy),
+      onVerticalDragEnd: (_) => onInteractionChanged?.call(false),
+      onVerticalDragCancel: () => onInteractionChanged?.call(false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOut,

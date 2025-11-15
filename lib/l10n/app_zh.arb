@@ -40,6 +40,7 @@
   "settingsLanguageSystem": "跟随系统",
   "settingsLanguageChinese": "简体中文",
   "settingsLanguageEnglish": "英语",
+  "librarySearchPlaceholder": "搜索歌曲、艺术家或专辑...",
   "settingsAboutProjectLine": "项目名称：{name}",
   "@settingsAboutProjectLine": {
     "placeholders": {
@@ -66,6 +67,9 @@
   },
   "actionClear": "清空",
   "actionClose": "关闭",
+  "actionSave": "保存",
+  "actionDelete": "删除",
+  "actionRemove": "移除",
   "navLibrary": "音乐库",
   "navPlaylists": "歌单",
   "navOnlineTracks": "网络歌曲",
@@ -81,6 +85,14 @@
   "windowMaximize": "最大化",
   "windowClose": "关闭",
   "glassHeaderSortTitle": "选择排序方式",
+  "sortModeTitleAZ": "字母排序（A-Z）",
+  "sortModeTitleZA": "字母排序（Z-A）",
+  "sortModeAddedNewest": "添加时间（从新到旧）",
+  "sortModeAddedOldest": "添加时间（从旧到新）",
+  "sortModeArtistAZ": "歌手名（A-Z）",
+  "sortModeArtistZA": "歌手名（Z-A）",
+  "sortModeAlbumAZ": "专辑名（A-Z）",
+  "sortModeAlbumZA": "专辑名（Z-A）",
   "actionCancel": "取消",
   "homeBackTooltipDefault": "返回上一层",
   "homeBackTooltipLibrary": "返回音乐库",
@@ -258,5 +270,89 @@
       "message": {}
     }
   },
-  "homeErrorTitle": "发生错误"
+  "homeErrorTitle": "发生错误",
+  "libraryMountDialogTitle": "选择挂载方式",
+  "libraryMountOptionAppFolderTitle": "MisuzuMusic 文件夹",
+  "libraryMountOptionAppFolderDescription": "浏览 Files App 中的 MisuzuMusic 目录，避免重复占用空间。",
+  "libraryMountOptionLocalTitle": "挂载本地文件夹",
+  "libraryMountOptionLocalDescription": "从磁盘选择文件夹并扫描其中的音乐文件。",
+  "libraryMountOptionMysteryTitle": "神秘代码",
+  "libraryMountInfoCardTitle": "通过 MisuzuMusic 文件夹导入",
+  "libraryMountInfoCardDescription": "iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「我的 iPhone」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。",
+  "libraryMountMysteryDialogTitle": "输入神秘代码",
+  "libraryMountMysteryCodeFieldLabel": "神秘代码",
+  "libraryMountMysteryCodeEmptyError": "请输入神秘代码",
+  "libraryMountConfirmButton": "确认挂载",
+  "playlistCreationModeTitle": "选择新建方式",
+  "playlistCreationModeLocalTitle": "本地新建歌单",
+  "playlistCreationModeLocalDescription": "使用本地存储，立即编辑歌单名称和内容。",
+  "playlistCreationModeCloudTitle": "拉取云歌单",
+  "playlistCreationModeCloudDescription": "根据云端 ID 下载现有歌单并导入本地。",
+  "playlistCreationCloudIdLabel": "云端ID",
+  "playlistCreationCloudIdHint": "至少 5 位，仅限字母/数字/下划线",
+  "playlistEditorTitleCreate": "新建歌单",
+  "playlistEditorTitleEdit": "编辑歌单",
+  "playlistEditorCoverLabel": "封面",
+  "playlistEditorSelectImage": "选择图片",
+  "playlistEditorNameLabel": "歌单名称",
+  "playlistEditorNamePlaceholder": "请输入歌单名称",
+  "playlistEditorDescriptionLabel": "简介",
+  "playlistEditorDescriptionPlaceholder": "介绍一下这个歌单吧",
+  "playlistEditorDeleteButton": "删除歌单",
+  "playlistEditorNameRequired": "歌单名称不能为空",
+  "playlistEditorSaveFailed": "保存失败",
+  "playlistEditorCreateFailed": "创建歌单失败",
+  "playlistEditorDeleteFailed": "删除歌单失败",
+  "playlistEditorDeleteConfirmTitle": "确定删除“{playlistName}”吗？",
+  "@playlistEditorDeleteConfirmTitle": {
+    "placeholders": {
+      "playlistName": {}
+    }
+  },
+  "playlistEditorDeleteConfirmMessage": "该歌单将被永久移除，包含的歌曲不会删除。",
+  "playlistEditorDeleteDialogTitle": "删除歌单",
+  "contextMenuViewArtist": "查看歌手",
+  "contextMenuViewAlbum": "查看专辑",
+  "contextMenuAddToPlaylist": "添加到歌单",
+  "contextMenuRemoveFromPlaylist": "从歌单删除",
+  "contextMenuAddToOnlinePlaylist": "添加到网络歌曲歌单...",
+  "contextMenuOpenPlaylist": "打开歌单",
+  "contextMenuEditPlaylist": "编辑歌单",
+  "contextMenuConfigureAutosync": "自动同步设置...",
+  "contextMenuUploadPlaylist": "上传到云",
+  "contextMenuRemove": "移除",
+  "contextMenuAddAllToPlaylist": "全部添加到歌单",
+  "playlistRemoveTrackTitle": "从歌单移除歌曲？",
+  "playlistRemoveTrackMessage": "“{title}” 将从当前歌单移除，但文件和其它歌单不会受到影响。",
+  "@playlistRemoveTrackMessage": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "songDetailEditDialogTitle": "编辑歌曲详情",
+  "songDetailEditDialogSubtitle": "曲目：{trackTitle} · {trackArtist}",
+  "@songDetailEditDialogSubtitle": {
+    "placeholders": {
+      "trackTitle": {},
+      "trackArtist": {}
+    }
+  },
+  "songDetailEditDialogDescription": "保存后将同步到服务器，可随时再次编辑。",
+  "songDetailEditDialogHint": "填写歌曲背景、制作人员、翻译或任何想展示的信息...",
+  "songDetailSaveSuccessTitle": "保存成功",
+  "songDetailSaveSuccessCreated": "已创建歌曲详情。",
+  "songDetailSaveSuccessUpdated": "歌曲详情已更新。",
+  "songDetailSaveFailureTitle": "保存失败",
+  "songDetailSaveFailureMessage": "保存歌曲详情失败：{error}",
+  "@songDetailSaveFailureMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "songDetailLoadErrorTitle": "加载失败",
+  "songDetailEmptyTitle": "暂无歌曲详情",
+  "songDetailEmptyDescription": "使用下方“编辑详情”撰写内容后会自动保存在服务器。",
+  "songDetailSectionTitle": "歌曲详情",
+  "songDetailSavingLabel": "保存中...",
+  "songDetailEditButton": "编辑详情"
 }

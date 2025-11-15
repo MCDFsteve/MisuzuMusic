@@ -160,6 +160,7 @@ class _PlaylistHistoryList extends StatelessWidget {
     Track normalizedTrack,
     TrackDisplayInfo displayInfo,
   ) async {
+    final l10n = context.l10n;
     final actions = <MacosContextMenuAction>[];
     final artistName = displayInfo.artist.trim();
     final albumName = displayInfo.album.trim();
@@ -170,7 +171,7 @@ class _PlaylistHistoryList extends StatelessWidget {
     if (canViewArtist) {
       actions.add(
         MacosContextMenuAction(
-          label: '查看歌手',
+          label: l10n.contextMenuViewArtist,
           icon: CupertinoIcons.person_crop_circle,
           onSelected: () => onViewArtist?.call(normalizedTrack),
         ),
@@ -179,7 +180,7 @@ class _PlaylistHistoryList extends StatelessWidget {
     if (canViewAlbum) {
       actions.add(
         MacosContextMenuAction(
-          label: '查看专辑',
+          label: l10n.contextMenuViewAlbum,
           icon: CupertinoIcons.music_albums,
           onSelected: () => onViewAlbum?.call(normalizedTrack),
         ),
@@ -189,7 +190,7 @@ class _PlaylistHistoryList extends StatelessWidget {
     if (originalTrack.isNeteaseTrack) {
       actions.add(
         MacosContextMenuAction(
-          label: '添加到网络歌曲歌单…',
+          label: l10n.contextMenuAddToOnlinePlaylist,
           icon: CupertinoIcons.cloud_upload,
           onSelected: () => unawaited(
             _addTrackToNeteasePlaylist(context, originalTrack),
@@ -199,7 +200,7 @@ class _PlaylistHistoryList extends StatelessWidget {
     } else if (onAddToPlaylist != null) {
       actions.add(
         MacosContextMenuAction(
-          label: '添加到歌单',
+          label: l10n.contextMenuAddToPlaylist,
           icon: CupertinoIcons.add_circled,
           onSelected: () => onAddToPlaylist?.call(originalTrack),
         ),

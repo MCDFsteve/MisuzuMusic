@@ -40,6 +40,7 @@
   "settingsLanguageSystem": "Follow system",
   "settingsLanguageChinese": "Simplified Chinese",
   "settingsLanguageEnglish": "English",
+  "librarySearchPlaceholder": "Search songs, artists or albums...",
   "settingsAboutProjectLine": "Project name: {name}",
   "@settingsAboutProjectLine": {
     "placeholders": {
@@ -66,6 +67,9 @@
   },
   "actionClear": "Clear",
   "actionClose": "Close",
+  "actionSave": "Save",
+  "actionDelete": "Delete",
+  "actionRemove": "Remove",
   "navLibrary": "Library",
   "navPlaylists": "Song Lists",
   "navOnlineTracks": "Online Tracks",
@@ -81,6 +85,14 @@
   "windowMaximize": "Maximize",
   "windowClose": "Close",
   "glassHeaderSortTitle": "Choose sort order",
+  "sortModeTitleAZ": "Title (A-Z)",
+  "sortModeTitleZA": "Title (Z-A)",
+  "sortModeAddedNewest": "Added (newest first)",
+  "sortModeAddedOldest": "Added (oldest first)",
+  "sortModeArtistAZ": "Artist (A-Z)",
+  "sortModeArtistZA": "Artist (Z-A)",
+  "sortModeAlbumAZ": "Album (A-Z)",
+  "sortModeAlbumZA": "Album (Z-A)",
   "actionCancel": "Cancel",
   "homeBackTooltipDefault": "Go back",
   "homeBackTooltipLibrary": "Back to library",
@@ -258,5 +270,89 @@
       "message": {}
     }
   },
-  "homeErrorTitle": "Error occurred"
+  "homeErrorTitle": "Error occurred",
+  "libraryMountDialogTitle": "Choose mount method",
+  "libraryMountOptionAppFolderTitle": "MisuzuMusic folder",
+  "libraryMountOptionAppFolderDescription": "Browse the MisuzuMusic directory in the Files app to avoid using extra storage.",
+  "libraryMountOptionLocalTitle": "Mount local folder",
+  "libraryMountOptionLocalDescription": "Pick a folder on disk and scan the music inside.",
+  "libraryMountOptionMysteryTitle": "Mystery code",
+  "libraryMountInfoCardTitle": "Import via the MisuzuMusic folder",
+  "libraryMountInfoCardDescription": "iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open On My iPhone > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it.\n3) Return to Misuzu Music and select the MisuzuMusic folder to start scanning.",
+  "libraryMountMysteryDialogTitle": "Enter mystery code",
+  "libraryMountMysteryCodeFieldLabel": "Mystery code",
+  "libraryMountMysteryCodeEmptyError": "Please enter a mystery code",
+  "libraryMountConfirmButton": "Mount",
+  "playlistCreationModeTitle": "Choose creation method",
+  "playlistCreationModeLocalTitle": "Create local playlist",
+  "playlistCreationModeLocalDescription": "Store the playlist locally and edit its name and content right away.",
+  "playlistCreationModeCloudTitle": "Import cloud playlist",
+  "playlistCreationModeCloudDescription": "Download an existing playlist by its cloud ID and import it locally.",
+  "playlistCreationCloudIdLabel": "Cloud ID",
+  "playlistCreationCloudIdHint": "At least 5 characters, letters/numbers/underscore",
+  "playlistEditorTitleCreate": "New playlist",
+  "playlistEditorTitleEdit": "Edit playlist",
+  "playlistEditorCoverLabel": "Cover",
+  "playlistEditorSelectImage": "Choose image",
+  "playlistEditorNameLabel": "Playlist name",
+  "playlistEditorNamePlaceholder": "Enter a playlist name",
+  "playlistEditorDescriptionLabel": "Description",
+  "playlistEditorDescriptionPlaceholder": "Describe this playlist",
+  "playlistEditorDeleteButton": "Delete playlist",
+  "playlistEditorNameRequired": "Playlist name cannot be empty",
+  "playlistEditorSaveFailed": "Failed to save playlist",
+  "playlistEditorCreateFailed": "Failed to create playlist",
+  "playlistEditorDeleteFailed": "Failed to delete playlist",
+  "playlistEditorDeleteConfirmTitle": "Delete \"{playlistName}\"?",
+  "@playlistEditorDeleteConfirmTitle": {
+    "placeholders": {
+      "playlistName": {}
+    }
+  },
+  "playlistEditorDeleteConfirmMessage": "This playlist will be removed permanently. Songs inside will stay in your library.",
+  "playlistEditorDeleteDialogTitle": "Delete playlist",
+  "contextMenuViewArtist": "View artist",
+  "contextMenuViewAlbum": "View album",
+  "contextMenuAddToPlaylist": "Add to playlist",
+  "contextMenuRemoveFromPlaylist": "Remove from playlist",
+  "contextMenuAddToOnlinePlaylist": "Add to online playlist...",
+  "contextMenuOpenPlaylist": "Open playlist",
+  "contextMenuEditPlaylist": "Edit playlist",
+  "contextMenuConfigureAutosync": "Auto-sync settings...",
+  "contextMenuUploadPlaylist": "Upload to cloud",
+  "contextMenuRemove": "Remove",
+  "contextMenuAddAllToPlaylist": "Add all to playlist",
+  "playlistRemoveTrackTitle": "Remove from playlist?",
+  "playlistRemoveTrackMessage": "\"{title}\" will be removed from this playlist, but the file and other playlists won't be affected.",
+  "@playlistRemoveTrackMessage": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "songDetailEditDialogTitle": "Edit song detail",
+  "songDetailEditDialogSubtitle": "Track: {trackTitle} · {trackArtist}",
+  "@songDetailEditDialogSubtitle": {
+    "placeholders": {
+      "trackTitle": {},
+      "trackArtist": {}
+    }
+  },
+  "songDetailEditDialogDescription": "The content syncs to the server and can be edited at any time.",
+  "songDetailEditDialogHint": "Share background info, contributors, translations, or anything else...",
+  "songDetailSaveSuccessTitle": "Saved",
+  "songDetailSaveSuccessCreated": "Song detail created.",
+  "songDetailSaveSuccessUpdated": "Song detail updated.",
+  "songDetailSaveFailureTitle": "Save failed",
+  "songDetailSaveFailureMessage": "Failed to save song detail: {error}",
+  "@songDetailSaveFailureMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "songDetailLoadErrorTitle": "Load failed",
+  "songDetailEmptyTitle": "No song detail yet",
+  "songDetailEmptyDescription": "Use \"Edit detail\" below to add content. It syncs automatically.",
+  "songDetailSectionTitle": "Song detail",
+  "songDetailSavingLabel": "Saving...",
+  "songDetailEditButton": "Edit detail"
 }

@@ -7,29 +7,30 @@ Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
   return showPlaylistModalDialog<LibraryMountMode>(
     context: context,
     builder: (dialogContext) {
+      final dialogL10n = dialogContext.l10n;
       final bodyChildren = <Widget>[
         if (isIOS) ...[
           const _IOSAppFolderInfoCard(),
           const SizedBox(height: 12),
           _PlaylistCreationModeOption(
             icon: CupertinoIcons.folder_fill,
-            title: 'MisuzuMusic 文件夹',
-            description: '浏览 Files App 中的 MisuzuMusic 目录，避免重复占用空间。',
+            title: dialogL10n.libraryMountOptionAppFolderTitle,
+            description: dialogL10n.libraryMountOptionAppFolderDescription,
             onTap: () =>
                 Navigator.of(dialogContext).pop(LibraryMountMode.local),
           ),
         ] else ...[
           _PlaylistCreationModeOption(
             icon: CupertinoIcons.folder_solid,
-            title: '挂载本地文件夹',
-            description: '从磁盘选择文件夹并扫描其中的音乐文件。',
+            title: dialogL10n.libraryMountOptionLocalTitle,
+            description: dialogL10n.libraryMountOptionLocalDescription,
             onTap: () =>
                 Navigator.of(dialogContext).pop(LibraryMountMode.local),
           ),
           const SizedBox(height: 12),
           _PlaylistCreationModeOption(
             icon: CupertinoIcons.lock,
-            title: '神秘代码',
+            title: dialogL10n.libraryMountOptionMysteryTitle,
             description: '',
             onTap: () =>
                 Navigator.of(dialogContext).pop(LibraryMountMode.mystery),
@@ -38,7 +39,7 @@ Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
       ];
 
       return _PlaylistModalScaffold(
-        title: '选择挂载方式',
+        title: dialogL10n.libraryMountDialogTitle,
         body: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -46,7 +47,7 @@ Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
         ),
         actions: [
           _SheetActionButton.secondary(
-            label: '取消',
+            label: dialogL10n.actionCancel,
             onPressed: () => Navigator.of(dialogContext).pop(),
           ),
         ],
@@ -65,6 +66,7 @@ class _IOSAppFolderInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final l10n = context.l10n;
     final titleStyle =
         theme.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w600,
@@ -121,22 +123,11 @@ class _IOSAppFolderInfoCard extends StatelessWidget {
                     : Colors.black.withOpacity(0.8),
               ),
               const SizedBox(width: 8),
-              Text(
-                locale: Locale("zh-Hans", "zh"),
-                '通过 MisuzuMusic 文件夹导入',
-                style: titleStyle,
-              ),
+              Text(l10n.libraryMountInfoCardTitle, style: titleStyle),
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            locale: Locale("zh-Hans", "zh"),
-            'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n'
-            '1）在「文件」App 中进入「我的 iPhone」> Misuzu Music。\n'
-            '2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n'
-            '3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。',
-            style: bodyStyle,
-          ),
+          Text(l10n.libraryMountInfoCardDescription, style: bodyStyle),
         ],
       ),
     );
@@ -149,26 +140,28 @@ Future<String?> showMysteryCodeDialog(BuildContext context) {
   return showPlaylistModalDialog<String>(
     context: context,
     builder: (dialogContext) {
+      final dialogL10n = dialogContext.l10n;
       return StatefulBuilder(
         builder: (context, setState) {
           void submit() {
             final value = controller.text.trim();
             if (value.isEmpty) {
-              setState(() => errorText = '请输入神秘代码');
+              setState(() =>
+                  errorText = dialogL10n.libraryMountMysteryCodeEmptyError);
               return;
             }
             Navigator.of(dialogContext).pop(value);
           }
 
           return _PlaylistModalScaffold(
-            title: '输入神秘代码',
+            title: dialogL10n.libraryMountMysteryDialogTitle,
             body: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
                 _ModalTextField(
                   controller: controller,
-                  label: '神秘代码',
+                  label: dialogL10n.libraryMountMysteryCodeFieldLabel,
                   hintText: '',
                   enabled: true,
                   onChanged: (_) {
@@ -182,7 +175,6 @@ Future<String?> showMysteryCodeDialog(BuildContext context) {
                   const SizedBox(height: 8),
                   Text(
                     errorText!,
-                    locale: Locale("zh-Hans", "zh"),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: MacosColors.systemRedColor,
                     ),
@@ -192,10 +184,13 @@ Future<String?> showMysteryCodeDialog(BuildContext context) {
             ),
             actions: [
               _SheetActionButton.secondary(
-                label: '取消',
+                label: dialogL10n.actionCancel,
                 onPressed: () => Navigator.of(dialogContext).pop(),
               ),
-              _SheetActionButton.primary(label: '确认挂载', onPressed: submit),
+              _SheetActionButton.primary(
+                label: dialogL10n.libraryMountConfirmButton,
+                onPressed: submit,
+              ),
             ],
             maxWidth: 360,
             contentSpacing: 18,

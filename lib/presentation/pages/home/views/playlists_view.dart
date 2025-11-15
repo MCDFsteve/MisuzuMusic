@@ -94,24 +94,25 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     Playlist playlist,
     Offset position,
   ) async {
+    final l10n = context.l10n;
     final actions = <MacosContextMenuAction>[
       MacosContextMenuAction(
-        label: '打开歌单',
+        label: l10n.contextMenuOpenPlaylist,
         icon: CupertinoIcons.play_circle,
         onSelected: () => _openPlaylist(playlist),
       ),
       MacosContextMenuAction(
-        label: '编辑歌单',
+        label: l10n.contextMenuEditPlaylist,
         icon: CupertinoIcons.pencil,
         onSelected: () => _editPlaylist(playlist),
       ),
       MacosContextMenuAction(
-        label: '自动同步设置…',
+        label: l10n.contextMenuConfigureAutosync,
         icon: CupertinoIcons.arrow_2_squarepath,
         onSelected: () => _showAutoSyncSettingsDialog(playlist),
       ),
       MacosContextMenuAction(
-        label: '上传到云',
+        label: l10n.contextMenuUploadPlaylist,
         icon: CupertinoIcons.cloud_upload,
         onSelected: () => _handleUploadToCloud(playlist),
       ),

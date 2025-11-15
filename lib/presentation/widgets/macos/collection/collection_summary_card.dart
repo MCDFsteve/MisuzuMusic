@@ -8,6 +8,7 @@ import 'package:macos_ui/macos_ui.dart';
 import 'package:misuzu_music/presentation/widgets/common/hover_glow_overlay.dart';
 
 import '../context_menu/macos_context_menu.dart';
+import '../../../../l10n/l10n.dart';
 
 class CollectionSummaryCard extends StatelessWidget {
   const CollectionSummaryCard({
@@ -249,7 +250,7 @@ class CollectionSummaryCard extends StatelessWidget {
       globalPosition: position,
       actions: [
         MacosContextMenuAction(
-          label: contextMenuLabel ?? '移除',
+          label: contextMenuLabel ?? context.l10n.contextMenuRemove,
           icon: CupertinoIcons.trash,
           destructive: true,
           onSelected: removeHandler,

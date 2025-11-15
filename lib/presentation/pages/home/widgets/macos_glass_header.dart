@@ -1157,6 +1157,7 @@ class _SortModeMenuItemState extends State<_SortModeMenuItem> {
     final macTheme = MacosTheme.maybeOf(context);
     final brightness = macTheme?.brightness ?? theme.brightness;
     final isDark = brightness == Brightness.dark;
+    final optionLabel = widget.mode.localizedLabel(context.l10n);
 
     final textColor = isDark
         ? Colors.white.withOpacity(0.88)
@@ -1188,8 +1189,7 @@ class _SortModeMenuItemState extends State<_SortModeMenuItem> {
             children: [
               Expanded(
                 child: Text(
-                  widget.mode.displayName,
-                  locale: Locale("zh-Hans", "zh"),
+                  optionLabel,
                   style: TextStyle(
                     fontSize: 13,
                     color: textColor,

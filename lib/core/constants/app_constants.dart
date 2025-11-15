@@ -1,3 +1,5 @@
+import 'package:misuzu_music/l10n/app_localizations.dart';
+
 // Core constants for the Misuzu Music application
 class AppConstants {
   // App Information
@@ -64,24 +66,24 @@ enum TrackSortMode {
 }
 
 extension TrackSortModeExtension on TrackSortMode {
-  String get displayName {
+  String localizedLabel(AppLocalizations l10n) {
     switch (this) {
       case TrackSortMode.titleAZ:
-        return '字母排序（A-Z）';
+        return l10n.sortModeTitleAZ;
       case TrackSortMode.titleZA:
-        return '字母排序（Z-A）';
+        return l10n.sortModeTitleZA;
       case TrackSortMode.addedNewest:
-        return '添加时间（从新到旧）';
+        return l10n.sortModeAddedNewest;
       case TrackSortMode.addedOldest:
-        return '添加时间（从旧到新）';
+        return l10n.sortModeAddedOldest;
       case TrackSortMode.artistAZ:
-        return '歌手名（A-Z）';
+        return l10n.sortModeArtistAZ;
       case TrackSortMode.artistZA:
-        return '歌手名（Z-A）';
+        return l10n.sortModeArtistZA;
       case TrackSortMode.albumAZ:
-        return '专辑名（A-Z）';
+        return l10n.sortModeAlbumAZ;
       case TrackSortMode.albumZA:
-        return '专辑名（Z-A）';
+        return l10n.sortModeAlbumZA;
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart' as macos_ui;
 
 import '../../../core/utils/platform_utils.dart';
+import '../../../l10n/l10n.dart';
 import '../dialogs/frosted_search_dropdown.dart';
 
 enum LibrarySearchSuggestionType { track, artist, album }
@@ -42,7 +43,7 @@ class LibrarySearchField extends StatefulWidget {
     super.key,
     required this.query,
     required this.onQueryChanged,
-    this.placeholder = '搜索歌曲、艺术家或专辑...',
+    this.placeholder,
     this.onPreviewChanged,
     this.suggestions = const [],
     this.onSuggestionSelected,
@@ -52,7 +53,7 @@ class LibrarySearchField extends StatefulWidget {
 
   final String query;
   final ValueChanged<String> onQueryChanged;
-  final String placeholder;
+  final String? placeholder;
   final ValueChanged<String>? onPreviewChanged;
   final List<LibrarySearchSuggestion> suggestions;
   final ValueChanged<LibrarySearchSuggestion>? onSuggestionSelected;
@@ -171,6 +172,8 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
   @override
   Widget build(BuildContext context) {
     final bool useDesktopUi = prefersMacLikeUi();
+    final placeholderText =
+        widget.placeholder ?? context.l10n.librarySearchPlaceholder;
 
     _scheduleOverlayUpdate();
 
@@ -180,7 +183,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
             ? _MacSearchField(
                 controller: _controller,
                 focusNode: _focusNode,
-                placeholder: widget.placeholder,
+                placeholder: placeholderText,
                 onChanged: _handleChanged,
                 onSubmitted: _handleSubmitted,
                 isFocused: _focusNode.hasFocus,
@@ -190,7 +193,7 @@ class _LibrarySearchFieldState extends State<LibrarySearchField>
             : _MaterialSearchField(
                 controller: _controller,
                 focusNode: _focusNode,
-                placeholder: widget.placeholder,
+                placeholder: placeholderText,
                 onChanged: _handleChanged,
                 onSubmitted: _handleSubmitted,
                 isFocused: _focusNode.hasFocus,

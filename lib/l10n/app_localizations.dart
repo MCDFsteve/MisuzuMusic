@@ -278,6 +278,12 @@ abstract class AppLocalizations {
   /// **'英语'**
   String get settingsLanguageEnglish;
 
+  /// No description provided for @librarySearchPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索歌曲、艺术家或专辑...'**
+  String get librarySearchPlaceholder;
+
   /// No description provided for @settingsAboutProjectLine.
   ///
   /// In zh, this message translates to:
@@ -313,6 +319,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'关闭'**
   String get actionClose;
+
+  /// No description provided for @actionSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get actionSave;
+
+  /// No description provided for @actionDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get actionDelete;
+
+  /// No description provided for @actionRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get actionRemove;
 
   /// No description provided for @navLibrary.
   ///
@@ -403,6 +427,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'选择排序方式'**
   String get glassHeaderSortTitle;
+
+  /// No description provided for @sortModeTitleAZ.
+  ///
+  /// In zh, this message translates to:
+  /// **'字母排序（A-Z）'**
+  String get sortModeTitleAZ;
+
+  /// No description provided for @sortModeTitleZA.
+  ///
+  /// In zh, this message translates to:
+  /// **'字母排序（Z-A）'**
+  String get sortModeTitleZA;
+
+  /// No description provided for @sortModeAddedNewest.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加时间（从新到旧）'**
+  String get sortModeAddedNewest;
+
+  /// No description provided for @sortModeAddedOldest.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加时间（从旧到新）'**
+  String get sortModeAddedOldest;
+
+  /// No description provided for @sortModeArtistAZ.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌手名（A-Z）'**
+  String get sortModeArtistAZ;
+
+  /// No description provided for @sortModeArtistZA.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌手名（Z-A）'**
+  String get sortModeArtistZA;
+
+  /// No description provided for @sortModeAlbumAZ.
+  ///
+  /// In zh, this message translates to:
+  /// **'专辑名（A-Z）'**
+  String get sortModeAlbumAZ;
+
+  /// No description provided for @sortModeAlbumZA.
+  ///
+  /// In zh, this message translates to:
+  /// **'专辑名（Z-A）'**
+  String get sortModeAlbumZA;
 
   /// No description provided for @actionCancel.
   ///
@@ -763,6 +835,384 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'发生错误'**
   String get homeErrorTitle;
+
+  /// No description provided for @libraryMountDialogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择挂载方式'**
+  String get libraryMountDialogTitle;
+
+  /// No description provided for @libraryMountOptionAppFolderTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'MisuzuMusic 文件夹'**
+  String get libraryMountOptionAppFolderTitle;
+
+  /// No description provided for @libraryMountOptionAppFolderDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览 Files App 中的 MisuzuMusic 目录，避免重复占用空间。'**
+  String get libraryMountOptionAppFolderDescription;
+
+  /// No description provided for @libraryMountOptionLocalTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂载本地文件夹'**
+  String get libraryMountOptionLocalTitle;
+
+  /// No description provided for @libraryMountOptionLocalDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'从磁盘选择文件夹并扫描其中的音乐文件。'**
+  String get libraryMountOptionLocalDescription;
+
+  /// No description provided for @libraryMountOptionMysteryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'神秘代码'**
+  String get libraryMountOptionMysteryTitle;
+
+  /// No description provided for @libraryMountInfoCardTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'通过 MisuzuMusic 文件夹导入'**
+  String get libraryMountInfoCardTitle;
+
+  /// No description provided for @libraryMountInfoCardDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「我的 iPhone」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。'**
+  String get libraryMountInfoCardDescription;
+
+  /// No description provided for @libraryMountMysteryDialogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入神秘代码'**
+  String get libraryMountMysteryDialogTitle;
+
+  /// No description provided for @libraryMountMysteryCodeFieldLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'神秘代码'**
+  String get libraryMountMysteryCodeFieldLabel;
+
+  /// No description provided for @libraryMountMysteryCodeEmptyError.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入神秘代码'**
+  String get libraryMountMysteryCodeEmptyError;
+
+  /// No description provided for @libraryMountConfirmButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认挂载'**
+  String get libraryMountConfirmButton;
+
+  /// No description provided for @playlistCreationModeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择新建方式'**
+  String get playlistCreationModeTitle;
+
+  /// No description provided for @playlistCreationModeLocalTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地新建歌单'**
+  String get playlistCreationModeLocalTitle;
+
+  /// No description provided for @playlistCreationModeLocalDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用本地存储，立即编辑歌单名称和内容。'**
+  String get playlistCreationModeLocalDescription;
+
+  /// No description provided for @playlistCreationModeCloudTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'拉取云歌单'**
+  String get playlistCreationModeCloudTitle;
+
+  /// No description provided for @playlistCreationModeCloudDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'根据云端 ID 下载现有歌单并导入本地。'**
+  String get playlistCreationModeCloudDescription;
+
+  /// No description provided for @playlistCreationCloudIdLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'云端ID'**
+  String get playlistCreationCloudIdLabel;
+
+  /// No description provided for @playlistCreationCloudIdHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少 5 位，仅限字母/数字/下划线'**
+  String get playlistCreationCloudIdHint;
+
+  /// No description provided for @playlistEditorTitleCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建歌单'**
+  String get playlistEditorTitleCreate;
+
+  /// No description provided for @playlistEditorTitleEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑歌单'**
+  String get playlistEditorTitleEdit;
+
+  /// No description provided for @playlistEditorCoverLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'封面'**
+  String get playlistEditorCoverLabel;
+
+  /// No description provided for @playlistEditorSelectImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择图片'**
+  String get playlistEditorSelectImage;
+
+  /// No description provided for @playlistEditorNameLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单名称'**
+  String get playlistEditorNameLabel;
+
+  /// No description provided for @playlistEditorNamePlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入歌单名称'**
+  String get playlistEditorNamePlaceholder;
+
+  /// No description provided for @playlistEditorDescriptionLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'简介'**
+  String get playlistEditorDescriptionLabel;
+
+  /// No description provided for @playlistEditorDescriptionPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'介绍一下这个歌单吧'**
+  String get playlistEditorDescriptionPlaceholder;
+
+  /// No description provided for @playlistEditorDeleteButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除歌单'**
+  String get playlistEditorDeleteButton;
+
+  /// No description provided for @playlistEditorNameRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单名称不能为空'**
+  String get playlistEditorNameRequired;
+
+  /// No description provided for @playlistEditorSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败'**
+  String get playlistEditorSaveFailed;
+
+  /// No description provided for @playlistEditorCreateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建歌单失败'**
+  String get playlistEditorCreateFailed;
+
+  /// No description provided for @playlistEditorDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除歌单失败'**
+  String get playlistEditorDeleteFailed;
+
+  /// No description provided for @playlistEditorDeleteConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除“{playlistName}”吗？'**
+  String playlistEditorDeleteConfirmTitle(Object playlistName);
+
+  /// No description provided for @playlistEditorDeleteConfirmMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'该歌单将被永久移除，包含的歌曲不会删除。'**
+  String get playlistEditorDeleteConfirmMessage;
+
+  /// No description provided for @playlistEditorDeleteDialogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除歌单'**
+  String get playlistEditorDeleteDialogTitle;
+
+  /// No description provided for @contextMenuViewArtist.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看歌手'**
+  String get contextMenuViewArtist;
+
+  /// No description provided for @contextMenuViewAlbum.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看专辑'**
+  String get contextMenuViewAlbum;
+
+  /// No description provided for @contextMenuAddToPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加到歌单'**
+  String get contextMenuAddToPlaylist;
+
+  /// No description provided for @contextMenuRemoveFromPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'从歌单删除'**
+  String get contextMenuRemoveFromPlaylist;
+
+  /// No description provided for @contextMenuAddToOnlinePlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加到网络歌曲歌单...'**
+  String get contextMenuAddToOnlinePlaylist;
+
+  /// No description provided for @contextMenuOpenPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开歌单'**
+  String get contextMenuOpenPlaylist;
+
+  /// No description provided for @contextMenuEditPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑歌单'**
+  String get contextMenuEditPlaylist;
+
+  /// No description provided for @contextMenuConfigureAutosync.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动同步设置...'**
+  String get contextMenuConfigureAutosync;
+
+  /// No description provided for @contextMenuUploadPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传到云'**
+  String get contextMenuUploadPlaylist;
+
+  /// No description provided for @contextMenuRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get contextMenuRemove;
+
+  /// No description provided for @contextMenuAddAllToPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部添加到歌单'**
+  String get contextMenuAddAllToPlaylist;
+
+  /// No description provided for @playlistRemoveTrackTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'从歌单移除歌曲？'**
+  String get playlistRemoveTrackTitle;
+
+  /// No description provided for @playlistRemoveTrackMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'“{title}” 将从当前歌单移除，但文件和其它歌单不会受到影响。'**
+  String playlistRemoveTrackMessage(Object title);
+
+  /// No description provided for @songDetailEditDialogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑歌曲详情'**
+  String get songDetailEditDialogTitle;
+
+  /// No description provided for @songDetailEditDialogSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'曲目：{trackTitle} · {trackArtist}'**
+  String songDetailEditDialogSubtitle(Object trackTitle, Object trackArtist);
+
+  /// No description provided for @songDetailEditDialogDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存后将同步到服务器，可随时再次编辑。'**
+  String get songDetailEditDialogDescription;
+
+  /// No description provided for @songDetailEditDialogHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'填写歌曲背景、制作人员、翻译或任何想展示的信息...'**
+  String get songDetailEditDialogHint;
+
+  /// No description provided for @songDetailSaveSuccessTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存成功'**
+  String get songDetailSaveSuccessTitle;
+
+  /// No description provided for @songDetailSaveSuccessCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'已创建歌曲详情。'**
+  String get songDetailSaveSuccessCreated;
+
+  /// No description provided for @songDetailSaveSuccessUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌曲详情已更新。'**
+  String get songDetailSaveSuccessUpdated;
+
+  /// No description provided for @songDetailSaveFailureTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败'**
+  String get songDetailSaveFailureTitle;
+
+  /// No description provided for @songDetailSaveFailureMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存歌曲详情失败：{error}'**
+  String songDetailSaveFailureMessage(Object error);
+
+  /// No description provided for @songDetailLoadErrorTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载失败'**
+  String get songDetailLoadErrorTitle;
+
+  /// No description provided for @songDetailEmptyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无歌曲详情'**
+  String get songDetailEmptyTitle;
+
+  /// No description provided for @songDetailEmptyDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用下方“编辑详情”撰写内容后会自动保存在服务器。'**
+  String get songDetailEmptyDescription;
+
+  /// No description provided for @songDetailSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌曲详情'**
+  String get songDetailSectionTitle;
+
+  /// No description provided for @songDetailSavingLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存中...'**
+  String get songDetailSavingLabel;
+
+  /// No description provided for @songDetailEditButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑详情'**
+  String get songDetailEditButton;
 }
 
 class _AppLocalizationsDelegate

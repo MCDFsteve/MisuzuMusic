@@ -102,6 +102,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsLanguageEnglish => '英语';
 
   @override
+  String get librarySearchPlaceholder => '搜索歌曲、艺术家或专辑...';
+
+  @override
   String settingsAboutProjectLine(Object name) {
     return '项目名称：$name';
   }
@@ -126,6 +129,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get actionClose => '关闭';
+
+  @override
+  String get actionSave => '保存';
+
+  @override
+  String get actionDelete => '删除';
+
+  @override
+  String get actionRemove => '移除';
 
   @override
   String get navLibrary => '音乐库';
@@ -171,6 +183,30 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get glassHeaderSortTitle => '选择排序方式';
+
+  @override
+  String get sortModeTitleAZ => '字母排序（A-Z）';
+
+  @override
+  String get sortModeTitleZA => '字母排序（Z-A）';
+
+  @override
+  String get sortModeAddedNewest => '添加时间（从新到旧）';
+
+  @override
+  String get sortModeAddedOldest => '添加时间（从旧到新）';
+
+  @override
+  String get sortModeArtistAZ => '歌手名（A-Z）';
+
+  @override
+  String get sortModeArtistZA => '歌手名（Z-A）';
+
+  @override
+  String get sortModeAlbumAZ => '专辑名（A-Z）';
+
+  @override
+  String get sortModeAlbumZA => '专辑名（Z-A）';
 
   @override
   String get actionCancel => '取消';
@@ -389,4 +425,203 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get homeErrorTitle => '发生错误';
+
+  @override
+  String get libraryMountDialogTitle => '选择挂载方式';
+
+  @override
+  String get libraryMountOptionAppFolderTitle => 'MisuzuMusic 文件夹';
+
+  @override
+  String get libraryMountOptionAppFolderDescription =>
+      '浏览 Files App 中的 MisuzuMusic 目录，避免重复占用空间。';
+
+  @override
+  String get libraryMountOptionLocalTitle => '挂载本地文件夹';
+
+  @override
+  String get libraryMountOptionLocalDescription => '从磁盘选择文件夹并扫描其中的音乐文件。';
+
+  @override
+  String get libraryMountOptionMysteryTitle => '神秘代码';
+
+  @override
+  String get libraryMountInfoCardTitle => '通过 MisuzuMusic 文件夹导入';
+
+  @override
+  String get libraryMountInfoCardDescription =>
+      'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「我的 iPhone」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。';
+
+  @override
+  String get libraryMountMysteryDialogTitle => '输入神秘代码';
+
+  @override
+  String get libraryMountMysteryCodeFieldLabel => '神秘代码';
+
+  @override
+  String get libraryMountMysteryCodeEmptyError => '请输入神秘代码';
+
+  @override
+  String get libraryMountConfirmButton => '确认挂载';
+
+  @override
+  String get playlistCreationModeTitle => '选择新建方式';
+
+  @override
+  String get playlistCreationModeLocalTitle => '本地新建歌单';
+
+  @override
+  String get playlistCreationModeLocalDescription => '使用本地存储，立即编辑歌单名称和内容。';
+
+  @override
+  String get playlistCreationModeCloudTitle => '拉取云歌单';
+
+  @override
+  String get playlistCreationModeCloudDescription => '根据云端 ID 下载现有歌单并导入本地。';
+
+  @override
+  String get playlistCreationCloudIdLabel => '云端ID';
+
+  @override
+  String get playlistCreationCloudIdHint => '至少 5 位，仅限字母/数字/下划线';
+
+  @override
+  String get playlistEditorTitleCreate => '新建歌单';
+
+  @override
+  String get playlistEditorTitleEdit => '编辑歌单';
+
+  @override
+  String get playlistEditorCoverLabel => '封面';
+
+  @override
+  String get playlistEditorSelectImage => '选择图片';
+
+  @override
+  String get playlistEditorNameLabel => '歌单名称';
+
+  @override
+  String get playlistEditorNamePlaceholder => '请输入歌单名称';
+
+  @override
+  String get playlistEditorDescriptionLabel => '简介';
+
+  @override
+  String get playlistEditorDescriptionPlaceholder => '介绍一下这个歌单吧';
+
+  @override
+  String get playlistEditorDeleteButton => '删除歌单';
+
+  @override
+  String get playlistEditorNameRequired => '歌单名称不能为空';
+
+  @override
+  String get playlistEditorSaveFailed => '保存失败';
+
+  @override
+  String get playlistEditorCreateFailed => '创建歌单失败';
+
+  @override
+  String get playlistEditorDeleteFailed => '删除歌单失败';
+
+  @override
+  String playlistEditorDeleteConfirmTitle(Object playlistName) {
+    return '确定删除“$playlistName”吗？';
+  }
+
+  @override
+  String get playlistEditorDeleteConfirmMessage => '该歌单将被永久移除，包含的歌曲不会删除。';
+
+  @override
+  String get playlistEditorDeleteDialogTitle => '删除歌单';
+
+  @override
+  String get contextMenuViewArtist => '查看歌手';
+
+  @override
+  String get contextMenuViewAlbum => '查看专辑';
+
+  @override
+  String get contextMenuAddToPlaylist => '添加到歌单';
+
+  @override
+  String get contextMenuRemoveFromPlaylist => '从歌单删除';
+
+  @override
+  String get contextMenuAddToOnlinePlaylist => '添加到网络歌曲歌单...';
+
+  @override
+  String get contextMenuOpenPlaylist => '打开歌单';
+
+  @override
+  String get contextMenuEditPlaylist => '编辑歌单';
+
+  @override
+  String get contextMenuConfigureAutosync => '自动同步设置...';
+
+  @override
+  String get contextMenuUploadPlaylist => '上传到云';
+
+  @override
+  String get contextMenuRemove => '移除';
+
+  @override
+  String get contextMenuAddAllToPlaylist => '全部添加到歌单';
+
+  @override
+  String get playlistRemoveTrackTitle => '从歌单移除歌曲？';
+
+  @override
+  String playlistRemoveTrackMessage(Object title) {
+    return '“$title” 将从当前歌单移除，但文件和其它歌单不会受到影响。';
+  }
+
+  @override
+  String get songDetailEditDialogTitle => '编辑歌曲详情';
+
+  @override
+  String songDetailEditDialogSubtitle(Object trackTitle, Object trackArtist) {
+    return '曲目：$trackTitle · $trackArtist';
+  }
+
+  @override
+  String get songDetailEditDialogDescription => '保存后将同步到服务器，可随时再次编辑。';
+
+  @override
+  String get songDetailEditDialogHint => '填写歌曲背景、制作人员、翻译或任何想展示的信息...';
+
+  @override
+  String get songDetailSaveSuccessTitle => '保存成功';
+
+  @override
+  String get songDetailSaveSuccessCreated => '已创建歌曲详情。';
+
+  @override
+  String get songDetailSaveSuccessUpdated => '歌曲详情已更新。';
+
+  @override
+  String get songDetailSaveFailureTitle => '保存失败';
+
+  @override
+  String songDetailSaveFailureMessage(Object error) {
+    return '保存歌曲详情失败：$error';
+  }
+
+  @override
+  String get songDetailLoadErrorTitle => '加载失败';
+
+  @override
+  String get songDetailEmptyTitle => '暂无歌曲详情';
+
+  @override
+  String get songDetailEmptyDescription => '使用下方“编辑详情”撰写内容后会自动保存在服务器。';
+
+  @override
+  String get songDetailSectionTitle => '歌曲详情';
+
+  @override
+  String get songDetailSavingLabel => '保存中...';
+
+  @override
+  String get songDetailEditButton => '编辑详情';
 }

@@ -107,6 +107,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguageEnglish => 'English';
 
   @override
+  String get librarySearchPlaceholder => 'Search songs, artists or albums...';
+
+  @override
   String settingsAboutProjectLine(Object name) {
     return 'Project name: $name';
   }
@@ -131,6 +134,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get actionClose => 'Close';
+
+  @override
+  String get actionSave => 'Save';
+
+  @override
+  String get actionDelete => 'Delete';
+
+  @override
+  String get actionRemove => 'Remove';
 
   @override
   String get navLibrary => 'Library';
@@ -176,6 +188,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get glassHeaderSortTitle => 'Choose sort order';
+
+  @override
+  String get sortModeTitleAZ => 'Title (A-Z)';
+
+  @override
+  String get sortModeTitleZA => 'Title (Z-A)';
+
+  @override
+  String get sortModeAddedNewest => 'Added (newest first)';
+
+  @override
+  String get sortModeAddedOldest => 'Added (oldest first)';
+
+  @override
+  String get sortModeArtistAZ => 'Artist (A-Z)';
+
+  @override
+  String get sortModeArtistZA => 'Artist (Z-A)';
+
+  @override
+  String get sortModeAlbumAZ => 'Album (A-Z)';
+
+  @override
+  String get sortModeAlbumZA => 'Album (Z-A)';
 
   @override
   String get actionCancel => 'Cancel';
@@ -399,4 +435,211 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeErrorTitle => 'Error occurred';
+
+  @override
+  String get libraryMountDialogTitle => 'Choose mount method';
+
+  @override
+  String get libraryMountOptionAppFolderTitle => 'MisuzuMusic folder';
+
+  @override
+  String get libraryMountOptionAppFolderDescription =>
+      'Browse the MisuzuMusic directory in the Files app to avoid using extra storage.';
+
+  @override
+  String get libraryMountOptionLocalTitle => 'Mount local folder';
+
+  @override
+  String get libraryMountOptionLocalDescription =>
+      'Pick a folder on disk and scan the music inside.';
+
+  @override
+  String get libraryMountOptionMysteryTitle => 'Mystery code';
+
+  @override
+  String get libraryMountInfoCardTitle => 'Import via the MisuzuMusic folder';
+
+  @override
+  String get libraryMountInfoCardDescription =>
+      'iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open On My iPhone > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it.\n3) Return to Misuzu Music and select the MisuzuMusic folder to start scanning.';
+
+  @override
+  String get libraryMountMysteryDialogTitle => 'Enter mystery code';
+
+  @override
+  String get libraryMountMysteryCodeFieldLabel => 'Mystery code';
+
+  @override
+  String get libraryMountMysteryCodeEmptyError => 'Please enter a mystery code';
+
+  @override
+  String get libraryMountConfirmButton => 'Mount';
+
+  @override
+  String get playlistCreationModeTitle => 'Choose creation method';
+
+  @override
+  String get playlistCreationModeLocalTitle => 'Create local playlist';
+
+  @override
+  String get playlistCreationModeLocalDescription =>
+      'Store the playlist locally and edit its name and content right away.';
+
+  @override
+  String get playlistCreationModeCloudTitle => 'Import cloud playlist';
+
+  @override
+  String get playlistCreationModeCloudDescription =>
+      'Download an existing playlist by its cloud ID and import it locally.';
+
+  @override
+  String get playlistCreationCloudIdLabel => 'Cloud ID';
+
+  @override
+  String get playlistCreationCloudIdHint =>
+      'At least 5 characters, letters/numbers/underscore';
+
+  @override
+  String get playlistEditorTitleCreate => 'New playlist';
+
+  @override
+  String get playlistEditorTitleEdit => 'Edit playlist';
+
+  @override
+  String get playlistEditorCoverLabel => 'Cover';
+
+  @override
+  String get playlistEditorSelectImage => 'Choose image';
+
+  @override
+  String get playlistEditorNameLabel => 'Playlist name';
+
+  @override
+  String get playlistEditorNamePlaceholder => 'Enter a playlist name';
+
+  @override
+  String get playlistEditorDescriptionLabel => 'Description';
+
+  @override
+  String get playlistEditorDescriptionPlaceholder => 'Describe this playlist';
+
+  @override
+  String get playlistEditorDeleteButton => 'Delete playlist';
+
+  @override
+  String get playlistEditorNameRequired => 'Playlist name cannot be empty';
+
+  @override
+  String get playlistEditorSaveFailed => 'Failed to save playlist';
+
+  @override
+  String get playlistEditorCreateFailed => 'Failed to create playlist';
+
+  @override
+  String get playlistEditorDeleteFailed => 'Failed to delete playlist';
+
+  @override
+  String playlistEditorDeleteConfirmTitle(Object playlistName) {
+    return 'Delete \"$playlistName\"?';
+  }
+
+  @override
+  String get playlistEditorDeleteConfirmMessage =>
+      'This playlist will be removed permanently. Songs inside will stay in your library.';
+
+  @override
+  String get playlistEditorDeleteDialogTitle => 'Delete playlist';
+
+  @override
+  String get contextMenuViewArtist => 'View artist';
+
+  @override
+  String get contextMenuViewAlbum => 'View album';
+
+  @override
+  String get contextMenuAddToPlaylist => 'Add to playlist';
+
+  @override
+  String get contextMenuRemoveFromPlaylist => 'Remove from playlist';
+
+  @override
+  String get contextMenuAddToOnlinePlaylist => 'Add to online playlist...';
+
+  @override
+  String get contextMenuOpenPlaylist => 'Open playlist';
+
+  @override
+  String get contextMenuEditPlaylist => 'Edit playlist';
+
+  @override
+  String get contextMenuConfigureAutosync => 'Auto-sync settings...';
+
+  @override
+  String get contextMenuUploadPlaylist => 'Upload to cloud';
+
+  @override
+  String get contextMenuRemove => 'Remove';
+
+  @override
+  String get contextMenuAddAllToPlaylist => 'Add all to playlist';
+
+  @override
+  String get playlistRemoveTrackTitle => 'Remove from playlist?';
+
+  @override
+  String playlistRemoveTrackMessage(Object title) {
+    return '\"$title\" will be removed from this playlist, but the file and other playlists won\'t be affected.';
+  }
+
+  @override
+  String get songDetailEditDialogTitle => 'Edit song detail';
+
+  @override
+  String songDetailEditDialogSubtitle(Object trackTitle, Object trackArtist) {
+    return 'Track: $trackTitle · $trackArtist';
+  }
+
+  @override
+  String get songDetailEditDialogDescription =>
+      'The content syncs to the server and can be edited at any time.';
+
+  @override
+  String get songDetailEditDialogHint =>
+      'Share background info, contributors, translations, or anything else...';
+
+  @override
+  String get songDetailSaveSuccessTitle => 'Saved';
+
+  @override
+  String get songDetailSaveSuccessCreated => 'Song detail created.';
+
+  @override
+  String get songDetailSaveSuccessUpdated => 'Song detail updated.';
+
+  @override
+  String get songDetailSaveFailureTitle => 'Save failed';
+
+  @override
+  String songDetailSaveFailureMessage(Object error) {
+    return 'Failed to save song detail: $error';
+  }
+
+  @override
+  String get songDetailLoadErrorTitle => 'Load failed';
+
+  @override
+  String get songDetailEmptyTitle => 'No song detail yet';
+
+  @override
+  String get songDetailEmptyDescription =>
+      'Use \"Edit detail\" below to add content. It syncs automatically.';
+
+  @override
+  String get songDetailSectionTitle => 'Song detail';
+
+  @override
+  String get songDetailSavingLabel => 'Saving...';
+
+  @override
+  String get songDetailEditButton => 'Edit detail';
 }

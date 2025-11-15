@@ -16,6 +16,7 @@ import '../common/track_list_tile.dart';
 import '../common/lazy_list_view.dart';
 import 'context_menu/macos_context_menu.dart';
 import '../../utils/track_display_utils.dart';
+import '../../../l10n/l10n.dart';
 
 class MacOSTrackListView extends StatelessWidget {
   const MacOSTrackListView({
@@ -161,11 +162,12 @@ class MacOSTrackListView extends StatelessWidget {
       return;
     }
 
+    final l10n = context.l10n;
     final actions = <MacosContextMenuAction>[];
     if (canViewArtist) {
       actions.add(
         MacosContextMenuAction(
-          label: '查看歌手',
+          label: l10n.contextMenuViewArtist,
           icon: CupertinoIcons.person_crop_circle,
           onSelected: () => onViewArtist?.call(normalizedTrack),
         ),
@@ -174,7 +176,7 @@ class MacOSTrackListView extends StatelessWidget {
     if (canViewAlbum) {
       actions.add(
         MacosContextMenuAction(
-          label: '查看专辑',
+          label: l10n.contextMenuViewAlbum,
           icon: CupertinoIcons.music_albums,
           onSelected: () => onViewAlbum?.call(normalizedTrack),
         ),
@@ -188,7 +190,7 @@ class MacOSTrackListView extends StatelessWidget {
     if (allowLocalAdd) {
       actions.add(
         MacosContextMenuAction(
-          label: '添加到歌单',
+          label: l10n.contextMenuAddToPlaylist,
           icon: CupertinoIcons.add_circled,
           onSelected: () => onAddToPlaylist?.call(originalTrack),
         ),
@@ -197,7 +199,7 @@ class MacOSTrackListView extends StatelessWidget {
     if (hasRemove) {
       actions.add(
         MacosContextMenuAction(
-          label: '从歌单删除',
+          label: l10n.contextMenuRemoveFromPlaylist,
           icon: CupertinoIcons.minus_circle,
           onSelected: () => _confirmRemoveTrack(context, originalTrack),
           destructive: true,
@@ -234,6 +236,7 @@ class MacOSTrackListView extends StatelessWidget {
     final macTheme = MacosTheme.maybeOf(context);
     final brightness = macTheme?.brightness ?? theme.brightness;
     final isDark = brightness == Brightness.dark;
+    final l10n = context.l10n;
 
     return showGeneralDialog<bool?>(
       context: context,
@@ -305,8 +308,7 @@ class MacOSTrackListView extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '从歌单移除歌曲？',
-                    locale: Locale("zh-Hans", "zh"),
+                    l10n.playlistRemoveTrackTitle,
                     style:
                         theme.textTheme.titleMedium?.copyWith(
                           fontSize: 16,
@@ -321,9 +323,8 @@ class MacOSTrackListView extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '“${track.title}” 将从当前歌单移除，但文件和其它歌单不会受到影响。',
+                    l10n.playlistRemoveTrackMessage(track.title),
                     textAlign: TextAlign.center,
-                    locale: Locale("zh-Hans", "zh"),
                     style:
                         theme.textTheme.bodySmall?.copyWith(
                           color: textColorSecondary,
@@ -336,12 +337,12 @@ class MacOSTrackListView extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       _GlassDialogButton(
-                        label: '取消',
+                        label: l10n.actionCancel,
                         onTap: () => Navigator.of(context).pop(false),
                       ),
                       const SizedBox(width: 12),
                       _GlassDialogButton(
-                        label: '移除',
+                        label: l10n.actionRemove,
                         destructive: true,
                         onTap: () => Navigator.of(context).pop(true),
                       ),
@@ -426,7 +427,6 @@ class _GlassDialogButtonState extends State<_GlassDialogButton> {
           ),
           child: Text(
             widget.label,
-            locale: Locale("zh-Hans", "zh"),
             style:
                 theme.textTheme.bodyMedium?.copyWith(
                   color: textColor,

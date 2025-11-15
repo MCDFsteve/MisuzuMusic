@@ -29,6 +29,8 @@ import '../../widgets/common/lyrics_display.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
 import '../../utils/track_display_utils.dart';
+import '../../../core/utils/platform_utils.dart';
+import '../../../l10n/l10n.dart';
 
 const bool _desktopLyricsVerboseLogging = false;
 
@@ -299,6 +301,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
         final isDark = theme.brightness == Brightness.dark;
+        final l10n = dialogContext.l10n;
         final borderColor = theme.colorScheme.outline.withOpacity(
           isDark ? 0.28 : 0.2,
         );
@@ -320,20 +323,18 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         );
 
         return PlaylistModalScaffold(
-          title: '编辑歌曲详情',
+          title: l10n.songDetailEditDialogTitle,
           maxWidth: 580,
           body: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                '曲目：${track.title} · ${track.artist}',
-                locale: Locale("zh-Hans", "zh"),
+                l10n.songDetailEditDialogSubtitle(track.title, track.artist),
               ),
               const SizedBox(height: 6),
               Text(
-                '保存后将同步到服务器，可随时再次编辑。',
-                locale: Locale("zh-Hans", "zh"),
+                l10n.songDetailEditDialogDescription,
                 style: const TextStyle(fontSize: 12),
               ),
               const SizedBox(height: 14),
@@ -342,7 +343,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
                 child: TextField(
                   controller: controller,
                   decoration: InputDecoration(
-                    hintText: '填写歌曲背景、制作人员、翻译或任何想展示的信息…',
+                    hintText: l10n.songDetailEditDialogHint,
                     hintStyle:
                         theme.textTheme.bodySmall?.copyWith(
                           color: hintColor,
@@ -383,11 +384,11 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           ),
           actions: [
             SheetActionButton.secondary(
-              label: '取消',
+              label: l10n.actionCancel,
               onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             SheetActionButton.primary(
-              label: '保存',
+              label: l10n.actionSave,
               onPressed: () => Navigator.of(dialogContext).pop(controller.text),
             ),
           ],
@@ -445,15 +446,16 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             context: context,
             barrierDismissible: true,
             builder: (dialogContext) => PlaylistModalScaffold(
-              title: '保存成功',
+              title: dialogContext.l10n.songDetailSaveSuccessTitle,
               maxWidth: 360,
               body: Text(
-                result.created ? '已创建歌曲详情。' : '歌曲详情已更新。',
-                locale: Locale("zh-Hans", "zh"),
+                result.created
+                    ? dialogContext.l10n.songDetailSaveSuccessCreated
+                    : dialogContext.l10n.songDetailSaveSuccessUpdated,
               ),
               actions: [
                 SheetActionButton.primary(
-                  label: '知道了',
+                  label: dialogContext.l10n.actionOk,
                   onPressed: () => Navigator.of(dialogContext).pop(),
                 ),
               ],
@@ -476,12 +478,15 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
             context: context,
             barrierDismissible: true,
             builder: (dialogContext) => PlaylistModalScaffold(
-              title: '保存失败',
+              title: dialogContext.l10n.songDetailSaveFailureTitle,
               maxWidth: 360,
-              body: Text('保存歌曲详情失败: $error', locale: Locale("zh-Hans", "zh")),
+              body: Text(
+                dialogContext.l10n
+                    .songDetailSaveFailureMessage(error.toString()),
+              ),
               actions: [
                 SheetActionButton.primary(
-                  label: '关闭',
+                  label: dialogContext.l10n.actionClose,
                   onPressed: () => Navigator.of(dialogContext).pop(),
                 ),
               ],
@@ -1669,6 +1674,7 @@ class _TrackDetailView extends StatelessWidget {
         final isDarkMode = isMac
             ? macTheme!.brightness == Brightness.dark
             : theme.brightness == Brightness.dark;
+        final l10n = context.l10n;
 
         final displayWidth = math
             .min(560.0, coverSize * 1.38)
@@ -1735,8 +1741,7 @@ class _TrackDetailView extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '加载失败',
-                    locale: const Locale('zh-Hans', 'zh'),
+                    l10n.songDetailLoadErrorTitle,
                     style: bodyStyle.copyWith(fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -1761,22 +1766,16 @@ class _TrackDetailView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '暂无歌曲详情',
-                locale: const Locale('zh-Hans', 'zh'),
+                l10n.songDetailEmptyTitle,
                 style: bodyStyle.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
-              Text(
-                '使用下方“编辑详情”撰写内容后会自动保存在服务器。',
-                locale: const Locale('zh-Hans', 'zh'),
-                style: metaStyle,
-              ),
+              Text(l10n.songDetailEmptyDescription, style: metaStyle),
             ],
           );
         } else {
           detailBody = Text(
             trimmedContent,
-            locale: const Locale('zh-Hans', 'zh'),
             style: bodyStyle.copyWith(height: 1.48, color: detailTextColor),
           );
         }
@@ -1791,8 +1790,9 @@ class _TrackDetailView extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(top: 16, bottom: 4),
               child: Text(
-                isSavingDetail ? '保存中…' : '编辑详情',
-                locale: const Locale('zh-Hans', 'zh'),
+                isSavingDetail
+                    ? l10n.songDetailSavingLabel
+                    : l10n.songDetailEditButton,
                 style: bodyStyle.copyWith(
                   decoration: TextDecoration.underline,
                   fontWeight: FontWeight.w500,
@@ -1821,19 +1821,16 @@ class _TrackDetailView extends StatelessWidget {
             SizedBox(height: leadingSpacer),
             Text(
               track.title,
-              locale: const Locale('zh-Hans', 'zh'),
               style: headerStyle.copyWith(fontSize: 18),
             ),
             const SizedBox(height: 6),
             Text(
               '${track.artist} · ${track.album}',
-              locale: const Locale('zh-Hans', 'zh'),
               style: metaStyle,
             ),
             const SizedBox(height: 22),
             Text(
-              '歌曲详情',
-              locale: const Locale('zh-Hans', 'zh'),
+              l10n.songDetailSectionTitle,
               style: bodyStyle.copyWith(
                 fontWeight: FontWeight.w600,
                 color: bodyStyle.color?.withOpacity(0.82) ??
@@ -1895,19 +1892,16 @@ class _TrackDetailView extends StatelessWidget {
                 SizedBox(height: leadingSpacer),
                 Text(
                   track.title,
-                  locale: const Locale('zh-Hans', 'zh'),
                   style: headerStyle.copyWith(fontSize: 18),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   '${track.artist} · ${track.album}',
-                  locale: const Locale('zh-Hans', 'zh'),
                   style: metaStyle,
                 ),
                 const SizedBox(height: 22),
                 Text(
-                  '歌曲详情',
-                  locale: const Locale('zh-Hans', 'zh'),
+                  l10n.songDetailSectionTitle,
                   style: bodyStyle.copyWith(
                     fontWeight: FontWeight.w600,
                     color: bodyStyle.color?.withOpacity(0.82) ??
@@ -2040,6 +2034,8 @@ class _LyricsPanel extends StatelessWidget {
 
               final bool canToggle =
                   state is LyricsLoaded && _hasAnyTranslation(state.lyrics);
+              final bool showDesktopLyricsButton =
+                  !isMobilePlatform(Theme.of(context).platform);
 
               return Stack(
                 children: [
@@ -2061,16 +2057,17 @@ class _LyricsPanel extends StatelessWidget {
                       onPressed: state is LyricsLoaded ? onDownloadLrc : null,
                     ),
                   ),
-                  Positioned(
-                    bottom: bottomSafeInset + 75,
-                    right: 6,
-                    child: _DesktopLyricsToggleButton(
-                      isDarkMode: isDarkMode,
-                      isActive: isDesktopLyricsActive,
-                      isBusy: isDesktopLyricsBusy,
-                      onPressed: onToggleDesktopLyrics,
+                  if (showDesktopLyricsButton)
+                    Positioned(
+                      bottom: bottomSafeInset + 75,
+                      right: 6,
+                      child: _DesktopLyricsToggleButton(
+                        isDarkMode: isDarkMode,
+                        isActive: isDesktopLyricsActive,
+                        isBusy: isDesktopLyricsBusy,
+                        onPressed: onToggleDesktopLyrics,
+                      ),
                     ),
-                  ),
                   Positioned(
                     bottom: bottomSafeInset + 20,
                     right: 6,
