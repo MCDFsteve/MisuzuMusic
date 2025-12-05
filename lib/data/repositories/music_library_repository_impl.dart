@@ -494,34 +494,13 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         );
         final existing = existingByRemotePath[remoteFile.relativePath];
 
-        _WebDavTrackMetadata? metadata;
-        if (remoteFile.metadataPath != null) {
-          // print('🌐 WebDAV: 尝试读取元数据 -> ${remoteFile.metadataPath}');
-          metadata = await _loadWebDavTrackMetadata(
-            client,
-            remoteFile.metadataPath!,
-          );
-          if (metadata != null) {
-            // print('🌐 WebDAV: 元数据载入成功 -> 标题: ${metadata.title ?? remoteFile.title}');
-          } else {
-            // print('⚠️ WebDAV: 元数据读取失败或为空 -> ${remoteFile.metadataPath}');
-          }
-        } else {
-          // print('⚠️ WebDAV: 未找到元数据文件 -> ${remoteFile.relativePath}');
-        }
-
-        final title = metadata?.title ?? remoteFile.title;
-        final artist =
-            metadata?.artist ??
-            metadata?.albumArtist ??
-            existing?.artist ??
-            'Unknown Artist';
-        final album = metadata?.album ?? existing?.album ?? 'Unknown Album';
-        final duration =
-            metadata?.duration ?? existing?.duration ?? Duration.zero;
-        final trackNumber = metadata?.trackNumber ?? existing?.trackNumber;
-        final year = metadata?.year ?? existing?.year;
-        final genre = metadata?.genre ?? existing?.genre;
+        final title = remoteFile.title;
+        final artist = existing?.artist ?? 'Unknown Artist';
+        final album = existing?.album ?? 'Unknown Album';
+        final duration = existing?.duration ?? Duration.zero;
+        final trackNumber = existing?.trackNumber;
+        final year = existing?.year;
+        final genre = existing?.genre;
 
         String? artworkPath = existing?.artworkPath;
         if (remoteFile.artworkPath != null) {
@@ -530,21 +509,6 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
             client: client,
             sourceId: normalizedSource.id,
             remoteArtworkPath: remoteFile.artworkPath!,
-            previousArtworkPath: existing?.artworkPath,
-          );
-        } else if (metadata?.hasCover == true &&
-            metadata?.coverFileName != null) {
-          final remoteCoverPath = _normalizeRemotePath(
-            posix.join(
-              posix.dirname(remoteFile.fullPath),
-              metadata!.coverFileName!,
-            ),
-          );
-          // print('🌐 WebDAV: 依据元数据查找封面 -> $remoteCoverPath');
-          artworkPath = await _downloadWebDavArtwork(
-            client: client,
-            sourceId: normalizedSource.id,
-            remoteArtworkPath: remoteCoverPath,
             previousArtworkPath: existing?.artworkPath,
           );
         }
@@ -564,8 +528,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           sourceType: TrackSourceType.webdav,
           sourceId: normalizedSource.id,
           remotePath: remoteFile.relativePath,
-          contentHash:
-              metadata?.fingerprint ?? existing?.contentHash ?? filePathKey,
+          contentHash: existing?.contentHash ?? filePathKey,
         );
 
         if (existing == null) {
@@ -923,33 +886,10 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         return updated;
       }
 
-      final metadataFullPath = _replaceExtension(fullAudioPath, '.json');
-      final metadata = await _loadWebDavTrackMetadata(client, metadataFullPath);
-
       final coverCandidates = <String>[];
-      if (metadata?.thumbnailPath != null) {
-        coverCandidates.add(_normalizeRemotePath(metadata!.thumbnailPath!));
-      }
-      if (metadata?.coverPath != null) {
-        coverCandidates.add(_normalizeRemotePath(metadata!.coverPath!));
-      } else if (metadata?.coverFileName != null) {
-        coverCandidates.add(
-          _normalizeRemotePath(
-            posix.join(posix.dirname(fullAudioPath), metadata!.coverFileName!),
-          ),
-        );
-      }
       coverCandidates.add(_replaceExtension(fullAudioPath, '.png'));
 
       String? artworkPath = track.artworkPath;
-      final headers = <String, String>{
-        if (metadata?.coverPath != null) _coverHeaderKey: metadata!.coverPath!,
-        if (metadata?.thumbnailPath != null)
-          _thumbnailHeaderKey: metadata!.thumbnailPath!,
-      };
-      if (track.httpHeaders != null) {
-        headers.addAll(track.httpHeaders!);
-      }
       for (final candidate in coverCandidates) {
         artworkPath = await _downloadWebDavArtwork(
           client: client,
@@ -965,30 +905,19 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       // Fallback: Fetch from Netease if no artwork found on WebDAV
       if (artworkPath == null || artworkPath.isEmpty) {
         artworkPath = await _fetchArtworkFromNetease(
-          title: metadata?.title ?? track.title,
-          artist:
-              metadata?.artist ??
-              metadata?.albumArtist ??
-              track.artist,
-          album: metadata?.album ?? track.album,
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
           previousArtworkPath: track.artworkPath,
           track: track,
         );
       }
 
       final updatedModel = TrackModel.fromEntity(track).copyWith(
-        title: metadata?.title ?? track.title,
-        artist: metadata?.artist ?? metadata?.albumArtist ?? track.artist,
-        album: metadata?.album ?? track.album,
-        duration: metadata?.duration ?? track.duration,
-        trackNumber: metadata?.trackNumber ?? track.trackNumber,
-        year: metadata?.year ?? track.year,
-        genre: metadata?.genre ?? track.genre,
         artworkPath: artworkPath ?? track.artworkPath,
         sourceType: TrackSourceType.webdav,
         sourceId: sourceId,
         remotePath: remotePath,
-        httpHeaders: headers.isEmpty ? track.httpHeaders : headers,
       );
 
       await _localDataSource.updateTrack(updatedModel);
@@ -1881,46 +1810,6 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     return bytes;
   }
 
-  Future<_WebDavTrackMetadata?> _loadWebDavTrackMetadata(
-    webdav.Client client,
-    String metadataPath,
-  ) async {
-    try {
-      final raw = await client.read(metadataPath);
-      if (raw.isEmpty) {
-        return null;
-      }
-
-      final decoded = json.decode(utf8.decode(raw)) as Map<String, dynamic>;
-      final durationMs = _parseNullableInt(decoded['duration_ms']);
-      final trackNumber = _parseNullableInt(decoded['track_number']);
-      final discNumber = _parseNullableInt(decoded['disc_number']);
-      final year = _parseNullableInt(decoded['year']);
-
-      return _WebDavTrackMetadata(
-        title: decoded['title'] as String?,
-        artist: decoded['artist'] as String?,
-        album: decoded['album'] as String?,
-        albumArtist: decoded['album_artist'] as String?,
-        genre: decoded['genre'] as String?,
-        year: year,
-        trackNumber: trackNumber,
-        discNumber: discNumber,
-        duration: durationMs != null
-            ? Duration(milliseconds: durationMs)
-            : null,
-        fingerprint: decoded['hash_sha1_first_10kb'] as String?,
-        hasCover: decoded['has_cover'] == true,
-        coverFileName: decoded['cover_file'] as String?,
-        coverPath: decoded['cover_file'] as String?,
-        thumbnailPath: decoded['thumbnail_file'] as String?,
-      );
-    } catch (e) {
-      // Optional metadata file, suppress error
-      return null;
-    }
-  }
-
   Future<String?> _downloadWebDavArtwork({
     required webdav.Client client,
     required String sourceId,
@@ -2285,36 +2174,3 @@ class _RemoteFileAggregate {
   }
 }
 
-class _WebDavTrackMetadata {
-  const _WebDavTrackMetadata({
-    this.title,
-    this.artist,
-    this.album,
-    this.albumArtist,
-    this.genre,
-    this.year,
-    this.trackNumber,
-    this.discNumber,
-    this.duration,
-    this.fingerprint,
-    this.hasCover = false,
-    this.coverFileName,
-    this.coverPath,
-    this.thumbnailPath,
-  });
-
-  final String? title;
-  final String? artist;
-  final String? album;
-  final String? albumArtist;
-  final String? genre;
-  final int? year;
-  final int? trackNumber;
-  final int? discNumber;
-  final Duration? duration;
-  final String? fingerprint;
-  final bool hasCover;
-  final String? coverFileName;
-  final String? coverPath;
-  final String? thumbnailPath;
-}

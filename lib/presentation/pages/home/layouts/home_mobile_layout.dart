@@ -49,18 +49,15 @@ extension _HomePageMobileLayout on _HomePageContentState {
         final bool useLegacyCupertinoTabBar =
             defaultTargetPlatform == TargetPlatform.iOS &&
                 !PlatformInfo.isIOS26OrHigher();
-        final double navReservedHeight = useLegacyCupertinoTabBar
-            ? mediaQuery.padding.bottom +
-                _FrostedLegacyCupertinoTabBar.barHeight +
-                _FrostedLegacyCupertinoTabBar.visualGap
-            : math.max(
-                0,
-                _mobileNowPlayingBottomPadding(
-                      context,
-                      useLegacyCupertinoTabBar: useLegacyCupertinoTabBar,
-                    ) -
-                    20,
-              );
+        final double navReservedPadding = _mobileNowPlayingBottomPadding(
+          context,
+          useLegacyCupertinoTabBar: useLegacyCupertinoTabBar,
+        );
+        final double navOverlapHeight = useLegacyCupertinoTabBar
+            ? _FrostedLegacyCupertinoTabBar.barHeight
+            : 20.0;
+        final double navReservedHeight =
+            math.max(0, navReservedPadding - navOverlapHeight);
         final double lyricsBottomInset =
             navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
 
@@ -241,11 +238,13 @@ extension _HomePageMobileLayout on _HomePageContentState {
     final bool isiOS = defaultTargetPlatform == TargetPlatform.iOS;
     final bool isAndroid = defaultTargetPlatform == TargetPlatform.android;
     final double navBarHeight = isiOS
-        ? (useLegacyCupertinoTabBar ? 20.0 : 20.0)
+        ? (useLegacyCupertinoTabBar
+            ? _FrostedLegacyCupertinoTabBar.barHeight
+            : 20.0)
         : isAndroid
             ? 72.0
             : 64.0;
-    final double visualGap = useLegacyCupertinoTabBar ? 6.0 : 12.0;
+    final double visualGap = useLegacyCupertinoTabBar ? 80.0 : 12.0;
     return navBarHeight + safeAreaBottom + visualGap;
   }
 
@@ -634,7 +633,6 @@ class _FrostedLegacyCupertinoTabBar extends StatelessWidget {
   final bool isDarkMode;
 
   static const double barHeight = 55.0;
-  static const double visualGap = 6.0;
   static const double _blurSigma = 20.0;
 
   @override
@@ -661,10 +659,7 @@ class _FrostedLegacyCupertinoTabBar extends StatelessWidget {
         filter: ui.ImageFilter.blur(sigmaX: _blurSigma, sigmaY: _blurSigma),
         child: DecoratedBox(
           decoration: BoxDecoration(color: glassColor),
-          child: SafeArea(
-            top: false,
-            child: tabBar,
-          ),
+          child: tabBar,
         ),
       ),
     );
