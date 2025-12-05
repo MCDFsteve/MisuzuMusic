@@ -1964,8 +1964,11 @@ class _TrackDetailView extends StatelessWidget {
 }
 
 const double _kLyricsPanelButtonSpacing = 55.0;
+const double _kLyricsPanelCompactButtonSpacing = 18.0;
 const double _kLyricsPanelTopSpacing = 60.0;
+const double _kLyricsPanelCompactTopSpacing = 24.0;
 const double _kLyricsPanelBaseBottomInset = 20.0;
+const double _kLyricsPanelCompactBaseBottomInset = 12.0;
 
 class _LyricsPanel extends StatelessWidget {
   const _LyricsPanel({
@@ -2005,6 +2008,16 @@ class _LyricsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double horizontalPadding = isCompactLayout ? 0 : 24;
+    final double buttonSpacing = isCompactLayout
+        ? _kLyricsPanelCompactButtonSpacing
+        : _kLyricsPanelButtonSpacing;
+    final double topSpacing = isCompactLayout
+        ? _kLyricsPanelCompactTopSpacing
+        : _kLyricsPanelTopSpacing;
+    final double bottomInset = bottomSafeInset +
+        (isCompactLayout
+            ? _kLyricsPanelCompactBaseBottomInset
+            : _kLyricsPanelBaseBottomInset);
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -2049,7 +2062,7 @@ class _LyricsPanel extends StatelessWidget {
                   isEnabled: canToggle,
                   onPressed: canToggle ? onToggleTranslation : null,
                 ),
-                const SizedBox(height: _kLyricsPanelButtonSpacing),
+                SizedBox(height: buttonSpacing),
                 if (showDesktopLyricsButton) ...[
                   _DesktopLyricsToggleButton(
                     isDarkMode: isDarkMode,
@@ -2057,14 +2070,14 @@ class _LyricsPanel extends StatelessWidget {
                     isBusy: isDesktopLyricsBusy,
                     onPressed: onToggleDesktopLyrics,
                   ),
-                  const SizedBox(height: _kLyricsPanelButtonSpacing),
+                  SizedBox(height: buttonSpacing),
                 ],
                 _DownloadLrcButton(
                   isDarkMode: isDarkMode,
                   isEnabled: canDownload,
                   onPressed: canDownload ? onDownloadLrc : null,
                 ),
-                const SizedBox(height: _kLyricsPanelTopSpacing),
+                SizedBox(height: topSpacing),
                 _ReportErrorButton(
                   isDarkMode: isDarkMode,
                   onPressed: onReportError,
@@ -2075,7 +2088,7 @@ class _LyricsPanel extends StatelessWidget {
                 children: [
                   Positioned.fill(child: content),
                   Positioned(
-                    bottom: bottomSafeInset + _kLyricsPanelBaseBottomInset,
+                    bottom: bottomInset,
                     right: 6,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
