@@ -1,6 +1,6 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
-enum LibraryMountMode { local, webdav }
+enum LibraryMountMode { local, icloud, webdav }
 
 Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
   final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
@@ -19,6 +19,14 @@ Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
             onTap: () =>
                 Navigator.of(dialogContext).pop(LibraryMountMode.local),
           ),
+          const SizedBox(height: 12),
+          _PlaylistCreationModeOption(
+            icon: CupertinoIcons.cloud_upload,
+            title: dialogL10n.libraryMountOptionICloudTitle,
+            description: dialogL10n.libraryMountOptionICloudDescription,
+            onTap: () =>
+                Navigator.of(dialogContext).pop(LibraryMountMode.icloud),
+          ),
         ] else ...[
           _PlaylistCreationModeOption(
             icon: CupertinoIcons.folder_solid,
@@ -33,8 +41,7 @@ Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
           icon: CupertinoIcons.cloud,
           title: dialogL10n.libraryMountOptionWebDavTitle,
           description: dialogL10n.libraryMountOptionWebDavDescription,
-          onTap: () =>
-              Navigator.of(dialogContext).pop(LibraryMountMode.webdav),
+          onTap: () => Navigator.of(dialogContext).pop(LibraryMountMode.webdav),
         ),
       ];
 

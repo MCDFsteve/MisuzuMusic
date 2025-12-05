@@ -213,6 +213,18 @@
   },
   "homeMysteryCodeInvalid": "神秘代码不正确",
   "homeSelectFolderTitle": "选择音乐文件夹",
+  "homeICloudRootName": "iCloud Drive",
+  "homeICloudContainerMissing": "请先在 AppConstants.iosICloudContainerId 中配置 iCloud 容器 ID，再尝试从 iCloud 挂载。",
+  "homeICloudNoSubfolders": "当前目录下没有可用的 iCloud 文件夹。",
+  "homeICloudEmptyFolder": "该文件夹暂时没有可用的文件。",
+  "homeICloudFolderFileCount": "{count} 个文件",
+  "@homeICloudFolderFileCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "homeScanningFolder": "正在扫描文件夹: {name}",
   "@homeScanningFolder": {
     "placeholders": {
@@ -281,6 +293,8 @@
   "libraryMountOptionAppFolderDescription": "浏览 Files App 中的 MisuzuMusic 目录，避免重复占用空间。",
   "libraryMountOptionLocalTitle": "挂载本地文件夹",
   "libraryMountOptionLocalDescription": "从磁盘选择文件夹并扫描其中的音乐文件。",
+  "libraryMountOptionICloudTitle": "从 iCloud 挂载",
+  "libraryMountOptionICloudDescription": "挂载 iCloud Drive 中的 MisuzuMusic 文件夹，让所有设备保持同步。",
   "libraryMountOptionMysteryTitle": "神秘代码",
   "libraryMountOptionWebDavTitle": "挂载 WebDAV",
   "libraryMountOptionWebDavDescription": "连接到 WebDAV 服务器以流式传输或下载音乐。",

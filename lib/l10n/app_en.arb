@@ -213,6 +213,18 @@
   },
   "homeMysteryCodeInvalid": "Invalid code",
   "homeSelectFolderTitle": "Choose music folder",
+  "homeICloudRootName": "iCloud Drive",
+  "homeICloudContainerMissing": "Set AppConstants.iosICloudContainerId to your iCloud container ID before mounting from iCloud.",
+  "homeICloudNoSubfolders": "No iCloud folders were found at this level.",
+  "homeICloudEmptyFolder": "This folder doesn't contain any files yet.",
+  "homeICloudFolderFileCount": "{count} items in this folder",
+  "@homeICloudFolderFileCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "homeScanningFolder": "Scanning folder: {name}",
   "@homeScanningFolder": {
     "placeholders": {
@@ -281,6 +293,8 @@
   "libraryMountOptionAppFolderDescription": "Browse the MisuzuMusic directory in the Files app to avoid using extra storage.",
   "libraryMountOptionLocalTitle": "Mount local folder",
   "libraryMountOptionLocalDescription": "Pick a folder on disk and scan the music inside.",
+  "libraryMountOptionICloudTitle": "Mount from iCloud",
+  "libraryMountOptionICloudDescription": "Mount the MisuzuMusic folder stored in iCloud Drive to keep every device in sync.",
   "libraryMountOptionMysteryTitle": "Mystery code",
   "libraryMountOptionWebDavTitle": "Mount WebDAV",
   "libraryMountOptionWebDavDescription": "Connect to a WebDAV server to stream or download music.",

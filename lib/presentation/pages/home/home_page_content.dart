@@ -18,8 +18,14 @@ class _HomePageContentState extends State<HomePageContent> {
   List<AdaptiveNavigationDestination> get _mobileDestinations {
     final l10n = context.l10n;
     final iosDestinations = <AdaptiveNavigationDestination>[
-      AdaptiveNavigationDestination(icon: 'music.note.list', label: l10n.navLibrary),
-      AdaptiveNavigationDestination(icon: 'square.stack.3d.up', label: l10n.navPlaylists),
+      AdaptiveNavigationDestination(
+        icon: 'music.note.list',
+        label: l10n.navLibrary,
+      ),
+      AdaptiveNavigationDestination(
+        icon: 'square.stack.3d.up',
+        label: l10n.navPlaylists,
+      ),
       AdaptiveNavigationDestination(icon: 'cloud', label: l10n.navOnlineTracks),
       AdaptiveNavigationDestination(icon: 'music.note', label: l10n.navQueue),
       AdaptiveNavigationDestination(icon: 'gearshape', label: l10n.navSettings),
@@ -49,13 +55,15 @@ class _HomePageContentState extends State<HomePageContent> {
     ];
 
     final baseDestinations =
-        defaultTargetPlatform == TargetPlatform.iOS && PlatformInfo.isIOS26OrHigher()
-            ? iosDestinations
-            : defaultDestinations;
+        defaultTargetPlatform == TargetPlatform.iOS &&
+            PlatformInfo.isIOS26OrHigher()
+        ? iosDestinations
+        : defaultDestinations;
     return _mobileDestinationSectionIndices
         .map((index) => baseDestinations[index])
         .toList(growable: false);
   }
+
   static const double _mobileNowPlayingBarHeight = 118;
   static const String _iosSandboxFolderName = 'MisuzuMusic';
 
@@ -112,6 +120,7 @@ class _HomePageContentState extends State<HomePageContent> {
   late final SongDetailService _songDetailService;
   String? _prefetchedLyricsTrackId;
   bool _isScanningDialogVisible = false;
+  final IcloudStorageSync _icloudStorageSync = IcloudStorageSync();
 
   @override
   void initState() {
@@ -148,7 +157,8 @@ class _HomePageContentState extends State<HomePageContent> {
               showPlaylistModalDialog<void>(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => _ScanningDialog(path: state.directoryPath),
+                builder: (context) =>
+                    _ScanningDialog(path: state.directoryPath),
               ).then((_) {
                 if (mounted) {
                   _isScanningDialogVisible = false;
@@ -443,8 +453,8 @@ class _HomePageContentState extends State<HomePageContent> {
             album: track.album,
           )
           .catchError((error) {
-        debugPrint('[HomeContent] 歌曲详情预加载失败: $error');
-      }),
+            debugPrint('[HomeContent] 歌曲详情预加载失败: $error');
+          }),
     );
   }
 
@@ -663,8 +673,7 @@ class _HomePageContentState extends State<HomePageContent> {
         if (bulkResult.hasError) {
           await _showPlaylistActionDialog(
             title: l10n.homeAddToPlaylistTitle,
-            message:
-                bulkResult.errorMessage ?? l10n.homeAddToPlaylistFailed,
+            message: bulkResult.errorMessage ?? l10n.homeAddToPlaylistFailed,
             isError: true,
           );
           return;
@@ -1196,8 +1205,10 @@ class _HomePageContentState extends State<HomePageContent> {
         LibrarySearchSuggestion(
           value: album.title,
           label: l10n.homeAlbumLabel(album.title),
-          description:
-              l10n.homeAlbumDescription(album.artist, album.trackCount),
+          description: l10n.homeAlbumDescription(
+            album.artist,
+            album.trackCount,
+          ),
           type: LibrarySearchSuggestionType.album,
           payload: album,
         ),
@@ -1598,6 +1609,9 @@ class _HomePageContentState extends State<HomePageContent> {
       case LibraryMountMode.local:
         await _selectLocalFolder();
         break;
+      case LibraryMountMode.icloud:
+        await _selectICloudFolder();
+        break;
       case LibraryMountMode.webdav:
         await _selectWebDavFolder();
         break;
@@ -1655,6 +1669,318 @@ class _HomePageContentState extends State<HomePageContent> {
       if (mounted) {
         _showErrorDialog(context, e.toString());
       }
+    }
+  }
+
+  Future<void> _selectICloudFolder() async {
+    if (!Platform.isIOS) {
+      debugPrint('☁️ iCloud 挂载目前仅支持 iOS');
+      return;
+    }
+
+    const containerId = AppConstants.iosICloudContainerId;
+    if (containerId.isEmpty) {
+      if (mounted) {
+        _showErrorDialog(context, l10n.homeICloudContainerMissing);
+      }
+      return;
+    }
+
+    try {
+      final files = await _withBlockingLoader(() {
+        return _icloudStorageSync.getCloudFiles(containerId: containerId);
+      });
+
+      if (!mounted || files == null) {
+        return;
+      }
+
+      if (files.isEmpty) {
+        _showErrorDialog(context, l10n.homeICloudEmptyFolder);
+        return;
+      }
+
+      final selectedDirectory = await _showICloudDirectoryPicker(files);
+      if (!mounted || selectedDirectory == null) {
+        return;
+      }
+
+      final cachedPath = await _withBlockingLoader(() {
+        return _cacheICloudDirectory(
+          files: files,
+          containerId: containerId,
+          directory: selectedDirectory,
+        );
+      });
+
+      if (!mounted || cachedPath == null) {
+        return;
+      }
+
+      context.read<MusicLibraryBloc>().add(ScanDirectoryEvent(cachedPath));
+
+      if (!prefersMacLikeUi()) {
+        final folderLabel = selectedDirectory.isEmpty
+            ? l10n.homeICloudRootName
+            : selectedDirectory.split('/').last;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(l10n.homeScanningFolder(folderLabel))),
+              ],
+            ),
+            duration: const Duration(seconds: 10),
+          ),
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint('☁️ iCloud 挂载失败: $error\n$stackTrace');
+      if (mounted) {
+        _showErrorDialog(context, error.toString());
+      }
+    }
+  }
+
+  Future<T?> _withBlockingLoader<T>(Future<T> Function() runner) async {
+    if (!mounted) {
+      return runner();
+    }
+    final overlay = showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _BlockingLoadingDialog(),
+    );
+    try {
+      return await runner();
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      await overlay.catchError((_) {});
+    }
+  }
+
+  Future<String?> _showICloudDirectoryPicker(List<CloudFiles> files) async {
+    if (!mounted) {
+      return null;
+    }
+    final decodedPaths = files
+        .map((file) => _decodeICloudPath(file.relativePath))
+        .where((path) => path.isNotEmpty)
+        .toList();
+    if (decodedPaths.isEmpty) {
+      _showErrorDialog(context, l10n.homeICloudEmptyFolder);
+      return null;
+    }
+    final tree = _ICloudDirectoryTree.fromPaths(decodedPaths);
+    if (!tree.hasDirectories && !tree.hasFiles('')) {
+      _showErrorDialog(context, l10n.homeICloudNoSubfolders);
+      return null;
+    }
+    var currentPath = tree.initialPath ?? '';
+    return showPlaylistModalDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final modalTheme = Theme.of(dialogContext);
+        return StatefulBuilder(
+          builder: (stateContext, setState) {
+            final subDirs = tree.childrenOf(currentPath);
+            final canSelect = tree.hasFiles(currentPath);
+            final currentLabel = currentPath.isEmpty
+                ? dialogContext.l10n.homeICloudRootName
+                : currentPath;
+
+            return _PlaylistModalScaffold(
+              title: dialogContext.l10n.libraryMountOptionICloudTitle,
+              body: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      if (currentPath.isNotEmpty)
+                        IconButton(
+                          tooltip: dialogContext.l10n.homeBackTooltipDefault,
+                          onPressed: () {
+                            setState(() {
+                              currentPath = tree.parentOf(currentPath) ?? '';
+                            });
+                          },
+                          icon: const Icon(CupertinoIcons.back),
+                        ),
+                      Expanded(
+                        child: Text(
+                          currentLabel,
+                          style:
+                              modalTheme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ) ??
+                              TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: modalTheme.colorScheme.onSurface,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 320),
+                    child: subDirs.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: Text(
+                                dialogContext.l10n.homeICloudNoSubfolders,
+                                style: modalTheme.textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: modalTheme
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            itemBuilder: (_, index) {
+                              final folderPath = subDirs[index];
+                              final folderName = folderPath.split('/').last;
+                              final itemCount =
+                                  tree.fileCounts[folderPath] ?? 0;
+                              return _ICloudFolderTile(
+                                name: folderName,
+                                description: dialogContext.l10n
+                                    .homeICloudFolderFileCount(itemCount),
+                                onTap: () => setState(() {
+                                  currentPath = folderPath;
+                                }),
+                              );
+                            },
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemCount: subDirs.length,
+                          ),
+                  ),
+                  if (!canSelect)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        dialogContext.l10n.homeICloudEmptyFolder,
+                        style: modalTheme.textTheme.bodySmall?.copyWith(
+                          color: modalTheme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                _SheetActionButton.secondary(
+                  label: dialogContext.l10n.actionCancel,
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+                _SheetActionButton.primary(
+                  label: dialogContext.l10n.libraryMountConfirmButton,
+                  onPressed: canSelect
+                      ? () => Navigator.of(dialogContext).pop(currentPath)
+                      : null,
+                ),
+              ],
+              maxWidth: 420,
+              contentSpacing: 18,
+              actionsSpacing: 16,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<String> _cacheICloudDirectory({
+    required List<CloudFiles> files,
+    required String containerId,
+    required String directory,
+  }) async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final mountRoot = Directory(p.join(documentsDir.path, 'icloud_mounts'));
+    if (!await mountRoot.exists()) {
+      await mountRoot.create(recursive: true);
+    }
+    final safeName = directory.isEmpty
+        ? 'root'
+        : directory.replaceAll('/', '_');
+    final targetDir = Directory(p.join(mountRoot.path, safeName));
+    if (await targetDir.exists()) {
+      await targetDir.delete(recursive: true);
+    }
+    await targetDir.create(recursive: true);
+
+    final prefix = directory.isEmpty ? '' : '$directory/';
+    final filtered = files.where((file) {
+      final relative = _decodeICloudPath(file.relativePath);
+      if (relative.isEmpty) {
+        return false;
+      }
+      return directory.isEmpty || relative.startsWith(prefix);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      throw Exception(l10n.homeICloudEmptyFolder);
+    }
+
+    for (final cloudFile in filtered) {
+      final relativePath = _decodeICloudPath(cloudFile.relativePath);
+      if (relativePath.isEmpty) {
+        continue;
+      }
+      final withinSelection = directory.isEmpty
+          ? relativePath
+          : relativePath.substring(
+              relativePath.startsWith(prefix) ? prefix.length : 0,
+            );
+      if (withinSelection.trim().isEmpty) {
+        continue;
+      }
+      final destination = File(p.join(targetDir.path, withinSelection));
+      await destination.parent.create(recursive: true);
+
+      final localSourcePath = _decodeICloudPath(cloudFile.filePath);
+      if (localSourcePath.isNotEmpty) {
+        final localSource = File(localSourcePath);
+        if (await localSource.exists()) {
+          await localSource.copy(destination.path);
+          continue;
+        }
+      }
+
+      await _icloudStorageSync.download(
+        containerId: containerId,
+        relativePath: relativePath,
+        destinationFilePath: destination.path,
+      );
+    }
+
+    return targetDir.path;
+  }
+
+  String _decodeICloudPath(String? path) {
+    if (path == null) {
+      return '';
+    }
+    try {
+      return Uri.decodeFull(path);
+    } catch (_) {
+      return path;
     }
   }
 
@@ -1935,9 +2261,8 @@ class _HomePageContentState extends State<HomePageContent> {
     return showPlaylistModalDialog<_WebDavConnectionFormResult>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => _WebDavConnectionDialog(
-        testConnection: sl<TestWebDavConnection>(),
-      ),
+      builder: (context) =>
+          _WebDavConnectionDialog(testConnection: sl<TestWebDavConnection>()),
     );
   }
 
@@ -1973,10 +2298,7 @@ class _HomePageContentState extends State<HomePageContent> {
   }) {
     final message = webDavSource == null
         ? l10n.homeWebDavScanSummary(tracksAdded)
-        : l10n.homeWebDavScanSummaryWithSource(
-            tracksAdded,
-            webDavSource.name,
-          );
+        : l10n.homeWebDavScanSummaryWithSource(tracksAdded, webDavSource.name);
     if (prefersMacLikeUi()) {
       showPlaylistModalDialog<void>(
         context: context,
@@ -1993,10 +2315,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 size: 56,
               ),
               const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-              ),
+              Text(message, textAlign: TextAlign.center),
             ],
           ),
           actions: [
@@ -2038,10 +2357,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 size: 56,
               ),
               const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-              ),
+              Text(message, textAlign: TextAlign.center),
             ],
           ),
           actions: [
@@ -2385,6 +2701,221 @@ class _LyricsOverlayPlaceholder extends StatelessWidget {
   }
 }
 
+class _BlockingLoadingDialog extends StatelessWidget {
+  const _BlockingLoadingDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final background = theme.dialogBackgroundColor;
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: background.withOpacity(0.92),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const SizedBox(
+          width: 36,
+          height: 36,
+          child: CircularProgressIndicator(strokeWidth: 3),
+        ),
+      ),
+    );
+  }
+}
+
+class _ICloudFolderTile extends StatelessWidget {
+  const _ICloudFolderTile({
+    required this.name,
+    required this.description,
+    required this.onTap,
+  });
+
+  final String name;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final titleStyle =
+        theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: isDark
+              ? Colors.white.withOpacity(0.92)
+              : Colors.black.withOpacity(0.9),
+        ) ??
+        TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: isDark
+              ? Colors.white.withOpacity(0.92)
+              : Colors.black.withOpacity(0.9),
+        );
+    final descriptionStyle =
+        theme.textTheme.bodySmall?.copyWith(
+          color: isDark
+              ? Colors.white.withOpacity(0.68)
+              : Colors.black.withOpacity(0.65),
+        ) ??
+        TextStyle(
+          fontSize: 12,
+          color: isDark
+              ? Colors.white.withOpacity(0.68)
+              : Colors.black.withOpacity(0.65),
+        );
+
+    return _HoverableCard(
+      baseColor: isDark
+          ? Colors.white.withOpacity(0.06)
+          : Colors.black.withOpacity(0.04),
+      hoverColor: isDark
+          ? Colors.white.withOpacity(0.1)
+          : Colors.black.withOpacity(0.08),
+      borderColor: isDark
+          ? Colors.white.withOpacity(0.14)
+          : Colors.black.withOpacity(0.08),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              CupertinoIcons.folder_solid,
+              size: 22,
+              color: isDark
+                  ? Colors.white.withOpacity(0.92)
+                  : Colors.black.withOpacity(0.78),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(locale: Locale("zh-Hans", "zh"), name, style: titleStyle),
+                const SizedBox(height: 4),
+                Text(
+                  locale: Locale("zh-Hans", "zh"),
+                  description,
+                  style: descriptionStyle,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            CupertinoIcons.chevron_right,
+            size: 16,
+            color: isDark
+                ? Colors.white.withOpacity(0.45)
+                : Colors.black.withOpacity(0.3),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ICloudDirectoryTree {
+  _ICloudDirectoryTree(this.children, this.fileCounts);
+
+  final Map<String, Set<String>> children;
+  final Map<String, int> fileCounts;
+
+  bool get hasDirectories =>
+      children.entries.any((entry) => entry.value.isNotEmpty);
+
+  bool hasFiles(String path) => (fileCounts[path] ?? 0) > 0;
+
+  List<String> childrenOf(String path) {
+    final current = children[path];
+    if (current == null || current.isEmpty) {
+      return const [];
+    }
+    final list = current.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
+  String? parentOf(String path) {
+    if (path.isEmpty) {
+      return null;
+    }
+    final segments = path.split('/');
+    if (segments.length <= 1) {
+      return '';
+    }
+    return segments.sublist(0, segments.length - 1).join('/');
+  }
+
+  String? get initialPath {
+    if (children['']?.contains('MisuzuMusic') ?? false) {
+      return 'MisuzuMusic';
+    }
+    final rootChildren = childrenOf('');
+    if (rootChildren.isEmpty) {
+      return '';
+    }
+    return rootChildren.first;
+  }
+
+  static _ICloudDirectoryTree fromPaths(List<String> paths) {
+    final children = <String, Set<String>>{'': <String>{}};
+    final counts = <String, int>{'': 0};
+
+    void ensurePath(String path) {
+      children.putIfAbsent(path, () => <String>{});
+      counts.putIfAbsent(path, () => 0);
+    }
+
+    for (final path in paths) {
+      final segments = path
+          .split('/')
+          .where((segment) => segment.isNotEmpty)
+          .toList();
+      if (segments.isEmpty) {
+        continue;
+      }
+      final parents = segments.length > 1
+          ? segments.sublist(0, segments.length - 1)
+          : <String>[];
+      var parentPath = '';
+      ensurePath(parentPath);
+
+      if (parents.isEmpty) {
+        counts[parentPath] = (counts[parentPath] ?? 0) + 1;
+        continue;
+      }
+
+      for (int i = 0; i < parents.length; i++) {
+        final currentPath = parents.sublist(0, i + 1).join('/');
+        ensurePath(currentPath);
+        children[parentPath]!.add(currentPath);
+        counts[parentPath] = (counts[parentPath] ?? 0) + 1;
+        parentPath = currentPath;
+      }
+
+      counts[parentPath] = (counts[parentPath] ?? 0) + 1;
+    }
+
+    for (final entry in children.entries) {
+      counts.putIfAbsent(entry.key, () => 0);
+    }
+
+    return _ICloudDirectoryTree(children, counts);
+  }
+}
+
 class _MisuzuFolderOption {
   const _MisuzuFolderOption({
     required this.path,
@@ -2512,12 +3043,7 @@ class _ScanningDialog extends StatelessWidget {
     final friendlyPath = path.split('/').last;
     return _PlaylistModalScaffold(
       title: l10n.homeScanningFolder(friendlyPath),
-      body: const SizedBox(
-        height: 100,
-        child: Center(
-          child: ProgressCircle(),
-        ),
-      ),
+      body: const SizedBox(height: 100, child: Center(child: ProgressCircle())),
       actions: const [],
       maxWidth: 320,
       contentSpacing: 20,

@@ -77,6 +77,7 @@ dependencies:
   http: ^1.2.1
   url_launcher: ^6.3.1
   media_kit_libs_audio: ^1.0.7
+  icloud_storage_sync: ^0.0.2
 
 dev_dependencies:
   flutter_test:
@@ -163,3 +164,4 @@ dependency_overrides:
     path: third_party/plugins/desktop_multi_window
   audio_service:
     path: third_party/plugins/audio_service
+  intl: 0.20.2
