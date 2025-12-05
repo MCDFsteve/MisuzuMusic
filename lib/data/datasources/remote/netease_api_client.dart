@@ -46,7 +46,7 @@ class NeteaseApiClient {
       }
       return null;
     } catch (e) {
-      print('⚠️ NeteaseApiClient: 获取歌曲封面失败 -> $e');
+      //print('⚠️ NeteaseApiClient: 获取歌曲封面失败 -> $e');
       return null;
     }
   }
@@ -79,7 +79,7 @@ class NeteaseApiClient {
         Map<String, dynamic>.from(account as Map),
       );
     } catch (e) {
-      print('⚠️ NeteaseApiClient: 获取账号信息失败 -> $e');
+      //print('⚠️ NeteaseApiClient: 获取账号信息失败 -> $e');
       return null;
     }
   }
@@ -111,7 +111,7 @@ class NeteaseApiClient {
           )
           .toList();
     } catch (e) {
-      print('⚠️ NeteaseApiClient: 获取用户歌单失败 -> $e');
+      //print('⚠️ NeteaseApiClient: 获取用户歌单失败 -> $e');
       return const [];
     }
   }
@@ -143,7 +143,7 @@ class NeteaseApiClient {
           )
           .toList();
     } catch (e) {
-      print('⚠️ NeteaseApiClient: 获取歌单歌曲失败 -> $e');
+      //print('⚠️ NeteaseApiClient: 获取歌单歌曲失败 -> $e');
       return null;
     }
   }
@@ -176,7 +176,7 @@ class NeteaseApiClient {
       }
       return NeteaseTrackStreamInfo(url: url, cookie: cookie);
     } catch (e) {
-      print('⚠️ NeteaseApiClient: 获取音频地址失败 -> $e');
+      //print('⚠️ NeteaseApiClient: 获取音频地址失败 -> $e');
       return null;
     }
   }
@@ -198,7 +198,7 @@ class NeteaseApiClient {
       }
       return false;
     } catch (e) {
-      print('⚠️ NeteaseApiClient: 添加歌曲到歌单失败 -> $e');
+      //print('⚠️ NeteaseApiClient: 添加歌曲到歌单失败 -> $e');
       return false;
     }
   }
@@ -215,7 +215,7 @@ class NeteaseApiClient {
       }
       return Uint8List.fromList(data);
     } catch (e) {
-      print('⚠️ NeteaseApiClient: 下载图片失败 -> $e');
+      //print('⚠️ NeteaseApiClient: 下载图片失败 -> $e');
       return null;
     }
   }
@@ -249,7 +249,7 @@ class NeteaseApiClient {
       }
       return null;
     } catch (e) {
-      print('⚠️ NeteaseApiClient: 搜索歌曲失败 -> $e');
+      //print('⚠️ NeteaseApiClient: 搜索歌曲失败 -> $e');
       return null;
     }
   }
@@ -352,7 +352,7 @@ class NeteaseApiClient {
       return candidates;
     } catch (error) {
       // ignore: avoid_print
-      print('⚠️ NeteaseApiClient: 搜索歌曲列表失败 -> $error');
+      //print('⚠️ NeteaseApiClient: 搜索歌曲列表失败 -> $error');
       return const [];
     }
   }
@@ -374,7 +374,7 @@ class NeteaseApiClient {
       }
       return NeteaseLyricResult(original: original, translated: translated);
     } catch (e) {
-      print('⚠️ NeteaseApiClient: 获取歌词失败 -> $e');
+      //print('⚠️ NeteaseApiClient: 获取歌词失败 -> $e');
       return null;
     }
   }

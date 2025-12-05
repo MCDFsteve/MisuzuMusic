@@ -494,9 +494,18 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         );
         final existing = existingByRemotePath[remoteFile.relativePath];
 
-        final title = remoteFile.title;
-        final artist = existing?.artist ?? 'Unknown Artist';
-        final album = existing?.album ?? 'Unknown Album';
+        final fallbackFileName = remoteFile.title.isNotEmpty
+            ? remoteFile.title
+            : posix.basenameWithoutExtension(remoteFile.relativePath);
+        final normalizedFields = normalizeTrackFields(
+          title: existing?.title ?? fallbackFileName,
+          artist: existing?.artist ?? 'Unknown Artist',
+          album: existing?.album ?? 'Unknown Album',
+          fallbackFileName: fallbackFileName,
+        );
+        final title = normalizedFields.title;
+        final artist = normalizedFields.artist;
+        final album = normalizedFields.album;
         final duration = existing?.duration ?? Duration.zero;
         final trackNumber = existing?.trackNumber;
         final year = existing?.year;
@@ -913,7 +922,20 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         );
       }
 
+      final remoteFileName = posix.basenameWithoutExtension(remotePath).trim();
+      final fallbackFileName =
+          remoteFileName.isNotEmpty ? remoteFileName : track.title;
+      final normalizedFields = normalizeTrackFields(
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        fallbackFileName: fallbackFileName,
+      );
+
       final updatedModel = TrackModel.fromEntity(track).copyWith(
+        title: normalizedFields.title,
+        artist: normalizedFields.artist,
+        album: normalizedFields.album,
         artworkPath: artworkPath ?? track.artworkPath,
         sourceType: TrackSourceType.webdav,
         sourceId: sourceId,

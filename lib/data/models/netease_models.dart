@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
+
 import '../../domain/entities/music_entities.dart';
 
 class NeteaseAccountModel {
@@ -240,29 +242,9 @@ class NeteaseTrackModel {
     'coverUrl': coverUrl,
   };
 
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
-
-import '../../domain/entities/music_entities.dart';
-
-class NeteaseAccountModel {
-  const NeteaseAccountModel({
-    required this.userId,
-    required this.nickname,
-    this.avatarUrl,
-  });
-// ... (rest of NeteaseAccountModel) ...
-}
-
-// ... (NeteaseSessionModel and NeteasePlaylistModel remain unchanged) ...
-
-class NeteaseTrackModel {
-  // ... (fields and other methods) ...
-
   Track toPlayerTrack({required String cookie}) {
     final now = DateTime.now();
     final uniqueId = 'netease_$id';
-    final hash = sha1.convert(utf8.encode(uniqueId)).toString();
     return Track(
       id: uniqueId,
       title: title,
@@ -271,7 +253,6 @@ class NeteaseTrackModel {
       filePath: 'netease://$id',
       duration: Duration(milliseconds: durationMs),
       dateAdded: now,
-      artworkPath: null,
       sourceType: TrackSourceType.netease,
       sourceId: id.toString(),
       remotePath: '/song/$id',
@@ -279,11 +260,9 @@ class NeteaseTrackModel {
         'Cookie': cookie,
         if (coverUrl != null) 'x-netease-cover': coverUrl!,
       },
-      contentHash: hash,
+      contentHash: sha1.convert(utf8.encode(uniqueId)).toString(),
     );
   }
-}
-// ... (rest of file) ...
 }
 
 class NeteaseSongCandidate {
