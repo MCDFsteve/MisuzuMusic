@@ -431,7 +431,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       if (Platform.isWindows) {
         unawaited(_ensureWindowsPlaybackStarted(playFuture));
       }
-      await playFuture;
+      await _waitForPlaybackStart(playFuture);
+      _trackPlaybackCompletion(playFuture);
 
       if (playableTrack.sourceType == TrackSourceType.webdav &&
           playableTrack.sourceId != null &&
@@ -1150,6 +1151,22 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     if (!playbackCompleted && !_audioPlayer.playing) {
       print('⚠️ AudioService: Windows 播放仍未开始，已超过重试次数');
     }
+  }
+
+  Future<void> _waitForPlaybackStart(Future<void> playFuture) async {
+    final playbackStartedFuture = _playerStateSubject.stream
+        .skip(1)
+        .firstWhere((state) => state == PlayerState.playing);
+    await Future.any([playbackStartedFuture, playFuture]);
+  }
+
+  void _trackPlaybackCompletion(Future<void> playFuture) {
+    unawaited(
+      playFuture.catchError(
+        (error, stackTrace) =>
+            print('⚠️ AudioService: 播放过程中出错 -> $error'),
+      ),
+    );
   }
 
   void _emitPlayerStateSnapshot() {
