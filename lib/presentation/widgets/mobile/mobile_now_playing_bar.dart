@@ -745,6 +745,8 @@ class _MobileProgressSliderState extends State<_MobileProgressSlider> {
         );
 
     final canInteract = _canSeek;
+    final bool useLegacyIOSCupertinoSlider =
+        PlatformInfo.isIOS && !PlatformInfo.isIOS26OrHigher();
     final sliderTheme = SliderTheme.of(context).copyWith(
       trackHeight: 4,
       activeTrackColor: widget.activeColor,
@@ -754,21 +756,31 @@ class _MobileProgressSliderState extends State<_MobileProgressSlider> {
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
     );
 
-    return SizedBox(
-      height: 32,
-      child: SliderTheme(
-        data: sliderTheme,
-        child: AdaptiveSlider(
-          value: sliderValue,
-          min: 0.0,
-          max: _maxPosition,
-          activeColor: widget.activeColor,
-          thumbColor: widget.activeColor,
-          onChangeStart: canInteract ? _handleChangeStart : null,
-          onChanged: canInteract ? _handleChanged : null,
-          onChangeEnd: canInteract ? _handleChangeEnd : null,
-        ),
-      ),
-    );
+    final sliderWidget = useLegacyIOSCupertinoSlider
+        ? CupertinoSlider(
+            value: sliderValue,
+            min: 0.0,
+            max: _maxPosition,
+            activeColor: widget.activeColor,
+            thumbColor: widget.activeColor,
+            onChangeStart: canInteract ? _handleChangeStart : null,
+            onChanged: canInteract ? _handleChanged : null,
+            onChangeEnd: canInteract ? _handleChangeEnd : null,
+          )
+        : SliderTheme(
+            data: sliderTheme,
+            child: AdaptiveSlider(
+              value: sliderValue,
+              min: 0.0,
+              max: _maxPosition,
+              activeColor: widget.activeColor,
+              thumbColor: widget.activeColor,
+              onChangeStart: canInteract ? _handleChangeStart : null,
+              onChanged: canInteract ? _handleChanged : null,
+              onChangeEnd: canInteract ? _handleChangeEnd : null,
+            ),
+          );
+
+    return SizedBox(height: 32, child: sliderWidget);
   }
 }

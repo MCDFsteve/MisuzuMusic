@@ -134,7 +134,9 @@ class _PlaylistHistoryList extends StatelessWidget {
               ),
               title: displayInfo.title,
               artistAlbum: '${displayInfo.artist} • ${displayInfo.album}',
-              duration: _formatDuration(track.duration),
+              duration: track.sourceType == TrackSourceType.webdav
+                  ? ''
+                  : _formatDuration(track.duration),
               meta: '${_formatPlayedAt(entry.playedAt)} | ${playCount} 次播放',
               onTap: () =>
                   _playTrack(context, track, fingerprint: entry.fingerprint),
