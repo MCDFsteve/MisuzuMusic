@@ -45,9 +45,16 @@ extension _HomePageMobileLayout on _HomePageContentState {
           child: _buildMainContent(),
         );
 
+        final bool useLegacyCupertinoTabBar =
+            defaultTargetPlatform == TargetPlatform.iOS &&
+                !PlatformInfo.isIOS26OrHigher();
         final double navReservedHeight = math.max(
           0,
-          _mobileNowPlayingBottomPadding(context) - 20,
+          _mobileNowPlayingBottomPadding(
+                context,
+                useLegacyCupertinoTabBar: useLegacyCupertinoTabBar,
+              ) -
+              20,
         );
         final double lyricsBottomInset =
             navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
@@ -136,16 +143,28 @@ extension _HomePageMobileLayout on _HomePageContentState {
         final navSelectedIndex =
             _mobileNavigationSelectedIndex(visibleSectionIndices);
         final navItems = _mobileDestinations;
+        void handleNavigationTap(int visibleIndex) {
+          final targetSection = visibleSectionIndices[visibleIndex];
+          _handleNavigationChange(targetSection);
+        }
+
+        final cupertinoTabBar = useLegacyCupertinoTabBar
+            ? CupertinoTabBar(
+                currentIndex: navSelectedIndex,
+                onTap: handleNavigationTap,
+                activeColor: const Color(0xFF1B66FF),
+                inactiveColor: CupertinoColors.inactiveGray,
+                items: _buildLegacyCupertinoNavItems(navItems),
+              )
+            : null;
 
         return AdaptiveScaffold(
           body: bodyWithFocusDismiss,
           bottomNavigationBar: AdaptiveBottomNavigationBar(
             items: navItems,
             selectedIndex: navSelectedIndex,
-            onTap: (visibleIndex) {
-              final targetSection = visibleSectionIndices[visibleIndex];
-              _handleNavigationChange(targetSection);
-            },
+            onTap: handleNavigationTap,
+            cupertinoTabBar: cupertinoTabBar,
             selectedItemColor: const Color(0xFF1B66FF),
           ),
         );
@@ -153,16 +172,62 @@ extension _HomePageMobileLayout on _HomePageContentState {
     );
   }
 
-  double _mobileNowPlayingBottomPadding(BuildContext context) {
+  List<BottomNavigationBarItem> _buildLegacyCupertinoNavItems(
+    List<AdaptiveNavigationDestination> destinations,
+  ) {
+    return destinations
+        .map(
+          (destination) => BottomNavigationBarItem(
+            icon: Icon(
+              _resolveNavigationIcon(destination.icon),
+              size: 26,
+            ),
+            activeIcon: Icon(
+              _resolveNavigationIcon(
+                destination.selectedIcon ?? destination.icon,
+              ),
+              size: 26,
+            ),
+            label: destination.label,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  IconData _resolveNavigationIcon(dynamic icon) {
+    if (icon is IconData) {
+      return icon;
+    }
+    if (icon is String) {
+      switch (icon) {
+        case 'music.note.list':
+          return CupertinoIcons.music_note_list;
+        case 'square.stack.3d.up':
+          return CupertinoIcons.square_stack_3d_up;
+        case 'cloud':
+          return CupertinoIcons.cloud;
+        case 'music.note':
+          return CupertinoIcons.music_note;
+        case 'gearshape':
+          return CupertinoIcons.settings;
+      }
+    }
+    return CupertinoIcons.circle;
+  }
+
+  double _mobileNowPlayingBottomPadding(
+    BuildContext context, {
+    bool useLegacyCupertinoTabBar = false,
+  }) {
     final double safeAreaBottom = MediaQuery.of(context).padding.bottom;
     final bool isiOS = defaultTargetPlatform == TargetPlatform.iOS;
     final bool isAndroid = defaultTargetPlatform == TargetPlatform.android;
     final double navBarHeight = isiOS
-        ? 88.0
+        ? (useLegacyCupertinoTabBar ? 64.0 : 88.0)
         : isAndroid
             ? 72.0
             : 64.0;
-    const double visualGap = 12.0;
+    final double visualGap = useLegacyCupertinoTabBar ? 6.0 : 12.0;
     return navBarHeight + safeAreaBottom + visualGap;
   }
 

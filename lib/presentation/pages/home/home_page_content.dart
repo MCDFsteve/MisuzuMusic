@@ -48,9 +48,10 @@ class _HomePageContentState extends State<HomePageContent> {
       ),
     ];
 
-    final baseDestinations = defaultTargetPlatform == TargetPlatform.iOS
-        ? iosDestinations
-        : defaultDestinations;
+    final baseDestinations =
+        defaultTargetPlatform == TargetPlatform.iOS && PlatformInfo.isIOS26OrHigher()
+            ? iosDestinations
+            : defaultDestinations;
     return _mobileDestinationSectionIndices
         .map((index) => baseDestinations[index])
         .toList(growable: false);
