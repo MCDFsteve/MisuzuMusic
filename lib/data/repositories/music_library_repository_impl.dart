@@ -163,7 +163,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
   @override
   Future<Track?> fetchArtworkForTrack(Track track) async {
-    if (track.sourceType != TrackSourceType.local) {
+    if (track.sourceType != TrackSourceType.local &&
+        track.sourceType != TrackSourceType.webdav) {
       return null;
     }
     if ((track.artworkPath ?? '').isNotEmpty) {
@@ -959,6 +960,20 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         if (artworkPath != null && artworkPath.isNotEmpty) {
           break;
         }
+      }
+
+      // Fallback: Fetch from Netease if no artwork found on WebDAV
+      if (artworkPath == null || artworkPath.isEmpty) {
+        artworkPath = await _fetchArtworkFromNetease(
+          title: metadata?.title ?? track.title,
+          artist:
+              metadata?.artist ??
+              metadata?.albumArtist ??
+              track.artist,
+          album: metadata?.album ?? track.album,
+          previousArtworkPath: track.artworkPath,
+          track: track,
+        );
       }
 
       final updatedModel = TrackModel.fromEntity(track).copyWith(
