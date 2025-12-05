@@ -872,6 +872,18 @@ abstract class AppLocalizations {
   /// **'神秘代码'**
   String get libraryMountOptionMysteryTitle;
 
+  /// No description provided for @libraryMountOptionWebDavTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂载 WebDAV'**
+  String get libraryMountOptionWebDavTitle;
+
+  /// No description provided for @libraryMountOptionWebDavDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接到 WebDAV 服务器以流式传输或下载音乐。'**
+  String get libraryMountOptionWebDavDescription;
+
   /// No description provided for @libraryMountInfoCardTitle.
   ///
   /// In zh, this message translates to:

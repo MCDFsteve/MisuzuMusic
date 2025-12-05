@@ -447,6 +447,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get libraryMountOptionMysteryTitle => '神秘代码';
 
   @override
+  String get libraryMountOptionWebDavTitle => '挂载 WebDAV';
+
+  @override
+  String get libraryMountOptionWebDavDescription => '连接到 WebDAV 服务器以流式传输或下载音乐。';
+
+  @override
   String get libraryMountInfoCardTitle => '通过 MisuzuMusic 文件夹导入';
 
   @override

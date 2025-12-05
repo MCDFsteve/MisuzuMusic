@@ -1,6 +1,6 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
-enum LibraryMountMode { local, mystery }
+enum LibraryMountMode { local, mystery, webdav }
 
 Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
   final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
@@ -27,15 +27,23 @@ Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
             onTap: () =>
                 Navigator.of(dialogContext).pop(LibraryMountMode.local),
           ),
-          const SizedBox(height: 12),
-          _PlaylistCreationModeOption(
-            icon: CupertinoIcons.lock,
-            title: dialogL10n.libraryMountOptionMysteryTitle,
-            description: '',
-            onTap: () =>
-                Navigator.of(dialogContext).pop(LibraryMountMode.mystery),
-          ),
         ],
+        const SizedBox(height: 12),
+        _PlaylistCreationModeOption(
+          icon: CupertinoIcons.cloud,
+          title: dialogL10n.libraryMountOptionWebDavTitle,
+          description: dialogL10n.libraryMountOptionWebDavDescription,
+          onTap: () =>
+              Navigator.of(dialogContext).pop(LibraryMountMode.webdav),
+        ),
+        const SizedBox(height: 12),
+        _PlaylistCreationModeOption(
+          icon: CupertinoIcons.lock,
+          title: dialogL10n.libraryMountOptionMysteryTitle,
+          description: '',
+          onTap: () =>
+              Navigator.of(dialogContext).pop(LibraryMountMode.mystery),
+        ),
       ];
 
       return _PlaylistModalScaffold(

@@ -282,6 +282,8 @@
   "libraryMountOptionLocalTitle": "Mount local folder",
   "libraryMountOptionLocalDescription": "Pick a folder on disk and scan the music inside.",
   "libraryMountOptionMysteryTitle": "Mystery code",
+  "libraryMountOptionWebDavTitle": "Mount WebDAV",
+  "libraryMountOptionWebDavDescription": "Connect to a WebDAV server to stream or download music.",
   "libraryMountInfoCardTitle": "Import via the MisuzuMusic folder",
   "libraryMountInfoCardDescription": "iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open {filesRoot} > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it.\n3) Return to Misuzu Music and select the MisuzuMusic folder to start scanning.",
   "@libraryMountInfoCardDescription": {

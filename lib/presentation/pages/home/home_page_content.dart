@@ -111,6 +111,7 @@ class _HomePageContentState extends State<HomePageContent> {
   late final VoidCallback _focusManagerListener;
   late final SongDetailService _songDetailService;
   String? _prefetchedLyricsTrackId;
+  bool _isScanningDialogVisible = false;
 
   @override
   void initState() {
@@ -141,6 +142,27 @@ class _HomePageContentState extends State<HomePageContent> {
       focusNode: _shortcutFocusNode,
       child: BlocListener<MusicLibraryBloc, MusicLibraryState>(
         listener: (context, state) {
+          if (state is MusicLibraryScanning) {
+            if (!_isScanningDialogVisible) {
+              _isScanningDialogVisible = true;
+              showPlaylistModalDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => _ScanningDialog(path: state.directoryPath),
+              ).then((_) {
+                if (mounted) {
+                  _isScanningDialogVisible = false;
+                }
+              });
+            }
+          } else if (state is MusicLibraryScanComplete ||
+              state is MusicLibraryError) {
+            if (_isScanningDialogVisible) {
+              Navigator.of(context).pop();
+              _isScanningDialogVisible = false;
+            }
+          }
+
           if (state is MusicLibraryLoaded) {
             _cachedLibraryState = state;
           } else if (state is MusicLibraryScanComplete) {
@@ -1576,6 +1598,9 @@ class _HomePageContentState extends State<HomePageContent> {
       case LibraryMountMode.local:
         await _selectLocalFolder();
         break;
+      case LibraryMountMode.webdav:
+        await _selectWebDavFolder();
+        break;
       case LibraryMountMode.mystery:
         await _selectMysteryLibrary();
         break;
@@ -1878,7 +1903,6 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
-  // ignore: unused_element
   Future<void> _selectWebDavFolder() async {
     final connection = await _showWebDavConnectionDialog();
     if (connection == null) {
@@ -2515,3 +2539,29 @@ class _MisuzuFolderTile extends StatelessWidget {
     );
   }
 }
+
+class _ScanningDialog extends StatelessWidget {
+  const _ScanningDialog({required this.path});
+
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final friendlyPath = path.split('/').last;
+    return _PlaylistModalScaffold(
+      title: l10n.homeScanningFolder(friendlyPath),
+      body: const SizedBox(
+        height: 100,
+        child: Center(
+          child: ProgressCircle(),
+        ),
+      ),
+      actions: const [],
+      maxWidth: 320,
+      contentSpacing: 20,
+      actionsSpacing: 0,
+    );
+  }
+}
+

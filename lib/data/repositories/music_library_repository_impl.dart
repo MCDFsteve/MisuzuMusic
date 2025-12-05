@@ -458,7 +458,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         normalizedSource.rootPath,
       );
       if (bundleBytes != null) {
-        print('🌐 WebDAV: 使用二进制元数据包导入');
+        // print('🌐 WebDAV: 使用二进制元数据包导入');
         try {
           await _importWebDavBundle(bundleBytes, normalizedSource);
           return;
@@ -467,14 +467,14 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         }
       }
 
-      print(
-        '🌐 WebDAV: 开始扫描 ${normalizedSource.baseUrl}${normalizedSource.rootPath}',
-      );
+      // print(
+      //   '🌐 WebDAV: 开始扫描 ${normalizedSource.baseUrl}${normalizedSource.rootPath}',
+      // );
       final remoteFiles = await _collectRemoteAudioFiles(
         client,
         normalizedSource.rootPath,
       );
-      print('🌐 WebDAV: 发现 ${remoteFiles.length} 个音频候选');
+      // print('🌐 WebDAV: 发现 ${remoteFiles.length} 个音频候选');
 
       final existingTracks = await _localDataSource.getTracksByWebDavSource(
         normalizedSource.id,
@@ -495,20 +495,18 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
         _WebDavTrackMetadata? metadata;
         if (remoteFile.metadataPath != null) {
-          print('🌐 WebDAV: 尝试读取元数据 -> ${remoteFile.metadataPath}');
+          // print('🌐 WebDAV: 尝试读取元数据 -> ${remoteFile.metadataPath}');
           metadata = await _loadWebDavTrackMetadata(
             client,
             remoteFile.metadataPath!,
           );
           if (metadata != null) {
-            print(
-              '🌐 WebDAV: 元数据载入成功 -> 标题: ${metadata.title ?? remoteFile.title}',
-            );
+            // print('🌐 WebDAV: 元数据载入成功 -> 标题: ${metadata.title ?? remoteFile.title}');
           } else {
-            print('⚠️ WebDAV: 元数据读取失败或为空 -> ${remoteFile.metadataPath}');
+            // print('⚠️ WebDAV: 元数据读取失败或为空 -> ${remoteFile.metadataPath}');
           }
         } else {
-          print('⚠️ WebDAV: 未找到元数据文件 -> ${remoteFile.relativePath}');
+          // print('⚠️ WebDAV: 未找到元数据文件 -> ${remoteFile.relativePath}');
         }
 
         final title = metadata?.title ?? remoteFile.title;
@@ -526,7 +524,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
         String? artworkPath = existing?.artworkPath;
         if (remoteFile.artworkPath != null) {
-          print('🌐 WebDAV: 发现同名封面 -> ${remoteFile.artworkPath}');
+          // print('🌐 WebDAV: 发现同名封面 -> ${remoteFile.artworkPath}');
           artworkPath = await _downloadWebDavArtwork(
             client: client,
             sourceId: normalizedSource.id,
@@ -541,7 +539,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
               metadata!.coverFileName!,
             ),
           );
-          print('🌐 WebDAV: 依据元数据查找封面 -> $remoteCoverPath');
+          // print('🌐 WebDAV: 依据元数据查找封面 -> $remoteCoverPath');
           artworkPath = await _downloadWebDavArtwork(
             client: client,
             sourceId: normalizedSource.id,
@@ -835,7 +833,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           (track.artworkPath == null || track.artworkPath!.isEmpty);
 
       if (!needsMetadata) {
-        print('🌐 WebDAV: 元数据已完整 -> ${track.title}');
+        // print('🌐 WebDAV: 元数据已完整 -> ${track.title}');
         return track;
       }
 
@@ -851,7 +849,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         remotePath,
       );
 
-      print('🌐 WebDAV: 尝试补充元数据 -> $fullAudioPath');
+      // print('🌐 WebDAV: 尝试补充元数据 -> $fullAudioPath');
 
       WebDavBundleEntry? bundleEntry;
       try {
@@ -920,7 +918,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         await _localDataSource.updateTrack(updatedModel);
         final updated = updatedModel.toEntity();
         _emitTrackUpdate(updated);
-        print('🌐 WebDAV: 元数据更新完成 (bundle) -> ${updatedModel.title}');
+        // print('🌐 WebDAV: 元数据更新完成 (bundle) -> ${updatedModel.title}');
         return updated;
       }
 
@@ -981,7 +979,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       await _localDataSource.updateTrack(updatedModel);
       final updated = updatedModel.toEntity();
       _emitTrackUpdate(updated);
-      print('🌐 WebDAV: 元数据更新完成 -> ${updatedModel.title}');
+      // print('🌐 WebDAV: 元数据更新完成 -> ${updatedModel.title}');
       return updated;
     } catch (e) {
       print('⚠️ WebDAV: 自动补全元数据失败 -> $e');
@@ -1875,7 +1873,6 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     try {
       final raw = await client.read(metadataPath);
       if (raw.isEmpty) {
-        print('⚠️ WebDAV: 元数据文件为空 -> $metadataPath');
         return null;
       }
 
@@ -1904,7 +1901,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         thumbnailPath: decoded['thumbnail_file'] as String?,
       );
     } catch (e) {
-      print('⚠️ WebDAV: 读取元数据失败 [$metadataPath] - $e');
+      // Optional metadata file, suppress error
       return null;
     }
   }
@@ -1935,7 +1932,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
       final file = File(filePath);
       await file.writeAsBytes(bytes, flush: true);
-      print('🌐 WebDAV: 封面已缓存 -> $filePath');
+      // print('🌐 WebDAV: 封面已缓存 -> $filePath');
 
       if (previousArtworkPath != null && previousArtworkPath != filePath) {
         final previous = File(previousArtworkPath);
@@ -1947,7 +1944,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
 
       return filePath;
     } catch (e) {
-      print('⚠️ WebDAV: 下载封面失败 [$remoteArtworkPath] - $e');
+      // Optional artwork file, suppress error
       return previousArtworkPath;
     }
   }
@@ -2061,7 +2058,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       }
       return Uint8List.fromList(bytes);
     } catch (e) {
-      print('⚠️ WebDAV: 获取元数据包失败 [$remotePath] -> $e');
+      // Optional file, suppress error
       return null;
     }
   }

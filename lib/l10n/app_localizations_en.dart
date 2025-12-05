@@ -458,6 +458,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get libraryMountOptionMysteryTitle => 'Mystery code';
 
   @override
+  String get libraryMountOptionWebDavTitle => 'Mount WebDAV';
+
+  @override
+  String get libraryMountOptionWebDavDescription =>
+      'Connect to a WebDAV server to stream or download music.';
+
+  @override
   String get libraryMountInfoCardTitle => 'Import via the MisuzuMusic folder';
 
   @override
