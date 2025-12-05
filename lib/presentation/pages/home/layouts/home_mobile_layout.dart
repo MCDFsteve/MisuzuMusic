@@ -258,7 +258,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
         : isAndroid
         ? 72.0
         : 64.0;
-    final double visualGap = useLegacyCupertinoTabBar ? 80.0 : 12.0;
+    final double visualGap = useLegacyCupertinoTabBar ? 80.0 : 80.0;
     return navBarHeight + safeAreaBottom + visualGap;
   }
 
