@@ -65,6 +65,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late final NeteaseIdResolver _neteaseIdResolver;
   static bool _lastTranslationPreference = true;
   bool _showTranslation = _lastTranslationPreference;
+  bool _lyricsHidden = false;
   bool _desktopLyricsActive = false;
   bool _desktopLyricsBusy = false;
   bool _desktopLyricsErrorNotified = false;
@@ -114,6 +115,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialTrack != oldWidget.initialTrack) {
       _currentTrack = widget.initialTrack;
+      _lyricsHidden = false;
       _resetTrackDetailState();
       _ensureLyricsLoaded(_currentTrack);
       _resetScroll();
@@ -513,6 +515,13 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (_desktopLyricsActive) {
       _scheduleDesktopLyricsUpdate(force: true);
     }
+  }
+
+  void _toggleLyricsVisibility() {
+    if (!mounted) return;
+    setState(() {
+      _lyricsHidden = !_lyricsHidden;
+    });
   }
 
   void _scheduleDesktopLyricsUpdate({bool force = false}) {
@@ -1226,7 +1235,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         lyricsScrollController: _lyricsScrollController,
         isMac: isMac,
         showTranslation: _showTranslation,
+        lyricsHidden: _lyricsHidden,
         onToggleTranslation: _toggleTranslationVisibility,
+        onToggleLyricsVisibility: _toggleLyricsVisibility,
         onDownloadLrc: _downloadLrcFile,
         onReportError: _reportError,
         onToggleDesktopLyrics:
@@ -1257,7 +1268,9 @@ class _LyricsLayout extends StatelessWidget {
     required this.lyricsScrollController,
     required this.isMac,
     required this.showTranslation,
+    required this.lyricsHidden,
     required this.onToggleTranslation,
+    required this.onToggleLyricsVisibility,
     required this.onDownloadLrc,
     required this.onReportError,
     required this.onToggleDesktopLyrics,
@@ -1282,7 +1295,9 @@ class _LyricsLayout extends StatelessWidget {
   final ScrollController lyricsScrollController;
   final bool isMac;
   final bool showTranslation;
+  final bool lyricsHidden;
   final VoidCallback onToggleTranslation;
+  final VoidCallback onToggleLyricsVisibility;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
   final VoidCallback onToggleDesktopLyrics;
@@ -1325,7 +1340,9 @@ class _LyricsLayout extends StatelessWidget {
             scrollController: lyricsScrollController,
             track: normalizedTrack,
             showTranslation: showTranslation,
+            lyricsHidden: lyricsHidden,
             onToggleTranslation: onToggleTranslation,
+            onToggleLyricsVisibility: onToggleLyricsVisibility,
             onDownloadLrc: onDownloadLrc,
             onReportError: onReportError,
             onToggleDesktopLyrics: onToggleDesktopLyrics,
@@ -1976,7 +1993,9 @@ class _LyricsPanel extends StatelessWidget {
     required this.scrollController,
     required this.track,
     required this.showTranslation,
+    required this.lyricsHidden,
     required this.onToggleTranslation,
+    required this.onToggleLyricsVisibility,
     required this.onDownloadLrc,
     required this.onReportError,
     required this.onToggleDesktopLyrics,
@@ -1993,7 +2012,9 @@ class _LyricsPanel extends StatelessWidget {
   final ScrollController scrollController;
   final Track track;
   final bool showTranslation;
+  final bool lyricsHidden;
   final VoidCallback onToggleTranslation;
+  final VoidCallback onToggleLyricsVisibility;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
   final VoidCallback onToggleDesktopLyrics;
@@ -2038,6 +2059,7 @@ class _LyricsPanel extends StatelessWidget {
                   isDarkMode,
                   viewportHeight,
                   showTranslation,
+                  lyricsHidden,
                 ),
               );
 
@@ -2056,6 +2078,12 @@ class _LyricsPanel extends StatelessWidget {
               final bool canDownload = state is LyricsLoaded;
 
               final List<Widget> floatingButtons = [
+                _LyricsVisibilityButton(
+                  isDarkMode: isDarkMode,
+                  isHidden: lyricsHidden,
+                  onPressed: onToggleLyricsVisibility,
+                ),
+                SizedBox(height: buttonSpacing),
                 _TranslationToggleButton(
                   isDarkMode: isDarkMode,
                   isActive: showTranslation,
@@ -2113,7 +2141,18 @@ class _LyricsPanel extends StatelessWidget {
     bool isDarkMode,
     double viewportHeight,
     bool showTranslation,
+    bool lyricsHidden,
   ) {
+    if (lyricsHidden) {
+      return _buildInfoMessage(
+        controller,
+        title: '歌词已关闭',
+        subtitle: '点击右下角按钮重新显示歌词。',
+        isDarkMode: isDarkMode,
+        viewportHeight: viewportHeight,
+      );
+    }
+
     if (state is LyricsLoading || state is LyricsInitial) {
       return _buildInfoMessage(
         controller,
@@ -2265,6 +2304,42 @@ class _TranslationToggleButton extends StatelessWidget {
             ? (isActive ? inactiveColor : inactiveColor)
             : disabledColor,
         hoverColor: isEnabled ? activeColor : disabledColor,
+        disabledColor: disabledColor,
+      ),
+    );
+  }
+}
+
+class _LyricsVisibilityButton extends StatelessWidget {
+  const _LyricsVisibilityButton({
+    required this.isDarkMode,
+    required this.isHidden,
+    required this.onPressed,
+  });
+
+  final bool isDarkMode;
+  final bool isHidden;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color iconColor = isDarkMode ? Colors.white : Colors.black;
+    final Color inactiveColor = iconColor.withOpacity(0.82);
+    final Color activeColor = iconColor;
+    final Color disabledColor = iconColor.withOpacity(0.42);
+    final IconData icon = isHidden ? CupertinoIcons.eye : CupertinoIcons.eye_slash;
+    final String tooltip = isHidden ? '显示歌词' : '关闭歌词';
+    final Color baseColor = isHidden ? activeColor : inactiveColor;
+
+    return MacosTooltip(
+      message: tooltip,
+      child: _HoverGlyphButton(
+        enabled: true,
+        onPressed: onPressed,
+        icon: icon,
+        size: 25,
+        baseColor: baseColor,
+        hoverColor: activeColor,
         disabledColor: disabledColor,
       ),
     );
