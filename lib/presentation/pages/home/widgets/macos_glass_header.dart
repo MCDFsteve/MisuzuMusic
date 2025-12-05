@@ -189,7 +189,8 @@ class _MacOSGlassHeaderState extends State<_MacOSGlassHeader> {
         _dragRequested ||
         _pointerStartedOverInteractive ||
         event.kind != PointerDeviceKind.mouse ||
-        event.buttons != kPrimaryMouseButton) {
+        event.buttons != kPrimaryMouseButton ||
+        !isDesktopPlatform()) {
       return;
     }
 
