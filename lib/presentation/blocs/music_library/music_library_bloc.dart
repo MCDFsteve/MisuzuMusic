@@ -358,7 +358,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       final sortedTracks = _sortTracks(visibleTracks, sortMode);
       final hiddenCount = tracks.length - visibleTracks.length;
       if (hiddenCount > 0) {
-        print('🌐 BLoC: 暂时隐藏 $hiddenCount 首 WebDAV 音轨，等待元数据加载');
+        // print('🌐 BLoC: 暂时隐藏 $hiddenCount 首 WebDAV 音轨，等待元数据加载');
       }
 
       print(
@@ -426,7 +426,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
 
     _webDavMetadataEnrichmentInProgress = true;
     try {
-      print('🌐 BLoC: 自动补全 WebDAV 元数据任务启动 - ${candidates.length} 首音轨');
+      // print('🌐 BLoC: 自动补全 WebDAV 元数据任务启动 - ${candidates.length} 首音轨');
 
       var updated = false;
       for (final track in candidates) {
@@ -438,7 +438,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       }
 
       if (updated) {
-        print('🌐 BLoC: WebDAV 元数据发生更新，刷新音乐库');
+        // print('🌐 BLoC: WebDAV 元数据发生更新，刷新音乐库');
         final refreshedTracks = await _getAllTracks();
         final refreshedArtists = await _getAllArtists();
         final refreshedAlbums = await _getAllAlbums();
@@ -454,7 +454,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
         final sortedVisibleTracks = _sortTracks(visibleTracks, currentSortMode);
         final hiddenCount = refreshedTracks.length - visibleTracks.length;
         if (hiddenCount > 0) {
-          print('🌐 BLoC: 补齐后仍有 $hiddenCount 首 WebDAV 音轨缺少元数据，继续等待');
+          // print('🌐 BLoC: 补齐后仍有 $hiddenCount 首 WebDAV 音轨缺少元数据，继续等待');
         }
 
         _allTracksCache = sortedVisibleTracks;
@@ -471,7 +471,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
           ),
         );
       } else {
-        print('🌐 BLoC: WebDAV 元数据无需更新');
+        // print('🌐 BLoC: WebDAV 元数据无需更新');
       }
     } catch (e) {
       print('⚠️ BLoC: 自动补全 WebDAV 元数据失败 - $e');
@@ -525,7 +525,8 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
   }
 
   List<Track> _filterVisibleTracks(List<Track> tracks) {
-    return tracks.where((track) => !_needsWebDavMetadata(track)).toList();
+    // return tracks.where((track) => !_needsWebDavMetadata(track)).toList();
+    return tracks;
   }
 
   bool _hasMetadataChanged(Track original, Track updated) {

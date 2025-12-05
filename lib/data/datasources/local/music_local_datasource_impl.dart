@@ -657,7 +657,37 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   @override
   Future<Uint8List?> exportPlaylistBinary(String playlistId) async {
     try {
-      return _playlistStorage.exportPlaylistBytes(playlistId);
+      final playlist = await getPlaylistById(playlistId);
+      if (playlist == null) {
+        return null;
+      }
+
+      final metadata = <PlaylistTrackMetadata>[];
+      for (final hash in playlist.trackIds) {
+        final track = await getTrackByContentHash(hash);
+        if (track != null) {
+          metadata.add(
+            PlaylistTrackMetadata(
+              title: track.title,
+              artist: track.artist,
+              album: track.album,
+              durationMs: track.duration.inMilliseconds,
+            ),
+          );
+        } else {
+          metadata.add(
+            const PlaylistTrackMetadata(
+              title: '',
+              artist: '',
+              album: '',
+              durationMs: 0,
+            ),
+          );
+        }
+      }
+
+      final exportModel = playlist.copyWith(trackMetadata: metadata);
+      return _playlistStorage.encodePlaylist(exportModel);
     } catch (e) {
       throw DatabaseException('Failed to export playlist: ${e.toString()}');
     }
@@ -666,7 +696,71 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   @override
   Future<PlaylistModel?> importPlaylistBinary(Uint8List bytes) async {
     try {
-      return _playlistStorage.importPlaylistBytes(bytes);
+      // 1. Parse manually to get metadata
+      final rawModel = _playlistStorage.parsePlaylist(bytes);
+      if (rawModel == null) {
+        return null;
+      }
+
+      // 2. Decode Paths (Cover)
+      var model = rawModel;
+      if (model.coverPath != null && model.coverPath!.isNotEmpty) {
+        final decodedCover = await _sandboxPathCodec.decode(model.coverPath!);
+        if (decodedCover != model.coverPath) {
+          model = model.copyWith(coverPath: decodedCover);
+        }
+      }
+
+      // 3. Heal / Match Tracks
+      final healedTrackIds = <String>[];
+      bool tracksChanged = false;
+
+      if (model.trackMetadata != null &&
+          model.trackMetadata!.length == model.trackIds.length) {
+        for (var i = 0; i < model.trackIds.length; i++) {
+          final hash = model.trackIds[i];
+
+          // Try Hash
+          final byHash = await getTrackByContentHash(hash);
+          if (byHash != null) {
+            healedTrackIds.add(hash);
+            continue;
+          }
+
+          // Try Metadata
+          final meta = model.trackMetadata![i];
+          // Skip if empty metadata
+          if (meta.title.isEmpty) {
+            healedTrackIds.add(hash);
+            continue;
+          }
+
+          final byMeta = await findMatchingTrack(
+            title: meta.title,
+            artist: meta.artist,
+            album: meta.album,
+            durationMs: meta.durationMs,
+          );
+
+          if (byMeta != null) {
+            healedTrackIds.add(byMeta.contentHash ?? byMeta.id);
+            tracksChanged = true;
+          } else {
+            healedTrackIds.add(hash);
+          }
+        }
+      } else {
+        healedTrackIds.addAll(model.trackIds);
+      }
+
+      if (tracksChanged) {
+        model = model.copyWith(trackIds: healedTrackIds);
+      }
+
+      // 4. Save (This will re-encode and save to file)
+      await _playlistStorage.savePlaylist(model);
+
+      return model;
     } catch (e) {
       throw DatabaseException('Failed to import playlist: ${e.toString()}');
     }

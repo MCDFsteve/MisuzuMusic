@@ -102,7 +102,9 @@ class MaterialMusicLibraryView extends StatelessWidget {
                     ),
                     title: displayInfo.title,
                     artistAlbum: '${displayInfo.artist} • ${displayInfo.album}',
-                    duration: _formatDuration(track.duration),
+                    duration: track.sourceType == TrackSourceType.webdav
+                        ? ''
+                        : _formatDuration(track.duration),
                     onTap: () {
                       print('🎵 Material点击歌曲: ${displayInfo.title}');
                       print('🎵 文件路径: ${track.filePath}');

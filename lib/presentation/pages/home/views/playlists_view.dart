@@ -749,12 +749,27 @@ class _PlaylistAutoSyncDialogState extends State<_PlaylistAutoSyncDialog> {
             ],
           ),
           const SizedBox(height: 12),
-          _MacosField(
-            label: '云端 ID',
+          _ModalTextField(
             controller: _controller,
-            placeholder: '至少 5 位字母、数字或下划线',
-            errorText: _errorText,
+            label: '云端 ID',
+            hintText: '至少 5 位字母、数字或下划线',
+            enabled: true,
+            onChanged: (_) {
+              if (_errorText != null) {
+                setState(() => _errorText = null);
+              }
+            },
+            onSubmitted: (_) => _onSubmit(),
           ),
+          if (_errorText != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _errorText!,
+              style: typography.caption1.copyWith(
+                color: MacosColors.systemRedColor,
+              ),
+            ),
+          ],
           const SizedBox(height: 6),
           Text(widget.idRuleDescription, style: secondaryStyle),
           const SizedBox(height: 16),

@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:icloud_storage_sync/icloud_storage_sync.dart';
+import 'package:icloud_storage_sync/models/icloud_file_download.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';

@@ -985,8 +985,12 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
     final isDarkMode =
         (macTheme?.brightness ?? materialTheme.brightness) == Brightness.dark;
     final platform = materialTheme.platform;
+    final bool isLegacyIOS =
+        platform == TargetPlatform.iOS && !PlatformInfo.isIOS26OrHigher();
     final bool useAdaptiveSegments =
-        platform == TargetPlatform.iOS || platform == TargetPlatform.android;
+        platform == TargetPlatform.android ||
+            (platform == TargetPlatform.iOS &&
+                PlatformInfo.isIOS26OrHigher());
     final baseTextStyle = macTheme?.typography.body ??
         materialTheme.textTheme.bodyMedium ??
         const TextStyle(fontSize: 14);
@@ -1029,6 +1033,7 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
           onSelected: _handleTap,
           isDarkMode: isDarkMode,
           textStyle: baseTextStyle,
+          expandToMaxWidth: isLegacyIOS,
         ),
       ],
     );
@@ -1123,8 +1128,12 @@ class _LanguageControlState extends State<_LanguageControl> {
     final isDarkMode =
         (macTheme?.brightness ?? materialTheme.brightness) == Brightness.dark;
     final platform = materialTheme.platform;
+    final bool isLegacyIOS =
+        platform == TargetPlatform.iOS && !PlatformInfo.isIOS26OrHigher();
     final bool useAdaptiveSegments =
-        platform == TargetPlatform.iOS || platform == TargetPlatform.android;
+        platform == TargetPlatform.android ||
+            (platform == TargetPlatform.iOS &&
+                PlatformInfo.isIOS26OrHigher());
     final baseTextStyle = macTheme?.typography.body ??
         materialTheme.textTheme.bodyMedium ??
         const TextStyle(fontSize: 14);
@@ -1185,6 +1194,7 @@ class _LanguageControlState extends State<_LanguageControl> {
           onSelected: _handleTap,
           isDarkMode: isDarkMode,
           textStyle: baseTextStyle,
+          expandToMaxWidth: isLegacyIOS,
         ),
       ],
     );
@@ -1242,6 +1252,7 @@ class _DesktopSegmentedSelector extends StatelessWidget {
     required this.isDarkMode,
     required this.textStyle,
     this.segmentWidth = 84,
+    this.expandToMaxWidth = false,
   });
 
   final List<String> labels;
@@ -1250,82 +1261,96 @@ class _DesktopSegmentedSelector extends StatelessWidget {
   final bool isDarkMode;
   final TextStyle textStyle;
   final double segmentWidth;
+  final bool expandToMaxWidth;
 
   @override
   Widget build(BuildContext context) {
-    final int count = labels.length;
-    if (count == 0) {
-      return const SizedBox.shrink();
-    }
-    final double totalWidth = segmentWidth * count;
-    final Color backgroundColor = isDarkMode
-        ? Colors.white.withOpacity(0.12)
-        : Colors.black.withOpacity(0.12);
-    final Color indicatorColor = isDarkMode
-        ? Colors.white.withOpacity(0.12)
-        : Colors.white;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final int count = labels.length;
+        if (count == 0) {
+          return const SizedBox.shrink();
+        }
+        final bool canExpand = expandToMaxWidth &&
+            constraints.maxWidth.isFinite &&
+            constraints.maxWidth > 0;
+        final double totalWidth =
+            canExpand ? constraints.maxWidth : segmentWidth * count;
+        final double effectiveSegmentWidth = totalWidth / count;
+        final Color backgroundColor = isDarkMode
+            ? Colors.white.withOpacity(0.12)
+            : Colors.black.withOpacity(0.12);
+        final Color indicatorColor = isDarkMode
+            ? Colors.white.withOpacity(0.12)
+            : Colors.white;
 
-    return Container(
-      width: totalWidth,
-      height: 24,
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Stack(
-        children: [
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 420),
-            curve: Curves.elasticOut,
-            alignment: _alignmentForIndex(selectedIndex, count),
-            child: FractionallySizedBox(
-              widthFactor: 1 / count,
-              heightFactor: 1,
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: indicatorColor,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-              ),
+        return SizedBox(
+          width: canExpand ? double.infinity : totalWidth,
+          height: 24,
+          child: Container(
+            height: 24,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(10),
             ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(count, (index) {
-              final bool isSelected = index == selectedIndex;
-              final Color textColor = isSelected
-                  ? (isDarkMode
-                      ? Colors.white
-                      : Colors.black.withOpacity(0.85))
-                  : (isDarkMode
-                      ? Colors.white.withOpacity(0.85)
-                      : Colors.black.withOpacity(0.75));
-              return SizedBox(
-                width: segmentWidth,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onSelected(index),
-                  child: Center(
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 200),
-                      style: textStyle.copyWith(
-                        fontSize: 10,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
-                        color: textColor,
+            child: Stack(
+              children: [
+                AnimatedAlign(
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.elasticOut,
+                  alignment: _alignmentForIndex(selectedIndex, count),
+                  child: FractionallySizedBox(
+                    widthFactor: 1 / count,
+                    heightFactor: 1,
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: indicatorColor,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
-                      child: Text(labels[index], maxLines: 1),
                     ),
                   ),
                 ),
-              );
-            }),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(count, (index) {
+                    final bool isSelected = index == selectedIndex;
+                    final Color textColor = isSelected
+                        ? (isDarkMode
+                            ? Colors.white
+                            : Colors.black.withOpacity(0.85))
+                        : (isDarkMode
+                            ? Colors.white.withOpacity(0.85)
+                            : Colors.black.withOpacity(0.75));
+                    return SizedBox(
+                      width: effectiveSegmentWidth,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onSelected(index),
+                        child: Center(
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style: textStyle.copyWith(
+                              fontSize: 10,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: textColor,
+                            ),
+                            child: Text(labels[index], maxLines: 1),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -32,6 +32,7 @@ class AppConstants {
       'https://nipaplay.aimes-soft.com/song_detail.php';
   static const String songIdMappingEndpoint =
       'https://nipaplay.aimes-soft.com/song_id_service.php';
+  static const String iosICloudContainerId = 'iCloud.com.aimessoft.misuzumusic';
 
   // Settings Keys
   static const String settingsVolume = 'volume';

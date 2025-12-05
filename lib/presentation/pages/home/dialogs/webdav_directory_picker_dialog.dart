@@ -92,42 +92,55 @@ class _WebDavDirectoryPickerDialogState
 
   @override
   Widget build(BuildContext context) {
-    if (!prefersMacLikeUi()) {
-      return _buildMaterialDialog(context);
-    }
-    return _buildFrostedDialog(context);
-  }
-
-  Widget _buildFrostedDialog(BuildContext context) {
     final canConfirm = !_loading && _error == null;
+
+    final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
+
+    final breadcrumbs = _currentPath
+        .split('/')
+        .where((segment) => segment.isNotEmpty)
+        .toList();
 
     return FrostedSelectionModal(
       title: '选择 WebDAV 文件夹',
-      maxWidth: 460,
+      maxWidth: 480,
       contentSpacing: 14,
       actionsSpacing: 18,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '当前路径: $_currentPath',
-            locale: const Locale('zh-Hans', 'zh'),
-            style: MacosTheme.of(context)
-                .typography
-                .body
-                .copyWith(fontSize: 12.5, height: 1.35),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 300,
-            child: FrostedSelectionContainer(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                child: _buildContent(),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _PathChip(
+                label: '/',
+                isActive: breadcrumbs.isEmpty,
+                onTap:
+                    _currentPath == '/' ? null : () => _load('/'),
               ),
+              ...List.generate(breadcrumbs.length, (index) {
+                final partialPath = '/${breadcrumbs.sublist(0, index + 1).join('/')}';
+                final isLast = index == breadcrumbs.length - 1;
+                return _PathChip(
+                  label: breadcrumbs[index],
+                  isActive: isLast,
+                  onTap: isLast ? null : () => _load(partialPath),
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 12),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: FrostedSelectionContainer(
+              child: _buildContent(),
             ),
           ),
         ],
@@ -142,76 +155,6 @@ class _WebDavDirectoryPickerDialogState
           onPressed: canConfirm
               ? () => Navigator.of(context).pop(_currentPath)
               : null,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMaterialDialog(BuildContext context) {
-    return AlertDialog(
-      title: const Text('选择 WebDAV 文件夹', locale: Locale('zh-Hans', 'zh')),
-      content: SizedBox(
-        width: 420,
-        height: 360,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('当前路径: $_currentPath', style: const TextStyle(fontSize: 13), locale: const Locale('zh-Hans', 'zh')),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                      ? Center(
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(color: Colors.red),
-                            textAlign: TextAlign.center,
-                            locale: const Locale('zh-Hans', 'zh'),
-                          ),
-                        )
-                      : LazyListView<WebDavEntry?>(
-                          items: <WebDavEntry?>[
-                            if (_currentPath != '/') null,
-                            ..._entries,
-                          ],
-                          pageSize: 80,
-                          preloadOffset: 240,
-                          cacheExtent: 0,
-                          itemBuilder: (context, entry, index) {
-                            if (entry == null) {
-                              return ListTile(
-                                leading: const Icon(Icons.arrow_upward),
-                                title: const Text('..'),
-                                onTap: () => _load(_parentPath(_currentPath)),
-                              );
-                            }
-                            return ListTile(
-                              leading:
-                                  Icon(entry.isDirectory ? Icons.folder : Icons.audiotrack),
-                              title:
-                                  Text(entry.name, locale: const Locale('zh-Hans', 'zh')),
-                              onTap: entry.isDirectory ? () => _load(entry.path) : null,
-                              subtitle: Text(
-                                entry.path,
-                                maxLines: 1,
-                                locale: const Locale('zh-Hans', 'zh'),
-                              ),
-                            );
-                          },
-                        ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消', locale: Locale('zh-Hans', 'zh')),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.of(context).pop(_currentPath),
-          child: const Text('选择此文件夹', locale: Locale('zh-Hans', 'zh')),
         ),
       ],
     );
@@ -250,8 +193,11 @@ class _DirectoryLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CupertinoActivityIndicator(radius: 12),
+    return const SizedBox(
+      height: 220,
+      child: Center(
+        child: CupertinoActivityIndicator(radius: 12),
+      ),
     );
   }
 }
@@ -263,17 +209,36 @@ class _DirectoryErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final macTheme = MacosTheme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          locale: const Locale('zh-Hans', 'zh'),
-          style: macTheme.typography.body.copyWith(
-            color: MacosColors.systemRedColor,
-            height: 1.42,
+    final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
+    final surface = isDark
+        ? Colors.redAccent.withOpacity(0.12)
+        : Colors.redAccent.withOpacity(0.08);
+
+    return SizedBox(
+      height: 220,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: surface,
+          ),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            locale: const Locale('zh-Hans', 'zh'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.redAccent.withOpacity(isDark ? 0.95 : 0.8),
+                  height: 1.4,
+                ) ??
+                TextStyle(
+                  color: Colors.redAccent.withOpacity(isDark ? 0.95 : 0.8),
+                  height: 1.4,
+                ),
           ),
         ),
       ),
@@ -286,21 +251,27 @@ class _DirectoryEmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final macTheme = MacosTheme.of(context);
-    final isDark = macTheme.brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
     final color = isDark
         ? Colors.white.withOpacity(0.68)
-        : Colors.black.withOpacity(0.62);
+        : Colors.black.withOpacity(0.65);
 
-    return Center(
-      child: Text(
-        '该目录为空，尝试返回上一层或选择其它路径。',
-        locale: const Locale('zh-Hans', 'zh'),
-        style: macTheme.typography.caption1.copyWith(
-          color: color,
-          height: 1.42,
+    return SizedBox(
+      height: 220,
+      child: Center(
+        child: Text(
+          '该目录为空，尝试返回上一层或选择其它路径。',
+          locale: const Locale('zh-Hans', 'zh'),
+          style: theme.textTheme.bodyMedium?.copyWith(
+                color: color,
+                height: 1.4,
+              ) ??
+              TextStyle(color: color, height: 1.4),
+          textAlign: TextAlign.center,
         ),
-        textAlign: TextAlign.center,
       ),
     );
   }
@@ -324,71 +295,145 @@ class _DirectoryEntriesView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final macTheme = MacosTheme.of(context);
-    final isDark = macTheme.brightness == Brightness.dark;
-    final dividerColor = macTheme.dividerColor.withOpacity(isDark ? 0.35 : 0.28);
+    final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
+    final dividerColor = (macTheme?.dividerColor ?? Colors.black12)
+        .withOpacity(isDark ? 0.35 : 0.28);
 
     final itemList = <WebDavEntry?>[
       if (currentPath != '/') null,
       ...entries,
     ];
 
-    return MacosScrollbar(
+    return Scrollbar(
       controller: controller,
-      child: LazyListView<WebDavEntry?>(
+      thumbVisibility: true,
+      child: ListView.separated(
         controller: controller,
-        items: itemList,
-        pageSize: 100,
-        preloadOffset: 360,
+        itemCount: itemList.length,
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        cacheExtent: 0,
         separatorBuilder: (_, __) => SizedBox(
           height: 4,
-          child: Divider(
-            height: 1,
-            thickness: 0.6,
-            color: dividerColor,
-          ),
+          child: Divider(height: 1, thickness: 0.6, color: dividerColor),
         ),
-        itemBuilder: (context, entry, index) {
-          if (entry == null) {
-            return FrostedOptionTile(
-              leading: Icon(
-                CupertinoIcons.arrow_uturn_left,
-                size: 16,
-                color: isDark
-                    ? Colors.white.withOpacity(0.75)
-                    : Colors.black.withOpacity(0.66),
-              ),
-              title: '..',
-              subtitle: '返回上一层',
-              onPressed: onNavigateUp,
-            );
-          }
-
-          final leading = Icon(
-            entry.isDirectory
-                ? CupertinoIcons.folder_fill
-                : CupertinoIcons.music_note,
-            size: 16,
-            color: entry.isDirectory
-                ? (isDark
-                    ? Colors.white.withOpacity(0.82)
-                    : Colors.black.withOpacity(0.72))
-                : (isDark
-                    ? Colors.white.withOpacity(0.68)
-                    : Colors.black.withOpacity(0.6)),
-          );
-
-          return FrostedOptionTile(
-            leading: leading,
-            title: entry.name,
-            subtitle: entry.path,
-            enabled: entry.isDirectory,
-            onPressed: entry.isDirectory ? () => onOpenEntry(entry) : null,
+        itemBuilder: (context, index) {
+          final entry = itemList[index];
+          return _DirectoryEntryTile(
+            entry: entry,
+            isDark: isDark,
+            onNavigateUp: onNavigateUp,
+            onOpenEntry: onOpenEntry,
           );
         },
       ),
+    );
+  }
+}
+
+class _PathChip extends StatelessWidget {
+  const _PathChip({
+    required this.label,
+    this.isActive = false,
+    this.onTap,
+  });
+
+  final String label;
+  final bool isActive;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final macTheme = MacosTheme.maybeOf(context);
+    final brightness = macTheme?.brightness ?? theme.brightness;
+    final isDark = brightness == Brightness.dark;
+    final background = isActive
+        ? theme.colorScheme.primary.withOpacity(isDark ? 0.2 : 0.12)
+        : (isDark
+            ? Colors.white.withOpacity(0.06)
+            : Colors.black.withOpacity(0.05));
+    final borderColor = isActive
+        ? theme.colorScheme.primary.withOpacity(isDark ? 0.5 : 0.35)
+        : Colors.transparent;
+    final textColor = isActive
+        ? theme.colorScheme.primary
+        : (isDark
+            ? Colors.white.withOpacity(0.8)
+            : Colors.black.withOpacity(0.75));
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: background,
+          border: Border.all(color: borderColor, width: isActive ? 1 : 0.8),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          locale: const Locale('zh-Hans', 'zh'),
+          style: theme.textTheme.bodySmall?.copyWith(
+                color: textColor,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 12,
+              ) ??
+              TextStyle(
+                color: textColor,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 12,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DirectoryEntryTile extends StatelessWidget {
+  const _DirectoryEntryTile({
+    required this.entry,
+    required this.isDark,
+    required this.onNavigateUp,
+    required this.onOpenEntry,
+  });
+
+  final WebDavEntry? entry;
+  final bool isDark;
+  final VoidCallback onNavigateUp;
+  final ValueChanged<WebDavEntry> onOpenEntry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entry == null) {
+      return FrostedOptionTile(
+        leading: Icon(
+          CupertinoIcons.arrow_uturn_left,
+          size: 16,
+          color:
+              isDark ? Colors.white.withOpacity(0.75) : Colors.black.withOpacity(0.66),
+        ),
+        title: '..',
+        subtitle: '返回上一层',
+        onPressed: onNavigateUp,
+      );
+    }
+
+    final leading = Icon(
+      entry!.isDirectory ? CupertinoIcons.folder_fill : CupertinoIcons.music_note,
+      size: 16,
+      color: entry!.isDirectory
+          ? (isDark ? Colors.white.withOpacity(0.82) : Colors.black.withOpacity(0.72))
+          : (isDark ? Colors.white.withOpacity(0.68) : Colors.black.withOpacity(0.6)),
+    );
+
+    return FrostedOptionTile(
+      leading: leading,
+      title: entry!.name,
+      subtitle: entry!.path,
+      enabled: entry!.isDirectory,
+      onPressed: entry!.isDirectory ? () => onOpenEntry(entry!) : null,
     );
   }
 }

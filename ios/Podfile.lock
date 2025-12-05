@@ -43,6 +43,8 @@ PODS:
     - DKImagePickerController/PhotoGallery
     - Flutter
   - Flutter (1.0.0)
+  - icloud_storage_sync (0.0.2):
+    - Flutter
   - just_audio (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -97,6 +99,7 @@ DEPENDENCIES:
   - audio_waveforms (from `.symlinks/plugins/audio_waveforms/ios`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
   - Flutter (from `Flutter`)
+  - icloud_storage_sync (from `.symlinks/plugins/icloud_storage_sync/ios`)
   - just_audio (from `.symlinks/plugins/just_audio/darwin`)
   - media_kit_libs_ios_audio (from `.symlinks/plugins/media_kit_libs_ios_audio/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
@@ -127,6 +130,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/file_picker/ios"
   Flutter:
     :path: Flutter
+  icloud_storage_sync:
+    :path: ".symlinks/plugins/icloud_storage_sync/ios"
   just_audio:
     :path: ".symlinks/plugins/just_audio/darwin"
   media_kit_libs_ios_audio:
@@ -153,6 +158,7 @@ SPEC CHECKSUMS:
   DKPhotoGallery: b3834fecb755ee09a593d7c9e389d8b5d6deed60
   file_picker: a0560bc09d61de87f12d246fc47d2119e6ef37be
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  icloud_storage_sync: 280709abe2f8966d1ae48ec3330d21f4fbf7331d
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   media_kit_libs_ios_audio: 905e6323b72e65c63ab9262b2e473f52c024a3a8
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499

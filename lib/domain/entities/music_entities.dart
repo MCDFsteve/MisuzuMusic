@@ -149,6 +149,24 @@ class Album extends Entity {
   ];
 }
 
+// Metadata for track in playlist (used for fallback matching)
+class PlaylistTrackMetadata extends Entity {
+  final String title;
+  final String artist;
+  final String album;
+  final int durationMs;
+
+  const PlaylistTrackMetadata({
+    required this.title,
+    required this.artist,
+    required this.album,
+    this.durationMs = 0,
+  });
+
+  @override
+  List<Object?> get props => [title, artist, album, durationMs];
+}
+
 // Playlist entity
 class Playlist extends Entity {
   final String id;
@@ -158,6 +176,7 @@ class Playlist extends Entity {
   final DateTime updatedAt;
   final String? description;
   final String? coverPath;
+  final List<PlaylistTrackMetadata>? trackMetadata;
 
   const Playlist({
     required this.id,
@@ -167,6 +186,7 @@ class Playlist extends Entity {
     required this.updatedAt,
     this.description,
     this.coverPath,
+    this.trackMetadata,
   });
 
   @override
@@ -178,6 +198,7 @@ class Playlist extends Entity {
     updatedAt,
     description,
     coverPath,
+    trackMetadata,
   ];
 
   Playlist copyWith({
@@ -188,6 +209,7 @@ class Playlist extends Entity {
     DateTime? updatedAt,
     String? description,
     String? coverPath,
+    List<PlaylistTrackMetadata>? trackMetadata,
   }) {
     return Playlist(
       id: id ?? this.id,
@@ -197,6 +219,7 @@ class Playlist extends Entity {
       updatedAt: updatedAt ?? this.updatedAt,
       description: description ?? this.description,
       coverPath: coverPath ?? this.coverPath,
+      trackMetadata: trackMetadata ?? this.trackMetadata,
     );
   }
 }

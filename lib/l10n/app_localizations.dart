@@ -740,6 +740,36 @@ abstract class AppLocalizations {
   /// **'选择音乐文件夹'**
   String get homeSelectFolderTitle;
 
+  /// No description provided for @homeICloudRootName.
+  ///
+  /// In zh, this message translates to:
+  /// **'iCloud Drive'**
+  String get homeICloudRootName;
+
+  /// No description provided for @homeICloudContainerMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先在 AppConstants.iosICloudContainerId 中配置 iCloud 容器 ID，再尝试从 iCloud 挂载。'**
+  String get homeICloudContainerMissing;
+
+  /// No description provided for @homeICloudNoSubfolders.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前目录下没有可用的 iCloud 文件夹。'**
+  String get homeICloudNoSubfolders;
+
+  /// No description provided for @homeICloudEmptyFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'该文件夹暂时没有可用的文件。'**
+  String get homeICloudEmptyFolder;
+
+  /// No description provided for @homeICloudFolderFileCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个文件'**
+  String homeICloudFolderFileCount(int count);
+
   /// No description provided for @homeScanningFolder.
   ///
   /// In zh, this message translates to:
@@ -866,11 +896,35 @@ abstract class AppLocalizations {
   /// **'从磁盘选择文件夹并扫描其中的音乐文件。'**
   String get libraryMountOptionLocalDescription;
 
+  /// No description provided for @libraryMountOptionICloudTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'从 iCloud 挂载'**
+  String get libraryMountOptionICloudTitle;
+
+  /// No description provided for @libraryMountOptionICloudDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂载 iCloud Drive 中的 MisuzuMusic 文件夹，让所有设备保持同步。'**
+  String get libraryMountOptionICloudDescription;
+
   /// No description provided for @libraryMountOptionMysteryTitle.
   ///
   /// In zh, this message translates to:
   /// **'神秘代码'**
   String get libraryMountOptionMysteryTitle;
+
+  /// No description provided for @libraryMountOptionWebDavTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂载 WebDAV'**
+  String get libraryMountOptionWebDavTitle;
+
+  /// No description provided for @libraryMountOptionWebDavDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接到 WebDAV 服务器以流式传输或下载音乐。'**
+  String get libraryMountOptionWebDavDescription;
 
   /// No description provided for @libraryMountInfoCardTitle.
   ///

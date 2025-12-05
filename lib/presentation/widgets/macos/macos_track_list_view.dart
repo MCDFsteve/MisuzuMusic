@@ -90,7 +90,9 @@ class MacOSTrackListView extends StatelessWidget {
               ),
               title: displayInfo.title,
               artistAlbum: '${displayInfo.artist} • ${displayInfo.album}',
-              duration: _formatDuration(track.duration),
+              duration: track.sourceType == TrackSourceType.webdav
+                  ? ''
+                  : _formatDuration(track.duration),
               onTap: () {
                 if (onTrackSelected != null) {
                   onTrackSelected!(normalizedTrack);

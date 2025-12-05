@@ -16,6 +16,8 @@ extension _HomePageDesktopLayout on _HomePageContentState {
         final NeteaseState neteaseState = context.watch<NeteaseCubit>().state;
 
         final l10n = context.l10n;
+        final desktopSections = _desktopSectionIndices;
+        final desktopNavIndex = _navigationSelectedIndex(desktopSections);
         final String? statsLabel = _selectedIndex == 2
             ? _composeNeteaseStatsLabel(neteaseState)
             : _composeHeaderStatsLabel(libraryState);
@@ -119,10 +121,12 @@ extension _HomePageDesktopLayout on _HomePageContentState {
                             child: _MacOSNavigationPane(
                               width: _navigationWidth,
                               collapsed: _navigationWidth <= 112,
-                              selectedIndex: _selectedIndex,
+                              items: _macNavigationItems(desktopSections),
+                              selectedIndex: desktopNavIndex,
                               onSelect: (index) {
                                 _dismissLyricsOverlay();
-                                _handleNavigationChange(index);
+                                final targetSection = desktopSections[index];
+                                _handleNavigationChange(targetSection);
                               },
                               onResize: (width) {
                                 _dismissLyricsOverlay();

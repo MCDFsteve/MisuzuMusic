@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
+
 import '../../domain/entities/music_entities.dart';
 
 class NeteaseAccountModel {
@@ -242,15 +244,15 @@ class NeteaseTrackModel {
 
   Track toPlayerTrack({required String cookie}) {
     final now = DateTime.now();
+    final uniqueId = 'netease_$id';
     return Track(
-      id: 'netease_$id',
+      id: uniqueId,
       title: title,
       artist: artist,
       album: album,
       filePath: 'netease://$id',
       duration: Duration(milliseconds: durationMs),
       dateAdded: now,
-      artworkPath: null,
       sourceType: TrackSourceType.netease,
       sourceId: id.toString(),
       remotePath: '/song/$id',
@@ -258,7 +260,7 @@ class NeteaseTrackModel {
         'Cookie': cookie,
         if (coverUrl != null) 'x-netease-cover': coverUrl!,
       },
-      contentHash: 'netease_$id',
+      contentHash: sha1.convert(utf8.encode(uniqueId)).toString(),
     );
   }
 }

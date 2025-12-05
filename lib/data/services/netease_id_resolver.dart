@@ -72,7 +72,7 @@ class NeteaseIdResolver {
       } catch (error) {
         // 网络失败不应阻塞后续逻辑
         // ignore: avoid_print
-        print('⚠️ NeteaseIdResolver: remote lookup failed -> $error');
+        //print('⚠️ NeteaseIdResolver: remote lookup failed -> $error');
       }
     }
 
@@ -99,7 +99,7 @@ class NeteaseIdResolver {
         saved = true;
       } catch (error) {
         // ignore: avoid_print
-        print('⚠️ NeteaseIdResolver: save mapping failed -> $error');
+        //print('⚠️ NeteaseIdResolver: save mapping failed -> $error');
       }
     }
 
@@ -156,7 +156,7 @@ class NeteaseIdResolver {
       );
     } catch (error) {
       // ignore: avoid_print
-      print('⚠️ NeteaseIdResolver: search candidates failed -> $error');
+      //print('⚠️ NeteaseIdResolver: search candidates failed -> $error');
       return const [];
     }
   }

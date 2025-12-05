@@ -364,6 +364,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeSelectFolderTitle => '选择音乐文件夹';
 
   @override
+  String get homeICloudRootName => 'iCloud Drive';
+
+  @override
+  String get homeICloudContainerMissing =>
+      '请先在 AppConstants.iosICloudContainerId 中配置 iCloud 容器 ID，再尝试从 iCloud 挂载。';
+
+  @override
+  String get homeICloudNoSubfolders => '当前目录下没有可用的 iCloud 文件夹。';
+
+  @override
+  String get homeICloudEmptyFolder => '该文件夹暂时没有可用的文件。';
+
+  @override
+  String homeICloudFolderFileCount(int count) {
+    return '$count 个文件';
+  }
+
+  @override
   String homeScanningFolder(Object name) {
     return '正在扫描文件夹: $name';
   }
@@ -444,7 +462,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get libraryMountOptionLocalDescription => '从磁盘选择文件夹并扫描其中的音乐文件。';
 
   @override
+  String get libraryMountOptionICloudTitle => '从 iCloud 挂载';
+
+  @override
+  String get libraryMountOptionICloudDescription =>
+      '挂载 iCloud Drive 中的 MisuzuMusic 文件夹，让所有设备保持同步。';
+
+  @override
   String get libraryMountOptionMysteryTitle => '神秘代码';
+
+  @override
+  String get libraryMountOptionWebDavTitle => '挂载 WebDAV';
+
+  @override
+  String get libraryMountOptionWebDavDescription => '连接到 WebDAV 服务器以流式传输或下载音乐。';
 
   @override
   String get libraryMountInfoCardTitle => '通过 MisuzuMusic 文件夹导入';

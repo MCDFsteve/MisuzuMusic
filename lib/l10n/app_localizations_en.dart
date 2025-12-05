@@ -373,6 +373,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeSelectFolderTitle => 'Choose music folder';
 
   @override
+  String get homeICloudRootName => 'iCloud Drive';
+
+  @override
+  String get homeICloudContainerMissing =>
+      'Set AppConstants.iosICloudContainerId to your iCloud container ID before mounting from iCloud.';
+
+  @override
+  String get homeICloudNoSubfolders =>
+      'No iCloud folders were found at this level.';
+
+  @override
+  String get homeICloudEmptyFolder =>
+      'This folder doesn\'t contain any files yet.';
+
+  @override
+  String homeICloudFolderFileCount(int count) {
+    return '$count items in this folder';
+  }
+
+  @override
   String homeScanningFolder(Object name) {
     return 'Scanning folder: $name';
   }
@@ -455,7 +475,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'Pick a folder on disk and scan the music inside.';
 
   @override
+  String get libraryMountOptionICloudTitle => 'Mount from iCloud';
+
+  @override
+  String get libraryMountOptionICloudDescription =>
+      'Mount the MisuzuMusic folder stored in iCloud Drive to keep every device in sync.';
+
+  @override
   String get libraryMountOptionMysteryTitle => 'Mystery code';
+
+  @override
+  String get libraryMountOptionWebDavTitle => 'Mount WebDAV';
+
+  @override
+  String get libraryMountOptionWebDavDescription =>
+      'Connect to a WebDAV server to stream or download music.';
 
   @override
   String get libraryMountInfoCardTitle => 'Import via the MisuzuMusic folder';
