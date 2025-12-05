@@ -757,12 +757,14 @@ class _MobileProgressSliderState extends State<_MobileProgressSlider> {
     );
 
     final sliderWidget = useLegacyIOSCupertinoSlider
-        ? CupertinoSlider(
+        ? _LegacyIOSProgressSlider(
             value: sliderValue,
             min: 0.0,
             max: _maxPosition,
             activeColor: widget.activeColor,
+            inactiveColor: widget.activeColor.withOpacity(0.25),
             thumbColor: widget.activeColor,
+            enabled: canInteract,
             onChangeStart: canInteract ? _handleChangeStart : null,
             onChanged: canInteract ? _handleChanged : null,
             onChangeEnd: canInteract ? _handleChangeEnd : null,
@@ -781,6 +783,240 @@ class _MobileProgressSliderState extends State<_MobileProgressSlider> {
             ),
           );
 
-    return SizedBox(height: 32, width: double.infinity, child: sliderWidget);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: SizedBox(height: 32, width: double.infinity, child: sliderWidget),
+    );
+  }
+}
+
+class _LegacyIOSProgressSlider extends StatefulWidget {
+  const _LegacyIOSProgressSlider({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.activeColor,
+    required this.inactiveColor,
+    required this.thumbColor,
+    required this.enabled,
+    this.onChangeStart,
+    this.onChanged,
+    this.onChangeEnd,
+  });
+
+  final double value;
+  final double min;
+  final double max;
+  final Color activeColor;
+  final Color inactiveColor;
+  final Color thumbColor;
+  final bool enabled;
+  final ValueChanged<double>? onChangeStart;
+  final ValueChanged<double>? onChanged;
+  final ValueChanged<double>? onChangeEnd;
+
+  @override
+  State<_LegacyIOSProgressSlider> createState() =>
+      _LegacyIOSProgressSliderState();
+}
+
+class _LegacyIOSProgressSliderState extends State<_LegacyIOSProgressSlider> {
+  double? _dragValue;
+  bool _isInteracting = false;
+
+  bool get _isInteractive => widget.enabled && widget.onChanged != null;
+
+  double get _range => (widget.max - widget.min);
+
+  double get _visualValue {
+    final raw = _dragValue ?? widget.value;
+    if (_range == 0) {
+      return widget.min;
+    }
+    return raw.clamp(widget.min, widget.max);
+  }
+
+  void _startInteraction(double width, double dx) {
+    if (!_isInteractive || width <= 0) return;
+    final startValue = _visualValue;
+    if (!_isInteracting) {
+      _isInteracting = true;
+      widget.onChangeStart?.call(startValue);
+    }
+    _updateValue(width, dx);
+  }
+
+  void _updateValue(double width, double dx) {
+    if (!_isInteractive || width <= 0) return;
+    final newValue = _valueFromDx(dx, width);
+    if (_dragValue == newValue) {
+      return;
+    }
+    setState(() => _dragValue = newValue);
+    widget.onChanged?.call(newValue);
+  }
+
+  void _endInteraction() {
+    if (!_isInteractive || !_isInteracting) {
+      return;
+    }
+    final value = _dragValue ?? widget.value;
+    widget.onChangeEnd?.call(value.clamp(widget.min, widget.max));
+    setState(() {
+      _dragValue = null;
+      _isInteracting = false;
+    });
+  }
+
+  void _cancelInteraction() {
+    if (!_isInteractive || !_isInteracting) {
+      return;
+    }
+    widget.onChangeEnd?.call(
+      (_dragValue ?? widget.value).clamp(widget.min, widget.max),
+    );
+    setState(() {
+      _dragValue = null;
+      _isInteracting = false;
+    });
+  }
+
+  double _valueFromDx(double dx, double width) {
+    if (width <= 0) return widget.min;
+    final clampedDx = dx.clamp(0.0, width);
+    final ratio = (clampedDx / width).clamp(0.0, 1.0);
+    final value = widget.min + (_range <= 0 ? 0 : ratio * _range);
+    return value.clamp(widget.min, widget.max);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : (context.size?.width ?? 0.0);
+        final trackWidth = width <= 0 ? 1.0 : width;
+        final range = _range;
+        final progress = range <= 0
+            ? 0.0
+            : ((_visualValue - widget.min) / range).clamp(0.0, 1.0);
+        final sliderBody = SizedBox.expand(
+          child: CustomPaint(
+            painter: _LegacyIOSSliderPainter(
+              progress: progress,
+              activeColor: widget.activeColor,
+              inactiveColor: widget.inactiveColor,
+              thumbColor: widget.thumbColor,
+              isEnabled: widget.enabled,
+            ),
+          ),
+        );
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: _isInteractive
+              ? (details) =>
+                    _startInteraction(trackWidth, details.localPosition.dx)
+              : null,
+          onTapUp: _isInteractive ? (_) => _endInteraction() : null,
+          onTapCancel: _isInteractive ? _cancelInteraction : null,
+          onHorizontalDragStart: _isInteractive
+              ? (details) =>
+                    _startInteraction(trackWidth, details.localPosition.dx)
+              : null,
+          onHorizontalDragUpdate: _isInteractive
+              ? (details) => _updateValue(trackWidth, details.localPosition.dx)
+              : null,
+          onHorizontalDragEnd: _isInteractive ? (_) => _endInteraction() : null,
+          onHorizontalDragCancel: _isInteractive ? _cancelInteraction : null,
+          child: sliderBody,
+        );
+      },
+    );
+  }
+}
+
+class _LegacyIOSSliderPainter extends CustomPainter {
+  const _LegacyIOSSliderPainter({
+    required this.progress,
+    required this.activeColor,
+    required this.inactiveColor,
+    required this.thumbColor,
+    required this.isEnabled,
+  });
+
+  final double progress;
+  final Color activeColor;
+  final Color inactiveColor;
+  final Color thumbColor;
+  final bool isEnabled;
+
+  static const double _trackHeight = 4.0;
+  static const double _thumbWidth = 24.0;
+
+  Color _dimmed(Color color, double factor) =>
+      color.withOpacity((color.opacity * factor).clamp(0.0, 1.0));
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0) return;
+    final centerY = size.height / 2;
+    final trackRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, centerY - _trackHeight / 2, size.width, _trackHeight),
+      const Radius.circular(_trackHeight / 2),
+    );
+
+    final backgroundPaint = Paint()
+      ..color = isEnabled ? inactiveColor : _dimmed(inactiveColor, 0.5);
+    canvas.drawRRect(trackRect, backgroundPaint);
+
+    final activeWidth = size.width * progress.clamp(0.0, 1.0);
+    if (activeWidth > 0) {
+      canvas.save();
+      canvas.clipRect(Rect.fromLTWH(0, 0, activeWidth, size.height));
+      final activePaint = Paint()
+        ..color = isEnabled ? activeColor : _dimmed(activeColor, 0.5);
+      canvas.drawRRect(trackRect, activePaint);
+      canvas.restore();
+    }
+
+    final thumbWidth = math.min(_thumbWidth, math.max(size.width * 0.1, 14.0));
+    final thumbHeight = thumbWidth / 2;
+    final thumbCenterX = progress.clamp(0.0, 1.0) * size.width;
+    final thumbRect = Rect.fromCenter(
+      center: Offset(thumbCenterX, centerY),
+      width: thumbWidth,
+      height: thumbHeight,
+    );
+    final thumbRRect = RRect.fromRectAndRadius(
+      thumbRect,
+      Radius.circular(thumbHeight / 2),
+    );
+    final thumbPath = Path()..addRRect(thumbRRect);
+    canvas.drawShadow(
+      thumbPath,
+      Colors.black.withOpacity(isEnabled ? 0.25 : 0.12),
+      3,
+      true,
+    );
+
+    final thumbPaint = Paint()
+      ..color = isEnabled ? thumbColor : _dimmed(thumbColor, 0.55);
+    canvas.drawRRect(thumbRRect, thumbPaint);
+
+    final borderPaint = Paint()
+      ..color = Colors.white.withOpacity(isEnabled ? 0.65 : 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.7;
+    canvas.drawRRect(thumbRRect, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(_LegacyIOSSliderPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.activeColor != activeColor ||
+        oldDelegate.inactiveColor != inactiveColor ||
+        oldDelegate.thumbColor != thumbColor ||
+        oldDelegate.isEnabled != isEnabled;
   }
 }
