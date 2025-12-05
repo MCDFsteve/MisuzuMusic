@@ -4,7 +4,7 @@
 
 ## 下载
 
-- Windows / Linux / macOS：从 [GitHub Release v1.0.10](https://github.com/MCDFsteve/MisuzuMusic/releases/tag/v1.0.10) 下载对应安装包。
+- Windows / Linux / macOS：从 [GitHub Release ](https://github.com/MCDFsteve/MisuzuMusic/releases/) 下载对应安装包。
 - iOS：在 [App Store](https://apps.apple.com/us/app/misuzu-music/id6755328428?l=zh-Hans-CN) 获取 Misuzu Music。
 
 ## 功能：
