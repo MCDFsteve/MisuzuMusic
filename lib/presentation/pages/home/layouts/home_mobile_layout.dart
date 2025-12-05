@@ -48,7 +48,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
 
         final bool useLegacyCupertinoTabBar =
             defaultTargetPlatform == TargetPlatform.iOS &&
-                !PlatformInfo.isIOS26OrHigher();
+            !PlatformInfo.isIOS26OrHigher();
         final double navReservedPadding = _mobileNowPlayingBottomPadding(
           context,
           useLegacyCupertinoTabBar: useLegacyCupertinoTabBar,
@@ -56,10 +56,13 @@ extension _HomePageMobileLayout on _HomePageContentState {
         final double navOverlapHeight = useLegacyCupertinoTabBar
             ? _FrostedLegacyCupertinoTabBar.barHeight
             : 20.0;
-        final double navReservedHeight =
-            math.max(0, navReservedPadding - navOverlapHeight);
+        final double navReservedHeight = math.max(
+          0,
+          navReservedPadding - navOverlapHeight,
+        );
         final double lyricsBottomInset =
-            navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
+            navReservedHeight +
+            _HomePageContentState._mobileNowPlayingBarHeight;
 
         final layeredBody = SafeArea(
           top: false,
@@ -141,22 +144,36 @@ extension _HomePageMobileLayout on _HomePageContentState {
           child: themedBody,
         );
 
+        final VoidCallback? backAction =
+            defaultTargetPlatform == TargetPlatform.iOS
+            ? _resolveMobileBackAction()
+            : null;
+
+        Widget interactiveBody = bodyWithFocusDismiss;
+        if (backAction != null) {
+          interactiveBody = _IOSSwipeBackDetector(
+            onBack: backAction,
+            child: interactiveBody,
+          );
+        }
+
         final visibleSectionIndices = _mobileDestinationSectionIndices;
-        final navSelectedIndex =
-            _mobileNavigationSelectedIndex(visibleSectionIndices);
+        final navSelectedIndex = _mobileNavigationSelectedIndex(
+          visibleSectionIndices,
+        );
         final navItems = _mobileDestinations;
         void handleNavigationTap(int visibleIndex) {
           final targetSection = visibleSectionIndices[visibleIndex];
           _handleNavigationChange(targetSection);
         }
 
-        Widget scaffoldBody = bodyWithFocusDismiss;
+        Widget scaffoldBody = interactiveBody;
         AdaptiveBottomNavigationBar? scaffoldBottomBar;
 
         if (useLegacyCupertinoTabBar) {
           scaffoldBody = Stack(
             children: [
-              Positioned.fill(child: bodyWithFocusDismiss),
+              Positioned.fill(child: interactiveBody),
               Positioned(
                 left: 0,
                 right: 0,
@@ -193,10 +210,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
     return destinations
         .map(
           (destination) => BottomNavigationBarItem(
-            icon: Icon(
-              _resolveNavigationIcon(destination.icon),
-              size: 26,
-            ),
+            icon: Icon(_resolveNavigationIcon(destination.icon), size: 26),
             activeIcon: Icon(
               _resolveNavigationIcon(
                 destination.selectedIcon ?? destination.icon,
@@ -239,11 +253,11 @@ extension _HomePageMobileLayout on _HomePageContentState {
     final bool isAndroid = defaultTargetPlatform == TargetPlatform.android;
     final double navBarHeight = isiOS
         ? (useLegacyCupertinoTabBar
-            ? _FrostedLegacyCupertinoTabBar.barHeight
-            : 20.0)
+              ? _FrostedLegacyCupertinoTabBar.barHeight
+              : 20.0)
         : isAndroid
-            ? 72.0
-            : 64.0;
+        ? 72.0
+        : 64.0;
     final double visualGap = useLegacyCupertinoTabBar ? 80.0 : 12.0;
     return navBarHeight + safeAreaBottom + visualGap;
   }
@@ -252,16 +266,17 @@ extension _HomePageMobileLayout on _HomePageContentState {
     BuildContext context,
     String sectionLabel,
     String? statsLabel,
-    NeteaseState neteaseState,
-    {bool blurBackground = false}
-  ) {
+    NeteaseState neteaseState, {
+    bool blurBackground = false,
+  }) {
     final bool supportsSearch = _selectedIndex != 4;
     final theme = Theme.of(context);
     final secondaryColor = theme.colorScheme.onSurfaceVariant.withValues(
       alpha: 0.8,
     );
     final bodySmall = theme.textTheme.bodySmall;
-    final headingStyle = theme.textTheme.titleMedium ??
+    final headingStyle =
+        theme.textTheme.titleMedium ??
         const TextStyle(fontSize: 20, fontWeight: FontWeight.w600);
     final leading = _buildMobileLeading();
     final actionButtons = _buildMobileActionButtons(neteaseState);
@@ -349,11 +364,11 @@ extension _HomePageMobileLayout on _HomePageContentState {
             child: action.icon != null
                 ? Icon(action.icon, size: 22)
                 : (action.title != null
-                    ? Text(
-                        action.title!,
-                        locale: const Locale('zh-Hans', 'zh'),
-                      )
-                    : const Icon(Icons.more_horiz, size: 20)),
+                      ? Text(
+                          action.title!,
+                          locale: const Locale('zh-Hans', 'zh'),
+                        )
+                      : const Icon(Icons.more_horiz, size: 20)),
           ),
         )
         .toList(growable: false);
@@ -454,9 +469,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
     );
 
     if (selectedMode != null && selectedMode != currentMode) {
-      context
-          .read<MusicLibraryBloc>()
-          .add(ChangeSortModeEvent(selectedMode));
+      context.read<MusicLibraryBloc>().add(ChangeSortModeEvent(selectedMode));
     }
   }
 
@@ -497,30 +510,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
   }
 
   Widget? _buildMobileLeading() {
-    VoidCallback? onPressed;
-
-    switch (_selectedIndex) {
-      case 0:
-        if (_hasActiveDetail) {
-          onPressed = _clearActiveDetail;
-        } else if (_musicLibraryCanNavigateBack) {
-          onPressed = () => _musicLibraryViewKey.currentState?.exitToOverview();
-        }
-        break;
-      case 1:
-        if (_playlistsCanNavigateBack) {
-          onPressed = () => _playlistsViewKey.currentState?.exitToOverview();
-        }
-        break;
-      case 2:
-        if (_neteaseCanNavigateBack) {
-          onPressed = () => _neteaseViewKey.currentState?.exitToOverview();
-        }
-        break;
-      default:
-        onPressed = null;
-    }
-
+    final onPressed = _resolveMobileBackAction();
     if (onPressed == null) {
       return null;
     }
@@ -533,6 +523,32 @@ extension _HomePageMobileLayout on _HomePageContentState {
     );
   }
 
+  VoidCallback? _resolveMobileBackAction() {
+    switch (_selectedIndex) {
+      case 0:
+        if (_hasActiveDetail) {
+          return _clearActiveDetail;
+        }
+        if (_musicLibraryCanNavigateBack) {
+          return () => _musicLibraryViewKey.currentState?.exitToOverview();
+        }
+        break;
+      case 1:
+        if (_playlistsCanNavigateBack) {
+          return () => _playlistsViewKey.currentState?.exitToOverview();
+        }
+        break;
+      case 2:
+        if (_neteaseCanNavigateBack) {
+          return () => _neteaseViewKey.currentState?.exitToOverview();
+        }
+        break;
+      default:
+        break;
+    }
+    return null;
+  }
+
   void _handleMobileGlobalPointerDown(PointerDownEvent event) {
     final primaryFocus = FocusManager.instance.primaryFocus;
     if (primaryFocus == null) {
@@ -541,7 +557,9 @@ extension _HomePageMobileLayout on _HomePageContentState {
 
     final focusContext = primaryFocus.context;
     final renderObject = focusContext?.findRenderObject();
-    if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
+    if (renderObject is RenderBox &&
+        renderObject.hasSize &&
+        renderObject.attached) {
       final topLeft = renderObject.localToGlobal(Offset.zero);
       final Rect focusBounds = topLeft & renderObject.size;
       if (focusBounds.contains(event.position)) {
@@ -593,15 +611,18 @@ class _MobileSortModeTile extends StatelessWidget {
             Expanded(
               child: Text(
                 mode.localizedLabel(context.l10n),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                style:
+                    theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                       color: baseColor,
                     ) ??
                     TextStyle(
                       fontSize: 14,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                       color: baseColor,
                     ),
               ),
@@ -616,6 +637,99 @@ class _MobileSortModeTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _IOSSwipeBackDetector extends StatefulWidget {
+  const _IOSSwipeBackDetector({
+    required this.child,
+    required this.onBack,
+    this.edgeWidth = 28,
+    this.triggerOffset = 56,
+  });
+
+  final Widget child;
+  final VoidCallback onBack;
+  final double edgeWidth;
+  final double triggerOffset;
+
+  @override
+  State<_IOSSwipeBackDetector> createState() => _IOSSwipeBackDetectorState();
+}
+
+class _IOSSwipeBackDetectorState extends State<_IOSSwipeBackDetector> {
+  double _dragProgress = 0;
+  bool _isTracking = false;
+
+  void _handleDragStart(DragStartDetails details) {
+    _dragProgress = 0;
+    _isTracking = true;
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (!_isTracking) {
+      return;
+    }
+
+    _dragProgress += details.primaryDelta ?? 0;
+    if (_dragProgress > widget.triggerOffset) {
+      _isTracking = false;
+      widget.onBack();
+    } else if (_dragProgress < -8) {
+      _isTracking = false;
+    }
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    _isTracking = false;
+  }
+
+  void _handleDragCancel() {
+    _isTracking = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gestureSettings = MediaQuery.maybeOf(context)?.gestureSettings;
+
+    return RawGestureDetector(
+      behavior: HitTestBehavior.translucent,
+      gestures: {
+        _EdgeSwipeGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<_EdgeSwipeGestureRecognizer>(
+              () => _EdgeSwipeGestureRecognizer(
+                edgeWidth: widget.edgeWidth,
+                gestureSettings: gestureSettings,
+              ),
+              (recognizer) {
+                recognizer
+                  ..onStart = _handleDragStart
+                  ..onUpdate = _handleDragUpdate
+                  ..onEnd = _handleDragEnd
+                  ..onCancel = _handleDragCancel;
+              },
+            ),
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class _EdgeSwipeGestureRecognizer extends HorizontalDragGestureRecognizer {
+  _EdgeSwipeGestureRecognizer({
+    required this.edgeWidth,
+    DeviceGestureSettings? gestureSettings,
+  }) {
+    super.gestureSettings = gestureSettings;
+  }
+
+  final double edgeWidth;
+
+  @override
+  void addPointer(PointerDownEvent event) {
+    if (event.position.dx <= edgeWidth) {
+      super.addPointer(event);
+    }
   }
 }
 
@@ -640,8 +754,8 @@ class _FrostedLegacyCupertinoTabBar extends StatelessWidget {
     final Color glassColor = isDarkMode
         ? Colors.black.withOpacity(0.35)
         : Colors.white.withOpacity(0.75);
-    final Color borderColor =
-        (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1);
+    final Color borderColor = (isDarkMode ? Colors.white : Colors.black)
+        .withOpacity(0.1);
 
     final tabBar = CupertinoTabBar(
       currentIndex: currentIndex,
