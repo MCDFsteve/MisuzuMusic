@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/storage/sandbox_path_codec.dart';
 import '../../core/storage/storage_path_provider.dart';
+import '../../domain/entities/music_entities.dart';
 import '../models/music_models.dart';
 
 class PlaylistFileStorage {
@@ -14,6 +15,8 @@ class PlaylistFileStorage {
 
   static const _magic = [0x6d, 0x73, 0x7a]; // 'msz'
   static const int _version = 1;
+  static const _extMagic = [0x45, 0x58, 0x54]; // 'EXT'
+  static const int _extVersion = 1;
 
   final StoragePathProvider _pathProvider;
   final SandboxPathCodec _sandboxPathCodec;
@@ -65,6 +68,14 @@ class PlaylistFileStorage {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<Uint8List> encodePlaylist(PlaylistModel playlist) async {
+    return _encodePlaylistBytes(playlist);
+  }
+
+  PlaylistModel? parsePlaylist(Uint8List bytes) {
+    return _parsePlaylistBytes(bytes);
   }
 
   Future<PlaylistModel?> importPlaylistBytes(Uint8List bytes) async {
@@ -183,6 +194,45 @@ class PlaylistFileStorage {
       }
     }
 
+    List<PlaylistTrackMetadata>? trackMetadata;
+    // Check for extended data block
+    if (offset + 3 <= bytes.length &&
+        bytes[offset] == _extMagic[0] &&
+        bytes[offset + 1] == _extMagic[1] &&
+        bytes[offset + 2] == _extMagic[2]) {
+      try {
+        offset += 3; // Skip EXT
+        final extVersion = data.getUint8(offset);
+        offset += 1;
+
+        if (extVersion == _extVersion) {
+          final metadataList = <PlaylistTrackMetadata>[];
+          for (var i = 0; i < trackCount; i++) {
+            final titleResult = _readString(bytes, offset);
+            offset = titleResult.$2;
+            final artistResult = _readString(bytes, offset);
+            offset = artistResult.$2;
+            final albumResult = _readString(bytes, offset);
+            offset = albumResult.$2;
+            
+            final durationMs = data.getInt64(offset, Endian.little);
+            offset += 8;
+
+            metadataList.add(PlaylistTrackMetadata(
+              title: titleResult.$1 ?? '',
+              artist: artistResult.$1 ?? '',
+              album: albumResult.$1 ?? '',
+              durationMs: durationMs,
+            ));
+          }
+          trackMetadata = metadataList;
+        }
+      } catch (e) {
+        print('Error parsing extended playlist data: $e');
+        // Ignore errors in extended block to allow basic loading
+      }
+    }
+
     return PlaylistModel(
       id: id,
       name: name,
@@ -191,6 +241,7 @@ class PlaylistFileStorage {
       updatedAt: updatedAt,
       description: description,
       coverPath: coverPath,
+      trackMetadata: trackMetadata,
     );
   }
 
@@ -227,6 +278,20 @@ class PlaylistFileStorage {
       _writeString(builder, hash);
     }
 
+    // Append extended metadata if available and counts match
+    if (playlist.trackMetadata != null &&
+        playlist.trackMetadata!.length == playlist.trackIds.length) {
+      builder.add(_extMagic);
+      builder.add([_extVersion]);
+
+      for (final meta in playlist.trackMetadata!) {
+        _writeString(builder, meta.title);
+        _writeString(builder, meta.artist);
+        _writeString(builder, meta.album);
+        builder.add(_encodeInt64(meta.durationMs));
+      }
+    }
+
     return builder.toBytes();
   }
 
@@ -246,6 +311,9 @@ class PlaylistFileStorage {
     offset += 4;
     if (length == 0xFFFFFFFF) {
       return (null, offset);
+    }
+    if (offset + length > bytes.length) {
+      return (null, offset); // Safety check
     }
     final end = offset + length;
     final slice = bytes.sublist(offset, end);

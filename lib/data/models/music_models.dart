@@ -276,6 +276,7 @@ class PlaylistModel extends Playlist {
     required super.updatedAt,
     super.description,
     super.coverPath,
+    super.trackMetadata,
   });
 
   factory PlaylistModel.fromEntity(Playlist playlist) {
@@ -287,6 +288,7 @@ class PlaylistModel extends Playlist {
       updatedAt: playlist.updatedAt,
       description: playlist.description,
       coverPath: playlist.coverPath,
+      trackMetadata: playlist.trackMetadata,
     );
   }
 
@@ -322,6 +324,7 @@ class PlaylistModel extends Playlist {
       updatedAt: updatedAt,
       description: description,
       coverPath: coverPath,
+      trackMetadata: trackMetadata,
     );
   }
 
@@ -334,6 +337,7 @@ class PlaylistModel extends Playlist {
     DateTime? updatedAt,
     String? description,
     String? coverPath,
+    List<PlaylistTrackMetadata>? trackMetadata,
   }) {
     return PlaylistModel(
       id: id ?? this.id,
@@ -343,6 +347,7 @@ class PlaylistModel extends Playlist {
       updatedAt: updatedAt ?? this.updatedAt,
       description: description ?? this.description,
       coverPath: coverPath ?? this.coverPath,
+      trackMetadata: trackMetadata ?? this.trackMetadata,
     );
   }
 }

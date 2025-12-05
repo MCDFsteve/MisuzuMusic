@@ -14,7 +14,8 @@ extension _HomePageMobileLayout on _HomePageContentState {
             ? _composeNeteaseStatsLabel(neteaseState)
             : _composeHeaderStatsLabel(libraryState);
         final currentTrack = _playerTrack(playerState);
-        final double statusBarInset = MediaQuery.of(context).padding.top;
+        final mediaQuery = MediaQuery.of(context);
+        final double statusBarInset = mediaQuery.padding.top;
         final header = _buildMobileHeader(
           context,
           sectionLabel,
@@ -48,15 +49,18 @@ extension _HomePageMobileLayout on _HomePageContentState {
         final bool useLegacyCupertinoTabBar =
             defaultTargetPlatform == TargetPlatform.iOS &&
                 !PlatformInfo.isIOS26OrHigher();
-        final double navReservedHeight = math.max(
-          0,
-          _mobileNowPlayingBottomPadding(
-                context,
-                useLegacyCupertinoTabBar: useLegacyCupertinoTabBar,
-              ) -
-              20 -
-              (useLegacyCupertinoTabBar ? 16 : 0),
-        );
+        final double navReservedHeight = useLegacyCupertinoTabBar
+            ? mediaQuery.padding.bottom +
+                _FrostedLegacyCupertinoTabBar.barHeight +
+                _FrostedLegacyCupertinoTabBar.visualGap
+            : math.max(
+                0,
+                _mobileNowPlayingBottomPadding(
+                      context,
+                      useLegacyCupertinoTabBar: useLegacyCupertinoTabBar,
+                    ) -
+                    20,
+              );
         final double lyricsBottomInset =
             navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
 
@@ -149,25 +153,38 @@ extension _HomePageMobileLayout on _HomePageContentState {
           _handleNavigationChange(targetSection);
         }
 
-        final cupertinoTabBar = useLegacyCupertinoTabBar
-            ? CupertinoTabBar(
-                currentIndex: navSelectedIndex,
-                onTap: handleNavigationTap,
-                activeColor: const Color(0xFF1B66FF),
-                inactiveColor: CupertinoColors.inactiveGray,
-                items: _buildLegacyCupertinoNavItems(navItems),
-              )
-            : null;
+        Widget scaffoldBody = bodyWithFocusDismiss;
+        AdaptiveBottomNavigationBar? scaffoldBottomBar;
 
-        return AdaptiveScaffold(
-          body: bodyWithFocusDismiss,
-          bottomNavigationBar: AdaptiveBottomNavigationBar(
+        if (useLegacyCupertinoTabBar) {
+          scaffoldBody = Stack(
+            children: [
+              Positioned.fill(child: bodyWithFocusDismiss),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _FrostedLegacyCupertinoTabBar(
+                  currentIndex: navSelectedIndex,
+                  isDarkMode: isDarkMode,
+                  items: _buildLegacyCupertinoNavItems(navItems),
+                  onTap: handleNavigationTap,
+                ),
+              ),
+            ],
+          );
+        } else {
+          scaffoldBottomBar = AdaptiveBottomNavigationBar(
             items: navItems,
             selectedIndex: navSelectedIndex,
             onTap: handleNavigationTap,
-            cupertinoTabBar: cupertinoTabBar,
             selectedItemColor: const Color(0xFF1B66FF),
-          ),
+          );
+        }
+
+        return AdaptiveScaffold(
+          body: scaffoldBody,
+          bottomNavigationBar: scaffoldBottomBar,
         );
       },
     );
@@ -597,6 +614,57 @@ class _MobileSortModeTile extends StatelessWidget {
                 color: theme.colorScheme.primary,
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FrostedLegacyCupertinoTabBar extends StatelessWidget {
+  const _FrostedLegacyCupertinoTabBar({
+    required this.currentIndex,
+    required this.items,
+    required this.onTap,
+    required this.isDarkMode,
+  });
+
+  final int currentIndex;
+  final List<BottomNavigationBarItem> items;
+  final ValueChanged<int> onTap;
+  final bool isDarkMode;
+
+  static const double barHeight = 55.0;
+  static const double visualGap = 6.0;
+  static const double _blurSigma = 20.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color glassColor = isDarkMode
+        ? Colors.black.withOpacity(0.35)
+        : Colors.white.withOpacity(0.75);
+    final Color borderColor =
+        (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1);
+
+    final tabBar = CupertinoTabBar(
+      currentIndex: currentIndex,
+      onTap: onTap,
+      items: items,
+      height: barHeight,
+      border: Border(top: BorderSide(color: borderColor, width: 0.8)),
+      backgroundColor: Colors.transparent,
+      activeColor: const Color(0xFF1B66FF),
+      inactiveColor: CupertinoColors.inactiveGray,
+    );
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: _blurSigma, sigmaY: _blurSigma),
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: glassColor),
+          child: SafeArea(
+            top: false,
+            child: tabBar,
+          ),
         ),
       ),
     );
