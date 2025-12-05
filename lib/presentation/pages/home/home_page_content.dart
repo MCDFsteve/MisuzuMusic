@@ -1932,23 +1932,11 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<_WebDavConnectionFormResult?> _showWebDavConnectionDialog() {
-    if (prefersMacLikeUi()) {
-      return showPlaylistModalDialog<_WebDavConnectionFormResult>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => _WebDavConnectionDialog(
-          testConnection: sl<TestWebDavConnection>(),
-          useModalScaffold: true,
-        ),
-      );
-    }
-
-    return showDialog<_WebDavConnectionFormResult>(
+    return showPlaylistModalDialog<_WebDavConnectionFormResult>(
       context: context,
       barrierDismissible: false,
       builder: (context) => _WebDavConnectionDialog(
         testConnection: sl<TestWebDavConnection>(),
-        useModalScaffold: false,
       ),
     );
   }
