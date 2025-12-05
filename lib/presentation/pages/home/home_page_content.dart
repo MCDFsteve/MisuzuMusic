@@ -1601,34 +1601,7 @@ class _HomePageContentState extends State<HomePageContent> {
       case LibraryMountMode.webdav:
         await _selectWebDavFolder();
         break;
-      case LibraryMountMode.mystery:
-        await _selectMysteryLibrary();
-        break;
     }
-  }
-
-  Future<void> _selectMysteryLibrary() async {
-    final code = await showMysteryCodeDialog(context);
-    if (!mounted || code == null) {
-      return;
-    }
-
-    final normalizedCode = code.trim();
-    if (normalizedCode.isEmpty) {
-      return;
-    }
-
-    if (normalizedCode.toLowerCase() != 'irigas') {
-      _showErrorDialog(context, l10n.homeMysteryCodeInvalid);
-      return;
-    }
-
-    context.read<MusicLibraryBloc>().add(
-      MountMysteryLibraryEvent(
-        code: normalizedCode,
-        baseUri: Uri.parse(MysteryLibraryConstants.defaultBaseUrl),
-      ),
-    );
   }
 
   Future<void> _selectLocalFolder() async {
@@ -2564,4 +2537,3 @@ class _ScanningDialog extends StatelessWidget {
     );
   }
 }
-

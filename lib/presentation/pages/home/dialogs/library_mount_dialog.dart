@@ -1,6 +1,6 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
-enum LibraryMountMode { local, mystery, webdav }
+enum LibraryMountMode { local, webdav }
 
 Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
   final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
@@ -35,14 +35,6 @@ Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
           description: dialogL10n.libraryMountOptionWebDavDescription,
           onTap: () =>
               Navigator.of(dialogContext).pop(LibraryMountMode.webdav),
-        ),
-        const SizedBox(height: 12),
-        _PlaylistCreationModeOption(
-          icon: CupertinoIcons.lock,
-          title: dialogL10n.libraryMountOptionMysteryTitle,
-          description: '',
-          onTap: () =>
-              Navigator.of(dialogContext).pop(LibraryMountMode.mystery),
         ),
       ];
 
@@ -144,72 +136,4 @@ class _IOSAppFolderInfoCard extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<String?> showMysteryCodeDialog(BuildContext context) {
-  final controller = TextEditingController();
-  String? errorText;
-  return showPlaylistModalDialog<String>(
-    context: context,
-    builder: (dialogContext) {
-      final dialogL10n = dialogContext.l10n;
-      return StatefulBuilder(
-        builder: (context, setState) {
-          void submit() {
-            final value = controller.text.trim();
-            if (value.isEmpty) {
-              setState(() =>
-                  errorText = dialogL10n.libraryMountMysteryCodeEmptyError);
-              return;
-            }
-            Navigator.of(dialogContext).pop(value);
-          }
-
-          return _PlaylistModalScaffold(
-            title: dialogL10n.libraryMountMysteryDialogTitle,
-            body: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ModalTextField(
-                  controller: controller,
-                  label: dialogL10n.libraryMountMysteryCodeFieldLabel,
-                  hintText: '',
-                  enabled: true,
-                  onChanged: (_) {
-                    if (errorText != null) {
-                      setState(() => errorText = null);
-                    }
-                  },
-                  onSubmitted: (_) => submit(),
-                ),
-                if (errorText != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    errorText!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: MacosColors.systemRedColor,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            actions: [
-              _SheetActionButton.secondary(
-                label: dialogL10n.actionCancel,
-                onPressed: () => Navigator.of(dialogContext).pop(),
-              ),
-              _SheetActionButton.primary(
-                label: dialogL10n.libraryMountConfirmButton,
-                onPressed: submit,
-              ),
-            ],
-            maxWidth: 360,
-            contentSpacing: 18,
-            actionsSpacing: 16,
-          );
-        },
-      );
-    },
-  ).whenComplete(controller.dispose);
 }
