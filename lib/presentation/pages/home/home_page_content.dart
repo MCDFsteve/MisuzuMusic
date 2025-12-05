@@ -390,6 +390,22 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
+  bool _tryShowSnackBar(
+    SnackBar snackBar, {
+    bool clearExisting = false,
+  }) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) {
+      debugPrint('⚠️ ScaffoldMessenger 不可用，跳过 SnackBar 显示: $snackBar');
+      return false;
+    }
+    if (clearExisting) {
+      messenger.clearSnackBars();
+    }
+    messenger.showSnackBar(snackBar);
+    return true;
+  }
+
   Future<void> _showPlaylistActionDialog({
     required String title,
     required String message,
@@ -1639,7 +1655,7 @@ class _HomePageContentState extends State<HomePageContent> {
           context.read<MusicLibraryBloc>().add(ScanDirectoryEvent(result));
 
           if (!prefersMacLikeUi()) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            _tryShowSnackBar(
               SnackBar(
                 content: Row(
                   children: [
@@ -1723,7 +1739,7 @@ class _HomePageContentState extends State<HomePageContent> {
         final folderLabel = selectedDirectory.isEmpty
             ? l10n.homeICloudRootName
             : selectedDirectory.split('/').last;
-        ScaffoldMessenger.of(context).showSnackBar(
+        _tryShowSnackBar(
           SnackBar(
             content: Row(
               children: [
@@ -1996,7 +2012,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
       if (!prefersMacLikeUi()) {
         final folderName = p.basename(selectedPath);
-        ScaffoldMessenger.of(context).showSnackBar(
+        _tryShowSnackBar(
           SnackBar(
             content: Row(
               children: [
@@ -2329,15 +2345,44 @@ class _HomePageContentState extends State<HomePageContent> {
         ),
       );
     } else {
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
+      final shown = _tryShowSnackBar(
         SnackBar(
           content: Text(l10n.homeScanCompletedMessage(message)),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
         ),
+        clearExisting: true,
       );
+      if (!shown) {
+        showPlaylistModalDialog<void>(
+          context: context,
+          barrierDismissible: true,
+          builder: (_) => PlaylistModalScaffold(
+            title: l10n.homeScanCompletedTitle,
+            maxWidth: 360,
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  CupertinoIcons.check_mark_circled_solid,
+                  color: CupertinoColors.systemGreen,
+                  size: 56,
+                ),
+                const SizedBox(height: 12),
+                Text(message, textAlign: TextAlign.center),
+              ],
+            ),
+            actions: [
+              SheetActionButton.primary(
+                label: l10n.actionOk,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+            contentSpacing: 18,
+            actionsSpacing: 12,
+          ),
+        );
+      }
     }
   }
 
@@ -2371,13 +2416,43 @@ class _HomePageContentState extends State<HomePageContent> {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final shown = _tryShowSnackBar(
         SnackBar(
-          content: Text(locale: Locale("zh-Hans", "zh"), '❌ $message'),
+          content: Text(locale: const Locale('zh-Hans', 'zh'), '❌ $message'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 5),
         ),
+        clearExisting: true,
       );
+      if (!shown) {
+        showPlaylistModalDialog<void>(
+          context: context,
+          builder: (_) => PlaylistModalScaffold(
+            title: l10n.homeErrorTitle,
+            maxWidth: 360,
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  CupertinoIcons.exclamationmark_triangle_fill,
+                  color: CupertinoColors.systemRed,
+                  size: 56,
+                ),
+                const SizedBox(height: 12),
+                Text(message, textAlign: TextAlign.center),
+              ],
+            ),
+            actions: [
+              SheetActionButton.primary(
+                label: l10n.actionOk,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+            contentSpacing: 18,
+            actionsSpacing: 12,
+          ),
+        );
+      }
     }
   }
 }
