@@ -1955,7 +1955,7 @@ class _HomePageContentState extends State<HomePageContent> {
       ignoreTls: connection.ignoreTls,
     );
 
-    return showDialog<String>(
+    return showPlaylistModalDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (context) => _WebDavDirectoryPickerDialog(
