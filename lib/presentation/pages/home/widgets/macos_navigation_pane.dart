@@ -4,6 +4,7 @@ class _MacOSNavigationPane extends StatelessWidget {
   const _MacOSNavigationPane({
     required this.width,
     required this.collapsed,
+    required this.items,
     required this.selectedIndex,
     required this.onSelect,
     required this.onResize,
@@ -12,25 +13,15 @@ class _MacOSNavigationPane extends StatelessWidget {
 
   final double width;
   final bool collapsed;
+  final List<_NavigationItem> items;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final ValueChanged<double> onResize;
   final bool enabled;
 
-  List<_NavigationItem> _items(BuildContext context) {
-    final l10n = context.l10n;
-    return <_NavigationItem>[
-      _NavigationItem(icon: CupertinoIcons.music_albums_fill, label: l10n.navLibrary),
-      _NavigationItem(icon: CupertinoIcons.square_stack_3d_up, label: l10n.navPlaylists),
-      _NavigationItem(icon: CupertinoIcons.cloud, label: l10n.navOnlineTracks),
-      _NavigationItem(icon: CupertinoIcons.music_note_list, label: l10n.navQueue),
-      _NavigationItem(icon: CupertinoIcons.settings, label: l10n.navSettings),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
-    final items = _items(context);
+    final navItems = items;
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final textColor = isDarkMode ? Colors.white : MacosColors.labelColor;
@@ -55,15 +46,15 @@ class _MacOSNavigationPane extends StatelessWidget {
                 ),
               ),
               child: LazyListView<_NavigationItem>(
-                items: items,
-                pageSize: items.length,
+                items: navItems,
+                pageSize: navItems.length,
                 preloadOffset: 80,
                 padding: const EdgeInsets.fromLTRB(0, 84, 0, 92),
                 separatorBuilder: (_, __) => const SizedBox(height: 6),
                 itemBuilder: (context, item, index) {
                   final bool active = selectedIndex == index;
                   return _NavigationTile(
-                    item: items[index],
+                    item: navItems[index],
                     active: active,
                     collapsed: collapsed,
                     textColor: textColor,

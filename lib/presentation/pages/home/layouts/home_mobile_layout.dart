@@ -158,9 +158,8 @@ extension _HomePageMobileLayout on _HomePageContentState {
         }
 
         final visibleSectionIndices = _mobileDestinationSectionIndices;
-        final navSelectedIndex = _mobileNavigationSelectedIndex(
-          visibleSectionIndices,
-        );
+        final navSelectedIndex =
+            _navigationSelectedIndex(visibleSectionIndices);
         final navItems = _mobileDestinations;
         void handleNavigationTap(int visibleIndex) {
           final targetSection = visibleSectionIndices[visibleIndex];

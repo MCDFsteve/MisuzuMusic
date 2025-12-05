@@ -67,16 +67,60 @@ class _HomePageContentState extends State<HomePageContent> {
   static const double _mobileNowPlayingBarHeight = 118;
   static const String _iosSandboxFolderName = 'MisuzuMusic';
 
-  bool get _shouldHideNeteaseOnIOSMobile =>
+  bool get _shouldHideNeteaseOnIOS =>
       defaultTargetPlatform == TargetPlatform.iOS;
 
   List<int> get _mobileDestinationSectionIndices {
-    return _shouldHideNeteaseOnIOSMobile
+    return _shouldHideNeteaseOnIOS
         ? const [0, 1, 3, 4]
         : const [0, 1, 2, 3, 4];
   }
 
-  int _mobileNavigationSelectedIndex(List<int> sectionOrder) {
+  List<int> get _desktopSectionIndices {
+    return _shouldHideNeteaseOnIOS
+        ? const [0, 1, 3, 4]
+        : const [0, 1, 2, 3, 4];
+  }
+
+  List<_NavigationItem> _macNavigationItems(List<int> sectionOrder) {
+    final l10n = context.l10n;
+    return sectionOrder.map((section) {
+      switch (section) {
+        case 0:
+          return _NavigationItem(
+            icon: CupertinoIcons.music_albums_fill,
+            label: l10n.navLibrary,
+          );
+        case 1:
+          return _NavigationItem(
+            icon: CupertinoIcons.square_stack_3d_up,
+            label: l10n.navPlaylists,
+          );
+        case 2:
+          return _NavigationItem(
+            icon: CupertinoIcons.cloud,
+            label: l10n.navOnlineTracks,
+          );
+        case 3:
+          return _NavigationItem(
+            icon: CupertinoIcons.music_note_list,
+            label: l10n.navQueue,
+          );
+        case 4:
+          return _NavigationItem(
+            icon: CupertinoIcons.settings,
+            label: l10n.navSettings,
+          );
+        default:
+          return _NavigationItem(
+            icon: CupertinoIcons.music_albums_fill,
+            label: l10n.navLibrary,
+          );
+      }
+    }).toList(growable: false);
+  }
+
+  int _navigationSelectedIndex(List<int> sectionOrder) {
     final navIndex = sectionOrder.indexOf(_selectedIndex);
     if (navIndex != -1) {
       return navIndex;
