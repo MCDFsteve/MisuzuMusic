@@ -781,6 +781,6 @@ class _MobileProgressSliderState extends State<_MobileProgressSlider> {
             ),
           );
 
-    return SizedBox(height: 32, child: sliderWidget);
+    return SizedBox(height: 32, width: double.infinity, child: sliderWidget);
   }
 }
