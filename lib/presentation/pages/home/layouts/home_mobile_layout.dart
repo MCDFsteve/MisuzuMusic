@@ -54,7 +54,8 @@ extension _HomePageMobileLayout on _HomePageContentState {
                 context,
                 useLegacyCupertinoTabBar: useLegacyCupertinoTabBar,
               ) -
-              20,
+              20 -
+              (useLegacyCupertinoTabBar ? 16 : 0),
         );
         final double lyricsBottomInset =
             navReservedHeight + _HomePageContentState._mobileNowPlayingBarHeight;
@@ -223,7 +224,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
     final bool isiOS = defaultTargetPlatform == TargetPlatform.iOS;
     final bool isAndroid = defaultTargetPlatform == TargetPlatform.android;
     final double navBarHeight = isiOS
-        ? (useLegacyCupertinoTabBar ? 64.0 : 88.0)
+        ? (useLegacyCupertinoTabBar ? 10.0 : 10.0)
         : isAndroid
             ? 72.0
             : 64.0;
