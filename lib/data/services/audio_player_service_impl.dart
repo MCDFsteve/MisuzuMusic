@@ -73,6 +73,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   Duration? _pendingRestorePosition;
   bool _restoringSession = false;
   int _activePlayTransitions = 0;
+  bool _manualStopRequested = false;
+  bool _autoRecoveryInProgress = false;
+  ProcessingState _lastProcessingState = ProcessingState.idle;
+  Timer? _manualStopResetTimer;
 
   bool get _hasPendingRestorePosition =>
       _restoringSession && _pendingRestorePosition != null;
@@ -96,10 +100,13 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     // Listen to player state changes
     _playerStateSubscription = _audioPlayer.playerStateStream.listen(
       (playerState) {
+        final previousProcessingState = _lastProcessingState;
+        final processingState = playerState.processingState;
         PlayerState state;
-        switch (playerState.processingState) {
+        switch (processingState) {
           case ProcessingState.idle:
             state = PlayerState.stopped;
+            _handleIdleState(previousProcessingState);
             break;
           case ProcessingState.loading:
           case ProcessingState.buffering:
@@ -116,6 +123,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
             break;
         }
         _playerStateSubject.add(state);
+        _lastProcessingState = processingState;
       },
       onError: (error) {
         _playerStateSubject.addError(AudioPlaybackException(error.toString()));
@@ -550,11 +558,15 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> stop() async {
     try {
+      _markManualStopRequested();
       await _audioPlayer.stop();
       _updateCurrentTrack(null);
       _positionSubject.add(Duration.zero);
       await _persistPosition(Duration.zero, force: true);
     } catch (e) {
+      _manualStopRequested = false;
+      _manualStopResetTimer?.cancel();
+      _manualStopResetTimer = null;
       throw AudioPlaybackException('Failed to stop: ${e.toString()}');
     }
   }
@@ -750,6 +762,73 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     }
   }
 
+  void _handleIdleState(ProcessingState previousProcessingState) {
+    if (_manualStopRequested) {
+      _manualStopRequested = false;
+      _manualStopResetTimer?.cancel();
+      _manualStopResetTimer = null;
+      return;
+    }
+    if (_autoRecoveryInProgress) {
+      return;
+    }
+    if (_currentTrack == null || _queue.isEmpty) {
+      return;
+    }
+    if (_activePlayTransitions > 0) {
+      return;
+    }
+    if (previousProcessingState == ProcessingState.completed ||
+        previousProcessingState == ProcessingState.idle) {
+      return;
+    }
+
+    print(
+      '⚠️ AudioService: 检测到解码器异常提前结束 -> '
+      '${_currentTrack?.title ?? '未知音轨'}，尝试自动跳过',
+    );
+    _autoRecoveryInProgress = true;
+    unawaited(
+      _skipTrackAfterPlaybackFailure().whenComplete(
+        () => _autoRecoveryInProgress = false,
+      ),
+    );
+  }
+
+  Future<void> _skipTrackAfterPlaybackFailure() async {
+    if (_queue.length <= 1) {
+      print('⚠️ AudioService: 队列中仅剩当前音轨，已停止自动恢复');
+      return;
+    }
+
+    switch (_playMode) {
+      case PlayMode.repeatAll:
+      case PlayMode.repeatOne:
+        _currentIndex = (_currentIndex + 1) % _queue.length;
+        break;
+      case PlayMode.shuffle:
+        _logShuffle('auto skip (decoder error)');
+        _currentIndex = _getRandomIndex();
+        break;
+    }
+
+    try {
+      await _persistQueueState();
+      await play(_queue[_currentIndex]);
+    } catch (error) {
+      print('⚠️ AudioService: 自动跳过失败 -> $error');
+    }
+  }
+
+  void _markManualStopRequested() {
+    _manualStopRequested = true;
+    _manualStopResetTimer?.cancel();
+    _manualStopResetTimer = Timer(const Duration(seconds: 2), () {
+      _manualStopRequested = false;
+      _manualStopResetTimer = null;
+    });
+  }
+
   int _getRandomIndex() {
     if (_queue.length <= 1) return 0;
 
@@ -943,6 +1022,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     await _durationSubscription?.cancel();
     await _audioInterruptionSubscription?.cancel();
     await _becomingNoisySubscription?.cancel();
+    _manualStopResetTimer?.cancel();
     await _playerStateSubject.close();
     await _positionSubject.close();
     await _durationSubject.close();
