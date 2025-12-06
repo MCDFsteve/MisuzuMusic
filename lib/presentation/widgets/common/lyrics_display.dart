@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/rendering.dart';
@@ -43,11 +44,14 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
   int _activeIndex = -1;
   late List<GlobalKey> _itemKeys;
+  late final ValueNotifier<double> _scrollOffsetNotifier;
 
   @override
   void initState() {
     super.initState();
     _itemKeys = _generateKeys(widget.lines.length);
+    _scrollOffsetNotifier = ValueNotifier<double>(0);
+    widget.controller.addListener(_handlePrimaryScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final PlayerBlocState state = context.read<PlayerBloc>().state;
@@ -55,7 +59,17 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
       if (position != null) {
         _updateActiveIndex(position);
       }
+      _scrollOffsetNotifier.value = widget.controller.hasClients
+          ? widget.controller.offset
+          : 0;
     });
+  }
+
+  void _handlePrimaryScroll() {
+    if (!widget.controller.hasClients) {
+      return;
+    }
+    _scrollOffsetNotifier.value = widget.controller.offset;
   }
 
   @override
@@ -67,6 +81,13 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         widget.onActiveIndexChanged?.call(-1);
         widget.onActiveLineChanged?.call(null);
       }
+    }
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handlePrimaryScroll);
+      widget.controller.addListener(_handlePrimaryScroll);
+      _scrollOffsetNotifier.value = widget.controller.hasClients
+          ? widget.controller.offset
+          : 0;
     }
     if (oldWidget.showTranslation != widget.showTranslation &&
         _activeIndex >= 0) {
@@ -88,6 +109,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
   @override
   void dispose() {
+    widget.controller.removeListener(_handlePrimaryScroll);
+    _scrollOffsetNotifier.dispose();
     super.dispose();
   }
 
@@ -431,6 +454,11 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                     linePadding: _linePadding,
                     animationDuration: _animationDuration,
                     lineOffsetFromActive: relativeIndex,
+                    scrollOffsetListenable: _scrollOffsetNotifier,
+                    viewportHeight: viewportHeight,
+                    lineExtentEstimate:
+                        placeholderHeight +
+                        _LyricsLineImageTile._itemSpacingPadding * 2,
                     activeStyle: _activeTextStyle(context),
                     inactiveStyle: _inactiveTextStyle(context),
                     maxWidth: lineMaxWidth,
@@ -455,6 +483,9 @@ class _LyricsLineImageTile extends StatefulWidget {
     required this.linePadding,
     required this.animationDuration,
     required this.lineOffsetFromActive,
+    required this.scrollOffsetListenable,
+    required this.viewportHeight,
+    required this.lineExtentEstimate,
     required this.activeStyle,
     required this.inactiveStyle,
     required this.maxWidth,
@@ -471,6 +502,9 @@ class _LyricsLineImageTile extends StatefulWidget {
   final EdgeInsets linePadding;
   final Duration animationDuration;
   final int? lineOffsetFromActive;
+  final ValueListenable<double> scrollOffsetListenable;
+  final double viewportHeight;
+  final double lineExtentEstimate;
   final TextStyle activeStyle;
   final TextStyle inactiveStyle;
   final double maxWidth;
@@ -482,6 +516,7 @@ class _LyricsLineImageTile extends StatefulWidget {
 class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
     with SingleTickerProviderStateMixin {
   late AnimationController _scatterController;
+  int _blurLevel = _LyricsLineImageTile._blurSigmaLevels.length - 1;
 
   @override
   void initState() {
@@ -492,6 +527,8 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
     )
       ..value = 1.0
       ..addListener(_handleScatterTick);
+    widget.scrollOffsetListenable.addListener(_handleScrollChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleScrollChange());
   }
 
   @override
@@ -505,12 +542,22 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
         ..value = 0.0
         ..forward();
     }
+    if (oldWidget.scrollOffsetListenable != widget.scrollOffsetListenable) {
+      oldWidget.scrollOffsetListenable.removeListener(_handleScrollChange);
+      widget.scrollOffsetListenable.addListener(_handleScrollChange);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _handleScrollChange());
+    }
+    if (oldWidget.viewportHeight != widget.viewportHeight ||
+        oldWidget.lineExtentEstimate != widget.lineExtentEstimate) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _handleScrollChange());
+    }
   }
 
   @override
   void dispose() {
     _scatterController.removeListener(_handleScatterTick);
     _scatterController.dispose();
+    widget.scrollOffsetListenable.removeListener(_handleScrollChange);
     super.dispose();
   }
 
@@ -520,18 +567,49 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
     }
   }
 
-  double _resolveBlurSigma() {
-    final int? relative = widget.lineOffsetFromActive;
-    final int desiredIndex;
-    if (relative == null) {
-      desiredIndex = _LyricsLineImageTile._blurSigmaLevels.length - 1;
-    } else {
-      desiredIndex = relative.abs().clamp(
-        0,
-        _LyricsLineImageTile._blurSigmaLevels.length - 1,
-      );
+  void _handleScrollChange() {
+    if (!mounted) {
+      return;
     }
-    return _LyricsLineImageTile._blurSigmaLevels[desiredIndex];
+    final RenderObject? renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return;
+    }
+
+    final ScrollableState? scrollable = Scrollable.of(context);
+    if (scrollable == null) {
+      return;
+    }
+    final RenderObject? scrollRenderObject = scrollable.context.findRenderObject();
+    if (scrollRenderObject is! RenderBox || !scrollRenderObject.hasSize) {
+      return;
+    }
+
+    final Offset itemCenterGlobal = renderObject.localToGlobal(
+      renderObject.size.center(Offset.zero),
+      ancestor: scrollRenderObject,
+    );
+    final double centerY = itemCenterGlobal.dy;
+    final double halfViewport = widget.viewportHeight / 2;
+    final double distance = (centerY - halfViewport).abs();
+
+    final double lineExtent = widget.lineExtentEstimate;
+    if (lineExtent <= 0) {
+      return;
+    }
+
+    final double normalized = distance / lineExtent;
+    final int maxLevel = _LyricsLineImageTile._blurSigmaLevels.length - 1;
+    final int nextLevel = normalized.floor().clamp(0, maxLevel);
+    if (nextLevel != _blurLevel) {
+      setState(() {
+        _blurLevel = nextLevel;
+      });
+    }
+  }
+
+  double _resolveBlurSigma() {
+    return _LyricsLineImageTile._blurSigmaLevels[_blurLevel];
   }
 
   @override
