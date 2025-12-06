@@ -514,7 +514,7 @@ class _LyricsLineImageTile extends StatefulWidget {
 }
 
 class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
-  static const double _maxSigma = 18.0;
+  static const double _maxSigma = 5.0;
 
   double _blurFactor = 0.0;
 
@@ -606,7 +606,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
     final double factor = _blurFactor.clamp(0.0, 1.0);
     final double sigma = math.pow(factor, 1.35).toDouble() * _maxSigma;
     const double _lineHeightCompressionFactor = 0.75;
-    const double _itemSpacingPadding = 4.0;
+    const double _itemSpacingPadding = 10.0;
     final TextStyle targetStyle = widget.isActive
         ? widget.activeStyle
         : widget.inactiveStyle;
