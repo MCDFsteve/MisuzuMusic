@@ -391,6 +391,9 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       await _registerLibraryDirectory(normalizedPath);
 
       final audioFiles = await _findAudioFiles(directory);
+      final discoveredPaths = audioFiles
+          .map((file) => path.normalize(file.absolute.path))
+          .toSet();
 
       for (final file in audioFiles) {
         try {
@@ -411,6 +414,11 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           print('Error processing file ${file.path}: $e');
         }
       }
+
+      await _cleanupMissingLocalTracks(
+        normalizedDirectory: normalizedPath,
+        discoveredPaths: discoveredPaths,
+      );
     } catch (e) {
       throw FileSystemException('Failed to scan directory: ${e.toString()}');
     }
@@ -923,8 +931,9 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       }
 
       final remoteFileName = posix.basenameWithoutExtension(remotePath).trim();
-      final fallbackFileName =
-          remoteFileName.isNotEmpty ? remoteFileName : track.title;
+      final fallbackFileName = remoteFileName.isNotEmpty
+          ? remoteFileName
+          : track.title;
       final normalizedFields = normalizeTrackFields(
         title: track.title,
         artist: track.artist,
@@ -1797,6 +1806,44 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     }
   }
 
+  Future<void> _cleanupMissingLocalTracks({
+    required String normalizedDirectory,
+    required Set<String> discoveredPaths,
+  }) async {
+    try {
+      final allTracks = await _localDataSource.getAllTracks();
+      final missingIds = <String>[];
+
+      for (final track in allTracks) {
+        if (track.sourceType != TrackSourceType.local) {
+          continue;
+        }
+
+        final normalizedTrackPath = path.normalize(track.filePath);
+        if (!_isTrackWithinDirectory(
+          normalizedTrackPath,
+          normalizedDirectory,
+        )) {
+          continue;
+        }
+
+        final existsInScan = discoveredPaths.contains(normalizedTrackPath);
+        final existsOnDisk =
+            existsInScan || File(normalizedTrackPath).existsSync();
+        if (!existsOnDisk) {
+          missingIds.add(track.id);
+        }
+      }
+
+      if (missingIds.isNotEmpty) {
+        await _localDataSource.deleteTracksByIds(missingIds);
+        print('📁 Local scan: 已移除 ${missingIds.length} 首缺失的本地歌曲');
+      }
+    } catch (e) {
+      print('⚠️ Local scan: 清理缺失歌曲失败 -> $e');
+    }
+  }
+
   Uint8List _buildPlayLogPayload(int timestampMs, String trackId) {
     final trackIdBytes = utf8.encode(trackId);
     final builder = BytesBuilder();
@@ -2195,4 +2242,3 @@ class _RemoteFileAggregate {
     );
   }
 }
-

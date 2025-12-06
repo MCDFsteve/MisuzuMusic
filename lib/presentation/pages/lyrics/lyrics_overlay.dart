@@ -64,7 +64,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late final SongDetailService _songDetailService;
   late final NeteaseIdResolver _neteaseIdResolver;
   static bool _lastTranslationPreference = true;
+  static LyricsVisualStyle _lastLyricsStyle = LyricsVisualStyle.comfortable;
   bool _showTranslation = _lastTranslationPreference;
+  LyricsVisualStyle _lyricsStyle = _lastLyricsStyle;
   bool _lyricsHidden = false;
   bool _desktopLyricsActive = false;
   bool _desktopLyricsBusy = false;
@@ -166,7 +168,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
 
   void _ensureLyricsLoaded(Track track) {
     final currentState = _lyricsCubit.state;
-    final bool needsLoad = currentState is! LyricsLoaded ||
+    final bool needsLoad =
+        currentState is! LyricsLoaded ||
         currentState.lyrics.trackId != track.id;
     if (needsLoad) {
       unawaited(_lyricsCubit.loadLyricsForTrack(track));
@@ -483,8 +486,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
               title: dialogContext.l10n.songDetailSaveFailureTitle,
               maxWidth: 360,
               body: Text(
-                dialogContext.l10n
-                    .songDetailSaveFailureMessage(error.toString()),
+                dialogContext.l10n.songDetailSaveFailureMessage(
+                  error.toString(),
+                ),
               ),
               actions: [
                 SheetActionButton.primary(
@@ -521,6 +525,16 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (!mounted) return;
     setState(() {
       _lyricsHidden = !_lyricsHidden;
+    });
+  }
+
+  void _cycleLyricsStyle() {
+    if (!mounted) return;
+    final styles = LyricsVisualStyle.values;
+    final nextIndex = (_lyricsStyle.index + 1) % styles.length;
+    setState(() {
+      _lyricsStyle = styles[nextIndex];
+      _lastLyricsStyle = _lyricsStyle;
     });
   }
 
@@ -931,6 +945,10 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     }
   }
 
+  void _handleLyricsLineTap(LyricsLine line) {
+    context.read<PlayerBloc>().add(PlayerSeekTo(line.timestamp));
+  }
+
   void _syncDesktopLyricsState() {
     if (_activeLyricsLines.isEmpty) {
       _activeDesktopLine = null;
@@ -1206,46 +1224,48 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
 
     return BlocListener<LyricsCubit, LyricsState>(
       listener: (context, state) {
-          if (state is LyricsLoaded || state is LyricsEmpty) {
-            _resetScroll();
+        if (state is LyricsLoaded || state is LyricsEmpty) {
+          _resetScroll();
+        }
+        if (state is LyricsLoaded) {
+          _activeLyricsLines = state.lyrics.lines;
+          _activeDesktopIndex = -1;
+          _activeDesktopLine = null;
+          _lastDesktopPayloadSignature = null;
+          _resetDesktopLineCache();
+          _syncDesktopLyricsState();
+          if (_desktopLyricsActive) {
+            _scheduleDesktopLyricsUpdate(force: true);
           }
-          if (state is LyricsLoaded) {
-            _activeLyricsLines = state.lyrics.lines;
-            _activeDesktopIndex = -1;
-            _activeDesktopLine = null;
-            _lastDesktopPayloadSignature = null;
-            _resetDesktopLineCache();
-            _syncDesktopLyricsState();
-            if (_desktopLyricsActive) {
-              _scheduleDesktopLyricsUpdate(force: true);
-            }
-          } else if (state is LyricsEmpty || state is LyricsError) {
-            _activeLyricsLines = const [];
-            _activeDesktopLine = null;
-            _activeDesktopIndex = -1;
-            _lastDesktopPayloadSignature = null;
-            _resetDesktopLineCache();
-            if (_desktopLyricsActive) {
-              _scheduleDesktopLyricsUpdate(force: true);
-            }
+        } else if (state is LyricsEmpty || state is LyricsError) {
+          _activeLyricsLines = const [];
+          _activeDesktopLine = null;
+          _activeDesktopIndex = -1;
+          _lastDesktopPayloadSignature = null;
+          _resetDesktopLineCache();
+          if (_desktopLyricsActive) {
+            _scheduleDesktopLyricsUpdate(force: true);
           }
-        },
+        }
+      },
       child: _LyricsLayout(
         track: _currentTrack,
         lyricsScrollController: _lyricsScrollController,
         isMac: isMac,
         showTranslation: _showTranslation,
+        visualStyle: _lyricsStyle,
         lyricsHidden: _lyricsHidden,
         onToggleTranslation: _toggleTranslationVisibility,
+        onToggleLyricsStyle: _cycleLyricsStyle,
         onToggleLyricsVisibility: _toggleLyricsVisibility,
         onDownloadLrc: _downloadLrcFile,
         onReportError: _reportError,
-        onToggleDesktopLyrics:
-            () => unawaited(_toggleDesktopLyricsAssistant()),
+        onToggleDesktopLyrics: () => unawaited(_toggleDesktopLyricsAssistant()),
         isDesktopLyricsActive: _desktopLyricsActive,
         isDesktopLyricsBusy: _desktopLyricsBusy,
         onActiveIndexChanged: _handleActiveIndexChanged,
         onActiveLineChanged: _handleActiveLineChanged,
+        onLineTap: _handleLyricsLineTap,
         showTrackDetail: _showTrackDetailPanel,
         isLoadingTrackDetail: _isLoadingTrackDetail,
         isSavingTrackDetail: _isSavingTrackDetail,
@@ -1268,8 +1288,10 @@ class _LyricsLayout extends StatelessWidget {
     required this.lyricsScrollController,
     required this.isMac,
     required this.showTranslation,
+    required this.visualStyle,
     required this.lyricsHidden,
     required this.onToggleTranslation,
+    required this.onToggleLyricsStyle,
     required this.onToggleLyricsVisibility,
     required this.onDownloadLrc,
     required this.onReportError,
@@ -1278,6 +1300,7 @@ class _LyricsLayout extends StatelessWidget {
     required this.isDesktopLyricsBusy,
     required this.onActiveIndexChanged,
     required this.onActiveLineChanged,
+    required this.onLineTap,
     required this.showTrackDetail,
     required this.isLoadingTrackDetail,
     required this.isSavingTrackDetail,
@@ -1295,8 +1318,10 @@ class _LyricsLayout extends StatelessWidget {
   final ScrollController lyricsScrollController;
   final bool isMac;
   final bool showTranslation;
+  final LyricsVisualStyle visualStyle;
   final bool lyricsHidden;
   final VoidCallback onToggleTranslation;
+  final VoidCallback onToggleLyricsStyle;
   final VoidCallback onToggleLyricsVisibility;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
@@ -1305,6 +1330,7 @@ class _LyricsLayout extends StatelessWidget {
   final bool isDesktopLyricsBusy;
   final ValueChanged<int> onActiveIndexChanged;
   final ValueChanged<LyricsLine?> onActiveLineChanged;
+  final ValueChanged<LyricsLine> onLineTap;
   final bool showTrackDetail;
   final bool isLoadingTrackDetail;
   final bool isSavingTrackDetail;
@@ -1340,8 +1366,10 @@ class _LyricsLayout extends StatelessWidget {
             scrollController: lyricsScrollController,
             track: normalizedTrack,
             showTranslation: showTranslation,
+            visualStyle: visualStyle,
             lyricsHidden: lyricsHidden,
             onToggleTranslation: onToggleTranslation,
+            onToggleLyricsStyle: onToggleLyricsStyle,
             onToggleLyricsVisibility: onToggleLyricsVisibility,
             onDownloadLrc: onDownloadLrc,
             onReportError: onReportError,
@@ -1350,6 +1378,7 @@ class _LyricsLayout extends StatelessWidget {
             isDesktopLyricsBusy: isDesktopLyricsBusy,
             onActiveIndexChanged: onActiveIndexChanged,
             onActiveLineChanged: onActiveLineChanged,
+            onLineTap: onLineTap,
             bottomSafeInset: bottomSafeInset,
             isCompactLayout: useCompactLayout,
             onTapToggleDetail: useCompactLayout ? onCycleCompactStage : null,
@@ -1830,27 +1859,23 @@ class _TrackDetailView extends StatelessWidget {
 
         final double scrollVerticalPadding = isCompactLayout ? 0 : 22;
         final double leadingSpacer = isCompactLayout ? 120 : 18;
-        final double trailingSpacer =
-            isCompactLayout ? (bottomSafeInset + 24) : 0;
+        final double trailingSpacer = isCompactLayout
+            ? (bottomSafeInset + 24)
+            : 0;
 
         List<Widget> buildDetailChildren(Widget detailSection) {
           return [
             SizedBox(height: leadingSpacer),
-            Text(
-              track.title,
-              style: headerStyle.copyWith(fontSize: 18),
-            ),
+            Text(track.title, style: headerStyle.copyWith(fontSize: 18)),
             const SizedBox(height: 6),
-            Text(
-              '${track.artist} · ${track.album}',
-              style: metaStyle,
-            ),
+            Text('${track.artist} · ${track.album}', style: metaStyle),
             const SizedBox(height: 22),
             Text(
               l10n.songDetailSectionTitle,
               style: bodyStyle.copyWith(
                 fontWeight: FontWeight.w600,
-                color: bodyStyle.color?.withOpacity(0.82) ??
+                color:
+                    bodyStyle.color?.withOpacity(0.82) ??
                     (isDarkMode
                         ? Colors.white.withOpacity(0.82)
                         : Colors.black.withOpacity(0.78)),
@@ -1859,10 +1884,7 @@ class _TrackDetailView extends StatelessWidget {
             const SizedBox(height: 16),
             detailSection,
             if (!isSavingDetail)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: editLink,
-              ),
+              Align(alignment: Alignment.centerLeft, child: editLink),
             SizedBox(height: trailingSpacer),
           ];
         }
@@ -1879,9 +1901,7 @@ class _TrackDetailView extends StatelessWidget {
             return ClipRRect(
               borderRadius: BorderRadius.circular(18),
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                ),
+                decoration: BoxDecoration(color: surfaceColor),
                 child: ScrollConfiguration(
                   behavior: innerBehavior,
                   child: Scrollbar(
@@ -1907,21 +1927,16 @@ class _TrackDetailView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: leadingSpacer),
-                Text(
-                  track.title,
-                  style: headerStyle.copyWith(fontSize: 18),
-                ),
+                Text(track.title, style: headerStyle.copyWith(fontSize: 18)),
                 const SizedBox(height: 6),
-                Text(
-                  '${track.artist} · ${track.album}',
-                  style: metaStyle,
-                ),
+                Text('${track.artist} · ${track.album}', style: metaStyle),
                 const SizedBox(height: 22),
                 Text(
                   l10n.songDetailSectionTitle,
                   style: bodyStyle.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: bodyStyle.color?.withOpacity(0.82) ??
+                    color:
+                        bodyStyle.color?.withOpacity(0.82) ??
                         (isDarkMode
                             ? Colors.white.withOpacity(0.82)
                             : Colors.black.withOpacity(0.78)),
@@ -1930,10 +1945,7 @@ class _TrackDetailView extends StatelessWidget {
                 const SizedBox(height: 16),
                 Expanded(child: buildScrollableDetail()),
                 if (!isSavingDetail)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: editLink,
-                  ),
+                  Align(alignment: Alignment.centerLeft, child: editLink),
                 SizedBox(height: trailingSpacer),
               ],
             ),
@@ -1942,7 +1954,9 @@ class _TrackDetailView extends StatelessWidget {
 
         Widget buildDefaultDetailBody() {
           return ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            behavior: ScrollConfiguration.of(
+              context,
+            ).copyWith(scrollbars: false),
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(
                 horizontal: 0,
@@ -1993,8 +2007,10 @@ class _LyricsPanel extends StatelessWidget {
     required this.scrollController,
     required this.track,
     required this.showTranslation,
+    required this.visualStyle,
     required this.lyricsHidden,
     required this.onToggleTranslation,
+    required this.onToggleLyricsStyle,
     required this.onToggleLyricsVisibility,
     required this.onDownloadLrc,
     required this.onReportError,
@@ -2003,6 +2019,7 @@ class _LyricsPanel extends StatelessWidget {
     required this.isDesktopLyricsBusy,
     required this.onActiveIndexChanged,
     required this.onActiveLineChanged,
+    required this.onLineTap,
     required this.bottomSafeInset,
     this.isCompactLayout = false,
     this.onTapToggleDetail,
@@ -2012,8 +2029,10 @@ class _LyricsPanel extends StatelessWidget {
   final ScrollController scrollController;
   final Track track;
   final bool showTranslation;
+  final LyricsVisualStyle visualStyle;
   final bool lyricsHidden;
   final VoidCallback onToggleTranslation;
+  final VoidCallback onToggleLyricsStyle;
   final VoidCallback onToggleLyricsVisibility;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
@@ -2022,6 +2041,7 @@ class _LyricsPanel extends StatelessWidget {
   final bool isDesktopLyricsBusy;
   final ValueChanged<int> onActiveIndexChanged;
   final ValueChanged<LyricsLine?> onActiveLineChanged;
+  final ValueChanged<LyricsLine> onLineTap;
   final double bottomSafeInset;
   final bool isCompactLayout;
   final VoidCallback? onTapToggleDetail;
@@ -2035,7 +2055,8 @@ class _LyricsPanel extends StatelessWidget {
     final double topSpacing = isCompactLayout
         ? _kLyricsPanelCompactTopSpacing
         : _kLyricsPanelTopSpacing;
-    final double bottomInset = bottomSafeInset +
+    final double bottomInset =
+        bottomSafeInset +
         (isCompactLayout
             ? _kLyricsPanelCompactBaseBottomInset
             : _kLyricsPanelBaseBottomInset);
@@ -2073,8 +2094,9 @@ class _LyricsPanel extends StatelessWidget {
 
               final bool canToggle =
                   state is LyricsLoaded && _hasAnyTranslation(state.lyrics);
-              final bool showDesktopLyricsButton =
-                  !isMobilePlatform(Theme.of(context).platform);
+              final bool showDesktopLyricsButton = !isMobilePlatform(
+                Theme.of(context).platform,
+              );
               final bool canDownload = state is LyricsLoaded;
 
               final List<Widget> floatingButtons = [
@@ -2089,6 +2111,12 @@ class _LyricsPanel extends StatelessWidget {
                   isActive: showTranslation,
                   isEnabled: canToggle,
                   onPressed: canToggle ? onToggleTranslation : null,
+                ),
+                SizedBox(height: buttonSpacing),
+                _LyricsStyleToggleButton(
+                  isDarkMode: isDarkMode,
+                  visualStyle: visualStyle,
+                  onPressed: onToggleLyricsStyle,
                 ),
                 SizedBox(height: buttonSpacing),
                 if (showDesktopLyricsButton) ...[
@@ -2203,6 +2231,8 @@ class _LyricsPanel extends StatelessWidget {
         showTranslation: showTranslation,
         onActiveIndexChanged: onActiveIndexChanged,
         onActiveLineChanged: onActiveLineChanged,
+        onLineTap: onLineTap,
+        visualStyle: visualStyle,
       );
     }
 
@@ -2310,6 +2340,47 @@ class _TranslationToggleButton extends StatelessWidget {
   }
 }
 
+class _LyricsStyleToggleButton extends StatelessWidget {
+  const _LyricsStyleToggleButton({
+    required this.isDarkMode,
+    required this.visualStyle,
+    required this.onPressed,
+  });
+
+  final bool isDarkMode;
+  final LyricsVisualStyle visualStyle;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color iconColor = isDarkMode ? Colors.white : Colors.black;
+    final IconData icon = visualStyle == LyricsVisualStyle.highlight
+        ? CupertinoIcons.sparkles
+        : CupertinoIcons.textformat;
+    final String tooltip = visualStyle == LyricsVisualStyle.highlight
+        ? '歌词样式：荧光高亮\n点击切换'
+        : '歌词样式：舒展排版\n点击切换';
+
+    final double iconSize = 25;
+    final Color activeColor = iconColor;
+    final Color inactiveColor = iconColor.withOpacity(0.82);
+    final Color disabledColor = iconColor.withOpacity(0.42);
+
+    return MacosTooltip(
+      message: tooltip,
+      child: _HoverGlyphButton(
+        enabled: true,
+        onPressed: onPressed,
+        icon: icon,
+        size: iconSize,
+        baseColor: inactiveColor,
+        hoverColor: activeColor,
+        disabledColor: disabledColor,
+      ),
+    );
+  }
+}
+
 class _LyricsVisibilityButton extends StatelessWidget {
   const _LyricsVisibilityButton({
     required this.isDarkMode,
@@ -2327,7 +2398,9 @@ class _LyricsVisibilityButton extends StatelessWidget {
     final Color inactiveColor = iconColor.withOpacity(0.82);
     final Color activeColor = iconColor;
     final Color disabledColor = iconColor.withOpacity(0.42);
-    final IconData icon = isHidden ? CupertinoIcons.eye : CupertinoIcons.eye_slash;
+    final IconData icon = isHidden
+        ? CupertinoIcons.eye
+        : CupertinoIcons.eye_slash;
     final String tooltip = isHidden ? '显示歌词' : '关闭歌词';
     final Color baseColor = isHidden ? activeColor : inactiveColor;
 

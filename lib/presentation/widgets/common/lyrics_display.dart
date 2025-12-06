@@ -10,6 +10,8 @@ import '../../blocs/player/player_bloc.dart';
 import '../../../domain/entities/lyrics_entities.dart';
 import 'furigana_text.dart';
 
+enum LyricsVisualStyle { comfortable, highlight }
+
 class LyricsDisplay extends StatefulWidget {
   const LyricsDisplay({
     super.key,
@@ -19,6 +21,8 @@ class LyricsDisplay extends StatefulWidget {
     this.showTranslation = true,
     this.onActiveLineChanged,
     this.onActiveIndexChanged,
+    this.onLineTap,
+    this.visualStyle = LyricsVisualStyle.comfortable,
   });
 
   final List<LyricsLine> lines;
@@ -27,23 +31,47 @@ class LyricsDisplay extends StatefulWidget {
   final bool showTranslation;
   final ValueChanged<LyricsLine?>? onActiveLineChanged;
   final ValueChanged<int>? onActiveIndexChanged;
+  final ValueChanged<LyricsLine>? onLineTap;
+  final LyricsVisualStyle visualStyle;
 
   @override
   State<LyricsDisplay> createState() => _LyricsDisplayState();
 }
 
 class _LyricsDisplayState extends State<LyricsDisplay> {
-  static const double _activeFontSize = 26.0;
-  static const double _inactiveFontSize = 16.0;
-  static const EdgeInsets _linePadding = EdgeInsets.symmetric(
-    vertical: 0,
-    horizontal: 12,
-  );
-  static const double _listSidePadding = 4.0;
   static const Duration _animationDuration = Duration(milliseconds: 240);
   static const Duration _primaryScrollDuration = Duration(milliseconds: 420);
   static const Duration _correctionScrollDuration = Duration(milliseconds: 320);
   static const Curve _elasticScrollCurve = Curves.easeOutBack;
+
+  double get _activeFontSize =>
+      widget.visualStyle == LyricsVisualStyle.highlight ? 30.0 : 28.0;
+  double get _inactiveFontSize =>
+      widget.visualStyle == LyricsVisualStyle.highlight ? 18.0 : 17.0;
+  double get _activeLineHeight =>
+      widget.visualStyle == LyricsVisualStyle.highlight ? 1.75 : 1.7;
+  double get _inactiveLineHeight =>
+      widget.visualStyle == LyricsVisualStyle.highlight ? 1.6 : 1.55;
+  EdgeInsets get _linePadding =>
+      widget.visualStyle == LyricsVisualStyle.highlight
+      ? const EdgeInsets.symmetric(vertical: 8, horizontal: 16)
+      : const EdgeInsets.symmetric(vertical: 6, horizontal: 14);
+  double get _listSidePadding =>
+      widget.visualStyle == LyricsVisualStyle.highlight ? 8.0 : 6.0;
+  double get _itemSpacing =>
+      widget.visualStyle == LyricsVisualStyle.highlight ? 12.0 : 10.0;
+  double get _translationScale =>
+      widget.visualStyle == LyricsVisualStyle.highlight ? 0.78 : 0.82;
+  double get _lineHeightCompression =>
+      widget.visualStyle == LyricsVisualStyle.highlight ? 0.85 : 0.82;
+  bool get _enableActiveHighlight =>
+      widget.visualStyle == LyricsVisualStyle.highlight;
+  Color get _activeHighlightColor => widget.isDarkMode
+      ? Colors.white.withOpacity(0.07)
+      : Colors.black.withOpacity(0.05);
+  Color get _activeShadowColor => widget.isDarkMode
+      ? Colors.black.withOpacity(0.28)
+      : Colors.black.withOpacity(0.12);
 
   int _activeIndex = -1;
   late List<GlobalKey> _itemKeys;
@@ -173,6 +201,26 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         });
       }
     }
+  }
+
+  void _handleLineTap(int index) {
+    if (index < 0 || index >= widget.lines.length) {
+      return;
+    }
+    final LyricsLine line = widget.lines[index];
+    widget.onLineTap?.call(line);
+
+    if (_activeIndex != index) {
+      _activeIndex = index;
+      widget.onActiveIndexChanged?.call(index);
+      widget.onActiveLineChanged?.call(line);
+      setState(() {});
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollToIndex(index);
+    });
   }
 
   void _scrollToIndex(int index, {int attempt = 0}) {
@@ -338,8 +386,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     return TextStyle(
       inherit: false,
       fontSize: _activeFontSize,
-      fontWeight: FontWeight.w700,
-      height: 1.6,
+      fontWeight: FontWeight.w800,
+      height: _activeLineHeight,
       letterSpacing: fallback.letterSpacing,
       fontFamily: fallback.fontFamily,
     );
@@ -356,8 +404,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     final Color color = widget.isDarkMode ? Colors.white60 : Colors.black45;
     return base.copyWith(
       fontSize: _inactiveFontSize,
-      fontWeight: FontWeight.w400,
-      height: 1.55,
+      fontWeight: FontWeight.w600,
+      height: _inactiveLineHeight,
       color: color,
     );
   }
@@ -373,7 +421,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   double _approxLineHeight(BuildContext context) {
     final TextStyle style = _baseRenderStyle(context);
     final double fontSize = style.fontSize ?? _activeFontSize;
-    final double height = style.height ?? 1.6;
+    final double height = style.height ?? _activeLineHeight;
     return fontSize * height;
   }
 
@@ -444,7 +492,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                   final LyricsLine line = widget.lines[lineIndex];
                   final bool isActive = lineIndex == _activeIndex;
                   final String text = _lineText(line);
-                  return _LyricsLineImageTile(
+                  final Widget tile = _LyricsLineImageTile(
                     key: _itemKeys[lineIndex],
                     text: text,
                     annotatedTexts: line.annotatedTexts,
@@ -453,15 +501,25 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                         : null,
                     isActive: isActive,
                     linePadding: _linePadding,
+                    itemSpacing: _itemSpacing,
+                    translationScale: _translationScale,
+                    lineHeightCompression: _lineHeightCompression,
+                    enableActiveHighlight: _enableActiveHighlight,
+                    activeHighlightColor: _activeHighlightColor,
+                    activeShadowColor: _activeShadowColor,
                     animationDuration: _animationDuration,
                     scrollOffsetListenable: _scrollOffsetNotifier,
                     viewportHeight: viewportHeight,
-                    lineExtentEstimate:
-                        placeholderHeight +
-                        _LyricsLineImageTile._itemSpacingPadding * 2,
+                    lineExtentEstimate: placeholderHeight + _itemSpacing * 2,
                     activeStyle: _activeTextStyle(context),
                     inactiveStyle: _inactiveTextStyle(context),
                     maxWidth: lineMaxWidth,
+                  );
+
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _handleLineTap(lineIndex),
+                    child: tile,
                   );
                 },
               ),
@@ -481,6 +539,12 @@ class _LyricsLineImageTile extends StatefulWidget {
     required this.translatedText,
     required this.isActive,
     required this.linePadding,
+    required this.itemSpacing,
+    required this.translationScale,
+    required this.lineHeightCompression,
+    required this.enableActiveHighlight,
+    required this.activeHighlightColor,
+    required this.activeShadowColor,
     required this.animationDuration,
     required this.scrollOffsetListenable,
     required this.viewportHeight,
@@ -491,8 +555,6 @@ class _LyricsLineImageTile extends StatefulWidget {
   });
 
   static const List<double> _blurSigmaLevels = <double>[0.0, 1.0, 2.0, 3.0];
-  static const double _lineHeightCompressionFactor = 0.75;
-  static const double _itemSpacingPadding = 8.0;
   static const double _transitionExtraSigma = 3.5;
 
   final String text;
@@ -500,6 +562,12 @@ class _LyricsLineImageTile extends StatefulWidget {
   final String? translatedText;
   final bool isActive;
   final EdgeInsets linePadding;
+  final double itemSpacing;
+  final double translationScale;
+  final double lineHeightCompression;
+  final bool enableActiveHighlight;
+  final Color activeHighlightColor;
+  final Color activeShadowColor;
   final Duration animationDuration;
   final ValueListenable<double> scrollOffsetListenable;
   final double viewportHeight;
@@ -520,12 +588,10 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
   @override
   void initState() {
     super.initState();
-    _transitionController = AnimationController(
-      vsync: this,
-      duration: widget.animationDuration,
-    )
-      ..value = 1.0
-      ..addListener(_handleTransitionTick);
+    _transitionController =
+        AnimationController(vsync: this, duration: widget.animationDuration)
+          ..value = 1.0
+          ..addListener(_handleTransitionTick);
     widget.scrollOffsetListenable.addListener(_handleScrollChange);
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleScrollChange());
   }
@@ -539,11 +605,15 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
     if (oldWidget.scrollOffsetListenable != widget.scrollOffsetListenable) {
       oldWidget.scrollOffsetListenable.removeListener(_handleScrollChange);
       widget.scrollOffsetListenable.addListener(_handleScrollChange);
-      WidgetsBinding.instance.addPostFrameCallback((_) => _handleScrollChange());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _handleScrollChange(),
+      );
     }
     if (oldWidget.viewportHeight != widget.viewportHeight ||
         oldWidget.lineExtentEstimate != widget.lineExtentEstimate) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _handleScrollChange());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _handleScrollChange(),
+      );
     }
   }
 
@@ -574,7 +644,8 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
     if (scrollable == null) {
       return;
     }
-    final RenderObject? scrollRenderObject = scrollable.context.findRenderObject();
+    final RenderObject? scrollRenderObject = scrollable.context
+        .findRenderObject();
     if (scrollRenderObject is! RenderBox || !scrollRenderObject.hasSize) {
       return;
     }
@@ -611,8 +682,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
       return baseSigma;
     }
     final double eased = Curves.easeOut.transform(transitionProgress);
-    return baseSigma +
-        eased * _LyricsLineImageTile._transitionExtraSigma;
+    return baseSigma + eased * _LyricsLineImageTile._transitionExtraSigma;
   }
 
   void _triggerBlurTransition() {
@@ -624,14 +694,15 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
   @override
   Widget build(BuildContext context) {
     final double sigma = _resolveBlurSigma();
-    final TextStyle targetStyle =
-        widget.isActive ? widget.activeStyle : widget.inactiveStyle;
+    final TextStyle targetStyle = widget.isActive
+        ? widget.activeStyle
+        : widget.inactiveStyle;
     final String displayText = widget.text.isEmpty ? ' ' : widget.text;
     final double fontSize = targetStyle.fontSize ?? 16.0;
     final double baseLineHeight = targetStyle.height ?? 1.6;
     final double compressedLineHeight = math.max(
-      0.9,
-      baseLineHeight * _LyricsLineImageTile._lineHeightCompressionFactor,
+      0.95,
+      baseLineHeight * widget.lineHeightCompression,
     );
 
     Widget layeredContent = _buildLyricsContent(
@@ -649,11 +720,35 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
       );
     }
 
+    if (widget.enableActiveHighlight) {
+      layeredContent = AnimatedContainer(
+        duration: widget.animationDuration,
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: widget.isActive
+              ? widget.activeHighlightColor
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: widget.isActive
+              ? [
+                  BoxShadow(
+                    color: widget.activeShadowColor,
+                    blurRadius: 14,
+                    offset: const Offset(0, 8),
+                    spreadRadius: -2,
+                  ),
+                ]
+              : const [],
+        ),
+        child: layeredContent,
+      );
+    }
+
     return Padding(
-      padding: widget.linePadding +
-          const EdgeInsets.symmetric(
-            vertical: _LyricsLineImageTile._itemSpacingPadding,
-          ),
+      padding:
+          widget.linePadding +
+          EdgeInsets.symmetric(vertical: widget.itemSpacing),
       child: AnimatedDefaultTextStyle(
         style: targetStyle,
         duration: widget.animationDuration,
@@ -693,7 +788,8 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
         fontSize: annotationFontSize,
         fontWeight: FontWeight.w500,
         height: 1.0,
-        color: styleForChildren.color?.withOpacity(annotationOpacity) ??
+        color:
+            styleForChildren.color?.withOpacity(annotationOpacity) ??
             styleForChildren.color,
       );
 
@@ -729,8 +825,21 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
       return originalContent;
     }
 
-    final TextStyle translationStyle = styleForChildren.copyWith(
+    final double translationFontSize = math.max(
+      11.0,
+      fontSize * widget.translationScale,
+    );
+    final StrutStyle translationStrut = StrutStyle(
+      fontSize: translationFontSize,
       height: compressedLineHeight,
+      forceStrutHeight: true,
+      leading: 0,
+    );
+    final TextStyle translationStyle = styleForChildren.copyWith(
+      fontSize: translationFontSize,
+      fontWeight: FontWeight.w600,
+      height: compressedLineHeight,
+      color: styleForChildren.color?.withOpacity(widget.isActive ? 0.9 : 0.75),
     );
     final Widget translationWidget = AnimatedDefaultTextStyle(
       style: translationStyle,
@@ -743,17 +852,13 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
         softWrap: true,
         maxLines: 4,
         locale: Locale("zh-Hans", "zh"),
-        strutStyle: strutStyle,
+        strutStyle: translationStrut,
       ),
     );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        originalContent,
-        const SizedBox(height: 4),
-        translationWidget,
-      ],
+      children: [originalContent, const SizedBox(height: 6), translationWidget],
     );
   }
 }

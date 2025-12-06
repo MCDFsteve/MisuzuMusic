@@ -609,8 +609,13 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       // 获取扫描后的音轨数量
       final tracksAfter = await _getAllTracks();
       final tracksAfterCount = tracksAfter.length;
-      final tracksAdded = tracksAfterCount - tracksBeforeCount;
+      final netChange = tracksAfterCount - tracksBeforeCount;
+      final removedCount = netChange < 0 ? -netChange : 0;
+      final tracksAdded = netChange > 0 ? netChange : 0;
 
+      if (removedCount > 0) {
+        print('📁 BLoC: 扫描完成 - 已移除 $removedCount 首缺失歌曲');
+      }
       print('📁 BLoC: 扫描完成 - 添加了 $tracksAdded 首新歌曲');
 
       // 发送扫描完成状态
@@ -648,8 +653,13 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
 
       final tracksAfter = await _getAllTracks();
       final afterCount = tracksAfter.length;
-      final tracksAdded = afterCount - beforeCount;
+      final netChange = afterCount - beforeCount;
+      final removedCount = netChange < 0 ? -netChange : 0;
+      final tracksAdded = netChange > 0 ? netChange : 0;
 
+      if (removedCount > 0) {
+        print('🌐 BLoC: WebDAV 扫描完成 - 已移除 $removedCount 首缺失歌曲');
+      }
       print('🌐 BLoC: WebDAV 扫描完成 - 添加了 $tracksAdded 首新歌曲');
 
       WebDavSource? updatedSource;
