@@ -63,7 +63,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   double get _itemSpacing =>
       widget.visualStyle == LyricsVisualStyle.highlight ? 12.0 : 10.0;
   double get _translationScale =>
-      widget.visualStyle == LyricsVisualStyle.highlight ? 0.78 : 0.82;
+      widget.visualStyle == LyricsVisualStyle.highlight ? 0.72 : 0.76;
   double get _lineHeightCompression =>
       widget.visualStyle == LyricsVisualStyle.highlight ? 0.85 : 0.82;
   bool get _enableActiveHighlight =>

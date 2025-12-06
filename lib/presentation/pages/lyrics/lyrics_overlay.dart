@@ -68,7 +68,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   late final SongDetailService _songDetailService;
   late final NeteaseIdResolver _neteaseIdResolver;
   static bool _lastTranslationPreference = true;
-  static LyricsVisualStyle _lastLyricsStyle = LyricsVisualStyle.comfortable;
+  static LyricsVisualStyle _lastLyricsStyle = LyricsVisualStyle.highlight;
   bool _showTranslation = _lastTranslationPreference;
   LyricsVisualStyle _lyricsStyle = _lastLyricsStyle;
   Color? _artworkGlowColor;
@@ -673,16 +673,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     if (!mounted) return;
     setState(() {
       _lyricsHidden = !_lyricsHidden;
-    });
-  }
-
-  void _cycleLyricsStyle() {
-    if (!mounted) return;
-    final styles = LyricsVisualStyle.values;
-    final nextIndex = (_lyricsStyle.index + 1) % styles.length;
-    setState(() {
-      _lyricsStyle = styles[nextIndex];
-      _lastLyricsStyle = _lyricsStyle;
     });
   }
 
@@ -1406,7 +1396,6 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         visualStyle: _lyricsStyle,
         lyricsHidden: _lyricsHidden,
         onToggleTranslation: _toggleTranslationVisibility,
-        onToggleLyricsStyle: _cycleLyricsStyle,
         onToggleLyricsVisibility: _toggleLyricsVisibility,
         onDownloadLrc: _downloadLrcFile,
         onReportError: _reportError,
@@ -1443,7 +1432,6 @@ class _LyricsLayout extends StatelessWidget {
     this.artworkGlowColor,
     required this.lyricsHidden,
     required this.onToggleTranslation,
-    required this.onToggleLyricsStyle,
     required this.onToggleLyricsVisibility,
     required this.onDownloadLrc,
     required this.onReportError,
@@ -1474,7 +1462,6 @@ class _LyricsLayout extends StatelessWidget {
   final Color? artworkGlowColor;
   final bool lyricsHidden;
   final VoidCallback onToggleTranslation;
-  final VoidCallback onToggleLyricsStyle;
   final VoidCallback onToggleLyricsVisibility;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
@@ -1523,7 +1510,6 @@ class _LyricsLayout extends StatelessWidget {
             artworkGlowColor: artworkGlowColor,
             lyricsHidden: lyricsHidden,
             onToggleTranslation: onToggleTranslation,
-            onToggleLyricsStyle: onToggleLyricsStyle,
             onToggleLyricsVisibility: onToggleLyricsVisibility,
             onDownloadLrc: onDownloadLrc,
             onReportError: onReportError,
@@ -2165,7 +2151,6 @@ class _LyricsPanel extends StatelessWidget {
     this.artworkGlowColor,
     required this.lyricsHidden,
     required this.onToggleTranslation,
-    required this.onToggleLyricsStyle,
     required this.onToggleLyricsVisibility,
     required this.onDownloadLrc,
     required this.onReportError,
@@ -2188,7 +2173,6 @@ class _LyricsPanel extends StatelessWidget {
   final Color? artworkGlowColor;
   final bool lyricsHidden;
   final VoidCallback onToggleTranslation;
-  final VoidCallback onToggleLyricsStyle;
   final VoidCallback onToggleLyricsVisibility;
   final VoidCallback onDownloadLrc;
   final VoidCallback onReportError;
@@ -2267,12 +2251,6 @@ class _LyricsPanel extends StatelessWidget {
                   isActive: showTranslation,
                   isEnabled: canToggle,
                   onPressed: canToggle ? onToggleTranslation : null,
-                ),
-                SizedBox(height: buttonSpacing),
-                _LyricsStyleToggleButton(
-                  isDarkMode: isDarkMode,
-                  visualStyle: visualStyle,
-                  onPressed: onToggleLyricsStyle,
                 ),
                 SizedBox(height: buttonSpacing),
                 if (showDesktopLyricsButton) ...[
@@ -2491,47 +2469,6 @@ class _TranslationToggleButton extends StatelessWidget {
             ? (isActive ? inactiveColor : inactiveColor)
             : disabledColor,
         hoverColor: isEnabled ? activeColor : disabledColor,
-        disabledColor: disabledColor,
-      ),
-    );
-  }
-}
-
-class _LyricsStyleToggleButton extends StatelessWidget {
-  const _LyricsStyleToggleButton({
-    required this.isDarkMode,
-    required this.visualStyle,
-    required this.onPressed,
-  });
-
-  final bool isDarkMode;
-  final LyricsVisualStyle visualStyle;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color iconColor = isDarkMode ? Colors.white : Colors.black;
-    final IconData icon = visualStyle == LyricsVisualStyle.highlight
-        ? CupertinoIcons.sparkles
-        : CupertinoIcons.textformat;
-    final String tooltip = visualStyle == LyricsVisualStyle.highlight
-        ? '歌词样式：荧光高亮\n点击切换'
-        : '歌词样式：舒展排版\n点击切换';
-
-    final double iconSize = 25;
-    final Color activeColor = iconColor;
-    final Color inactiveColor = iconColor.withOpacity(0.82);
-    final Color disabledColor = iconColor.withOpacity(0.42);
-
-    return MacosTooltip(
-      message: tooltip,
-      child: _HoverGlyphButton(
-        enabled: true,
-        onPressed: onPressed,
-        icon: icon,
-        size: iconSize,
-        baseColor: inactiveColor,
-        hoverColor: activeColor,
         disabledColor: disabledColor,
       ),
     );
