@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/rendering.dart';
@@ -41,18 +40,14 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   );
   static const double _listSidePadding = 4.0;
   static const Duration _animationDuration = Duration(milliseconds: 240);
-  static const double _maxBlurLines = 4.0;
 
   int _activeIndex = -1;
   late List<GlobalKey> _itemKeys;
-  late final ValueNotifier<double> _scrollOffsetNotifier;
 
   @override
   void initState() {
     super.initState();
     _itemKeys = _generateKeys(widget.lines.length);
-    _scrollOffsetNotifier = ValueNotifier<double>(0);
-    widget.controller.addListener(_handlePrimaryScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final PlayerBlocState state = context.read<PlayerBloc>().state;
@@ -60,17 +55,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
       if (position != null) {
         _updateActiveIndex(position);
       }
-      _scrollOffsetNotifier.value = widget.controller.hasClients
-          ? widget.controller.offset
-          : 0;
     });
-  }
-
-  void _handlePrimaryScroll() {
-    if (!widget.controller.hasClients) {
-      return;
-    }
-    _scrollOffsetNotifier.value = widget.controller.offset;
   }
 
   @override
@@ -82,13 +67,6 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         widget.onActiveIndexChanged?.call(-1);
         widget.onActiveLineChanged?.call(null);
       }
-    }
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_handlePrimaryScroll);
-      widget.controller.addListener(_handlePrimaryScroll);
-      _scrollOffsetNotifier.value = widget.controller.hasClients
-          ? widget.controller.offset
-          : 0;
     }
     if (oldWidget.showTranslation != widget.showTranslation &&
         _activeIndex >= 0) {
@@ -110,8 +88,6 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
   @override
   void dispose() {
-    widget.controller.removeListener(_handlePrimaryScroll);
-    _scrollOffsetNotifier.dispose();
     super.dispose();
   }
 
@@ -410,12 +386,6 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         final double lineMaxWidth = _computeLineMaxWidth(constraints.maxWidth);
 
         final double halfViewport = viewportHeight / 2;
-        final double blurBand = math.min(
-          halfViewport,
-          placeholderHeight * _maxBlurLines,
-        );
-        final double sharpDistance = math.max(0.0, halfViewport - blurBand);
-        final double blurMaxDistance = halfViewport;
         final double edgeSpacer = halfViewport;
 
         return BlocListener<PlayerBloc, PlayerBlocState>(
@@ -448,7 +418,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                   final LyricsLine line = widget.lines[lineIndex];
                   final bool isActive = lineIndex == _activeIndex;
                   final String text = _lineText(line);
-
+                  final int? relativeIndex =
+                      _activeIndex >= 0 ? lineIndex - _activeIndex : null;
                   return _LyricsLineImageTile(
                     key: _itemKeys[lineIndex],
                     text: text,
@@ -459,10 +430,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                     isActive: isActive,
                     linePadding: _linePadding,
                     animationDuration: _animationDuration,
-                    scrollOffsetListenable: _scrollOffsetNotifier,
-                    viewportHeight: viewportHeight,
-                    sharpDistance: sharpDistance,
-                    blurMaxDistance: blurMaxDistance,
+                    lineOffsetFromActive: relativeIndex,
                     activeStyle: _activeTextStyle(context),
                     inactiveStyle: _inactiveTextStyle(context),
                     maxWidth: lineMaxWidth,
@@ -477,7 +445,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   }
 }
 
-class _LyricsLineImageTile extends StatefulWidget {
+class _LyricsLineImageTile extends StatelessWidget {
   const _LyricsLineImageTile({
     super.key,
     required this.text,
@@ -486,14 +454,15 @@ class _LyricsLineImageTile extends StatefulWidget {
     required this.isActive,
     required this.linePadding,
     required this.animationDuration,
-    required this.scrollOffsetListenable,
-    required this.viewportHeight,
-    required this.sharpDistance,
-    required this.blurMaxDistance,
+    required this.lineOffsetFromActive,
     required this.activeStyle,
     required this.inactiveStyle,
     required this.maxWidth,
   });
+
+  static const List<double> _blurSigmaLevels = <double>[0.0, 1.0, 2.0, 3.0];
+  static const double _lineHeightCompressionFactor = 0.75;
+  static const double _itemSpacingPadding = 8.0;
 
   final String text;
   final List<AnnotatedText> annotatedTexts;
@@ -501,116 +470,30 @@ class _LyricsLineImageTile extends StatefulWidget {
   final bool isActive;
   final EdgeInsets linePadding;
   final Duration animationDuration;
-  final ValueListenable<double> scrollOffsetListenable;
-  final double viewportHeight;
-  final double sharpDistance;
-  final double blurMaxDistance;
+  final int? lineOffsetFromActive;
   final TextStyle activeStyle;
   final TextStyle inactiveStyle;
   final double maxWidth;
 
-  @override
-  State<_LyricsLineImageTile> createState() => _LyricsLineImageTileState();
-}
-
-class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
-  static const double _maxSigma = 5.0;
-
-  double _blurFactor = 0.0;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.scrollOffsetListenable.addListener(_handleScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());
-  }
-
-  @override
-  void didUpdateWidget(covariant _LyricsLineImageTile oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrollOffsetListenable != widget.scrollOffsetListenable) {
-      oldWidget.scrollOffsetListenable.removeListener(_handleScroll);
-      widget.scrollOffsetListenable.addListener(_handleScroll);
-      WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());
-    }
-
-    if (oldWidget.isActive != widget.isActive ||
-        oldWidget.text != widget.text ||
-        oldWidget.translatedText != widget.translatedText ||
-        oldWidget.viewportHeight != widget.viewportHeight ||
-        oldWidget.sharpDistance != widget.sharpDistance ||
-        oldWidget.blurMaxDistance != widget.blurMaxDistance) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.scrollOffsetListenable.removeListener(_handleScroll);
-    super.dispose();
-  }
-
-  void _handleScroll() {
-    if (!mounted) {
-      return;
-    }
-    final RenderObject? renderObject = context.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.hasSize) {
-      return;
-    }
-
-    final ScrollableState? scrollable = Scrollable.of(context);
-    if (scrollable == null) {
-      return;
-    }
-    final RenderObject? scrollRenderObject = scrollable.context
-        .findRenderObject();
-    if (scrollRenderObject is! RenderBox || !scrollRenderObject.hasSize) {
-      return;
-    }
-
-    final Offset itemCenterGlobal = renderObject.localToGlobal(
-      renderObject.size.center(Offset.zero),
-      ancestor: scrollRenderObject,
-    );
-    final double centerY = itemCenterGlobal.dy;
-
-    final double halfViewport = widget.viewportHeight / 2;
-    final double distanceToCenter = (centerY - halfViewport).abs();
-
-    final double sharp = widget.sharpDistance;
-    final double full = widget.blurMaxDistance;
-
-    double nextBlur;
-    if (full <= sharp) {
-      nextBlur = distanceToCenter > sharp ? 1.0 : 0.0;
-    } else if (distanceToCenter <= sharp) {
-      nextBlur = 0.0;
-    } else if (distanceToCenter >= full) {
-      nextBlur = 1.0;
+  double _resolveBlurSigma() {
+    final int? relative = lineOffsetFromActive;
+    final int desiredIndex;
+    if (relative == null) {
+      desiredIndex = _blurSigmaLevels.length - 1;
     } else {
-      nextBlur = (distanceToCenter - sharp) / (full - sharp);
+      desiredIndex = relative.abs().clamp(
+        0,
+        _blurSigmaLevels.length - 1,
+      );
     }
-
-    nextBlur = nextBlur.clamp(0.0, 1.0);
-
-    if ((nextBlur - _blurFactor).abs() > 0.01) {
-      setState(() {
-        _blurFactor = nextBlur;
-      });
-    }
+    return _blurSigmaLevels[desiredIndex];
   }
 
   @override
   Widget build(BuildContext context) {
-    final double factor = _blurFactor.clamp(0.0, 1.0);
-    final double sigma = math.pow(factor, 1.35).toDouble() * _maxSigma;
-    const double _lineHeightCompressionFactor = 0.75;
-    const double _itemSpacingPadding = 10.0;
-    final TextStyle targetStyle = widget.isActive
-        ? widget.activeStyle
-        : widget.inactiveStyle;
-    final String displayText = widget.text.isEmpty ? ' ' : widget.text;
+    final double sigma = _resolveBlurSigma();
+    final TextStyle targetStyle = isActive ? activeStyle : inactiveStyle;
+    final String displayText = text.isEmpty ? ' ' : text;
     final double fontSize = targetStyle.fontSize ?? 16.0;
     final double baseLineHeight = targetStyle.height ?? 1.6;
     final double compressedLineHeight = math.max(
@@ -620,21 +503,21 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
 
     Widget originalContent;
 
-    if (widget.annotatedTexts.isNotEmpty) {
+    if (annotatedTexts.isNotEmpty) {
       final double annotationFontSize = math.max(8.0, fontSize * 0.4);
       final TextStyle annotationStyle = targetStyle.copyWith(
         fontSize: annotationFontSize,
         fontWeight: FontWeight.w500,
         height: 1.0,
         color:
-            targetStyle.color?.withOpacity(widget.isActive ? 0.9 : 0.7) ??
+            targetStyle.color?.withOpacity(isActive ? 0.9 : 0.7) ??
             targetStyle.color,
       );
 
       final double spacing = -math.max(fontSize * 0.32, annotationFontSize * 0.55);
 
       originalContent = FuriganaText(
-        segments: widget.annotatedTexts,
+        segments: annotatedTexts,
         annotationStyle: annotationStyle,
         textAlign: TextAlign.center,
         maxLines: 4,
@@ -665,14 +548,14 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
 
     Widget composedContent = originalContent;
 
-    final String? translated = widget.translatedText;
+    final String? translated = translatedText;
     if (translated != null && translated.trim().isNotEmpty) {
       final TextStyle translationStyle = targetStyle.copyWith(
         height: compressedLineHeight,
       );
       final Widget translationWidget = AnimatedDefaultTextStyle(
         style: translationStyle,
-        duration: widget.animationDuration,
+        duration: animationDuration,
         curve: Curves.easeInOut,
         child: Text(
           translated.trim(),
@@ -708,14 +591,14 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile> {
 
     return Padding(
       padding:
-          widget.linePadding +
+          linePadding +
           const EdgeInsets.symmetric(vertical: _itemSpacingPadding),
       child: AnimatedDefaultTextStyle(
         style: targetStyle,
-        duration: widget.animationDuration,
+        duration: animationDuration,
         curve: Curves.easeInOut,
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: widget.maxWidth),
+          constraints: BoxConstraints(maxWidth: maxWidth),
           child: Align(alignment: Alignment.center, child: composedContent),
         ),
       ),
