@@ -872,7 +872,6 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
       curve: Curves.easeInOut,
       child: Text(
         translated.trim(),
-        style: overrideStyle,
         textAlign: TextAlign.center,
         softWrap: true,
         maxLines: 4,
