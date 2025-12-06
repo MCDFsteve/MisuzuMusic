@@ -23,6 +23,7 @@ class LyricsDisplay extends StatefulWidget {
     this.onActiveIndexChanged,
     this.onLineTap,
     this.visualStyle = LyricsVisualStyle.comfortable,
+    this.glowColor,
   });
 
   final List<LyricsLine> lines;
@@ -33,6 +34,7 @@ class LyricsDisplay extends StatefulWidget {
   final ValueChanged<int>? onActiveIndexChanged;
   final ValueChanged<LyricsLine>? onLineTap;
   final LyricsVisualStyle visualStyle;
+  final Color? glowColor;
 
   @override
   State<LyricsDisplay> createState() => _LyricsDisplayState();
@@ -66,12 +68,6 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
       widget.visualStyle == LyricsVisualStyle.highlight ? 0.85 : 0.82;
   bool get _enableActiveHighlight =>
       widget.visualStyle == LyricsVisualStyle.highlight;
-  Color get _activeHighlightColor => widget.isDarkMode
-      ? Colors.white.withOpacity(0.07)
-      : Colors.black.withOpacity(0.05);
-  Color get _activeShadowColor => widget.isDarkMode
-      ? Colors.black.withOpacity(0.28)
-      : Colors.black.withOpacity(0.12);
 
   int _activeIndex = -1;
   late List<GlobalKey> _itemKeys;
@@ -505,8 +501,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                     translationScale: _translationScale,
                     lineHeightCompression: _lineHeightCompression,
                     enableActiveHighlight: _enableActiveHighlight,
-                    activeHighlightColor: _activeHighlightColor,
-                    activeShadowColor: _activeShadowColor,
+                    glowColor: widget.glowColor,
                     animationDuration: _animationDuration,
                     scrollOffsetListenable: _scrollOffsetNotifier,
                     viewportHeight: viewportHeight,
@@ -543,8 +538,7 @@ class _LyricsLineImageTile extends StatefulWidget {
     required this.translationScale,
     required this.lineHeightCompression,
     required this.enableActiveHighlight,
-    required this.activeHighlightColor,
-    required this.activeShadowColor,
+    this.glowColor,
     required this.animationDuration,
     required this.scrollOffsetListenable,
     required this.viewportHeight,
@@ -566,8 +560,7 @@ class _LyricsLineImageTile extends StatefulWidget {
   final double translationScale;
   final double lineHeightCompression;
   final bool enableActiveHighlight;
-  final Color activeHighlightColor;
-  final Color activeShadowColor;
+  final Color? glowColor;
   final Duration animationDuration;
   final ValueListenable<double> scrollOffsetListenable;
   final double viewportHeight;
@@ -691,23 +684,80 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
       ..forward();
   }
 
+  TextStyle _buildGlowTextStyle(BuildContext context, TextStyle baseStyle) {
+    final Color glowColor =
+        widget.glowColor ?? _resolveFallbackGlowColor(context, baseStyle);
+    final Color textColor = _fallbackTextColor(context, baseStyle);
+    return baseStyle.copyWith(
+      color: textColor,
+      shadows: _buildGlowShadows(glowColor),
+    );
+  }
+
+  Color _fallbackTextColor(BuildContext context, TextStyle baseStyle) {
+    if (baseStyle.color != null) {
+      return baseStyle.color!;
+    }
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark ? Colors.white : Colors.black87;
+  }
+
+  Color _resolveFallbackGlowColor(BuildContext context, TextStyle baseStyle) {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    final Color primary = theme.colorScheme.primary;
+    final Color fallback = isDark ? Colors.cyanAccent : Colors.blueAccent;
+    final Color blended = Color.lerp(primary, fallback, 0.25) ?? fallback;
+    final double opacity = isDark ? 0.9 : 0.78;
+    final Color candidate = blended.withOpacity(opacity);
+    final Color? baseColor = baseStyle.color;
+    if (baseColor == null) {
+      return candidate;
+    }
+    return Color.lerp(candidate, baseColor, 0.2) ?? candidate;
+  }
+
+  List<Shadow> _buildGlowShadows(Color glowColor) {
+    return [
+      Shadow(
+        color: glowColor.withOpacity(0.35),
+        blurRadius: 16,
+        offset: Offset.zero,
+      ),
+      Shadow(
+        color: glowColor.withOpacity(0.24),
+        blurRadius: 32,
+        offset: Offset.zero,
+      ),
+      Shadow(
+        color: glowColor.withOpacity(0.18),
+        blurRadius: 52,
+        offset: Offset.zero,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final double sigma = _resolveBlurSigma();
     final TextStyle targetStyle = widget.isActive
         ? widget.activeStyle
         : widget.inactiveStyle;
+    final bool showGlow = widget.enableActiveHighlight && widget.isActive;
+    final TextStyle effectiveStyle = showGlow
+        ? _buildGlowTextStyle(context, targetStyle)
+        : targetStyle;
     final String displayText = widget.text.isEmpty ? ' ' : widget.text;
-    final double fontSize = targetStyle.fontSize ?? 16.0;
-    final double baseLineHeight = targetStyle.height ?? 1.6;
+    final double fontSize = effectiveStyle.fontSize ?? 16.0;
+    final double baseLineHeight = effectiveStyle.height ?? 1.6;
     final double compressedLineHeight = math.max(
       0.95,
       baseLineHeight * widget.lineHeightCompression,
     );
 
     Widget layeredContent = _buildLyricsContent(
-      baseStyle: targetStyle,
-      overrideStyle: null,
+      baseStyle: effectiveStyle,
+      overrideStyle: showGlow ? effectiveStyle : null,
       fontSize: fontSize,
       compressedLineHeight: compressedLineHeight,
       displayText: displayText,
@@ -716,31 +766,6 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
     if (sigma >= 0.01) {
       layeredContent = ImageFiltered(
         imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-        child: layeredContent,
-      );
-    }
-
-    if (widget.enableActiveHighlight) {
-      layeredContent = AnimatedContainer(
-        duration: widget.animationDuration,
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        decoration: BoxDecoration(
-          color: widget.isActive
-              ? widget.activeHighlightColor
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: widget.isActive
-              ? [
-                  BoxShadow(
-                    color: widget.activeShadowColor,
-                    blurRadius: 14,
-                    offset: const Offset(0, 8),
-                    spreadRadius: -2,
-                  ),
-                ]
-              : const [],
-        ),
         child: layeredContent,
       );
     }

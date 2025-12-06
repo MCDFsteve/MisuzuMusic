@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
@@ -31,6 +34,7 @@ import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
 import '../../utils/track_display_utils.dart';
 import '../../../core/utils/platform_utils.dart';
 import '../../../l10n/l10n.dart';
+import 'package:http/http.dart' as http;
 
 const bool _desktopLyricsVerboseLogging = false;
 
@@ -67,6 +71,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   static LyricsVisualStyle _lastLyricsStyle = LyricsVisualStyle.comfortable;
   bool _showTranslation = _lastTranslationPreference;
   LyricsVisualStyle _lyricsStyle = _lastLyricsStyle;
+  Color? _artworkGlowColor;
   bool _lyricsHidden = false;
   bool _desktopLyricsActive = false;
   bool _desktopLyricsBusy = false;
@@ -91,6 +96,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   String? _trackDetailError;
   String? _trackDetailLoadedKey;
   int _trackDetailRequestToken = 0;
+  static final Map<String, Color?> _artworkGlowCache = {};
 
   @override
   void initState() {
@@ -103,6 +109,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _lyricsCubit = context.read<LyricsCubit>();
     _ensureLyricsLoaded(_currentTrack);
     _resetDesktopLineCache();
+    _loadArtworkGlowColor(_currentTrack);
 
     final initialPlayerState = context.read<PlayerBloc>().state;
     _updatePlaybackStateFromPlayer(initialPlayerState, notify: false);
@@ -126,6 +133,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _activeDesktopIndex = -1;
       _lastDesktopPayloadSignature = null;
       _resetDesktopLineCache();
+      _artworkGlowColor = null;
+      _loadArtworkGlowColor(_currentTrack);
       if (_desktopLyricsActive) {
         _scheduleDesktopLyricsUpdate(force: true);
       }
@@ -152,6 +161,145 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
 
   void _resetDesktopLineCache() {
     _lastDesktopActiveText = null;
+  }
+
+  Future<void> _loadArtworkGlowColor(Track track) async {
+    final String cacheKey = track.id;
+    if (_artworkGlowCache.containsKey(cacheKey)) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _artworkGlowColor = _artworkGlowCache[cacheKey];
+      });
+      return;
+    }
+
+    final Color? glowColor = await _computeArtworkGlowColor(track);
+    _artworkGlowCache[cacheKey] = glowColor;
+    if (!mounted || track.id != _currentTrack.id) {
+      return;
+    }
+    setState(() {
+      _artworkGlowColor = glowColor;
+    });
+  }
+
+  Future<Color?> _computeArtworkGlowColor(Track track) async {
+    try {
+      final Uint8List? bytes = await _loadArtworkBytes(track);
+      if (bytes == null || bytes.isEmpty) {
+        return null;
+      }
+
+      final ui.ImmutableBuffer buffer =
+          await ui.ImmutableBuffer.fromUint8List(bytes);
+      final ui.ImageDescriptor descriptor =
+          await ui.ImageDescriptor.encoded(buffer);
+      final ui.Codec codec = await descriptor.instantiateCodec(
+        targetWidth: 64,
+        targetHeight: 64,
+      );
+      final ui.FrameInfo frame = await codec.getNextFrame();
+      final ui.Image image = frame.image;
+      final ByteData? data = await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
+      image.dispose();
+      codec.dispose();
+      descriptor.dispose();
+      buffer.dispose();
+
+      if (data == null) {
+        return null;
+      }
+
+      final Uint8List pixels = data.buffer.asUint8List();
+      int r = 0;
+      int g = 0;
+      int b = 0;
+      int count = 0;
+
+      for (int i = 0; i + 3 < pixels.length; i += 4) {
+        final int a = pixels[i + 3];
+        if (a < 16) {
+          continue;
+        }
+        r += pixels[i];
+        g += pixels[i + 1];
+        b += pixels[i + 2];
+        count++;
+      }
+
+      if (count == 0) {
+        return null;
+      }
+
+      final Color average = Color.fromARGB(
+        255,
+        r ~/ count,
+        g ~/ count,
+        b ~/ count,
+      );
+      return _boostGlowColor(average);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Uint8List?> _loadArtworkBytes(Track track) async {
+    final String? artworkPath = track.artworkPath;
+    if (artworkPath != null && artworkPath.isNotEmpty) {
+      final file = File(artworkPath);
+      if (await file.exists()) {
+        try {
+          if (await file.length() > 0) {
+            return await file.readAsBytes();
+          }
+        } catch (_) {}
+      }
+    }
+
+    final String? remoteUrl = _resolveArtworkUrl(track);
+    if (remoteUrl == null || remoteUrl.isEmpty) {
+      return null;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse(remoteUrl),
+        headers: track.httpHeaders ?? const {},
+      );
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        return response.bodyBytes;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  String? _resolveArtworkUrl(Track track) {
+    if (track.sourceType == TrackSourceType.netease) {
+      final String? cover = track.httpHeaders?['x-netease-cover'];
+      if (cover != null && cover.isNotEmpty) {
+        return cover;
+      }
+    }
+    return MysteryLibraryConstants.buildArtworkUrl(
+          track.httpHeaders,
+          thumbnail: false,
+        ) ??
+        MysteryLibraryConstants.buildArtworkUrl(
+          track.httpHeaders,
+          thumbnail: true,
+        );
+  }
+
+  Color _boostGlowColor(Color color) {
+    final HSLColor hsl = HSLColor.fromColor(color);
+    final double lightness = (hsl.lightness + 0.18).clamp(0.28, 0.75);
+    final double saturation = (hsl.saturation + 0.12).clamp(0.0, 1.0);
+    return hsl.withSaturation(saturation).withLightness(lightness).toColor();
   }
 
   void _resetTrackDetailState() {
@@ -900,9 +1048,11 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         setState(() {
           _currentTrack = nextTrack;
           _resetTrackDetailState();
+          _artworkGlowColor = null;
         });
       }
       _ensureLyricsLoaded(nextTrack);
+      _loadArtworkGlowColor(nextTrack);
       _resetScroll();
       _activeLyricsLines = const [];
       _activeDesktopLine = null;
@@ -1275,6 +1425,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         onToggleTrackDetail: _toggleTrackDetailPanel,
         onEditTrackDetail: _openTrackDetailEditor,
         bottomSafeInset: widget.bottomSafeInset,
+        artworkGlowColor: _artworkGlowColor,
         compactStage: _compactLyricsStage,
         onCycleCompactStage: _cycleCompactLyricsStage,
       ),
@@ -1289,6 +1440,7 @@ class _LyricsLayout extends StatelessWidget {
     required this.isMac,
     required this.showTranslation,
     required this.visualStyle,
+    this.artworkGlowColor,
     required this.lyricsHidden,
     required this.onToggleTranslation,
     required this.onToggleLyricsStyle,
@@ -1319,6 +1471,7 @@ class _LyricsLayout extends StatelessWidget {
   final bool isMac;
   final bool showTranslation;
   final LyricsVisualStyle visualStyle;
+  final Color? artworkGlowColor;
   final bool lyricsHidden;
   final VoidCallback onToggleTranslation;
   final VoidCallback onToggleLyricsStyle;
@@ -1367,6 +1520,7 @@ class _LyricsLayout extends StatelessWidget {
             track: normalizedTrack,
             showTranslation: showTranslation,
             visualStyle: visualStyle,
+            artworkGlowColor: artworkGlowColor,
             lyricsHidden: lyricsHidden,
             onToggleTranslation: onToggleTranslation,
             onToggleLyricsStyle: onToggleLyricsStyle,
@@ -2008,6 +2162,7 @@ class _LyricsPanel extends StatelessWidget {
     required this.track,
     required this.showTranslation,
     required this.visualStyle,
+    this.artworkGlowColor,
     required this.lyricsHidden,
     required this.onToggleTranslation,
     required this.onToggleLyricsStyle,
@@ -2030,6 +2185,7 @@ class _LyricsPanel extends StatelessWidget {
   final Track track;
   final bool showTranslation;
   final LyricsVisualStyle visualStyle;
+  final Color? artworkGlowColor;
   final bool lyricsHidden;
   final VoidCallback onToggleTranslation;
   final VoidCallback onToggleLyricsStyle;
@@ -2233,6 +2389,7 @@ class _LyricsPanel extends StatelessWidget {
         onActiveLineChanged: onActiveLineChanged,
         onLineTap: onLineTap,
         visualStyle: visualStyle,
+        glowColor: artworkGlowColor,
       );
     }
 
