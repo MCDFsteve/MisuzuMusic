@@ -445,7 +445,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   }
 }
 
-class _LyricsLineImageTile extends StatelessWidget {
+class _LyricsLineImageTile extends StatefulWidget {
   const _LyricsLineImageTile({
     super.key,
     required this.text,
@@ -475,133 +475,252 @@ class _LyricsLineImageTile extends StatelessWidget {
   final TextStyle inactiveStyle;
   final double maxWidth;
 
+  @override
+  State<_LyricsLineImageTile> createState() => _LyricsLineImageTileState();
+}
+
+class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _scatterController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scatterController = AnimationController(
+      vsync: this,
+      duration: widget.animationDuration,
+    )
+      ..value = 1.0
+      ..addListener(_handleScatterTick);
+  }
+
+  @override
+  void didUpdateWidget(covariant _LyricsLineImageTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animationDuration != widget.animationDuration) {
+      _scatterController.duration = widget.animationDuration;
+    }
+    if (oldWidget.lineOffsetFromActive != widget.lineOffsetFromActive) {
+      _scatterController
+        ..value = 0.0
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scatterController.removeListener(_handleScatterTick);
+    _scatterController.dispose();
+    super.dispose();
+  }
+
+  void _handleScatterTick() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   double _resolveBlurSigma() {
-    final int? relative = lineOffsetFromActive;
+    final int? relative = widget.lineOffsetFromActive;
     final int desiredIndex;
     if (relative == null) {
-      desiredIndex = _blurSigmaLevels.length - 1;
+      desiredIndex = _LyricsLineImageTile._blurSigmaLevels.length - 1;
     } else {
       desiredIndex = relative.abs().clamp(
         0,
-        _blurSigmaLevels.length - 1,
+        _LyricsLineImageTile._blurSigmaLevels.length - 1,
       );
     }
-    return _blurSigmaLevels[desiredIndex];
+    return _LyricsLineImageTile._blurSigmaLevels[desiredIndex];
   }
 
   @override
   Widget build(BuildContext context) {
     final double sigma = _resolveBlurSigma();
-    final TextStyle targetStyle = isActive ? activeStyle : inactiveStyle;
-    final String displayText = text.isEmpty ? ' ' : text;
+    final TextStyle targetStyle =
+        widget.isActive ? widget.activeStyle : widget.inactiveStyle;
+    final String displayText = widget.text.isEmpty ? ' ' : widget.text;
     final double fontSize = targetStyle.fontSize ?? 16.0;
     final double baseLineHeight = targetStyle.height ?? 1.6;
     final double compressedLineHeight = math.max(
       0.9,
-      baseLineHeight * _lineHeightCompressionFactor,
+      baseLineHeight * _LyricsLineImageTile._lineHeightCompressionFactor,
     );
 
-    Widget originalContent;
+    final Widget primaryContent = _buildLyricsContent(
+      baseStyle: targetStyle,
+      overrideStyle: null,
+      fontSize: fontSize,
+      compressedLineHeight: compressedLineHeight,
+      displayText: displayText,
+    );
 
-    if (annotatedTexts.isNotEmpty) {
-      final double annotationFontSize = math.max(8.0, fontSize * 0.4);
-      final TextStyle annotationStyle = targetStyle.copyWith(
-        fontSize: annotationFontSize,
-        fontWeight: FontWeight.w500,
-        height: 1.0,
-        color:
-            targetStyle.color?.withOpacity(isActive ? 0.9 : 0.7) ??
-            targetStyle.color,
-      );
+    final bool hasVisibleText = displayText.trim().isNotEmpty ||
+        (widget.translatedText?.trim().isNotEmpty ?? false);
+    Widget layeredContent = primaryContent;
 
-      final double spacing = -math.max(fontSize * 0.32, annotationFontSize * 0.55);
+    final double scatterProgress =
+        (_scatterController.isAnimating || _scatterController.value < 1.0)
+            ? (1.0 - _scatterController.value).clamp(0.0, 1.0)
+            : 0.0;
 
-      originalContent = FuriganaText(
-        segments: annotatedTexts,
-        annotationStyle: annotationStyle,
-        textAlign: TextAlign.center,
-        maxLines: 4,
-        softWrap: true,
-        strutStyle: StrutStyle(
-          fontSize: fontSize,
-          height: compressedLineHeight,
-          forceStrutHeight: true,
-          leading: 0,
-        ),
-        annotationSpacing: spacing,
-      );
-    } else {
-      originalContent = Text(
-        displayText,
-        textAlign: TextAlign.center,
-        softWrap: true,
-        maxLines: 4,
-        locale: Locale("zh-Hans", "zh"),
-        strutStyle: StrutStyle(
-          fontSize: fontSize,
-          height: compressedLineHeight,
-          forceStrutHeight: true,
-          leading: 0,
+    if (hasVisibleText && scatterProgress > 0.001) {
+      final Color fallbackColor =
+          targetStyle.color ?? (widget.isActive ? Colors.white : Colors.black87);
+      final double baseOpacity =
+          ui.lerpDouble(1.0, 0.5, scatterProgress) ?? 0.5;
+      final double ghostOpacity = 0.5 * scatterProgress;
+      final TextStyle ghostStyle = targetStyle.copyWith(
+        color: fallbackColor.withOpacity(
+          (targetStyle.color?.opacity ?? 1.0) * 0.6,
         ),
       );
-    }
-
-    Widget composedContent = originalContent;
-
-    final String? translated = translatedText;
-    if (translated != null && translated.trim().isNotEmpty) {
-      final TextStyle translationStyle = targetStyle.copyWith(
-        height: compressedLineHeight,
+      final Offset ghostOffset = Offset(
+        1.4 * scatterProgress,
+        1.6 * scatterProgress,
       );
-      final Widget translationWidget = AnimatedDefaultTextStyle(
-        style: translationStyle,
-        duration: animationDuration,
-        curve: Curves.easeInOut,
-        child: Text(
-          translated.trim(),
-          textAlign: TextAlign.center,
-          softWrap: true,
-          maxLines: 4,
-          locale: Locale("zh-Hans", "zh"),
-          strutStyle: StrutStyle(
+
+      final Widget ghostContent = Transform.translate(
+        offset: ghostOffset,
+        child: Opacity(
+          opacity: ghostOpacity,
+          child: _buildLyricsContent(
+            baseStyle: targetStyle,
+            overrideStyle: ghostStyle,
             fontSize: fontSize,
-            height: compressedLineHeight,
-            forceStrutHeight: true,
-            leading: 0,
+            compressedLineHeight: compressedLineHeight,
+            displayText: displayText,
           ),
         ),
       );
 
-      composedContent = Column(
-        mainAxisSize: MainAxisSize.min,
+      final Widget baseLayer = Opacity(
+        opacity: baseOpacity,
+        child: primaryContent,
+      );
+
+      layeredContent = Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
         children: [
-          originalContent,
-          const SizedBox(height: 4),
-          translationWidget,
+          ghostContent,
+          baseLayer,
         ],
       );
     }
 
     if (sigma >= 0.01) {
-      composedContent = ImageFiltered(
+      layeredContent = ImageFiltered(
         imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-        child: composedContent,
+        child: layeredContent,
       );
     }
 
     return Padding(
-      padding:
-          linePadding +
-          const EdgeInsets.symmetric(vertical: _itemSpacingPadding),
+      padding: widget.linePadding +
+          const EdgeInsets.symmetric(
+            vertical: _LyricsLineImageTile._itemSpacingPadding,
+          ),
       child: AnimatedDefaultTextStyle(
         style: targetStyle,
-        duration: animationDuration,
+        duration: widget.animationDuration,
         curve: Curves.easeInOut,
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Align(alignment: Alignment.center, child: composedContent),
+          constraints: BoxConstraints(maxWidth: widget.maxWidth),
+          child: Align(alignment: Alignment.center, child: layeredContent),
         ),
       ),
+    );
+  }
+
+  Widget _buildLyricsContent({
+    required TextStyle baseStyle,
+    required TextStyle? overrideStyle,
+    required double fontSize,
+    required double compressedLineHeight,
+    required String displayText,
+  }) {
+    final TextStyle styleForChildren = overrideStyle ?? baseStyle;
+    final StrutStyle strutStyle = StrutStyle(
+      fontSize: fontSize,
+      height: compressedLineHeight,
+      forceStrutHeight: true,
+      leading: 0,
+    );
+
+    Widget originalContent;
+
+    if (widget.annotatedTexts.isNotEmpty) {
+      final double annotationFontSize = math.max(8.0, fontSize * 0.4);
+      final double annotationBaseOpacity = widget.isActive ? 0.9 : 0.7;
+      final double annotationOpacity = overrideStyle != null
+          ? math.min(1.0, annotationBaseOpacity * 0.8)
+          : annotationBaseOpacity;
+      final TextStyle annotationStyle = styleForChildren.copyWith(
+        fontSize: annotationFontSize,
+        fontWeight: FontWeight.w500,
+        height: 1.0,
+        color: styleForChildren.color?.withOpacity(annotationOpacity) ??
+            styleForChildren.color,
+      );
+
+      final double spacing = -math.max(
+        fontSize * 0.32,
+        annotationFontSize * 0.55,
+      );
+
+      originalContent = FuriganaText(
+        segments: widget.annotatedTexts,
+        baseStyle: overrideStyle,
+        annotationStyle: annotationStyle,
+        textAlign: TextAlign.center,
+        maxLines: 4,
+        softWrap: true,
+        strutStyle: strutStyle,
+        annotationSpacing: spacing,
+      );
+    } else {
+      originalContent = Text(
+        displayText,
+        style: overrideStyle,
+        textAlign: TextAlign.center,
+        softWrap: true,
+        maxLines: 4,
+        locale: Locale("zh-Hans", "zh"),
+        strutStyle: strutStyle,
+      );
+    }
+
+    final String? translated = widget.translatedText;
+    if (translated == null || translated.trim().isEmpty) {
+      return originalContent;
+    }
+
+    final TextStyle translationStyle = styleForChildren.copyWith(
+      height: compressedLineHeight,
+    );
+    final Widget translationWidget = AnimatedDefaultTextStyle(
+      style: translationStyle,
+      duration: widget.animationDuration,
+      curve: Curves.easeInOut,
+      child: Text(
+        translated.trim(),
+        style: overrideStyle,
+        textAlign: TextAlign.center,
+        softWrap: true,
+        maxLines: 4,
+        locale: Locale("zh-Hans", "zh"),
+        strutStyle: strutStyle,
+      ),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        originalContent,
+        const SizedBox(height: 4),
+        translationWidget,
+      ],
     );
   }
 }
