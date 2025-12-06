@@ -41,6 +41,9 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   );
   static const double _listSidePadding = 4.0;
   static const Duration _animationDuration = Duration(milliseconds: 240);
+  static const Duration _primaryScrollDuration = Duration(milliseconds: 420);
+  static const Duration _correctionScrollDuration = Duration(milliseconds: 320);
+  static const Curve _elasticScrollCurve = Curves.easeOutBack;
 
   int _activeIndex = -1;
   late List<GlobalKey> _itemKeys;
@@ -220,8 +223,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     widget.controller
         .animateTo(
           targetOffset,
-          duration: const Duration(milliseconds: 360),
-          curve: Curves.easeOutQuad,
+          duration: _primaryScrollDuration,
+          curve: _elasticScrollCurve,
         )
         .then((_) => _verifyCentered(index, attempt + 1));
   }
@@ -286,8 +289,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     widget.controller
         .animateTo(
           targetOffset,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutQuad,
+          duration: _correctionScrollDuration,
+          curve: _elasticScrollCurve,
         )
         .then((_) => _verifyCentered(index, attempt + 1));
   }
@@ -323,8 +326,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     widget.controller
         .animateTo(
           clamped,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutQuad,
+          duration: _primaryScrollDuration,
+          curve: _elasticScrollCurve,
         )
         .then((_) => _verifyCentered(index, attempt + 1));
   }
