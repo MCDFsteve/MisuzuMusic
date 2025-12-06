@@ -11,6 +11,8 @@ PODS:
   - file_picker (0.0.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
+  - icloud_storage_sync (0.0.2):
+    - FlutterMacOS
   - just_audio (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -67,6 +69,7 @@ DEPENDENCIES:
   - desktop_multi_window (from `Flutter/ephemeral/.symlinks/plugins/desktop_multi_window/macos`)
   - file_picker (from `Flutter/ephemeral/.symlinks/plugins/file_picker/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
+  - icloud_storage_sync (from `Flutter/ephemeral/.symlinks/plugins/icloud_storage_sync/macos`)
   - just_audio (from `Flutter/ephemeral/.symlinks/plugins/just_audio/darwin`)
   - macos_ui (from `Flutter/ephemeral/.symlinks/plugins/macos_ui/macos`)
   - macos_window_utils (from `Flutter/ephemeral/.symlinks/plugins/macos_window_utils/macos`)
@@ -96,6 +99,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/file_picker/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
+  icloud_storage_sync:
+    :path: Flutter/ephemeral/.symlinks/plugins/icloud_storage_sync/macos
   just_audio:
     :path: Flutter/ephemeral/.symlinks/plugins/just_audio/darwin
   macos_ui:
@@ -126,6 +131,7 @@ SPEC CHECKSUMS:
   desktop_multi_window: 93667594ccc4b88d91a97972fd3b1b89667fa80a
   file_picker: 7584aae6fa07a041af2b36a2655122d42f578c1a
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  icloud_storage_sync: f286d6b6260fee06514cab02eac576b08f1b03fc
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   macos_ui: ff29104a215c2e1b76f37aacdcbba648abb25faa
   macos_window_utils: 23f54331a0fd51eea9e0ed347253bf48fd379d1d

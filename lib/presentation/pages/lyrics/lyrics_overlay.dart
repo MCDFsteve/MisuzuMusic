@@ -1980,11 +1980,11 @@ class _TrackDetailView extends StatelessWidget {
   }
 }
 
-const double _kLyricsPanelButtonSpacing = 55.0;
-const double _kLyricsPanelCompactButtonSpacing = 18.0;
-const double _kLyricsPanelTopSpacing = 60.0;
-const double _kLyricsPanelCompactTopSpacing = 24.0;
-const double _kLyricsPanelBaseBottomInset = 20.0;
+const double _kLyricsPanelButtonSpacing = 12.0;
+const double _kLyricsPanelCompactButtonSpacing = 12.0;
+const double _kLyricsPanelTopSpacing = 12.0;
+const double _kLyricsPanelCompactTopSpacing = 12.0;
+const double _kLyricsPanelBaseBottomInset = 12.0;
 const double _kLyricsPanelCompactBaseBottomInset = 12.0;
 
 class _LyricsPanel extends StatelessWidget {
