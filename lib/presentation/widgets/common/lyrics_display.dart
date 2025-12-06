@@ -441,8 +441,6 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                   final LyricsLine line = widget.lines[lineIndex];
                   final bool isActive = lineIndex == _activeIndex;
                   final String text = _lineText(line);
-                  final int? relativeIndex =
-                      _activeIndex >= 0 ? lineIndex - _activeIndex : null;
                   return _LyricsLineImageTile(
                     key: _itemKeys[lineIndex],
                     text: text,
@@ -453,7 +451,6 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                     isActive: isActive,
                     linePadding: _linePadding,
                     animationDuration: _animationDuration,
-                    lineOffsetFromActive: relativeIndex,
                     scrollOffsetListenable: _scrollOffsetNotifier,
                     viewportHeight: viewportHeight,
                     lineExtentEstimate:
@@ -482,7 +479,6 @@ class _LyricsLineImageTile extends StatefulWidget {
     required this.isActive,
     required this.linePadding,
     required this.animationDuration,
-    required this.lineOffsetFromActive,
     required this.scrollOffsetListenable,
     required this.viewportHeight,
     required this.lineExtentEstimate,
@@ -494,6 +490,7 @@ class _LyricsLineImageTile extends StatefulWidget {
   static const List<double> _blurSigmaLevels = <double>[0.0, 1.0, 2.0, 3.0];
   static const double _lineHeightCompressionFactor = 0.75;
   static const double _itemSpacingPadding = 8.0;
+  static const double _transitionExtraSigma = 3.5;
 
   final String text;
   final List<AnnotatedText> annotatedTexts;
@@ -501,7 +498,6 @@ class _LyricsLineImageTile extends StatefulWidget {
   final bool isActive;
   final EdgeInsets linePadding;
   final Duration animationDuration;
-  final int? lineOffsetFromActive;
   final ValueListenable<double> scrollOffsetListenable;
   final double viewportHeight;
   final double lineExtentEstimate;
@@ -515,18 +511,18 @@ class _LyricsLineImageTile extends StatefulWidget {
 
 class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
     with SingleTickerProviderStateMixin {
-  late AnimationController _scatterController;
+  late AnimationController _transitionController;
   int _blurLevel = _LyricsLineImageTile._blurSigmaLevels.length - 1;
 
   @override
   void initState() {
     super.initState();
-    _scatterController = AnimationController(
+    _transitionController = AnimationController(
       vsync: this,
       duration: widget.animationDuration,
     )
       ..value = 1.0
-      ..addListener(_handleScatterTick);
+      ..addListener(_handleTransitionTick);
     widget.scrollOffsetListenable.addListener(_handleScrollChange);
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleScrollChange());
   }
@@ -535,12 +531,7 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
   void didUpdateWidget(covariant _LyricsLineImageTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.animationDuration != widget.animationDuration) {
-      _scatterController.duration = widget.animationDuration;
-    }
-    if (oldWidget.lineOffsetFromActive != widget.lineOffsetFromActive) {
-      _scatterController
-        ..value = 0.0
-        ..forward();
+      _transitionController.duration = widget.animationDuration;
     }
     if (oldWidget.scrollOffsetListenable != widget.scrollOffsetListenable) {
       oldWidget.scrollOffsetListenable.removeListener(_handleScrollChange);
@@ -555,13 +546,13 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
 
   @override
   void dispose() {
-    _scatterController.removeListener(_handleScatterTick);
-    _scatterController.dispose();
+    _transitionController.removeListener(_handleTransitionTick);
+    _transitionController.dispose();
     widget.scrollOffsetListenable.removeListener(_handleScrollChange);
     super.dispose();
   }
 
-  void _handleScatterTick() {
+  void _handleTransitionTick() {
     if (mounted) {
       setState(() {});
     }
@@ -605,11 +596,26 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
       setState(() {
         _blurLevel = nextLevel;
       });
+      _triggerBlurTransition();
     }
   }
 
   double _resolveBlurSigma() {
-    return _LyricsLineImageTile._blurSigmaLevels[_blurLevel];
+    final double baseSigma = _LyricsLineImageTile._blurSigmaLevels[_blurLevel];
+    final double transitionProgress =
+        1.0 - _transitionController.value.clamp(0.0, 1.0);
+    if (transitionProgress <= 0.0) {
+      return baseSigma;
+    }
+    final double eased = Curves.easeOut.transform(transitionProgress);
+    return baseSigma +
+        eased * _LyricsLineImageTile._transitionExtraSigma;
+  }
+
+  void _triggerBlurTransition() {
+    _transitionController
+      ..value = 0.0
+      ..forward();
   }
 
   @override
@@ -625,67 +631,13 @@ class _LyricsLineImageTileState extends State<_LyricsLineImageTile>
       baseLineHeight * _LyricsLineImageTile._lineHeightCompressionFactor,
     );
 
-    final Widget primaryContent = _buildLyricsContent(
+    Widget layeredContent = _buildLyricsContent(
       baseStyle: targetStyle,
       overrideStyle: null,
       fontSize: fontSize,
       compressedLineHeight: compressedLineHeight,
       displayText: displayText,
     );
-
-    final bool hasVisibleText = displayText.trim().isNotEmpty ||
-        (widget.translatedText?.trim().isNotEmpty ?? false);
-    Widget layeredContent = primaryContent;
-
-    final double scatterProgress =
-        (_scatterController.isAnimating || _scatterController.value < 1.0)
-            ? (1.0 - _scatterController.value).clamp(0.0, 1.0)
-            : 0.0;
-
-    if (hasVisibleText && scatterProgress > 0.001) {
-      final Color fallbackColor =
-          targetStyle.color ?? (widget.isActive ? Colors.white : Colors.black87);
-      final double baseOpacity =
-          ui.lerpDouble(1.0, 0.5, scatterProgress) ?? 0.5;
-      final double ghostOpacity = 0.5 * scatterProgress;
-      final TextStyle ghostStyle = targetStyle.copyWith(
-        color: fallbackColor.withOpacity(
-          (targetStyle.color?.opacity ?? 1.0) * 0.6,
-        ),
-      );
-      final Offset ghostOffset = Offset(
-        1.4 * scatterProgress,
-        1.6 * scatterProgress,
-      );
-
-      final Widget ghostContent = Transform.translate(
-        offset: ghostOffset,
-        child: Opacity(
-          opacity: ghostOpacity,
-          child: _buildLyricsContent(
-            baseStyle: targetStyle,
-            overrideStyle: ghostStyle,
-            fontSize: fontSize,
-            compressedLineHeight: compressedLineHeight,
-            displayText: displayText,
-          ),
-        ),
-      );
-
-      final Widget baseLayer = Opacity(
-        opacity: baseOpacity,
-        child: primaryContent,
-      );
-
-      layeredContent = Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          ghostContent,
-          baseLayer,
-        ],
-      );
-    }
 
     if (sigma >= 0.01) {
       layeredContent = ImageFiltered(
