@@ -101,16 +101,40 @@ extension _HomePageMobileLayout on _HomePageContentState {
                 left: 0,
                 right: 0,
                 bottom: navReservedHeight,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: MobileNowPlayingBar(
-                    playerState: playerState,
-                    isLyricsActive: _lyricsVisible,
-                    onArtworkTap: currentTrack == null
-                        ? null
-                        : () => _toggleLyrics(playerState),
-                    onQueueTap: _showQueueBottomSheet,
-                  ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  switchInCurve: Curves.easeOutQuad,
+                  switchOutCurve: Curves.easeInQuad,
+                  transitionBuilder: (child, animation) {
+                    final slide = Tween<Offset>(
+                      begin: const Offset(0, 0.12),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutQuad,
+                      reverseCurve: Curves.easeInQuad,
+                    ));
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(position: slide, child: child),
+                    );
+                  },
+                  child: _mobileNowPlayingBarVisible
+                      ? Padding(
+                          key: const ValueKey('mobile_now_playing_visible'),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: MobileNowPlayingBar(
+                            playerState: playerState,
+                            isLyricsActive: _lyricsVisible,
+                            onArtworkTap: currentTrack == null
+                                ? null
+                                : () => _toggleLyrics(playerState),
+                            onQueueTap: _showQueueBottomSheet,
+                          ),
+                        )
+                      : const SizedBox.shrink(
+                          key: ValueKey('mobile_now_playing_hidden'),
+                        ),
                 ),
               ),
             ],
@@ -158,6 +182,11 @@ extension _HomePageMobileLayout on _HomePageContentState {
           );
         }
 
+        final scrollAwareBody = NotificationListener<ScrollNotification>(
+          onNotification: _handleMobileScrollNotification,
+          child: interactiveBody,
+        );
+
         final visibleSectionIndices = _mobileDestinationSectionIndices;
         final navSelectedIndex =
             _navigationSelectedIndex(visibleSectionIndices);
@@ -167,13 +196,13 @@ extension _HomePageMobileLayout on _HomePageContentState {
           _handleNavigationChange(targetSection);
         }
 
-        Widget scaffoldBody = interactiveBody;
+        Widget scaffoldBody = scrollAwareBody;
         AdaptiveBottomNavigationBar? scaffoldBottomBar;
 
         if (useLegacyCupertinoTabBar) {
           scaffoldBody = Stack(
             children: [
-              Positioned.fill(child: interactiveBody),
+              Positioned.fill(child: scrollAwareBody),
               Positioned(
                 left: 0,
                 right: 0,
@@ -202,6 +231,39 @@ extension _HomePageMobileLayout on _HomePageContentState {
         );
       },
     );
+  }
+
+  bool _handleMobileScrollNotification(ScrollNotification notification) {
+    final bool isUserScroll = notification is UserScrollNotification;
+    final bool isScrolling = notification is ScrollStartNotification ||
+        notification is ScrollUpdateNotification ||
+        notification is OverscrollNotification ||
+        notification is ScrollEndNotification;
+
+    if (isUserScroll || isScrolling) {
+      _handleMobileScrollActivity();
+    }
+    return false;
+  }
+
+  void _handleMobileScrollActivity() {
+    _mobileNowPlayingVisibilityTimer?.cancel();
+    _mobileNowPlayingVisibilityTimer = Timer(const Duration(milliseconds: 150),
+        () {
+      if (!mounted || _mobileNowPlayingBarVisible) {
+        return;
+      }
+      setState(() => _mobileNowPlayingBarVisible = true);
+    });
+
+    if (_mobileNowPlayingBarVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_mobileNowPlayingBarVisible) {
+          return;
+        }
+        setState(() => _mobileNowPlayingBarVisible = false);
+      });
+    }
   }
 
   List<BottomNavigationBarItem> _buildLegacyCupertinoNavItems(
