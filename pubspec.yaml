@@ -165,4 +165,6 @@ dependency_overrides:
     path: third_party/plugins/desktop_multi_window
   audio_service:
     path: third_party/plugins/audio_service
+  media_kit:
+    path: third_party/patches/media_kit
   intl: 0.20.2

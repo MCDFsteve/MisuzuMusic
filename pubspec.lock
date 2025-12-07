@@ -708,12 +708,11 @@ packages:
     source: hosted
     version: "0.11.1"
   media_kit:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: media_kit
-      sha256: "52a8e989babc431db0aa242f32a4a08e55f60662477ea09759a105d7cd6410da"
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/patches/media_kit"
+      relative: true
+    source: path
     version: "1.2.1"
   media_kit_libs_android_audio:
     dependency: transitive
