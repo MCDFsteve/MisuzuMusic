@@ -102,7 +102,7 @@ jobs:
           <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
             <Product Id="*" Name="Misuzu Music" Language="1033" Version="${env:APP_VERSION}" Manufacturer="Misuzu" UpgradeCode="5F8F1E2F-9F8E-4F44-BEC6-4833F8D66FF6">
               <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" Platform="$platform" />
-              <MajorUpgrade DowngradeErrorMessage="已安装更高版本的 Misuzu Music。" />
+              <MajorUpgrade DowngradeErrorMessage="A newer version of Misuzu Music is already installed." />
               <MediaTemplate EmbedCab="yes" />
 
               <Feature Id="MainFeature" Title="Misuzu Music" Level="1">
