@@ -15,7 +15,7 @@ extension _HomePageDesktopLayout on _HomePageContentState {
             .watch<MusicLibraryBloc>()
             .state;
         final NeteaseState neteaseState = context.watch<NeteaseCubit>().state;
-
+ 
         final l10n = context.l10n;
         final desktopSections = _desktopSectionIndices;
         final desktopNavIndex = _navigationSelectedIndex(desktopSections);

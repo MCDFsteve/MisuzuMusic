@@ -87,3 +87,9 @@ linux/flutter/generated_plugin_registrant.cc
 /linux/flutter/ephemeral
 /windows/flutter/ephemeral
 /.dartServer
+/third_party/patches/media_kit/.dart_tool
+/third_party/plugins/audio_service/.dart_tool
+*.lock
+/third_party/plugins/audio_service/example
+/third_party/plugins/desktop_multi_window/example
+/third_party/plugins/desktop_multi_window/.dart_tool
