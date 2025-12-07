@@ -1,4 +1,4 @@
-name: Build Windows ZIP
+name: Build Windows ZIP and Installer
 
 on:
   workflow_call:
@@ -29,9 +29,76 @@ jobs:
       - name: 获取依赖
         shell: pwsh
         run: flutter pub get
+      - name: 安装 Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
       - name: 构建 Windows 应用
         shell: pwsh
         run: flutter build windows --release
+      - name: 构建 Windows 安装程序
+        shell: pwsh
+        run: |
+          $artifactDir = "build/artifacts"
+          $buildDir = "build/windows/$env:TARGET_ARCH/runner/Release"
+          if (-not (Test-Path $buildDir)) {
+            Write-Error "未找到 Windows 构建输出：$buildDir"
+          }
+
+          New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+          $buildDir = (Resolve-Path $buildDir).Path
+          $artifactDir = (Resolve-Path $artifactDir).Path
+
+          $installerScript = Join-Path $env:RUNNER_TEMP "MisuzuMusicInstaller.iss"
+          $outputBaseName = "windows-$($env:TARGET_ARCH)-$($env:APP_VERSION)-setup"
+
+          $arch = switch ($env:TARGET_ARCH.ToLowerInvariant()) {
+            "x64" { "x64" }
+            "arm64" { "arm64" }
+            "x86" { "x86" }
+            default { "x64" }
+          }
+
+          @"
+#define MyAppName "Misuzu Music"
+#define MyAppVersion "${env:APP_VERSION}"
+#define MyAppPublisher "Misuzu"
+#define MyAppExeName "MisuzuMusic.exe"
+
+[Setup]
+AppId={{9E7F0A89-637D-4C5A-B7C8-54A994F8B9A8}}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+DefaultDirName={pf}\Misuzu Music
+DefaultGroupName=Misuzu Music
+OutputDir="$artifactDir"
+OutputBaseFilename="$outputBaseName"
+Compression=lzma
+SolidCompression=yes
+ArchitecturesAllowed=$arch
+DisableWelcomePage=yes
+WizardStyle=modern
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+
+[Files]
+Source: "$buildDir\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{autoprograms}\Misuzu Music"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\Misuzu Music"; Filename: "{app}\{#MyAppExeName}"
+
+[Run]
+Filename: "{app}\{#MyAppExeName}"; Description: "启动 Misuzu Music"; Flags: nowait postinstall skipifsilent
+"@ | Set-Content -Path $installerScript -Encoding UTF8
+
+          $isccPath = Join-Path -Path "${env:ProgramFiles(x86)}" -ChildPath "Inno Setup 6\\ISCC.exe"
+          if (-not (Test-Path $isccPath)) {
+            Write-Error "未找到 ISCC 可执行文件：$isccPath"
+          }
+          & $isccPath $installerScript
       - name: 打包 ZIP
         shell: pwsh
         run: |
@@ -47,6 +114,12 @@ jobs:
             Remove-Item $destination -Force
           }
           Compress-Archive -Path (Join-Path $buildDir '*') -DestinationPath $destination -Force
+      - name: 上传 Windows 安装程序
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}-setup.exe
+          path: build/artifacts/windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}-setup.exe
+          if-no-files-found: error
       - name: 上传 Windows 构建产物
         uses: actions/upload-artifact@v4
         with:

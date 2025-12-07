@@ -420,6 +420,7 @@ class _PlaybackQueueSheet extends StatelessWidget {
           initialChildSize: 0.7,
           minChildSize: 0.5,
           maxChildSize: 0.95,
+          expand: false,
           builder: (context, controller) {
             return BlocBuilder<PlayerBloc, PlayerBlocState>(
               builder: (context, state) {
@@ -438,29 +439,37 @@ class _PlaybackQueueSheet extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      const SizedBox(height: 8),
-                      Container(
-                        width: 42,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: handleColor,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                        child: Row(
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Column(
                           children: [
-                            Text(
-                              context.l10n.homeQueueLabel,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
+                            const SizedBox(height: 8),
+                            Container(
+                              width: 42,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: handleColor,
+                                borderRadius: BorderRadius.circular(999),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            _QueueBadge(
-                              label: '${snapshot.queue.length}',
-                              color: queueCountColor,
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    context.l10n.homeQueueLabel,
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _QueueBadge(
+                                    label: '${snapshot.queue.length}',
+                                    color: queueCountColor,
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),

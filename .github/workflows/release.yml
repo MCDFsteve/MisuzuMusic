@@ -105,6 +105,7 @@ jobs:
 
             - macOS 通用 DMG
             - Windows x64 ZIP
+            - Windows x64 安装程序
             - Linux x64 TAR.GZ
           files: dist/*
 

@@ -1690,8 +1690,11 @@ class _HomePageContentState extends State<HomePageContent> {
 
     await showModalBottomSheet<void>(
       context: context,
+      isDismissible: true,
+      enableDrag: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.35),
       builder: (_) => BlocProvider.value(
         value: playerBloc,
         child: _PlaybackQueueSheet(
