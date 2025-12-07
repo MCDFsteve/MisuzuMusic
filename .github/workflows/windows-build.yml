@@ -115,10 +115,10 @@ jobs:
                 <Directory Id="$programFilesDir">
                   <Directory Id="APPLICATIONFOLDER" Name="Misuzu Music" />
                 </Directory>
-                <Directory Id="ProgramMenuFolder">
+                <Directory Id="CommonProgramMenuFolder">
                   <Directory Id="ApplicationProgramsFolder" Name="Misuzu Music" />
                 </Directory>
-                <Directory Id="DesktopFolder" />
+                <Directory Id="CommonDesktopFolder" />
               </Directory>
 
               <DirectoryRef Id="ApplicationProgramsFolder">
@@ -129,7 +129,7 @@ jobs:
                 </Component>
               </DirectoryRef>
 
-              <DirectoryRef Id="DesktopFolder">
+              <DirectoryRef Id="CommonDesktopFolder">
                 <Component Id="ApplicationShortcutDesktop" Guid="1D92C3A2-4658-4A8B-8718-03BAFA0BC2E4">
                   <Shortcut Id="DesktopShortcut" Name="Misuzu Music" Target="[APPLICATIONFOLDER]MisuzuMusic.exe" WorkingDirectory="APPLICATIONFOLDER" />
                   <RegistryValue Root="HKLM" Key="Software\MisuzuMusic" Name="desktop" Type="integer" Value="1" KeyPath="yes" />
