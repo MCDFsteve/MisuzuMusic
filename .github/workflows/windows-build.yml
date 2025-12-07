@@ -37,11 +37,32 @@ jobs:
         run: |
           $langFile = Join-Path "${env:ProgramFiles(x86)}" "Inno Setup 6\Languages\ChineseSimplified.isl"
           if (-not (Test-Path $langFile)) {
-            Write-Host "ChineseSimplified.isl 缺失，开始下载..."
+            Write-Host "ChineseSimplified.isl 缺失，尝试下载..."
             $langDir = Split-Path $langFile -Parent
             New-Item -ItemType Directory -Path $langDir -Force | Out-Null
-            $url = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl"
-            Invoke-WebRequest -Uri $url -OutFile $langFile -UseBasicParsing
+            $urls = @(
+              "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl",
+              "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl",
+              "https://raw.githubusercontent.com/jrsoftware/issrc/master/Files/Languages/ChineseSimplified.isl",
+              "https://raw.githubusercontent.com/jrsoftware/issrc/master/Files/Languages/Unofficial/ChineseSimplified.isl"
+            )
+            foreach ($u in $urls) {
+              try {
+                Invoke-WebRequest -Uri $u -OutFile $langFile -UseBasicParsing -ErrorAction Stop
+                Write-Host "下载成功：$u"
+                break
+              } catch {
+                Write-Warning "下载失败：$u -- $($_.Exception.Message)"
+              }
+            }
+            if (-not (Test-Path $langFile)) {
+              $defaultLang = Join-Path (Split-Path $langDir -Parent) "Default.isl"
+              if (-not (Test-Path $defaultLang)) {
+                Write-Error "未找到 Default.isl，无法生成语言文件"
+              }
+              Copy-Item $defaultLang $langFile -Force
+              Write-Warning "使用 Default.isl 作为占位，安装器语言将 fallback 为英文。"
+            }
           } else {
             Write-Host "ChineseSimplified.isl 已存在：$langFile"
           }
