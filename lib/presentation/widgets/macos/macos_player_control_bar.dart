@@ -322,24 +322,23 @@ class MacOSPlayerControlBar extends StatelessWidget {
       _lastNonMutedVolume = clampedVolume;
     }
     final isMuted = clampedVolume <= _muteThreshold;
-    final bool queueActive = isQueueVisible;
     final queueButton = SizedBox(
       width: 36,
       height: 36,
       child: _MacHoverIconButton(
         tooltip: l10n.homeQueueLabel,
         enabled: queueEnabled && onQueuePressed != null,
-        baseColor: queueActive ? iconColor : secondaryIconColor,
+        baseColor: secondaryIconColor,
         hoverColor: iconColor,
         iconBuilder: (color) => Container(
-          decoration: BoxDecoration(
-            color: queueActive ? color.withOpacity(0.16) : Colors.transparent,
+          decoration: const BoxDecoration(
+            color: Colors.transparent,
             shape: BoxShape.circle,
           ),
           padding: const EdgeInsets.all(4),
           child: MacosIcon(
             CupertinoIcons.list_bullet,
-            color: queueActive ? iconColor : color,
+            color: color,
             size: 20,
           ),
         ),
