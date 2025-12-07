@@ -48,10 +48,38 @@ jobs:
           $buildDir = (Resolve-Path $buildDir).Path
           $artifactDir = (Resolve-Path $artifactDir).Path
 
-          $wixBin = Join-Path "${env:ProgramFiles(x86)}" "WiX Toolset v3.11\bin"
-          if (-not (Test-Path $wixBin)) {
-            Write-Error "未找到 WiX 工具目录：$wixBin"
+          $wixBinCandidates = @(
+            Join-Path "${env:ProgramFiles(x86)}" "WiX Toolset v3.11\bin",
+            Join-Path "${env:ProgramFiles(x86)}" "WiX Toolset v3.14\bin",
+            Join-Path "${env:ProgramFiles}" "WiX Toolset v3.11\bin",
+            Join-Path "${env:ProgramFiles}" "WiX Toolset v3.14\bin"
+          ) | Where-Object { Test-Path $_ }
+
+          $wixBin = $wixBinCandidates | Select-Object -First 1
+          if (-not $wixBin) {
+            $candleCmd = Get-Command candle.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($candleCmd) {
+              $wixBin = Split-Path $candleCmd.Path
+            }
           }
+
+          if (-not $wixBin) {
+            $searchRoots = @("C:\Program Files (x86)", "C:\Program Files", "C:\ProgramData\chocolatey\lib")
+            $candleExe = $searchRoots |
+              ForEach-Object {
+                Get-ChildItem -Path $_ -Filter "candle.exe" -File -Recurse -ErrorAction SilentlyContinue -Depth 4 |
+                  Select-Object -First 1
+              } | Select-Object -First 1
+            if ($candleExe) {
+              $wixBin = Split-Path $candleExe.FullName
+            }
+          }
+
+          if (-not $wixBin) {
+            Write-Error "未找到 WiX 工具目录，请检查 wixtoolset 是否安装成功"
+          }
+
+          Write-Host "使用 WiX 工具目录：$wixBin"
 
           $heat = Join-Path $wixBin "heat.exe"
           $candle = Join-Path $wixBin "candle.exe"
