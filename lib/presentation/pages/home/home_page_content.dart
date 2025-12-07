@@ -1686,7 +1686,6 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<void> _showQueueBottomSheet() async {
-    _dismissLyricsOverlay();
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,

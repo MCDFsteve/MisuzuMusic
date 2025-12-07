@@ -225,7 +225,6 @@ extension _HomePageDesktopLayout on _HomePageContentState {
                                       : () => _toggleLyrics(playerState),
                                   isLyricsActive: _lyricsVisible,
                                   onQueuePressed: () {
-                                    _dismissLyricsOverlay();
                                     setState(() {
                                       _queuePanelVisible = !_queuePanelVisible;
                                     });
