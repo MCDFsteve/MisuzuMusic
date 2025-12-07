@@ -50,11 +50,11 @@ jobs:
             exit 1
           fi
           rsync -a "$APP_PATH" "$STAGING_DIR/"
-          ARTIFACT_NAME="macos-${TARGET_ARCH}-${APP_VERSION}.dmg"
+          ARTIFACT_NAME="Misuzu-Music-macos-${TARGET_ARCH}-${APP_VERSION}.dmg"
           hdiutil create -volname "MisuzuMusic" -srcfolder "$STAGING_DIR" -ov -format UDZO "$ARTIFACT_DIR/$ARTIFACT_NAME"
       - name: 上传 macOS 构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.dmg
-          path: build/artifacts/macos-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.dmg
+          name: Misuzu-Music-macos-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.dmg
+          path: build/artifacts/Misuzu-Music-macos-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.dmg
           if-no-files-found: error

@@ -50,11 +50,11 @@ jobs:
             echo "未找到 Linux 构建输出：$OUTPUT_DIR" >&2
             exit 1
           fi
-          ARTIFACT_NAME="linux-${TARGET_ARCH}-${APP_VERSION}.tar.gz"
+          ARTIFACT_NAME="Misuzu-Music-linux-${TARGET_ARCH}-${APP_VERSION}.tar.gz"
           tar -czf "$ARTIFACT_DIR/$ARTIFACT_NAME" -C "$OUTPUT_DIR" .
       - name: 上传 Linux 构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.tar.gz
-          path: build/artifacts/linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.tar.gz
+          name: Misuzu-Music-linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.tar.gz
+          path: build/artifacts/Misuzu-Music-linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.tar.gz
           if-no-files-found: error

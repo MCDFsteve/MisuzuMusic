@@ -29,13 +29,13 @@ jobs:
       - name: 获取依赖
         shell: pwsh
         run: flutter pub get
-      - name: 安装 WiX Toolset
+      - name: 安装 Inno Setup
         shell: pwsh
-        run: choco install wixtoolset --no-progress -y
+        run: choco install innosetup --no-progress -y
       - name: 构建 Windows 应用
         shell: pwsh
         run: flutter build windows --release
-      - name: 构建 Windows MSI 安装包
+      - name: 构建 Windows 安装程序
         shell: pwsh
         run: |
           $artifactDir = "build/artifacts"
@@ -48,102 +48,57 @@ jobs:
           $buildDir = (Resolve-Path $buildDir).Path
           $artifactDir = (Resolve-Path $artifactDir).Path
 
-          $wixBinCandidates = @(
-            Join-Path ${env:ProgramFiles(x86)} "WiX Toolset v3.11\bin"
-            Join-Path ${env:ProgramFiles(x86)} "WiX Toolset v3.14\bin"
-            Join-Path ${env:ProgramFiles} "WiX Toolset v3.11\bin"
-            Join-Path ${env:ProgramFiles} "WiX Toolset v3.14\bin"
-          ) | Where-Object { $_ -and (Test-Path $_) }
+          $installerScript = Join-Path $env:RUNNER_TEMP "MisuzuMusicInstaller.iss"
+          $outputBaseName = "Misuzu-Music-windows-$($env:TARGET_ARCH)-$($env:APP_VERSION)-setup"
 
-          $wixBin = $wixBinCandidates | Select-Object -First 1
-          if (-not $wixBin) {
-            $candleCmd = Get-Command candle.exe -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($candleCmd) {
-              $wixBin = Split-Path $candleCmd.Path
-            }
-          }
-
-          if (-not $wixBin) {
-            $searchRoots = @("C:\Program Files (x86)", "C:\Program Files", "C:\ProgramData\chocolatey\lib")
-            $candleExe = $searchRoots |
-              ForEach-Object {
-                Get-ChildItem -Path $_ -Filter "candle.exe" -File -Recurse -ErrorAction SilentlyContinue -Depth 4 |
-                  Select-Object -First 1
-              } | Select-Object -First 1
-            if ($candleExe) {
-              $wixBin = Split-Path $candleExe.FullName
-            }
-          }
-
-          if (-not $wixBin) {
-            Write-Error "未找到 WiX 工具目录，请检查 wixtoolset 是否安装成功"
-          }
-
-          Write-Host "使用 WiX 工具目录：$wixBin"
-
-          $heat = Join-Path $wixBin "heat.exe"
-          $candle = Join-Path $wixBin "candle.exe"
-          $light = Join-Path $wixBin "light.exe"
-
-          $appFilesWxs = Join-Path $env:RUNNER_TEMP "AppFiles.wxs"
-          $productWxs = Join-Path $env:RUNNER_TEMP "Product.wxs"
-          $outputBaseName = "windows-$($env:TARGET_ARCH)-$($env:APP_VERSION)-setup"
-
-          $platform = switch ($env:TARGET_ARCH.ToLowerInvariant()) {
+          $arch = switch ($env:TARGET_ARCH.ToLowerInvariant()) {
+            "x64" { "x64" }
+            "arm64" { "arm64" }
             "x86" { "x86" }
             default { "x64" }
           }
-          $programFilesDir = if ($platform -eq "x86") { "ProgramFilesFolder" } else { "ProgramFiles64Folder" }
 
-          & $heat dir $buildDir -dr APPLICATIONFOLDER -cg AppFiles -gg -srd -sreg -out $appFilesWxs -var "var.BuildDir"
+          @"
+          #define MyAppName "Misuzu Music"
+          #define MyAppVersion "${env:APP_VERSION}"
+          #define MyAppPublisher "Misuzu"
+          #define MyAppExeName "MisuzuMusic.exe"
 
-          $productContent = @"
-          <?xml version="1.0" encoding="UTF-8"?>
-          <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-            <Product Id="*" Name="Misuzu Music" Language="1033" Version="${env:APP_VERSION}" Manufacturer="Misuzu" UpgradeCode="5F8F1E2F-9F8E-4F44-BEC6-4833F8D66FF6">
-              <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" Platform="$platform" />
-              <MajorUpgrade DowngradeErrorMessage="A newer version of Misuzu Music is already installed." />
-              <MediaTemplate EmbedCab="yes" />
+          [Setup]
+          AppId={{9E7F0A89-637D-4C5A-B7C8-54A994F8B9A8}}
+          AppName={#MyAppName}
+          AppVersion={#MyAppVersion}
+          AppPublisher={#MyAppPublisher}
+          DefaultDirName={pf}\Misuzu Music
+          DefaultGroupName=Misuzu Music
+          OutputDir="$artifactDir"
+          OutputBaseFilename="$outputBaseName"
+          Compression=lzma
+          SolidCompression=yes
+          ArchitecturesAllowed=$arch
+          DisableWelcomePage=yes
+          WizardStyle=modern
 
-              <Feature Id="MainFeature" Title="Misuzu Music" Level="1">
-                <ComponentGroupRef Id="AppFiles" />
-                <ComponentRef Id="ApplicationShortcutStartMenu" />
-                <ComponentRef Id="ApplicationShortcutDesktop" />
-              </Feature>
+          [Languages]
+          Name: "english"; MessagesFile: "compiler:Default.isl"
+          Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
-              <Directory Id="TARGETDIR" Name="SourceDir">
-                <Directory Id="$programFilesDir">
-                  <Directory Id="APPLICATIONFOLDER" Name="Misuzu Music" />
-                </Directory>
-                <Directory Id="CommonProgramMenuFolder">
-                  <Directory Id="ApplicationProgramsFolder" Name="Misuzu Music" />
-                </Directory>
-                <Directory Id="CommonDesktopFolder" />
-              </Directory>
+          [Files]
+          Source: "$buildDir\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-              <DirectoryRef Id="ApplicationProgramsFolder">
-                <Component Id="ApplicationShortcutStartMenu" Guid="B56D13BE-1D42-44F0-97BB-87B5A5296A60">
-                  <Shortcut Id="StartMenuShortcut" Name="Misuzu Music" Target="[APPLICATIONFOLDER]MisuzuMusic.exe" WorkingDirectory="APPLICATIONFOLDER" />
-                  <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
-                  <RegistryValue Root="HKLM" Key="Software\MisuzuMusic" Name="installed" Type="integer" Value="1" KeyPath="yes" />
-                </Component>
-              </DirectoryRef>
+          [Icons]
+          Name: "{autoprograms}\Misuzu Music"; Filename: "{app}\{#MyAppExeName}"
+          Name: "{autodesktop}\Misuzu Music"; Filename: "{app}\{#MyAppExeName}"
 
-              <DirectoryRef Id="CommonDesktopFolder">
-                <Component Id="ApplicationShortcutDesktop" Guid="1D92C3A2-4658-4A8B-8718-03BAFA0BC2E4">
-                  <Shortcut Id="DesktopShortcut" Name="Misuzu Music" Target="[APPLICATIONFOLDER]MisuzuMusic.exe" WorkingDirectory="APPLICATIONFOLDER" />
-                  <RegistryValue Root="HKLM" Key="Software\MisuzuMusic" Name="desktop" Type="integer" Value="1" KeyPath="yes" />
-                </Component>
-              </DirectoryRef>
-            </Product>
-          </Wix>
-          "@
-          $productContent | Set-Content -Path $productWxs -Encoding UTF8
+          [Run]
+          Filename: "{app}\{#MyAppExeName}"; Description: "启动 Misuzu Music"; Flags: nowait postinstall skipifsilent
+          "@ | Set-Content -Path $installerScript -Encoding UTF8
 
-          Push-Location $env:RUNNER_TEMP
-          & $candle -nologo -arch $platform -dBuildDir="$buildDir" $appFilesWxs $productWxs
-          & $light -nologo -out (Join-Path $artifactDir "$outputBaseName.msi") AppFiles.wixobj Product.wixobj
-          Pop-Location
+          $isccPath = Join-Path -Path "${env:ProgramFiles(x86)}" -ChildPath "Inno Setup 6\\ISCC.exe"
+          if (-not (Test-Path $isccPath)) {
+            Write-Error "未找到 ISCC 可执行文件：$isccPath"
+          }
+          & $isccPath $installerScript
       - name: 打包 ZIP
         shell: pwsh
         run: |
@@ -153,7 +108,7 @@ jobs:
           if (-not (Test-Path $buildDir)) {
             Write-Error "未找到 Windows 构建输出：$buildDir"
           }
-          $artifactName = "windows-$($env:TARGET_ARCH)-$($env:APP_VERSION).zip"
+          $artifactName = "Misuzu-Music-windows-$($env:TARGET_ARCH)-$($env:APP_VERSION).zip"
           $destination = Join-Path $artifactDir $artifactName
           if (Test-Path $destination) {
             Remove-Item $destination -Force
@@ -162,12 +117,12 @@ jobs:
       - name: 上传 Windows 安装程序
         uses: actions/upload-artifact@v4
         with:
-          name: windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}-setup.msi
-          path: build/artifacts/windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}-setup.msi
+          name: Misuzu-Music-windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}-setup.exe
+          path: build/artifacts/Misuzu-Music-windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}-setup.exe
           if-no-files-found: error
       - name: 上传 Windows 构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.zip
-          path: build/artifacts/windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.zip
+          name: Misuzu-Music-windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.zip
+          path: build/artifacts/Misuzu-Music-windows-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.zip
           if-no-files-found: error
