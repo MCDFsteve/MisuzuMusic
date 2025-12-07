@@ -1686,12 +1686,17 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<void> _showQueueBottomSheet() async {
+    final playerBloc = context.read<PlayerBloc>();
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _PlaybackQueueSheet(
-        onPlayTrack: _playQueueEntry,
+      builder: (_) => BlocProvider.value(
+        value: playerBloc,
+        child: _PlaybackQueueSheet(
+          onPlayTrack: _playQueueEntry,
+        ),
       ),
     );
   }

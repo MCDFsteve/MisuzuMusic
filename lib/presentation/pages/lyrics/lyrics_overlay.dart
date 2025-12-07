@@ -2243,7 +2243,7 @@ const double _kLyricsPanelCompactBaseBottomInset = 12.0;
 const double _kLyricsPanelRightInset = 0.0;
 const double _kLyricsPanelCompactRightInset = 0.0;
 const double _kLyricsPanelButtonRightPadding = 12.0;
-const double _kLyricsPanelCompactButtonRightPadding = 12.0;
+const double _kLyricsPanelCompactButtonRightPadding = 0.0;
 
 class _LyricsPanel extends StatelessWidget {
   const _LyricsPanel({

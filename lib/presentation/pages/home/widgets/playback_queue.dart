@@ -386,19 +386,12 @@ class _QueueBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-      ),
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
     );
   }
 }
@@ -413,81 +406,84 @@ class _PlaybackQueueSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final handleColor =
         theme.colorScheme.onSurface.withOpacity(theme.brightness == Brightness.dark ? 0.35 : 0.24);
+    final queueCountColor =
+        theme.colorScheme.onSurface.withOpacity(theme.brightness == Brightness.dark ? 0.64 : 0.6);
 
-    return SafeArea(
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, controller) {
-          return BlocBuilder<PlayerBloc, PlayerBlocState>(
-            builder: (context, state) {
-              final snapshot = _queueSnapshotFromState(state);
-              return Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.45 : 0.12),
-                      blurRadius: 18,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    Container(
-                      width: 42,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: handleColor,
-                        borderRadius: BorderRadius.circular(999),
+    return MediaQuery.removeViewPadding(
+      context: context,
+      removeTop: true,
+      removeBottom: true,
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (context, controller) {
+            return BlocBuilder<PlayerBloc, PlayerBlocState>(
+              builder: (context, state) {
+                final snapshot = _queueSnapshotFromState(state);
+                return Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.45 : 0.12),
+                        blurRadius: 18,
+                        offset: const Offset(0, -2),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                      child: Row(
-                        children: [
-                          Text(
-                            context.l10n.homeQueueLabel,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 8),
+                      Container(
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: handleColor,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                        child: Row(
+                          children: [
+                            Text(
+                              context.l10n.homeQueueLabel,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          _QueueBadge(
-                            label: '${snapshot.queue.length}',
-                            color: theme.colorScheme.primary,
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            tooltip: context.l10n.actionClose,
-                            icon: const Icon(CupertinoIcons.xmark),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            _QueueBadge(
+                              label: '${snapshot.queue.length}',
+                              color: queueCountColor,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _PlaybackQueueList(
-                        queue: snapshot.queue,
-                        currentIndex: snapshot.currentIndex,
-                        onTap: (index) {
-                          onPlayTrack(snapshot.queue, index);
-                          Navigator.of(context).pop();
-                        },
-                        controller: controller,
-                        padding: const EdgeInsets.fromLTRB(10, 4, 10, 12),
+                      Expanded(
+                        child: _PlaybackQueueList(
+                          queue: snapshot.queue,
+                          currentIndex: snapshot.currentIndex,
+                          onTap: (index) {
+                            onPlayTrack(snapshot.queue, index);
+                            Navigator.of(context).pop();
+                          },
+                          controller: controller,
+                          padding: const EdgeInsets.fromLTRB(10, 4, 10, 12),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
