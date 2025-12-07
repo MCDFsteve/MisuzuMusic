@@ -18,6 +18,9 @@ abstract class LyricsRepository {
   // Load lyrics from file
   Future<Lyrics?> loadLyricsFromFile(String filePath, String trackId);
 
+  // Load embedded lyrics from audio file metadata (ID3/FLAC/etc.)
+  Future<Lyrics?> loadLyricsFromMetadata(Track track);
+
   // Check if lyrics exist for a track
   Future<bool> hasLyrics(String trackId);
 

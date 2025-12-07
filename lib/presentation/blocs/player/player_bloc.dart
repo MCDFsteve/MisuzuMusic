@@ -120,6 +120,10 @@ class PlayerStateChanged extends PlayerEvent {
   List<Object> get props => [playerState];
 }
 
+class PlayerSyncFromService extends PlayerEvent {
+  const PlayerSyncFromService();
+}
+
 // States
 abstract class PlayerBlocState extends Equatable {
   const PlayerBlocState();
@@ -324,6 +328,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
   late StreamSubscription _playerStateSubscription;
   late StreamSubscription _positionSubscription;
   late StreamSubscription _durationSubscription;
+  late StreamSubscription _playModeSubscription;
+  late StreamSubscription _queueSubscription;
 
   PlayerBloc({
     required PlayTrack playTrack,
@@ -361,6 +367,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
     on<PlayerPositionChanged>(_onPositionChanged);
     on<PlayerDurationChanged>(_onDurationChanged);
     on<PlayerStateChanged>(_onPlayerStateChanged);
+    on<PlayerSyncFromService>(_onSyncFromService);
     on<PlayerRestoreLastSession>(_onRestoreLastSession);
   }
 
@@ -375,6 +382,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
 
     _durationSubscription = _audioPlayerService.durationStream.listen(
       (duration) => add(PlayerDurationChanged(duration)),
+    );
+
+    _playModeSubscription = _audioPlayerService.playModeStream.listen(
+      (_) => add(const PlayerSyncFromService()),
+    );
+
+    _queueSubscription = _audioPlayerService.queueStream.listen(
+      (_) => add(const PlayerSyncFromService()),
     );
   }
 
@@ -521,14 +536,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
             await _seekToPosition(clampedPosition);
           }
 
+          final effectiveQueue = _audioPlayerService.queue;
+          final effectiveIndex =
+              _effectiveIndex(effectiveQueue, trackToPlay, event.startIndex!);
           emit(PlayerPaused(
             track: trackToPlay,
             position: clampedPosition,
             duration: trackToPlay.duration,
             volume: _audioPlayerService.volume,
             playMode: _audioPlayerService.playMode,
-            queue: event.tracks,
-            currentIndex: event.startIndex!,
+            queue: effectiveQueue,
+            currentIndex: effectiveIndex,
           ));
         }
       }
@@ -573,14 +591,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
         await _seekToPosition(clampedPosition);
       }
 
+      final effectiveQueue = _audioPlayerService.queue;
+      final effectiveIndex =
+          _effectiveIndex(effectiveQueue, track, session.currentIndex);
       emit(PlayerPaused(
         track: track,
         position: clampedPosition,
         duration: track.duration,
         volume: session.volume,
         playMode: session.playMode,
-        queue: session.queue,
-        currentIndex: session.currentIndex,
+        queue: effectiveQueue,
+        currentIndex: effectiveIndex,
       ));
     } catch (e) {
       emit(PlayerStopped(
@@ -616,7 +637,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
     final volume = _audioPlayerService.volume;
     final playMode = _audioPlayerService.playMode;
     final queue = _audioPlayerService.queue;
-    final currentIndex = _audioPlayerService.currentIndex;
+    final rawIndex = _audioPlayerService.currentIndex;
+    final effectiveIndex = _effectiveIndex(queue, currentTrack, rawIndex);
 
     switch (event.playerState) {
       case PlayerState.playing:
@@ -628,7 +650,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
             volume: volume,
             playMode: playMode,
             queue: queue,
-            currentIndex: currentIndex,
+            currentIndex: effectiveIndex,
           ));
         }
         break;
@@ -641,7 +663,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
             volume: volume,
             playMode: playMode,
             queue: queue,
-            currentIndex: currentIndex,
+            currentIndex: effectiveIndex,
           ));
         }
         break;
@@ -661,7 +683,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
             volume: volume,
             playMode: playMode,
             queue: queue,
-            currentIndex: currentIndex,
+            currentIndex: effectiveIndex,
           ));
         } else {
           final currentState = state;
@@ -673,7 +695,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
                 volume: volume,
                 playMode: playMode,
                 queue: queue,
-                currentIndex: currentIndex,
+                currentIndex: effectiveIndex,
               ),
             );
           } else if (currentState is PlayerPaused) {
@@ -684,7 +706,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
                 volume: volume,
                 playMode: playMode,
                 queue: queue,
-                currentIndex: currentIndex,
+                currentIndex: effectiveIndex,
               ),
             );
           } else {
@@ -695,7 +717,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
               volume: volume,
               playMode: playMode,
               queue: queue,
-              currentIndex: currentIndex,
+              currentIndex: effectiveIndex,
             ));
           }
         }
@@ -703,11 +725,72 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
     }
   }
 
+  void _onSyncFromService(PlayerSyncFromService event, Emitter<PlayerBlocState> emit) {
+    final queue = _audioPlayerService.queue;
+    final playMode = _audioPlayerService.playMode;
+    final rawIndex = _audioPlayerService.currentIndex;
+    final currentTrack = _audioPlayerService.currentTrack;
+    final effectiveIndex = _effectiveIndex(queue, currentTrack, rawIndex);
+
+    final currentState = state;
+    if (currentState is PlayerPlaying) {
+      emit(
+        currentState.copyWith(
+          playMode: playMode,
+          queue: queue,
+          currentIndex: effectiveIndex,
+          track: currentTrack ?? currentState.track,
+        ),
+      );
+    } else if (currentState is PlayerPaused) {
+      emit(
+        currentState.copyWith(
+          playMode: playMode,
+          queue: queue,
+          currentIndex: effectiveIndex,
+          track: currentTrack ?? currentState.track,
+        ),
+      );
+    } else if (currentState is PlayerLoading) {
+      emit(
+        currentState.copyWith(
+          playMode: playMode,
+          queue: queue,
+          currentIndex: effectiveIndex,
+          track: currentTrack ?? currentState.track,
+        ),
+      );
+    } else if (currentState is PlayerStopped) {
+      emit(
+        PlayerStopped(
+          volume: currentState.volume,
+          playMode: playMode,
+          queue: queue,
+        ),
+      );
+    }
+  }
+
+  int _effectiveIndex(List<Track> queue, Track? currentTrack, int rawIndex) {
+    if (queue.isEmpty) {
+      return 0;
+    }
+    if (currentTrack != null) {
+      final idx = queue.indexWhere((track) => track.id == currentTrack.id);
+      if (idx != -1) {
+        return idx;
+      }
+    }
+    return rawIndex.clamp(0, queue.length - 1).toInt();
+  }
+
   @override
   Future<void> close() {
     _playerStateSubscription.cancel();
     _positionSubscription.cancel();
     _durationSubscription.cancel();
+    _playModeSubscription.cancel();
+    _queueSubscription.cancel();
     return super.close();
   }
 }

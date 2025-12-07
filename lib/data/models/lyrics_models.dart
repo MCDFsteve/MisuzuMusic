@@ -1,5 +1,7 @@
+import 'package:misuzu_music/core/constants/app_constants.dart';
+import 'package:misuzu_music/core/utils/lyrics_line_merger.dart';
+
 import '../../domain/entities/lyrics_entities.dart';
-import '../../../core/constants/app_constants.dart';
 
 class LyricsModel extends Lyrics {
   const LyricsModel({
@@ -10,9 +12,12 @@ class LyricsModel extends Lyrics {
   });
 
   factory LyricsModel.fromEntity(Lyrics lyrics) {
+    final normalizedLines = LyricsLineMerger.mergeByTimestamp(lyrics.lines);
     return LyricsModel(
       trackId: lyrics.trackId,
-      lines: lyrics.lines.map((line) => LyricsLineModel.fromEntity(line)).toList(),
+      lines: normalizedLines
+          .map((line) => LyricsLineModel.fromEntity(line))
+          .toList(),
       format: lyrics.format,
       source: lyrics.source,
     );
@@ -128,7 +133,7 @@ class LyricsModel extends Lyrics {
       }
     }
 
-    return lines;
+    return LyricsLineMerger.mergeByTimestamp(lines);
   }
 
   static List<LyricsLine> _parseTextContent(String content) {
@@ -151,7 +156,7 @@ class LyricsModel extends Lyrics {
       }
     }
 
-    return lines;
+    return LyricsLineMerger.mergeByTimestamp(lines);
   }
 
   static List<LyricsLine> parseLrc(String content) => _parseLrcContent(content);

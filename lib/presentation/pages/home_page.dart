@@ -133,6 +133,7 @@ class HomePage extends StatelessWidget {
           create: (context) => LyricsCubit(
             findLyricsFile: sl<FindLyricsFile>(),
             loadLyricsFromFile: sl<LoadLyricsFromFile>(),
+            loadLyricsFromMetadata: sl<LoadLyricsFromMetadata>(),
             fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
             getLyrics: sl<GetLyrics>(),
           ),

@@ -185,7 +185,7 @@ class _PlaybackQueuePanel extends StatelessWidget {
   }
 }
 
-class _PlaybackQueueList extends StatelessWidget {
+class _PlaybackQueueList extends StatefulWidget {
   const _PlaybackQueueList({
     required this.queue,
     required this.currentIndex,
@@ -201,6 +201,88 @@ class _PlaybackQueueList extends StatelessWidget {
   final EdgeInsets padding;
 
   @override
+  State<_PlaybackQueueList> createState() => _PlaybackQueueListState();
+}
+
+class _PlaybackQueueListState extends State<_PlaybackQueueList> {
+  static const double _estimatedItemExtent = 76;
+  static const double _separatorExtent = 1;
+  late ScrollController _controller;
+  late bool _ownsController;
+  final GlobalKey _currentItemKey = GlobalKey();
+  Object? _lastAutoScrollSignature;
+
+  @override
+  void initState() {
+    super.initState();
+    _initController(widget.controller);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlaybackQueueList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _disposeControllerIfNeeded();
+      _initController(widget.controller);
+    }
+    _scheduleScrollToCurrent();
+  }
+
+  @override
+  void dispose() {
+    _disposeControllerIfNeeded();
+    super.dispose();
+  }
+
+  void _initController(ScrollController? external) {
+    _controller = external ?? ScrollController();
+    _ownsController = external == null;
+    _scheduleScrollToCurrent();
+  }
+
+  void _disposeControllerIfNeeded() {
+    if (_ownsController) {
+      _controller.dispose();
+    }
+  }
+
+  void _scheduleScrollToCurrent() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = _currentItemKey.currentContext;
+      final signature = Object.hash(
+        widget.currentIndex,
+        widget.queue.length,
+        widget.padding.top,
+        widget.padding.bottom,
+      );
+      if (_lastAutoScrollSignature == signature) return;
+      _lastAutoScrollSignature = signature;
+
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: Duration.zero,
+          alignment: 0.35,
+        );
+        return;
+      }
+
+      if (!_controller.hasClients) {
+        _scheduleScrollToCurrent();
+        return;
+      }
+
+      final resolvedPadding = widget.padding.resolve(TextDirection.ltr);
+      final estimatedOffset = resolvedPadding.top +
+          widget.currentIndex * (_estimatedItemExtent + _separatorExtent);
+      final maxOffset = _controller.position.maxScrollExtent;
+      final clampedOffset = estimatedOffset.clamp(0.0, maxOffset);
+      _controller.jumpTo(clampedOffset);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final macTheme = MacosTheme.maybeOf(context);
@@ -213,7 +295,7 @@ class _PlaybackQueueList extends StatelessWidget {
         theme.textTheme.bodyMedium?.color ??
             (isDark ? Colors.white70 : Colors.black87);
 
-    if (queue.isEmpty) {
+    if (widget.queue.isEmpty) {
       return Center(
         child: Text(
           context.l10n.queueEmptyMessage,
@@ -225,12 +307,12 @@ class _PlaybackQueueList extends StatelessWidget {
     }
 
     return ListView.separated(
-      controller: controller,
-      padding: padding,
+      controller: _controller,
+      padding: widget.padding,
       itemBuilder: (context, index) {
-        final track = queue[index];
+        final track = widget.queue[index];
         final displayInfo = deriveTrackDisplayInfo(track);
-        final isCurrent = index == currentIndex;
+        final isCurrent = index == widget.currentIndex;
         final durationText = _formatQueueDuration(track.duration) ?? '';
         final remoteArtworkUrl = _queueArtworkUrl(track);
 
@@ -259,10 +341,13 @@ class _PlaybackQueueList extends StatelessWidget {
           meta: isCurrent ? context.l10n.queueNowPlaying : null,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           hoverDistance: 10,
-          onTap: () => onTap(index),
+          onTap: () => widget.onTap(index),
         );
 
+        final itemKey = isCurrent ? _currentItemKey : null;
+
         return AnimatedContainer(
+          key: itemKey,
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeInOut,
           decoration: BoxDecoration(
@@ -278,7 +363,7 @@ class _PlaybackQueueList extends StatelessWidget {
         color: dividerColor,
         indent: 88,
       ),
-      itemCount: queue.length,
+      itemCount: widget.queue.length,
     );
   }
 }

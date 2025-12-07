@@ -22,6 +22,16 @@ class LoadLyricsFromFile {
   }
 }
 
+class LoadLyricsFromMetadata {
+  final LyricsRepository _repository;
+
+  LoadLyricsFromMetadata(this._repository);
+
+  Future<Lyrics?> call(Track track) async {
+    return await _repository.loadLyricsFromMetadata(track);
+  }
+}
+
 class SaveLyrics {
   final LyricsRepository _repository;
 

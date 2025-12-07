@@ -1,9 +1,11 @@
 import 'dart:collection';
 import 'dart:io';
+import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:misuzu_music/core/constants/app_constants.dart';
 import 'package:path/path.dart' as path;
 
 import '../../core/error/exceptions.dart';
+import '../../core/utils/lyrics_line_merger.dart';
 import '../../domain/entities/lyrics_entities.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/repositories/lyrics_repository.dart';
@@ -33,7 +35,8 @@ class LyricsRepositoryImpl implements LyricsRepository {
   Future<Lyrics?> getLyricsByTrackId(String trackId) async {
     try {
       final lyricsModel = await _localDataSource.getLyricsByTrackId(trackId);
-      return lyricsModel?.toEntity();
+      final lyrics = lyricsModel?.toEntity();
+      return lyrics == null ? null : _mergeLyricsLines(lyrics);
     } catch (e) {
       throw DatabaseException('Failed to get lyrics: ${e.toString()}');
     }
@@ -207,9 +210,61 @@ class LyricsRepositoryImpl implements LyricsRepository {
       } else {
         print('🎼 LyricsRepository: 本地歌词解析为空');
       }
-      return Lyrics(trackId: trackId, lines: lines, format: format);
+      return _mergeLyricsLines(
+        Lyrics(trackId: trackId, lines: lines, format: format),
+      );
     } catch (e) {
       throw LyricsException('Failed to load lyrics from file: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<Lyrics?> loadLyricsFromMetadata(Track track) async {
+    final filePath = track.filePath;
+    if (filePath.isEmpty) {
+      return null;
+    }
+
+    try {
+      final file = File(filePath);
+      if (!file.existsSync()) {
+        return null;
+      }
+
+      final metadata = readMetadata(file);
+      final rawLyrics = metadata.lyrics;
+      if (rawLyrics == null || rawLyrics.trim().isEmpty) {
+        return null;
+      }
+
+      final cleaned = rawLyrics
+          .replaceAll('\u0000', '')
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n')
+          .trim();
+      if (cleaned.isEmpty) {
+        return null;
+      }
+
+      var format = LyricsFormat.lrc;
+      var lines = _parseLrcContent(cleaned);
+      if (lines.isEmpty) {
+        format = LyricsFormat.text;
+        lines = _parseTextContent(cleaned);
+      }
+
+      if (lines.isEmpty) {
+        print('🎼 LyricsRepository: 内嵌歌词存在但解析为空');
+        return null;
+      }
+
+      _logLyricsPreview(lines);
+      return _mergeLyricsLines(
+        Lyrics(trackId: track.id, lines: lines, format: format),
+      );
+    } catch (e) {
+      print('⚠️ LyricsRepository: 读取内嵌歌词失败 -> $e');
+      return null;
     }
   }
 
@@ -270,7 +325,13 @@ class LyricsRepositoryImpl implements LyricsRepository {
       print('🎼 LyricsRepository: 使用歌词 -> songId=$songId');
       _logLyricsPreview(mergedLines);
       await saveLyrics(
-        Lyrics(trackId: track.id, lines: mergedLines, format: LyricsFormat.lrc),
+        _mergeLyricsLines(
+          Lyrics(
+            trackId: track.id,
+            lines: mergedLines,
+            format: LyricsFormat.lrc,
+          ),
+        ),
       );
       return await getLyricsByTrackId(track.id);
     } catch (e) {
@@ -358,10 +419,12 @@ class LyricsRepositoryImpl implements LyricsRepository {
         _debugPrintAnnotations(parsedLines);
         _logLyricsPreview(parsedLines);
         await saveLyrics(
-          Lyrics(
-            trackId: track.id,
-            lines: parsedLines,
-            format: LyricsFormat.lrc,
+          _mergeLyricsLines(
+            Lyrics(
+              trackId: track.id,
+              lines: parsedLines,
+              format: LyricsFormat.lrc,
+            ),
           ),
         );
         return await getLyricsByTrackId(track.id);
@@ -397,7 +460,13 @@ class LyricsRepositoryImpl implements LyricsRepository {
       _debugPrintAnnotations(parsedLines);
       _logLyricsPreview(parsedLines);
       await saveLyrics(
-        Lyrics(trackId: track.id, lines: parsedLines, format: LyricsFormat.lrc),
+        _mergeLyricsLines(
+          Lyrics(
+            trackId: track.id,
+            lines: parsedLines,
+            format: LyricsFormat.lrc,
+          ),
+        ),
       );
       return await getLyricsByTrackId(track.id);
     } catch (e) {
@@ -501,6 +570,19 @@ class LyricsRepositoryImpl implements LyricsRepository {
         .replaceAll(RegExp(r'-+'), '-');
   }
 
+  Lyrics _mergeLyricsLines(Lyrics lyrics) {
+    final mergedLines = LyricsLineMerger.mergeByTimestamp(lyrics.lines);
+    if (identical(mergedLines, lyrics.lines)) {
+      return lyrics;
+    }
+    return Lyrics(
+      trackId: lyrics.trackId,
+      lines: mergedLines,
+      format: lyrics.format,
+      source: lyrics.source,
+    );
+  }
+
   void _logLyricsPreview(List<LyricsLine> lines) {
     if (lines.isEmpty) {
       print('🎼 LyricsRepository: 预览空内容');
@@ -575,7 +657,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
       }
     }
 
-    return merged;
+    return LyricsLineMerger.mergeByTimestamp(merged);
   }
 
   Map<Duration, String> _parseTranslationMap(String content) {
@@ -664,7 +746,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
       }
     }
 
-    return lines;
+    return LyricsLineMerger.mergeByTimestamp(lines);
   }
 
   List<LyricsLine> _parseTextContent(String content) {
@@ -687,7 +769,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
       }
     }
 
-    return lines;
+    return LyricsLineMerger.mergeByTimestamp(lines);
   }
 
   _ParsedAnnotatedLine _parseAnnotatedLine(String rawText) {

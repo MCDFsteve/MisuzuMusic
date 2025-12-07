@@ -67,6 +67,7 @@ enum LyricsSource {
   nipaplay,   // From nipaplay.aimes-soft.com server
   netease,    // From Netease Cloud Music
   local,      // From local file
+  embedded,   // From embedded audio metadata
   cached,     // From cache
   unknown,    // Unknown source
 }

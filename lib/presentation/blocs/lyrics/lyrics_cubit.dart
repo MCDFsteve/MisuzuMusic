@@ -13,16 +13,19 @@ class LyricsCubit extends Cubit<LyricsState> {
   LyricsCubit({
     required FindLyricsFile findLyricsFile,
     required LoadLyricsFromFile loadLyricsFromFile,
+    required LoadLyricsFromMetadata loadLyricsFromMetadata,
     required FetchOnlineLyrics fetchOnlineLyrics,
     required GetLyrics getLyrics,
   }) : _findLyricsFile = findLyricsFile,
        _loadLyricsFromFile = loadLyricsFromFile,
+       _loadLyricsFromMetadata = loadLyricsFromMetadata,
        _fetchOnlineLyrics = fetchOnlineLyrics,
        _getLyrics = getLyrics,
        super(const LyricsInitial());
 
   final FindLyricsFile _findLyricsFile;
   final LoadLyricsFromFile _loadLyricsFromFile;
+  final LoadLyricsFromMetadata _loadLyricsFromMetadata;
   final FetchOnlineLyrics _fetchOnlineLyrics;
   final GetLyrics _getLyrics;
   String? _activeTrackId;
@@ -37,6 +40,16 @@ class LyricsCubit extends Cubit<LyricsState> {
     emit(const LyricsLoading());
     try {
       final bool skipLocalSources = forceRemote;
+
+      final embeddedLyrics = skipLocalSources
+          ? null
+          : await _loadLyricsFromEmbeddedMetadata(track);
+      if (_shouldAbort(requestTrackId)) return;
+      if (embeddedLyrics != null && embeddedLyrics.lines.isNotEmpty) {
+        print('🎼 LyricsCubit: 使用内嵌歌词');
+        emit(LyricsLoaded(_withSource(embeddedLyrics, LyricsSource.embedded)));
+        return;
+      }
 
       final lyricsFromFile = skipLocalSources
           ? null
@@ -83,6 +96,28 @@ class LyricsCubit extends Cubit<LyricsState> {
     } catch (e) {
       if (_shouldAbort(requestTrackId)) return;
       emit(LyricsError(e.toString()));
+    }
+  }
+
+  Future<Lyrics?> _loadLyricsFromEmbeddedMetadata(Track track) async {
+    final filePath = track.filePath;
+    if (filePath.isEmpty) {
+      print('🎼 LyricsCubit: 音频轨道缺少文件路径，无法读取内嵌歌词');
+      return null;
+    }
+
+    print('🎼 LyricsCubit: 尝试读取内嵌歌词，音频文件 -> $filePath');
+    try {
+      final lyrics = await _loadLyricsFromMetadata(track);
+      if (lyrics == null || lyrics.lines.isEmpty) {
+        print('🎼 LyricsCubit: 未发现内嵌歌词');
+        return null;
+      }
+      print('🎼 LyricsCubit: 解析到 ${lyrics.lines.length} 行内嵌歌词');
+      return lyrics;
+    } catch (_) {
+      print('🎼 LyricsCubit: 读取内嵌歌词时发生异常，已忽略');
+      return null;
     }
   }
 

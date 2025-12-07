@@ -175,6 +175,7 @@ class DependencyInjection {
 
       sl.registerLazySingleton(() => GetLyrics(sl()));
       sl.registerLazySingleton(() => LoadLyricsFromFile(sl()));
+      sl.registerLazySingleton(() => LoadLyricsFromMetadata(sl()));
       sl.registerLazySingleton(() => SaveLyrics(sl()));
       sl.registerLazySingleton(() => FindLyricsFile(sl()));
       sl.registerLazySingleton(() => FetchOnlineLyrics(sl()));

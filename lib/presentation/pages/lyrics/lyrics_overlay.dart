@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:misuzu_music/presentation/pages/home_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1897,6 +1898,14 @@ class _TrackDetailView extends StatelessWidget {
         final bool hasErrorText =
             trimmedError != null && trimmedError.isNotEmpty;
         final String trimmedContent = detailContent?.trim() ?? '';
+        final TextStyle detailTextStyle = bodyStyle.copyWith(
+          height: 1.48,
+          color: detailTextColor,
+        );
+        final Color detailDividerColor = (isDarkMode ? Colors.white : Colors.black)
+            .withOpacity(isDarkMode ? 0.18 : 0.12);
+        final Color detailSurfaceColor = (isDarkMode ? Colors.white : Colors.black)
+            .withOpacity(0.04);
 
         if (isLoadingDetail) {
           return Center(
@@ -1960,9 +1969,100 @@ class _TrackDetailView extends StatelessWidget {
             ],
           );
         } else {
-          detailBody = Text(
-            trimmedContent,
-            style: bodyStyle.copyWith(height: 1.48, color: detailTextColor),
+          final double baseFontSize = bodyStyle.fontSize ?? 14;
+          final MarkdownStyleSheet markdownStyle =
+              MarkdownStyleSheet.fromTheme(theme).copyWith(
+            p: detailTextStyle,
+            h1: detailTextStyle.copyWith(
+              fontSize: baseFontSize + 10,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+            ),
+            h2: detailTextStyle.copyWith(
+              fontSize: baseFontSize + 7,
+              fontWeight: FontWeight.w700,
+              height: 1.22,
+            ),
+            h3: detailTextStyle.copyWith(
+              fontSize: baseFontSize + 4,
+              fontWeight: FontWeight.w700,
+              height: 1.25,
+            ),
+            h4: detailTextStyle.copyWith(
+              fontSize: baseFontSize + 2,
+              fontWeight: FontWeight.w600,
+              height: 1.25,
+            ),
+            h5: detailTextStyle.copyWith(
+              fontSize: baseFontSize + 1,
+              fontWeight: FontWeight.w600,
+              height: 1.28,
+            ),
+            h6: detailTextStyle.copyWith(
+              fontSize: baseFontSize,
+              fontWeight: FontWeight.w600,
+              height: 1.28,
+            ),
+            strong: detailTextStyle.copyWith(fontWeight: FontWeight.w700),
+            em: detailTextStyle.copyWith(fontStyle: FontStyle.italic),
+            listBullet: detailTextStyle,
+            listIndent: 26,
+            blockquote: detailTextStyle.copyWith(
+              color: detailTextColor.withOpacity(isDarkMode ? 0.9 : 0.82),
+            ),
+            blockquoteDecoration: BoxDecoration(
+              color: detailSurfaceColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border(
+                left: BorderSide(
+                  color: detailDividerColor,
+                  width: 3,
+                ),
+              ),
+            ),
+            blockquotePadding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+            horizontalRuleDecoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: detailDividerColor),
+              ),
+            ),
+            code: detailTextStyle.copyWith(
+              fontFamily: 'monospace',
+              backgroundColor: detailSurfaceColor,
+            ),
+            codeblockPadding: const EdgeInsets.all(12),
+            codeblockDecoration: BoxDecoration(
+              color: detailSurfaceColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: detailDividerColor),
+            ),
+            tableHead: detailTextStyle.copyWith(fontWeight: FontWeight.w600),
+            tableBody: detailTextStyle,
+            tableBorder: TableBorder.all(
+              color: detailDividerColor,
+              width: 0.6,
+            ),
+          );
+          detailBody = MarkdownBody(
+            data: trimmedContent,
+            styleSheet: markdownStyle,
+            softLineBreak: true,
+            onTapLink: (text, href, title) async {
+              if (href == null) {
+                return;
+              }
+              final Uri? uri = Uri.tryParse(href);
+              if (uri == null) {
+                return;
+              }
+              try {
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              } catch (error, stackTrace) {
+                debugPrint('歌曲详情链接打开失败: $error\n$stackTrace');
+              }
+            },
           );
         }
 

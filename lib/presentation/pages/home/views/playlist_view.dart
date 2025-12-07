@@ -138,8 +138,7 @@ class _PlaylistHistoryList extends StatelessWidget {
                   ? ''
                   : _formatDuration(track.duration),
               meta: '${_formatPlayedAt(entry.playedAt)} | ${playCount} 次播放',
-              onTap: () =>
-                  _playTrack(context, track, fingerprint: entry.fingerprint),
+              onTap: () => _playHistoryQueue(context, filteredEntries, index),
               onSecondaryTap: (position) =>
                   _handleSecondaryTap(
                     context,
@@ -324,9 +323,28 @@ class _PlaylistHistoryList extends StatelessWidget {
     return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:$twoDigits';
   }
 
-  void _playTrack(BuildContext context, Track track, {String? fingerprint}) {
+  void _playHistoryQueue(
+    BuildContext context,
+    List<PlaybackHistoryEntry> entries,
+    int index,
+  ) {
+    if (entries.isEmpty || index < 0 || index >= entries.length) {
+      return;
+    }
+
+    final queue = entries
+        .map((entry) =>
+            applyDisplayInfo(entry.track, deriveTrackDisplayInfo(entry.track)))
+        .toList(growable: false);
+    final targetTrack = queue[index];
+
     context.read<PlayerBloc>().add(
-      PlayerPlayTrack(track, fingerprint: fingerprint),
-    );
+          PlayerSetQueue(
+            queue,
+            startIndex: index,
+            autoPlay: true,
+            initialPosition: Duration.zero,
+          ),
+        );
   }
 }

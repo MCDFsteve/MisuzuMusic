@@ -242,9 +242,53 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     }
   }
 
+  List<Track> _effectiveQueueSnapshot() {
+    if (_queue.isEmpty) {
+      return const [];
+    }
+
+    Track? current;
+    if (_currentTrack != null) {
+      final existingIndex = _queue.indexWhere(
+        (track) => _isSameTrack(track, _currentTrack!),
+      );
+      if (existingIndex != -1) {
+        current = _queue[existingIndex];
+      } else {
+        current = _currentTrack;
+      }
+    } else if (_queue.isNotEmpty) {
+      final clampedIndex = _currentIndex.clamp(0, _queue.length - 1).toInt();
+      current = _queue[clampedIndex];
+    }
+
+    switch (_playMode) {
+      case PlayMode.repeatOne:
+        return current == null ? const [] : List<Track>.unmodifiable([current]);
+      case PlayMode.shuffle:
+        final result = <Track>[];
+        if (current != null) {
+          result.add(current);
+        }
+        if (_shuffleIndexes.isNotEmpty && _queue.length > 1) {
+          final int start =
+              _shufflePosition.clamp(0, _shuffleIndexes.length).toInt();
+          for (int i = start; i < _shuffleIndexes.length; i++) {
+            final idx = _shuffleIndexes[i];
+            if (idx >= 0 && idx < _queue.length) {
+              result.add(_queue[idx]);
+            }
+          }
+        }
+        return List<Track>.unmodifiable(result);
+      case PlayMode.repeatAll:
+        return List<Track>.unmodifiable(_queue);
+    }
+  }
+
   void _notifyQueueChanged() {
     if (!_queueSubject.isClosed) {
-      _queueSubject.add(List.unmodifiable(_queue));
+      _queueSubject.add(_effectiveQueueSnapshot());
     }
   }
 
@@ -431,6 +475,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
       await _ensureAudioSessionReady();
       _updateCurrentTrack(playableTrack);
+      _notifyQueueChanged();
       if (!_hasPendingRestorePosition) {
         _positionSubject.add(Duration.zero);
       }
@@ -494,6 +539,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
       print('🎵 AudioService: 预加载音轨 - ${playableTrack.title}');
       _updateCurrentTrack(playableTrack);
+      _notifyQueueChanged();
       if (!_hasPendingRestorePosition) {
         _positionSubject.add(Duration.zero);
       }
@@ -632,7 +678,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     _queue
       ..clear()
       ..addAll(tracks);
-    _notifyQueueChanged();
 
     // 重置洗牌状态
     _shuffleIndexes.clear();
@@ -640,12 +685,17 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
     if (_queue.isEmpty) {
       _currentIndex = 0;
+      _notifyQueueChanged();
       await _clearPersistedQueue();
       print('🎵 AudioService: 队列已清空');
       return;
     }
 
-    _currentIndex = startIndex.clamp(0, _queue.length - 1);
+    _currentIndex = startIndex.clamp(0, _queue.length - 1).toInt();
+    if (_playMode == PlayMode.shuffle && _queue.length > 1) {
+      _generateShuffleOrder();
+    }
+    _notifyQueueChanged();
     await _persistQueueState();
     print('🎵 AudioService: 队列设置完成，当前索引: $_currentIndex');
   }
@@ -680,7 +730,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   }
 
   @override
-  List<Track> get queue => List.unmodifiable(_queue);
+  List<Track> get queue => _effectiveQueueSnapshot();
 
   @override
   int get currentIndex => _currentIndex;
@@ -689,6 +739,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   Future<void> setPlayMode(PlayMode mode) async {
     _playMode = mode;
     _playModeSubject.add(_playMode);
+    if (_playMode == PlayMode.shuffle && _queue.length > 1) {
+      _generateShuffleOrder();
+    }
+    _notifyQueueChanged();
     await _persistPlayMode();
   }
 
@@ -704,9 +758,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         _currentIndex = (_currentIndex + 1) % _queue.length;
         await _persistQueueState();
         await play(_queue[_currentIndex]);
+        _notifyQueueChanged();
         break;
       case PlayMode.repeatOne:
         await play(_queue[_currentIndex]);
+        _notifyQueueChanged();
         break;
       case PlayMode.shuffle:
         _logShuffle('skipToNext()');
@@ -714,6 +770,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         _logShuffle('skipToNext() -> $_currentIndex');
         await _persistQueueState();
         await play(_queue[_currentIndex]);
+        _notifyQueueChanged();
         break;
     }
   }
@@ -731,9 +788,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         }
         await _persistQueueState();
         await play(_queue[_currentIndex]);
+        _notifyQueueChanged();
         break;
       case PlayMode.repeatOne:
         await play(_queue[_currentIndex]);
+        _notifyQueueChanged();
         break;
       case PlayMode.shuffle:
         _logShuffle('skipToPrevious()');
@@ -741,6 +800,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         _logShuffle('skipToPrevious() -> $_currentIndex');
         await _persistQueueState();
         await play(_queue[_currentIndex]);
+        _notifyQueueChanged();
         break;
     }
   }
@@ -815,6 +875,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     try {
       await _persistQueueState();
       await play(_queue[_currentIndex]);
+      _notifyQueueChanged();
     } catch (error) {
       print('⚠️ AudioService: 自动跳过失败 -> $error');
     }
