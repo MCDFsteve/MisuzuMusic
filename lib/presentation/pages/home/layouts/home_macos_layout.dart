@@ -8,6 +8,7 @@ extension _HomePageDesktopLayout on _HomePageContentState {
       builder: (context, playerState) {
         final artworkSource = _currentArtworkSources(playerState);
         final currentTrack = _playerTrack(playerState);
+        final queueSnapshot = _queueSnapshotFromState(playerState);
         const headerHeight = 76.0;
         final sectionLabel = _currentSectionLabel(_selectedIndex);
         final MusicLibraryState libraryState = context
@@ -205,6 +206,16 @@ extension _HomePageDesktopLayout on _HomePageContentState {
                                               _buildLyricsOverlay(isMac: true),
                                         ),
                                       ),
+                                      _PlaybackQueueOverlay(
+                                        visible: _queuePanelVisible,
+                                        snapshot: queueSnapshot,
+                                        onDismiss: _dismissQueueOverlay,
+                                        onSelectTrack: (index) =>
+                                            _playQueueEntry(
+                                              queueSnapshot.queue,
+                                              index,
+                                            ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -213,6 +224,13 @@ extension _HomePageDesktopLayout on _HomePageContentState {
                                       ? null
                                       : () => _toggleLyrics(playerState),
                                   isLyricsActive: _lyricsVisible,
+                                  onQueuePressed: () {
+                                    _dismissLyricsOverlay();
+                                    setState(() {
+                                      _queuePanelVisible = !_queuePanelVisible;
+                                    });
+                                  },
+                                  isQueueVisible: _queuePanelVisible,
                                 ),
                               ],
                             ),

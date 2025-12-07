@@ -73,7 +73,7 @@
   "navLibrary": "Library",
   "navPlaylists": "Song Lists",
   "navOnlineTracks": "Online Tracks",
-  "navQueue": "Queue",
+  "navQueue": "History",
   "navSettings": "Settings",
   "glassHeaderBackTooltip": "Go back",
   "glassHeaderLogoutTooltip": "Sign out",
@@ -187,6 +187,8 @@
   "homeAlbumNotFoundDialog": "No songs found for this album",
   "homeOnlineMusicLabel": "Online music",
   "homeQueueLabel": "Play queue",
+  "queueEmptyMessage": "No tracks in queue",
+  "queueNowPlaying": "Now playing",
   "homeLibraryStats": "{total} tracks · {hours} h {minutes} m",
   "@homeLibraryStats": {
     "placeholders": {

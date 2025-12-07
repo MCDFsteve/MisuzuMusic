@@ -144,6 +144,7 @@ class _HomePageContentState extends State<HomePageContent> {
   List<LibrarySearchSuggestion> _searchSuggestions = const [];
   Timer? _searchDebounce;
   bool _lyricsVisible = false;
+  bool _queuePanelVisible = false;
   Track? _lyricsActiveTrack;
   MusicLibraryLoaded? _cachedLibraryState;
   Artist? _activeArtistDetail;
@@ -522,6 +523,9 @@ class _HomePageContentState extends State<HomePageContent> {
     bool shouldHideLyrics = false;
     final Track? playerTrack = _playerTrack(playerState);
     Track? nextTrack = playerTrack;
+    final queueSnapshot = _queueSnapshotFromState(playerState);
+    final bool shouldHideQueueOverlay =
+        _queuePanelVisible && !queueSnapshot.hasQueue;
 
     if (playerState is PlayerInitial || playerState is PlayerError) {
       shouldHideLyrics = true;
@@ -548,13 +552,16 @@ class _HomePageContentState extends State<HomePageContent> {
     final bool needsHideUpdate = shouldHideLyrics && _lyricsVisible;
     final bool trackChanged = _lyricsActiveTrack != nextTrack;
 
-    if (!needsHideUpdate && !trackChanged) {
+    if (!needsHideUpdate && !trackChanged && !shouldHideQueueOverlay) {
       return;
     }
 
     setState(() {
       if (needsHideUpdate) {
         _lyricsVisible = false;
+      }
+      if (shouldHideQueueOverlay) {
+        _queuePanelVisible = false;
       }
       _lyricsActiveTrack = nextTrack;
     });
@@ -1500,6 +1507,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
   void _handleNavigationChange(int index) {
     _dismissLyricsOverlay();
+    _dismissQueueOverlay();
 
     if (_selectedIndex == index) {
       return;
@@ -1657,6 +1665,36 @@ class _HomePageContentState extends State<HomePageContent> {
     setState(() {
       _lyricsVisible = false;
     });
+  }
+
+  void _dismissQueueOverlay() {
+    if (!_queuePanelVisible) {
+      return;
+    }
+    setState(() {
+      _queuePanelVisible = false;
+    });
+  }
+
+  void _playQueueEntry(List<Track> queue, int index) {
+    if (queue.isEmpty || index < 0 || index >= queue.length) {
+      return;
+    }
+    context.read<PlayerBloc>().add(
+          PlayerSetQueue(queue, startIndex: index, autoPlay: true),
+        );
+  }
+
+  Future<void> _showQueueBottomSheet() async {
+    _dismissLyricsOverlay();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PlaybackQueueSheet(
+        onPlayTrack: _playQueueEntry,
+      ),
+    );
   }
 
   Future<void> _selectMusicFolder() async {

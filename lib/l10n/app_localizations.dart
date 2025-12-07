@@ -359,7 +359,7 @@ abstract class AppLocalizations {
   /// No description provided for @navQueue.
   ///
   /// In zh, this message translates to:
-  /// **'播放队列'**
+  /// **'播放记录'**
   String get navQueue;
 
   /// No description provided for @navSettings.
@@ -703,6 +703,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'播放队列'**
   String get homeQueueLabel;
+
+  /// No description provided for @queueEmptyMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无播放队列'**
+  String get queueEmptyMessage;
+
+  /// No description provided for @queueNowPlaying.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在播放'**
+  String get queueNowPlaying;
 
   /// No description provided for @homeLibraryStats.
   ///

@@ -17,6 +17,7 @@ class TrackListTile extends StatelessWidget {
     this.hoverDistance,
     this.padding,
     this.onSecondaryTap,
+    this.indexColor,
   });
 
   final int index;
@@ -29,6 +30,7 @@ class TrackListTile extends StatelessWidget {
   final double? hoverDistance;
   final EdgeInsetsGeometry? padding;
   final ValueChanged<Offset>? onSecondaryTap;
+  final Color? indexColor;
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +132,11 @@ class TrackListTile extends StatelessWidget {
             width: 32,
             child: Align(
               alignment: Alignment.centerRight,
-              child: Text(index.toString(),locale: Locale("zh-Hans", "zh"), style: _indexStyle(context, isMac)),
+              child: Text(
+                index.toString(),
+                locale: Locale("zh-Hans", "zh"),
+                style: _indexStyle(context, isMac),
+              ),
             ),
           ),
         ),
@@ -203,13 +209,15 @@ class TrackListTile extends StatelessWidget {
     if (isMac) {
       final macTheme = MacosTheme.of(context);
       final isDark = macTheme.brightness == Brightness.dark;
-      final color = isDark ? Colors.white54 : MacosColors.secondaryLabelColor;
+      final color =
+          indexColor ?? (isDark ? Colors.white54 : MacosColors.secondaryLabelColor);
       return macTheme.typography.caption1.copyWith(color: color);
     }
     final theme = Theme.of(context);
     final base = theme.textTheme.labelMedium ?? const TextStyle(fontSize: 12);
     return base.copyWith(
-      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+      color: indexColor ??
+          theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
     );
   }
 }

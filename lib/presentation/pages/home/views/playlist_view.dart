@@ -26,12 +26,12 @@ class PlaylistView extends StatelessWidget {
           case PlaybackHistoryStatus.error:
             return _PlaylistMessage(
               icon: CupertinoIcons.exclamationmark_triangle,
-              message: state.errorMessage ?? '播放列表加载失败',
+              message: state.errorMessage ?? '播放记录加载失败',
             );
           case PlaybackHistoryStatus.empty:
             return _PlaylistMessage(
               icon: CupertinoIcons.music_note_list,
-              message: '暂无播放列表',
+              message: '暂无播放记录',
             );
           case PlaybackHistoryStatus.loaded:
             return _PlaylistHistoryList(

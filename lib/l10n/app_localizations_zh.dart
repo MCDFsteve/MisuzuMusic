@@ -149,7 +149,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get navOnlineTracks => '网络歌曲';
 
   @override
-  String get navQueue => '播放队列';
+  String get navQueue => '播放记录';
 
   @override
   String get navSettings => '设置';
@@ -340,6 +340,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get homeQueueLabel => '播放队列';
+
+  @override
+  String get queueEmptyMessage => '暂无播放队列';
+
+  @override
+  String get queueNowPlaying => '正在播放';
 
   @override
   String homeLibraryStats(int total, int hours, int minutes) {

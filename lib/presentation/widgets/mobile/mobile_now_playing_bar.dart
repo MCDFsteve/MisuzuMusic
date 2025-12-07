@@ -12,6 +12,7 @@ import '../../blocs/player/player_bloc.dart';
 import '../../utils/track_display_utils.dart';
 import '../common/artwork_thumbnail.dart';
 import '../common/player_transport_button.dart';
+import '../../../l10n/l10n.dart';
 
 const Duration _kMobileControlsAnimationDuration = Duration(milliseconds: 320);
 const Curve _kMobileControlsAnimationCurve = Curves.easeInOutCubic;
@@ -22,14 +23,19 @@ class MobileNowPlayingBar extends StatelessWidget {
     required this.playerState,
     this.onArtworkTap,
     this.isLyricsActive = false,
+    this.onQueueTap,
+    this.queueEnabled = true,
   });
 
   final PlayerBlocState playerState;
   final VoidCallback? onArtworkTap;
   final bool isLyricsActive;
+  final VoidCallback? onQueueTap;
+  final bool queueEnabled;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final data = _resolvePlayerData(playerState);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -143,6 +149,25 @@ class MobileNowPlayingBar extends StatelessWidget {
       onPressed: () => _cyclePlayMode(context),
     );
 
+    final Widget queueButton = animatedTransportButton(
+      buttonKey: const ValueKey('mobile_queue_button'),
+      tooltip: l10n.homeQueueLabel,
+      enabled: queueEnabled && onQueueTap != null,
+      baseColor: queueEnabled
+          ? secondaryIconColor
+          : secondaryIconColor.withOpacity(0.45),
+      hoverColor: iconColor,
+      iconBuilder: (color) => Icon(
+        CupertinoIcons.list_bullet,
+        key: ValueKey<String>(
+          'queue_${isLyricsActive ? 'expanded' : 'compact'}',
+        ),
+        color: color,
+        size: playModeIconSize,
+      ),
+      onPressed: queueEnabled && onQueueTap != null ? onQueueTap : null,
+    );
+
     final Widget playPauseButton = AnimatedContainer(
       duration: _kMobileControlsAnimationDuration,
       curve: _kMobileControlsAnimationCurve,
@@ -174,7 +199,13 @@ class MobileNowPlayingBar extends StatelessWidget {
         ? Row(
             key: const ValueKey('lyrics_controls_expanded'),
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [prevButton, playPauseButton, nextButton, playModeButton],
+            children: [
+              prevButton,
+              playPauseButton,
+              nextButton,
+              playModeButton,
+              queueButton,
+            ],
           )
         : Row(
             key: const ValueKey('lyrics_controls_compact'),
@@ -187,6 +218,8 @@ class MobileNowPlayingBar extends StatelessWidget {
               nextButton,
               buttonGap(4),
               playModeButton,
+              buttonGap(4),
+              queueButton,
             ],
           );
 

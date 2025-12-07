@@ -13,6 +13,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../utils/track_display_utils.dart';
+import '../../../l10n/l10n.dart';
 
 const double _muteThreshold = 0.005;
 const double _defaultRestoreVolume = 0.6;
@@ -23,10 +24,16 @@ class MacOSPlayerControlBar extends StatelessWidget {
     super.key,
     this.onArtworkTap,
     this.isLyricsActive = false,
+    this.onQueuePressed,
+    this.isQueueVisible = false,
+    this.queueEnabled = true,
   });
 
   final VoidCallback? onArtworkTap;
   final bool isLyricsActive;
+  final VoidCallback? onQueuePressed;
+  final bool isQueueVisible;
+  final bool queueEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -308,17 +315,44 @@ class MacOSPlayerControlBar extends StatelessWidget {
     required Color secondaryIconColor,
     required double volume,
   }) {
+    final l10n = context.l10n;
     final clampedVolume = volume.clamp(0.0, 1.0);
     final volumeIcon = _volumeIconForValue(clampedVolume);
     if (clampedVolume > _muteThreshold) {
       _lastNonMutedVolume = clampedVolume;
     }
     final isMuted = clampedVolume <= _muteThreshold;
+    final bool queueActive = isQueueVisible;
+    final queueButton = SizedBox(
+      width: 36,
+      height: 36,
+      child: _MacHoverIconButton(
+        tooltip: l10n.homeQueueLabel,
+        enabled: queueEnabled && onQueuePressed != null,
+        baseColor: queueActive ? iconColor : secondaryIconColor,
+        hoverColor: iconColor,
+        iconBuilder: (color) => Container(
+          decoration: BoxDecoration(
+            color: queueActive ? color.withOpacity(0.16) : Colors.transparent,
+            shape: BoxShape.circle,
+          ),
+          padding: const EdgeInsets.all(4),
+          child: MacosIcon(
+            CupertinoIcons.list_bullet,
+            color: queueActive ? iconColor : color,
+            size: 20,
+          ),
+        ),
+        onPressed: queueEnabled ? onQueuePressed : null,
+      ),
+    );
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        queueButton,
+        const SizedBox(width: 10),
         SizedBox(
           width: 36,
           height: 36,

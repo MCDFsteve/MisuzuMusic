@@ -154,7 +154,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navOnlineTracks => 'Online Tracks';
 
   @override
-  String get navQueue => 'Queue';
+  String get navQueue => 'History';
 
   @override
   String get navSettings => 'Settings';
@@ -349,6 +349,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeQueueLabel => 'Play queue';
+
+  @override
+  String get queueEmptyMessage => 'No tracks in queue';
+
+  @override
+  String get queueNowPlaying => 'Now playing';
 
   @override
   String homeLibraryStats(int total, int hours, int minutes) {

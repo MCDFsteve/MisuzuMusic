@@ -73,7 +73,7 @@
   "navLibrary": "音乐库",
   "navPlaylists": "歌单",
   "navOnlineTracks": "网络歌曲",
-  "navQueue": "播放队列",
+  "navQueue": "播放记录",
   "navSettings": "设置",
   "glassHeaderBackTooltip": "返回上一层",
   "glassHeaderLogoutTooltip": "退出登录",
@@ -187,6 +187,8 @@
   "homeAlbumNotFoundDialog": "未找到该专辑的歌曲",
   "homeOnlineMusicLabel": "网络歌曲",
   "homeQueueLabel": "播放队列",
+  "queueEmptyMessage": "暂无播放队列",
+  "queueNowPlaying": "正在播放",
   "homeLibraryStats": "共 {total} 首歌曲 · {hours} 小时 {minutes} 分钟",
   "@homeLibraryStats": {
     "placeholders": {

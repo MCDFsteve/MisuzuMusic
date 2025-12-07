@@ -73,6 +73,7 @@ part 'home/widgets/macos_glass_header.dart';
 part 'home/widgets/macos_navigation_pane.dart';
 part 'home/widgets/blurred_artwork_background.dart';
 part 'home/widgets/playlist_message.dart';
+part 'home/widgets/playback_queue.dart';
 part 'home/dialogs/webdav_connection_dialog.dart';
 part 'home/dialogs/webdav_directory_picker_dialog.dart';
 part 'home/dialogs/playlist_modal_components.dart';

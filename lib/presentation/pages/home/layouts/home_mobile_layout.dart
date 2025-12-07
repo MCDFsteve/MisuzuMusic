@@ -109,6 +109,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
                     onArtworkTap: currentTrack == null
                         ? null
                         : () => _toggleLyrics(playerState),
+                    onQueueTap: _showQueueBottomSheet,
                   ),
                 ),
               ),
