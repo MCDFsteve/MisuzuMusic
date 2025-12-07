@@ -25,6 +25,8 @@ class Track extends Entity {
   final String? remotePath;
   final Map<String, String>? httpHeaders;
   final String? contentHash;
+  final int? bitrate;
+  final int? sampleRate;
 
   const Track({
     required this.id,
@@ -43,6 +45,8 @@ class Track extends Entity {
     this.remotePath,
     this.httpHeaders,
     this.contentHash,
+    this.bitrate,
+    this.sampleRate,
   });
 
   @override
@@ -63,6 +67,8 @@ class Track extends Entity {
     remotePath,
     httpHeaders,
     contentHash,
+    bitrate,
+    sampleRate,
   ];
 
   Track copyWith({
@@ -82,6 +88,8 @@ class Track extends Entity {
     String? remotePath,
     Map<String, String>? httpHeaders,
     String? contentHash,
+    int? bitrate,
+    int? sampleRate,
   }) {
     return Track(
       id: id ?? this.id,
@@ -100,6 +108,8 @@ class Track extends Entity {
       remotePath: remotePath ?? this.remotePath,
       httpHeaders: httpHeaders ?? this.httpHeaders,
       contentHash: contentHash ?? this.contentHash,
+      bitrate: bitrate ?? this.bitrate,
+      sampleRate: sampleRate ?? this.sampleRate,
     );
   }
 }

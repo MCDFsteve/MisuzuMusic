@@ -11,6 +11,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:misuzu_music/presentation/pages/home_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -97,6 +98,8 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   String? _trackDetailError;
   String? _trackDetailLoadedKey;
   int _trackDetailRequestToken = 0;
+  String? _trackQualityLabel;
+  int _trackQualityRequestToken = 0;
   static final Map<String, Color?> _artworkGlowCache = {};
 
   @override
@@ -111,6 +114,11 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _ensureLyricsLoaded(_currentTrack);
     _resetDesktopLineCache();
     _loadArtworkGlowColor(_currentTrack);
+    _trackQualityLabel = _buildQualityLabel(
+      bitrate: _currentTrack.bitrate,
+      sampleRate: _currentTrack.sampleRate,
+    );
+    unawaited(_loadTrackQuality(_currentTrack));
 
     final initialPlayerState = context.read<PlayerBloc>().state;
     _updatePlaybackStateFromPlayer(initialPlayerState, notify: false);
@@ -136,6 +144,11 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       _resetDesktopLineCache();
       _artworkGlowColor = null;
       _loadArtworkGlowColor(_currentTrack);
+      _trackQualityLabel = _buildQualityLabel(
+        bitrate: _currentTrack.bitrate,
+        sampleRate: _currentTrack.sampleRate,
+      );
+      unawaited(_loadTrackQuality(_currentTrack));
       if (_desktopLyricsActive) {
         _scheduleDesktopLyricsUpdate(force: true);
       }
@@ -193,10 +206,12 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         return null;
       }
 
-      final ui.ImmutableBuffer buffer =
-          await ui.ImmutableBuffer.fromUint8List(bytes);
-      final ui.ImageDescriptor descriptor =
-          await ui.ImageDescriptor.encoded(buffer);
+      final ui.ImmutableBuffer buffer = await ui.ImmutableBuffer.fromUint8List(
+        bytes,
+      );
+      final ui.ImageDescriptor descriptor = await ui.ImageDescriptor.encoded(
+        buffer,
+      );
       final ui.Codec codec = await descriptor.instantiateCodec(
         targetWidth: 64,
         targetHeight: 64,
@@ -246,6 +261,108 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<void> _loadTrackQuality(Track track) async {
+    final initialLabel = _buildQualityLabel(
+      bitrate: track.bitrate,
+      sampleRate: track.sampleRate,
+    );
+    if (mounted && initialLabel != _trackQualityLabel) {
+      setState(() => _trackQualityLabel = initialLabel);
+    }
+
+    if (track.sourceType != TrackSourceType.local) {
+      return;
+    }
+
+    final file = File(track.filePath);
+    if (!await file.exists()) {
+      return;
+    }
+
+    final requestId = ++_trackQualityRequestToken;
+    try {
+      final metadata = await readMetadata(file, getImage: false);
+      final int? bitrate =
+          metadata?.bitrate ??
+          await _calculateBitrateFromFile(
+            file,
+            metadata?.duration ?? track.duration,
+          );
+      final int? sampleRate = metadata?.sampleRate ?? track.sampleRate;
+      final label = _buildQualityLabel(
+        bitrate: bitrate,
+        sampleRate: sampleRate,
+      );
+      if (!mounted || requestId != _trackQualityRequestToken) {
+        return;
+      }
+      if (label != null && label != _trackQualityLabel) {
+        setState(() => _trackQualityLabel = label);
+      }
+    } catch (_) {
+      // 忽略获取失败，音质信息为可选。
+    }
+  }
+
+  Future<int?> _calculateBitrateFromFile(File file, Duration duration) async {
+    if (duration <= Duration.zero) {
+      return null;
+    }
+    try {
+      final length = await file.length();
+      if (length <= 0) {
+        return null;
+      }
+      final seconds = duration.inMilliseconds / 1000;
+      if (seconds <= 0) {
+        return null;
+      }
+      return (length * 8 / seconds).round();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _buildQualityLabel({int? bitrate, int? sampleRate}) {
+    final bitrateText = _formatBitrate(bitrate);
+    final sampleRateText = _formatSampleRate(sampleRate);
+    final parts = <String>[];
+    if (bitrateText != null) {
+      parts.add(bitrateText);
+    }
+    if (sampleRateText != null) {
+      parts.add(sampleRateText);
+    }
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join(' · ');
+  }
+
+  String? _formatBitrate(int? bitrate) {
+    if (bitrate == null || bitrate <= 0) {
+      return null;
+    }
+    final kbps = bitrate / 1000;
+    final hasFraction = kbps % 1 != 0;
+    final String display = hasFraction
+        ? (kbps >= 100 ? kbps.toStringAsFixed(0) : kbps.toStringAsFixed(1))
+        : kbps.toStringAsFixed(0);
+    return '$display kbps';
+  }
+
+  String? _formatSampleRate(int? sampleRate) {
+    if (sampleRate == null || sampleRate <= 0) {
+      return null;
+    }
+    final khz = sampleRate / 1000;
+    final hasFraction = khz % 1 != 0;
+    final String display = hasFraction
+        ? (khz >= 10 ? khz.toStringAsFixed(1) : khz.toStringAsFixed(2))
+        : khz.toStringAsFixed(0);
+    return '$display kHz';
   }
 
   Future<Uint8List?> _loadArtworkBytes(Track track) async {
@@ -1040,10 +1157,15 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
           _currentTrack = nextTrack;
           _resetTrackDetailState();
           _artworkGlowColor = null;
+          _trackQualityLabel = _buildQualityLabel(
+            bitrate: nextTrack.bitrate,
+            sampleRate: nextTrack.sampleRate,
+          );
         });
       }
       _ensureLyricsLoaded(nextTrack);
       _loadArtworkGlowColor(nextTrack);
+      unawaited(_loadTrackQuality(nextTrack));
       _resetScroll();
       _activeLyricsLines = const [];
       _activeDesktopLine = null;
@@ -1416,6 +1538,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         onEditTrackDetail: _openTrackDetailEditor,
         bottomSafeInset: widget.bottomSafeInset,
         artworkGlowColor: _artworkGlowColor,
+        trackQualityLabel: _trackQualityLabel,
         compactStage: _compactLyricsStage,
         onCycleCompactStage: _cycleCompactLyricsStage,
       ),
@@ -1451,6 +1574,7 @@ class _LyricsLayout extends StatelessWidget {
     required this.onToggleTrackDetail,
     required this.onEditTrackDetail,
     required this.bottomSafeInset,
+    required this.trackQualityLabel,
     required this.compactStage,
     required this.onCycleCompactStage,
   });
@@ -1481,6 +1605,7 @@ class _LyricsLayout extends StatelessWidget {
   final VoidCallback onToggleTrackDetail;
   final VoidCallback onEditTrackDetail;
   final double bottomSafeInset;
+  final String? trackQualityLabel;
   final _CompactLyricsStage compactStage;
   final VoidCallback onCycleCompactStage;
 
@@ -1533,6 +1658,7 @@ class _LyricsLayout extends StatelessWidget {
                 coverSize: coverSize,
                 isMac: isMac,
                 onTap: onCycleCompactStage,
+                qualityText: trackQualityLabel,
               ),
             );
 
@@ -1607,6 +1733,7 @@ class _LyricsLayout extends StatelessWidget {
                     detailFileName: trackDetailFileName,
                     onToggleDetail: onToggleTrackDetail,
                     onEditDetail: onEditTrackDetail,
+                    qualityText: trackQualityLabel,
                     isCompactLayout: false,
                   ),
                 ),
@@ -1650,6 +1777,7 @@ class _TrackInfoPanel extends StatelessWidget {
     required this.detailFileName,
     required this.onToggleDetail,
     required this.onEditDetail,
+    this.qualityText,
     this.isCompactLayout = false,
   });
 
@@ -1664,6 +1792,7 @@ class _TrackInfoPanel extends StatelessWidget {
   final String? detailFileName;
   final VoidCallback onToggleDetail;
   final VoidCallback onEditDetail;
+  final String? qualityText;
   final bool isCompactLayout;
 
   @override
@@ -1693,6 +1822,7 @@ class _TrackInfoPanel extends StatelessWidget {
               coverSize: coverSize,
               isMac: isMac,
               onTap: onToggleDetail,
+              qualityText: qualityText,
             ),
     );
   }
@@ -1705,12 +1835,14 @@ class _CoverColumn extends StatelessWidget {
     required this.coverSize,
     required this.isMac,
     required this.onTap,
+    this.qualityText,
   });
 
   final Track track;
   final double coverSize;
   final bool isMac;
   final VoidCallback onTap;
+  final String? qualityText;
 
   @override
   Widget build(BuildContext context) {
@@ -1753,6 +1885,7 @@ class _CoverColumn extends StatelessWidget {
     final bool isDarkMode = isMac
         ? MacosTheme.of(context).brightness == Brightness.dark
         : Theme.of(context).brightness == Brightness.dark;
+    final String? qualityText = this.qualityText;
 
     return Center(
       child: Column(
@@ -1813,6 +1946,20 @@ class _CoverColumn extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: subtitleStyle,
                 ),
+                if (qualityText != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    qualityText,
+                    locale: const Locale("zh-Hans", "zh"),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: subtitleStyle.copyWith(
+                      fontSize: (subtitleStyle.fontSize ?? 14) - 1,
+                      color: subtitleStyle.color?.withOpacity(0.65),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1902,10 +2049,12 @@ class _TrackDetailView extends StatelessWidget {
           height: 1.48,
           color: detailTextColor,
         );
-        final Color detailDividerColor = (isDarkMode ? Colors.white : Colors.black)
-            .withOpacity(isDarkMode ? 0.18 : 0.12);
-        final Color detailSurfaceColor = (isDarkMode ? Colors.white : Colors.black)
-            .withOpacity(0.04);
+        final Color detailDividerColor =
+            (isDarkMode ? Colors.white : Colors.black).withOpacity(
+              isDarkMode ? 0.18 : 0.12,
+            );
+        final Color detailSurfaceColor =
+            (isDarkMode ? Colors.white : Colors.black).withOpacity(0.04);
 
         if (isLoadingDetail) {
           return Center(
@@ -1970,8 +2119,8 @@ class _TrackDetailView extends StatelessWidget {
           );
         } else {
           final double baseFontSize = bodyStyle.fontSize ?? 14;
-          final MarkdownStyleSheet markdownStyle =
-              MarkdownStyleSheet.fromTheme(theme).copyWith(
+          final MarkdownStyleSheet
+          markdownStyle = MarkdownStyleSheet.fromTheme(theme).copyWith(
             p: detailTextStyle,
             h1: detailTextStyle.copyWith(
               fontSize: baseFontSize + 10,
@@ -2014,17 +2163,12 @@ class _TrackDetailView extends StatelessWidget {
               color: detailSurfaceColor,
               borderRadius: BorderRadius.circular(12),
               border: Border(
-                left: BorderSide(
-                  color: detailDividerColor,
-                  width: 3,
-                ),
+                left: BorderSide(color: detailDividerColor, width: 3),
               ),
             ),
             blockquotePadding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
             horizontalRuleDecoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: detailDividerColor),
-              ),
+              border: Border(top: BorderSide(color: detailDividerColor)),
             ),
             code: detailTextStyle.copyWith(
               fontFamily: 'monospace',
@@ -2038,10 +2182,7 @@ class _TrackDetailView extends StatelessWidget {
             ),
             tableHead: detailTextStyle.copyWith(fontWeight: FontWeight.w600),
             tableBody: detailTextStyle,
-            tableBorder: TableBorder.all(
-              color: detailDividerColor,
-              width: 0.6,
-            ),
+            tableBorder: TableBorder.all(color: detailDividerColor, width: 0.6),
           );
           detailBody = MarkdownBody(
             data: trimmedContent,

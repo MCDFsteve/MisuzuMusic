@@ -626,6 +626,18 @@ abstract class AppLocalizations {
   /// **'音乐库中未找到该歌手'**
   String get homeArtistNotFound;
 
+  /// No description provided for @homeArtistSelectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择歌手'**
+  String get homeArtistSelectionTitle;
+
+  /// No description provided for @homeArtistSelectionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'检测到多个歌手名称，请选择要查看的歌手'**
+  String get homeArtistSelectionHint;
+
   /// No description provided for @homeSongMissingAlbum.
   ///
   /// In zh, this message translates to:

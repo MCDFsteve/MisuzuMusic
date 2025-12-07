@@ -18,7 +18,7 @@ class AppConstants {
 
   // Database
   static const String dbName = 'misuzu_music.db';
-  static const int dbVersion = 1;
+  static const int dbVersion = 5;
 
   // Cache
   static const String artworkCacheDir = 'artwork_cache';

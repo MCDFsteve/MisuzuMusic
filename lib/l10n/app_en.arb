@@ -139,6 +139,8 @@
   "homeSongMissingArtist": "This track has no artist info",
   "homeLibraryNotReady": "Library is still loading",
   "homeArtistNotFound": "Artist not found in library",
+  "homeArtistSelectionTitle": "Choose artist",
+  "homeArtistSelectionHint": "Multiple artist names were detected. Pick one to view.",
   "homeSongMissingAlbum": "This track has no album info",
   "homeAlbumNotFound": "Album not found in library",
   "homeSongLabel": "Song: {title}",

@@ -139,6 +139,8 @@
   "homeSongMissingArtist": "该歌曲缺少歌手信息",
   "homeLibraryNotReady": "音乐库尚未加载完成",
   "homeArtistNotFound": "音乐库中未找到该歌手",
+  "homeArtistSelectionTitle": "选择歌手",
+  "homeArtistSelectionHint": "检测到多个歌手名称，请选择要查看的歌手",
   "homeSongMissingAlbum": "该歌曲缺少专辑信息",
   "homeAlbumNotFound": "音乐库中未找到该专辑",
   "homeSongLabel": "歌曲：{title}",

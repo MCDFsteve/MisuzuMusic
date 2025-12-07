@@ -546,6 +546,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           sourceId: normalizedSource.id,
           remotePath: remoteFile.relativePath,
           contentHash: existing?.contentHash ?? filePathKey,
+          bitrate: existing?.bitrate,
+          sampleRate: existing?.sampleRate,
         );
 
         if (existing == null) {
@@ -651,6 +653,15 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         final genre =
             _readNonEmptyString(metadata['genre']) ??
             _readNonEmptyString(tags['genre']);
+        final bitrate =
+            _parseNullableInt(metadata['bitrate']) ??
+            _parseNullableInt(tags['bitrate']) ??
+            existing?.bitrate;
+        final sampleRate =
+            _parseNullableInt(metadata['sample_rate']) ??
+            _parseNullableInt(tags['sample_rate']) ??
+            _parseNullableInt(tags['samplerate']) ??
+            existing?.sampleRate;
 
         final coverRemote = rawTrack['cover_path'] as String?;
         final thumbRemote = rawTrack['thumbnail_path'] as String?;
@@ -699,6 +710,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           remotePath: relativePath,
           httpHeaders: headers,
           contentHash: contentHash,
+          bitrate: bitrate,
+          sampleRate: sampleRate,
         );
 
         if (existing == null) {
@@ -1238,6 +1251,13 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         previousArtworkPath: existingTrack?.artworkPath,
       );
 
+      final resolvedBitrate = await _resolveBitrate(
+        metadata: metadata,
+        file: file,
+        duration: duration,
+      );
+      final sampleRate = metadata?.sampleRate;
+
       if (artworkPath == null || artworkPath.isEmpty) {
         artworkPath = await _fetchArtworkFromNetease(
           title: title,
@@ -1261,6 +1281,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         year: year,
         genre: genre,
         sourceType: TrackSourceType.local,
+        bitrate: resolvedBitrate ?? existingTrack?.bitrate,
+        sampleRate: sampleRate ?? existingTrack?.sampleRate,
       );
     } catch (e) {
       print('Error reading metadata for ${file.path}: $e');
@@ -1287,6 +1309,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         year: existingTrack?.year,
         genre: existingTrack?.genre,
         sourceType: existingTrack?.sourceType ?? TrackSourceType.local,
+        bitrate: existingTrack?.bitrate,
+        sampleRate: existingTrack?.sampleRate,
       );
     }
   }
@@ -1343,6 +1367,46 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     }
 
     return filePath;
+  }
+
+  Future<int?> _resolveBitrate({
+    required AudioMetadata? metadata,
+    required File file,
+    required Duration duration,
+  }) async {
+    int? rawBitrate = metadata?.bitrate;
+    final int? calculated = await _calculateBitrateFromFile(file, duration);
+
+    if (rawBitrate != null && rawBitrate > 0) {
+      if (calculated != null) {
+        final ratio = calculated / rawBitrate;
+        if (ratio > 1.5 && ratio < 9.5) {
+          return calculated;
+        }
+      }
+      return rawBitrate;
+    }
+
+    return calculated;
+  }
+
+  Future<int?> _calculateBitrateFromFile(File file, Duration duration) async {
+    if (duration <= Duration.zero) {
+      return null;
+    }
+    try {
+      final length = await file.length();
+      if (length <= 0) {
+        return null;
+      }
+      final seconds = duration.inMilliseconds / 1000;
+      if (seconds <= 0) {
+        return null;
+      }
+      return (length * 8 / seconds).round();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<String?> _fetchArtworkFromNetease({
@@ -2059,6 +2123,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       final trackNumber = (metadata['track_number'] as num?)?.toInt();
       final year = (metadata['year'] as num?)?.toInt();
       final genre = metadata['genre'] as String?;
+      final bitrate = (metadata['bitrate'] as num?)?.toInt();
+      final sampleRate = (metadata['sample_rate'] as num?)?.toInt();
 
       final existing = existingById[entry.trackId];
       final artworkPath = await _cacheWebDavArtwork(
@@ -2096,6 +2162,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         httpHeaders: headers.isEmpty ? existing?.httpHeaders : headers,
         contentHash:
             metadata?['hash_sha1_first_10kb'] as String? ?? entry.trackId,
+        bitrate: bitrate ?? existing?.bitrate,
+        sampleRate: sampleRate ?? existing?.sampleRate,
       );
 
       if (existing == null) {

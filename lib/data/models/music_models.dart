@@ -20,6 +20,8 @@ class TrackModel extends Track {
     super.remotePath,
     super.httpHeaders,
     super.contentHash,
+    super.bitrate,
+    super.sampleRate,
   });
 
   // Convert from domain entity
@@ -41,6 +43,8 @@ class TrackModel extends Track {
       remotePath: track.remotePath,
       httpHeaders: track.httpHeaders,
       contentHash: track.contentHash,
+      bitrate: track.bitrate,
+      sampleRate: track.sampleRate,
     );
   }
 
@@ -84,6 +88,8 @@ class TrackModel extends Track {
       remotePath: map['remote_path'] as String?,
       httpHeaders: headers,
       contentHash: map['content_hash'] as String?,
+      bitrate: map['bitrate'] as int?,
+      sampleRate: map['sample_rate'] as int?,
     );
   }
 
@@ -111,6 +117,8 @@ class TrackModel extends Track {
       'remote_path': remotePath,
       'http_headers': headersJson,
       'content_hash': contentHash,
+      'bitrate': bitrate,
+      'sample_rate': sampleRate,
     };
   }
 
@@ -133,6 +141,8 @@ class TrackModel extends Track {
       remotePath: remotePath,
       httpHeaders: httpHeaders,
       contentHash: contentHash,
+      bitrate: bitrate,
+      sampleRate: sampleRate,
     );
   }
 
@@ -154,6 +164,8 @@ class TrackModel extends Track {
     String? remotePath,
     Map<String, String>? httpHeaders,
     String? contentHash,
+    int? bitrate,
+    int? sampleRate,
   }) {
     return TrackModel(
       id: id ?? this.id,
@@ -172,6 +184,8 @@ class TrackModel extends Track {
       remotePath: remotePath ?? this.remotePath,
       httpHeaders: httpHeaders ?? this.httpHeaders,
       contentHash: contentHash ?? this.contentHash,
+      bitrate: bitrate ?? this.bitrate,
+      sampleRate: sampleRate ?? this.sampleRate,
     );
   }
 }

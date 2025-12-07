@@ -823,8 +823,11 @@ class _HomePageContentState extends State<HomePageContent> {
         .toList(growable: false);
   }
 
-  void _viewTrackArtist(Track track) {
+  void _viewTrackArtist(Track track) async {
     final name = track.artist.trim();
+    debugPrint(
+      '[HomeContent] View artist request from track "${track.title}" by "${track.artist}"',
+    );
     if (name.isEmpty) {
       _showOperationSnackBar(l10n.homeSongMissingArtist, isError: true);
       return;
@@ -837,26 +840,150 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     final lowerName = name.toLowerCase();
+    final separatorPattern = RegExp(r'[/、,，&＆]+');
     final normalizedTracks = _normalizedLibraryTracks(library);
-    final artistTracks = normalizedTracks
-        .where((t) => t.artist.trim().toLowerCase() == lowerName)
+    final buckets = <String, List<Track>>{};
+    void addToBucket(String key, Track track) {
+      final trimmed = key.trim().toLowerCase();
+      if (trimmed.isEmpty) return;
+      buckets.putIfAbsent(trimmed, () => []).add(track);
+    }
+
+    for (final item in normalizedTracks) {
+      final artistValue = item.artist.trim();
+      addToBucket(artistValue, item);
+      final parts = artistValue.split(separatorPattern);
+      for (final part in parts) {
+        if (part.trim().isEmpty) continue;
+        addToBucket(part, item);
+      }
+    }
+
+    final slashParts = name
+        .split(separatorPattern)
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
         .toList();
-    if (artistTracks.isEmpty) {
+    final candidateNames = <String>[
+      ...slashParts,
+      if (!slashParts.any((part) => part.toLowerCase() == lowerName)) name,
+    ];
+    final matchedArtists = <MapEntry<String, List<Track>>>[];
+    final seenKeys = <String>{};
+
+    for (final candidate in candidateNames) {
+      final key = candidate.toLowerCase();
+      if (!seenKeys.add(key)) continue;
+      final tracks = buckets[key];
+      if (tracks == null || tracks.isEmpty) continue;
+
+      matchedArtists.add(MapEntry(candidate, tracks));
+    }
+
+    if (matchedArtists.isEmpty) {
+      debugPrint('[HomeContent] No artist match for "$name"');
+    } else {
+      final matchedNames =
+          matchedArtists.map((entry) => '"${entry.key}"').join(', ');
+      debugPrint(
+        '[HomeContent] Found artist matches ($matchedNames), count=${matchedArtists.length}',
+      );
+    }
+
+    if (matchedArtists.isEmpty) {
       _showOperationSnackBar(l10n.homeArtistNotFound, isError: true);
       return;
     }
 
+    MapEntry<String, List<Track>> selectedArtist;
+    if (matchedArtists.length == 1) {
+      selectedArtist = matchedArtists.first;
+    } else {
+      final selection = await _showArtistSelectionDialog(matchedArtists);
+      if (selection == null) return;
+      selectedArtist = selection;
+    }
+
+    final artistTracks = selectedArtist.value;
     final artworkTrack = artistTracks.lastWhere(
       (t) => t.artworkPath != null && t.artworkPath!.isNotEmpty,
       orElse: () => artistTracks.first,
     );
     final artist = Artist(
-      name: name,
+      name: selectedArtist.key.trim().isEmpty ? name : selectedArtist.key,
       trackCount: artistTracks.length,
       artworkPath: artworkTrack.artworkPath,
     );
+    debugPrint(
+      '[HomeContent] Open artist detail "${artist.name}" (${artist.trackCount} tracks)',
+    );
 
     _showArtistDetail(artist, artistTracks);
+  }
+
+  Future<MapEntry<String, List<Track>>?> _showArtistSelectionDialog(
+    List<MapEntry<String, List<Track>>> options,
+  ) {
+    if (!mounted) return Future.value(null);
+
+    return showPlaylistModalDialog<MapEntry<String, List<Track>>>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        return _PlaylistModalScaffold(
+          title: dialogContext.l10n.homeArtistSelectionTitle,
+          maxWidth: 420,
+          contentSpacing: 12,
+          actionsSpacing: 14,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                dialogContext.l10n.homeArtistSelectionHint,
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 10),
+              FrostedSelectionContainer(
+                maxHeight: 320,
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: options.length,
+                  itemBuilder: (ctx, index) {
+                    final option = options[index];
+                    return FrostedOptionTile(
+                      title: option.key,
+                      subtitle: dialogContext
+                          .l10n
+                          .homeArtistDescription(option.value.length),
+                      onPressed: () => Navigator.of(ctx).pop(option),
+                    );
+                  },
+                  separatorBuilder: (ctx, index) {
+                    final dividerColor =
+                        theme.dividerColor.withOpacity(0.25);
+                    return Divider(
+                      height: 1,
+                      thickness: 0.6,
+                      indent: 14,
+                      endIndent: 14,
+                      color: dividerColor,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            _SheetActionButton.secondary(
+              label: dialogContext.l10n.actionCancel,
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _viewTrackAlbum(Track track) {

@@ -291,6 +291,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeArtistNotFound => '音乐库中未找到该歌手';
 
   @override
+  String get homeArtistSelectionTitle => '选择歌手';
+
+  @override
+  String get homeArtistSelectionHint => '检测到多个歌手名称，请选择要查看的歌手';
+
+  @override
   String get homeSongMissingAlbum => '该歌曲缺少专辑信息';
 
   @override

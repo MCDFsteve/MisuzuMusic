@@ -299,6 +299,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeArtistNotFound => 'Artist not found in library';
 
   @override
+  String get homeArtistSelectionTitle => 'Choose artist';
+
+  @override
+  String get homeArtistSelectionHint =>
+      'Multiple artist names were detected. Pick one to view.';
+
+  @override
   String get homeSongMissingAlbum => 'This track has no album info';
 
   @override

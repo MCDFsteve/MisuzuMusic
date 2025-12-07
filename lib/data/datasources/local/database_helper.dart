@@ -9,7 +9,7 @@ class DatabaseHelper {
   DatabaseHelper(this._pathProvider);
 
   static const String _databaseName = 'misuzu_music.db';
-  static const int _databaseVersion = 4;
+  static const int _databaseVersion = 5;
 
   final StoragePathProvider _pathProvider;
   Database? _database;
@@ -57,7 +57,9 @@ class DatabaseHelper {
           source_id TEXT,
           remote_path TEXT,
           http_headers TEXT,
-          content_hash TEXT
+          content_hash TEXT,
+          bitrate INTEGER,
+          sample_rate INTEGER
         )
       ''');
 
@@ -168,6 +170,10 @@ class DatabaseHelper {
       }
       if (oldVersion < 4) {
         await db.execute('ALTER TABLE tracks ADD COLUMN content_hash TEXT');
+      }
+      if (oldVersion < 5) {
+        await db.execute('ALTER TABLE tracks ADD COLUMN bitrate INTEGER');
+        await db.execute('ALTER TABLE tracks ADD COLUMN sample_rate INTEGER');
       }
     } catch (e) {
       throw app_exceptions.DatabaseException(
