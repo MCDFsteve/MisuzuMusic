@@ -67,6 +67,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   final List<Track> _queue = [];
   int _currentIndex = 0;
   Track? _currentTrack;
+  final List<String> _playNextTrackIds = [];
   PlayMode _playMode = PlayMode.repeatAll;
   double _volume = 1.0;
   DateTime _lastPositionPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
@@ -267,8 +268,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         return current == null ? const [] : List<Track>.unmodifiable([current]);
       case PlayMode.shuffle:
         final result = <Track>[];
+        final seenIds = <String>{};
         if (current != null) {
           result.add(current);
+          seenIds.add(current.id);
+        }
+        for (final id in _playNextTrackIds) {
+          final track = _findTrackById(id);
+          if (track != null && seenIds.add(track.id)) {
+            result.add(track);
+          }
         }
         if (_shuffleIndexes.isNotEmpty && _queue.length > 1) {
           final int start =
@@ -276,7 +285,10 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
           for (int i = start; i < _shuffleIndexes.length; i++) {
             final idx = _shuffleIndexes[i];
             if (idx >= 0 && idx < _queue.length) {
-              result.add(_queue[idx]);
+              final track = _queue[idx];
+              if (seenIds.add(track.id)) {
+                result.add(track);
+              }
             }
           }
         }
@@ -284,6 +296,31 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       case PlayMode.repeatAll:
         return List<Track>.unmodifiable(_queue);
     }
+  }
+
+  Track? _findTrackById(String id) {
+    for (final track in _queue) {
+      if (track.id == id) {
+        return track;
+      }
+    }
+    return null;
+  }
+
+  void _markPlayNext(Track track) {
+    _playNextTrackIds.removeWhere((id) => id == track.id);
+    _playNextTrackIds.insert(0, track.id);
+  }
+
+  int? _consumePlayNextIndex() {
+    while (_playNextTrackIds.isNotEmpty) {
+      final id = _playNextTrackIds.removeAt(0);
+      final index = _queue.indexWhere((track) => track.id == id);
+      if (index != -1 && index != _currentIndex) {
+        return index;
+      }
+    }
+    return null;
   }
 
   void _notifyQueueChanged() {
@@ -678,6 +715,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     _queue
       ..clear()
       ..addAll(tracks);
+    _playNextTrackIds.clear();
 
     // 重置洗牌状态
     _shuffleIndexes.clear();
@@ -716,13 +754,14 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
   @override
   Future<void> addToQueueNext(Track track) async {
-    if (_queue.isEmpty) {
-      _queue.add(track);
+    final insertIndex =
+        _queue.isEmpty ? 0 : (_currentIndex + 1).clamp(0, _queue.length).toInt();
+    _queue.insert(insertIndex, track);
+    print('➡️ AudioService: 插入下一首 -> ${track.title} @ $insertIndex');
+    if (_queue.length == 1) {
       _currentIndex = 0;
-    } else {
-      final insertIndex = (_currentIndex + 1).clamp(0, _queue.length).toInt();
-      _queue.insert(insertIndex, track);
     }
+    _markPlayNext(track);
     if (_playMode == PlayMode.shuffle) {
       _generateShuffleOrder();
     }
@@ -733,7 +772,9 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> removeFromQueue(int index) async {
     if (index >= 0 && index < _queue.length) {
+      final removedId = _queue[index].id;
       _queue.removeAt(index);
+      _playNextTrackIds.removeWhere((id) => id == removedId);
       if (index < _currentIndex) {
         _currentIndex--;
       } else if (index == _currentIndex && _currentIndex >= _queue.length) {
@@ -747,6 +788,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> clearQueue() async {
     _queue.clear();
+    _playNextTrackIds.clear();
     _currentIndex = 0;
     _notifyQueueChanged();
     await _clearPersistedQueue();
@@ -775,6 +817,18 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   @override
   Future<void> skipToNext() async {
     if (_queue.isEmpty) return;
+
+    final forcedIndex = _consumePlayNextIndex();
+    if (forcedIndex != null) {
+      _currentIndex = forcedIndex;
+      await _persistQueueState();
+      await play(_queue[_currentIndex]);
+      if (_playMode == PlayMode.shuffle) {
+        _generateShuffleOrder();
+      }
+      _notifyQueueChanged();
+      return;
+    }
 
     switch (_playMode) {
       case PlayMode.repeatAll:
@@ -884,15 +938,23 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return;
     }
 
-    switch (_playMode) {
-      case PlayMode.repeatAll:
-      case PlayMode.repeatOne:
-        _currentIndex = (_currentIndex + 1) % _queue.length;
-        break;
-      case PlayMode.shuffle:
-        _logShuffle('auto skip (decoder error)');
-        _currentIndex = _getRandomIndex();
-        break;
+    final forcedIndex = _consumePlayNextIndex();
+    if (forcedIndex != null) {
+      _currentIndex = forcedIndex;
+      if (_playMode == PlayMode.shuffle) {
+        _generateShuffleOrder();
+      }
+    } else {
+      switch (_playMode) {
+        case PlayMode.repeatAll:
+        case PlayMode.repeatOne:
+          _currentIndex = (_currentIndex + 1) % _queue.length;
+          break;
+        case PlayMode.shuffle:
+          _logShuffle('auto skip (decoder error)');
+          _currentIndex = _getRandomIndex();
+          break;
+      }
     }
 
     try {

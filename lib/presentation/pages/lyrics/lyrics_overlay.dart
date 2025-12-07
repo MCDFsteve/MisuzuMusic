@@ -2243,7 +2243,6 @@ class _TrackDetailView extends StatelessWidget {
         final double trailingSpacer = isCompactLayout
             ? (bottomSafeInset + 24)
             : 0;
-
         List<Widget> buildDetailChildren(Widget detailSection) {
           return [
             SizedBox(height: leadingSpacer),

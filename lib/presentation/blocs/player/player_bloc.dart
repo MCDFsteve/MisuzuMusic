@@ -573,6 +573,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
   ) async {
     try {
       if (event.playNext) {
+        print('➡️ PlayerBloc: 添加到下一首播放 -> ${event.track.title}');
         await _audioPlayerService.addToQueueNext(event.track);
       } else {
         await _audioPlayerService.addToQueue(event.track);
