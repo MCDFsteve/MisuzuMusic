@@ -343,6 +343,8 @@
   "playlistEditorDeleteDialogTitle": "Delete playlist",
   "contextMenuViewArtist": "View artist",
   "contextMenuViewAlbum": "View album",
+  "contextMenuPlayNext": "Play next",
+  "contextMenuAddToQueue": "Add to queue",
   "contextMenuAddToPlaylist": "Add to playlist",
   "contextMenuRemoveFromPlaylist": "Remove from playlist",
   "contextMenuAddToOnlinePlaylist": "Add to online playlist...",

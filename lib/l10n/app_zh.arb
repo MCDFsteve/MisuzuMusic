@@ -343,6 +343,8 @@
   "playlistEditorDeleteDialogTitle": "删除歌单",
   "contextMenuViewArtist": "查看歌手",
   "contextMenuViewAlbum": "查看专辑",
+  "contextMenuPlayNext": "添加到下一首播放",
+  "contextMenuAddToQueue": "添加到播放队列",
   "contextMenuAddToPlaylist": "添加到歌单",
   "contextMenuRemoveFromPlaylist": "从歌单删除",
   "contextMenuAddToOnlinePlaylist": "添加到网络歌曲歌单...",

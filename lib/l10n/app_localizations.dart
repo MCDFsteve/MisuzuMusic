@@ -1136,6 +1136,18 @@ abstract class AppLocalizations {
   /// **'查看专辑'**
   String get contextMenuViewAlbum;
 
+  /// No description provided for @contextMenuPlayNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加到下一首播放'**
+  String get contextMenuPlayNext;
+
+  /// No description provided for @contextMenuAddToQueue.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加到播放队列'**
+  String get contextMenuAddToQueue;
+
   /// No description provided for @contextMenuAddToPlaylist.
   ///
   /// In zh, this message translates to:

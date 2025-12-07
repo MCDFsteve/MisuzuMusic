@@ -605,6 +605,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contextMenuViewAlbum => 'View album';
 
   @override
+  String get contextMenuPlayNext => 'Play next';
+
+  @override
+  String get contextMenuAddToQueue => 'Add to queue';
+
+  @override
   String get contextMenuAddToPlaylist => 'Add to playlist';
 
   @override

@@ -46,6 +46,7 @@ abstract class AudioPlayerService {
   // Queue management
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0});
   Future<void> addToQueue(Track track);
+  Future<void> addToQueueNext(Track track);
   Future<void> removeFromQueue(int index);
   Future<void> clearQueue();
   List<Track> get queue;

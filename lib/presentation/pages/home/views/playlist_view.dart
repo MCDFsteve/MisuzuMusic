@@ -188,6 +188,23 @@ class _PlaylistHistoryList extends StatelessWidget {
       );
     }
 
+    actions.addAll([
+      MacosContextMenuAction(
+        label: l10n.contextMenuPlayNext,
+        icon: CupertinoIcons.forward_fill,
+        onSelected: () => context.read<PlayerBloc>().add(
+              PlayerAddToQueue(normalizedTrack, playNext: true),
+            ),
+      ),
+      MacosContextMenuAction(
+        label: l10n.contextMenuAddToQueue,
+        icon: CupertinoIcons.list_bullet,
+        onSelected: () => context.read<PlayerBloc>().add(
+              PlayerAddToQueue(normalizedTrack),
+            ),
+      ),
+    ]);
+
     if (originalTrack.isNeteaseTrack) {
       actions.add(
         MacosContextMenuAction(

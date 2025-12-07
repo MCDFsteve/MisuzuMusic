@@ -89,6 +89,16 @@ class PlayerSetQueue extends PlayerEvent {
   List<Object?> get props => [tracks, startIndex, autoPlay, initialPosition];
 }
 
+class PlayerAddToQueue extends PlayerEvent {
+  final Track track;
+  final bool playNext;
+
+  const PlayerAddToQueue(this.track, {this.playNext = false});
+
+  @override
+  List<Object?> get props => [track, playNext];
+}
+
 class PlayerRestoreLastSession extends PlayerEvent {
   const PlayerRestoreLastSession();
 }
@@ -364,6 +374,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
     on<PlayerSkipPrevious>(_onSkipPrevious);
     on<PlayerSetPlayMode>(_onSetPlayMode);
     on<PlayerSetQueue>(_onSetQueue);
+    on<PlayerAddToQueue>(_onAddToQueue);
     on<PlayerPositionChanged>(_onPositionChanged);
     on<PlayerDurationChanged>(_onDurationChanged);
     on<PlayerStateChanged>(_onPlayerStateChanged);
@@ -553,6 +564,21 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerBlocState> {
     } catch (e) {
       print('❌ PlayerBloc: 设置队列失败 - $e');
       emit(PlayerError('Failed to set queue: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onAddToQueue(
+    PlayerAddToQueue event,
+    Emitter<PlayerBlocState> emit,
+  ) async {
+    try {
+      if (event.playNext) {
+        await _audioPlayerService.addToQueueNext(event.track);
+      } else {
+        await _audioPlayerService.addToQueue(event.track);
+      }
+    } catch (e) {
+      emit(PlayerError('Failed to update queue: ${e.toString()}'));
     }
   }
 

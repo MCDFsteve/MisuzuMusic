@@ -587,6 +587,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get contextMenuViewAlbum => '查看专辑';
 
   @override
+  String get contextMenuPlayNext => '添加到下一首播放';
+
+  @override
+  String get contextMenuAddToQueue => '添加到播放队列';
+
+  @override
   String get contextMenuAddToPlaylist => '添加到歌单';
 
   @override

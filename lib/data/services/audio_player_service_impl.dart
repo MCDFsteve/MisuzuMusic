@@ -702,7 +702,30 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
   @override
   Future<void> addToQueue(Track track) async {
+    final wasEmpty = _queue.isEmpty;
     _queue.add(track);
+    if (wasEmpty) {
+      _currentIndex = 0;
+    }
+    if (_playMode == PlayMode.shuffle) {
+      _generateShuffleOrder();
+    }
+    _notifyQueueChanged();
+    await _persistQueueState();
+  }
+
+  @override
+  Future<void> addToQueueNext(Track track) async {
+    if (_queue.isEmpty) {
+      _queue.add(track);
+      _currentIndex = 0;
+    } else {
+      final insertIndex = (_currentIndex + 1).clamp(0, _queue.length).toInt();
+      _queue.insert(insertIndex, track);
+    }
+    if (_playMode == PlayMode.shuffle) {
+      _generateShuffleOrder();
+    }
     _notifyQueueChanged();
     await _persistQueueState();
   }

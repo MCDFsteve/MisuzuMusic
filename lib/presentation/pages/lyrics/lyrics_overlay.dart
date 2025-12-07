@@ -2240,6 +2240,10 @@ const double _kLyricsPanelTopSpacing = 12.0;
 const double _kLyricsPanelCompactTopSpacing = 12.0;
 const double _kLyricsPanelBaseBottomInset = 12.0;
 const double _kLyricsPanelCompactBaseBottomInset = 12.0;
+const double _kLyricsPanelRightInset = 0.0;
+const double _kLyricsPanelCompactRightInset = 0.0;
+const double _kLyricsPanelButtonRightPadding = 12.0;
+const double _kLyricsPanelCompactButtonRightPadding = 12.0;
 
 class _LyricsPanel extends StatelessWidget {
   const _LyricsPanel({
@@ -2300,6 +2304,14 @@ class _LyricsPanel extends StatelessWidget {
         (isCompactLayout
             ? _kLyricsPanelCompactBaseBottomInset
             : _kLyricsPanelBaseBottomInset);
+    final double rightInset = isCompactLayout
+        ? _kLyricsPanelCompactRightInset
+        : _kLyricsPanelRightInset;
+    final double floatingButtonsRightPadding = isCompactLayout
+        ? _kLyricsPanelCompactButtonRightPadding
+        : _kLyricsPanelButtonRightPadding;
+    final double floatingButtonsRight =
+        rightInset + floatingButtonsRightPadding - horizontalPadding;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -2375,11 +2387,12 @@ class _LyricsPanel extends StatelessWidget {
               ];
 
               return Stack(
+                clipBehavior: Clip.none,
                 children: [
                   Positioned.fill(child: content),
                   Positioned(
                     bottom: bottomInset,
-                    right: 6,
+                    right: floatingButtonsRight,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.end,

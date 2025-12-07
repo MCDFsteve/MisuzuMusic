@@ -155,14 +155,7 @@ class MacOSTrackListView extends StatelessWidget {
     final albumName = displayInfo.album.trim();
     final canViewArtist = onViewArtist != null && artistName.isNotEmpty;
     final canViewAlbum = onViewAlbum != null && albumName.isNotEmpty;
-
-    if (!hasAdd &&
-        !hasRemove &&
-        customActions.isEmpty &&
-        !canViewArtist &&
-        !canViewAlbum) {
-      return;
-    }
+    const hasQueueActions = true;
 
     final l10n = context.l10n;
     final actions = <MacosContextMenuAction>[];
@@ -183,6 +176,24 @@ class MacOSTrackListView extends StatelessWidget {
           onSelected: () => onViewAlbum?.call(normalizedTrack),
         ),
       );
+    }
+    if (hasQueueActions) {
+      actions.addAll([
+        MacosContextMenuAction(
+          label: l10n.contextMenuPlayNext,
+          icon: CupertinoIcons.forward_fill,
+          onSelected: () => context.read<PlayerBloc>().add(
+                PlayerAddToQueue(normalizedTrack, playNext: true),
+              ),
+        ),
+        MacosContextMenuAction(
+          label: l10n.contextMenuAddToQueue,
+          icon: CupertinoIcons.list_bullet,
+          onSelected: () => context.read<PlayerBloc>().add(
+                PlayerAddToQueue(normalizedTrack),
+              ),
+        ),
+      ]);
     }
     if (customActions.isNotEmpty) {
       actions.addAll(customActions);
