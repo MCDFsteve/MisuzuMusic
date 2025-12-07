@@ -1,5 +1,7 @@
 # Misuzu Music
 
+[English](README_EN.md) | 简体中文
+
 一个本地音乐播放器。
 
 ## 下载

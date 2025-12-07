@@ -59,40 +59,40 @@ jobs:
           }
 
           @"
-#define MyAppName "Misuzu Music"
-#define MyAppVersion "${env:APP_VERSION}"
-#define MyAppPublisher "Misuzu"
-#define MyAppExeName "MisuzuMusic.exe"
+          #define MyAppName "Misuzu Music"
+          #define MyAppVersion "${env:APP_VERSION}"
+          #define MyAppPublisher "Misuzu"
+          #define MyAppExeName "MisuzuMusic.exe"
 
-[Setup]
-AppId={{9E7F0A89-637D-4C5A-B7C8-54A994F8B9A8}}
-AppName={#MyAppName}
-AppVersion={#MyAppVersion}
-AppPublisher={#MyAppPublisher}
-DefaultDirName={pf}\Misuzu Music
-DefaultGroupName=Misuzu Music
-OutputDir="$artifactDir"
-OutputBaseFilename="$outputBaseName"
-Compression=lzma
-SolidCompression=yes
-ArchitecturesAllowed=$arch
-DisableWelcomePage=yes
-WizardStyle=modern
+          [Setup]
+          AppId={{9E7F0A89-637D-4C5A-B7C8-54A994F8B9A8}}
+          AppName={#MyAppName}
+          AppVersion={#MyAppVersion}
+          AppPublisher={#MyAppPublisher}
+          DefaultDirName={pf}\Misuzu Music
+          DefaultGroupName=Misuzu Music
+          OutputDir="$artifactDir"
+          OutputBaseFilename="$outputBaseName"
+          Compression=lzma
+          SolidCompression=yes
+          ArchitecturesAllowed=$arch
+          DisableWelcomePage=yes
+          WizardStyle=modern
 
-[Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+          [Languages]
+          Name: "english"; MessagesFile: "compiler:Default.isl"
+          Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
-[Files]
-Source: "$buildDir\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          [Files]
+          Source: "$buildDir\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-[Icons]
-Name: "{autoprograms}\Misuzu Music"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\Misuzu Music"; Filename: "{app}\{#MyAppExeName}"
+          [Icons]
+          Name: "{autoprograms}\Misuzu Music"; Filename: "{app}\{#MyAppExeName}"
+          Name: "{autodesktop}\Misuzu Music"; Filename: "{app}\{#MyAppExeName}"
 
-[Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "启动 Misuzu Music"; Flags: nowait postinstall skipifsilent
-"@ | Set-Content -Path $installerScript -Encoding UTF8
+          [Run]
+          Filename: "{app}\{#MyAppExeName}"; Description: "启动 Misuzu Music"; Flags: nowait postinstall skipifsilent
+          "@ | Set-Content -Path $installerScript -Encoding UTF8
 
           $isccPath = Join-Path -Path "${env:ProgramFiles(x86)}" -ChildPath "Inno Setup 6\\ISCC.exe"
           if (-not (Test-Path $isccPath)) {
