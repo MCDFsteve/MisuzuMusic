@@ -32,6 +32,19 @@ jobs:
       - name: 安装 Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y
+      - name: 补充 Inno Setup 语言包
+        shell: pwsh
+        run: |
+          $langFile = Join-Path "${env:ProgramFiles(x86)}" "Inno Setup 6\Languages\ChineseSimplified.isl"
+          if (-not (Test-Path $langFile)) {
+            Write-Host "ChineseSimplified.isl 缺失，开始下载..."
+            $langDir = Split-Path $langFile -Parent
+            New-Item -ItemType Directory -Path $langDir -Force | Out-Null
+            $url = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl"
+            Invoke-WebRequest -Uri $url -OutFile $langFile -UseBasicParsing
+          } else {
+            Write-Host "ChineseSimplified.isl 已存在：$langFile"
+          }
       - name: 构建 Windows 应用
         shell: pwsh
         run: flutter build windows --release
