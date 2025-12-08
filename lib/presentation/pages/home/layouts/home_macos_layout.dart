@@ -95,7 +95,7 @@ extension _HomePageDesktopLayout on _HomePageContentState {
         final bool showCreatePlaylistButton = _selectedIndex == 1;
         final bool showSelectFolderButton = _selectedIndex == 0;
 
-        return MacosWindow(
+        final window = MacosWindow(
           titleBar: null,
           child: MacosScaffold(
             toolBar: null,
@@ -243,7 +243,128 @@ extension _HomePageDesktopLayout on _HomePageContentState {
             ],
           ),
         );
+
+        return _LinuxResizeOverlay(child: window);
       },
+    );
+  }
+}
+
+/// Linux 使用无边框窗口时提供自定义的缩放热区，避免无法调整大小。
+class _LinuxResizeOverlay extends StatelessWidget {
+  const _LinuxResizeOverlay({required this.child});
+
+  final Widget child;
+
+  static const double _edgeThickness = 6;
+  static const double _cornerSize = 14;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Platform.isLinux) {
+      return child;
+    }
+
+    Widget buildHandle({
+      double? top,
+      double? bottom,
+      double? left,
+      double? right,
+      double? width,
+      double? height,
+      required ResizeEdge edge,
+      required SystemMouseCursor cursor,
+    }) {
+      return Positioned(
+        top: top,
+        bottom: bottom,
+        left: left,
+        right: right,
+        child: MouseRegion(
+          cursor: cursor,
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (event) {
+              if (event.kind != PointerDeviceKind.mouse ||
+                  event.buttons != kPrimaryMouseButton) {
+                return;
+              }
+              unawaited(windowManager.startResizing(edge));
+            },
+            child: SizedBox(width: width, height: height),
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        child,
+        buildHandle(
+          top: 0,
+          left: 0,
+          width: _cornerSize,
+          height: _cornerSize,
+          edge: ResizeEdge.topLeft,
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+        ),
+        buildHandle(
+          top: 0,
+          right: 0,
+          width: _cornerSize,
+          height: _cornerSize,
+          edge: ResizeEdge.topRight,
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+        ),
+        buildHandle(
+          bottom: 0,
+          left: 0,
+          width: _cornerSize,
+          height: _cornerSize,
+          edge: ResizeEdge.bottomLeft,
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+        ),
+        buildHandle(
+          bottom: 0,
+          right: 0,
+          width: _cornerSize,
+          height: _cornerSize,
+          edge: ResizeEdge.bottomRight,
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+        ),
+        buildHandle(
+          top: 0,
+          left: _cornerSize,
+          right: _cornerSize,
+          height: _edgeThickness,
+          edge: ResizeEdge.top,
+          cursor: SystemMouseCursors.resizeUp,
+        ),
+        buildHandle(
+          bottom: 0,
+          left: _cornerSize,
+          right: _cornerSize,
+          height: _edgeThickness,
+          edge: ResizeEdge.bottom,
+          cursor: SystemMouseCursors.resizeDown,
+        ),
+        buildHandle(
+          left: 0,
+          top: _cornerSize,
+          bottom: _cornerSize,
+          width: _edgeThickness,
+          edge: ResizeEdge.left,
+          cursor: SystemMouseCursors.resizeLeftRight,
+        ),
+        buildHandle(
+          right: 0,
+          top: _cornerSize,
+          bottom: _cornerSize,
+          width: _edgeThickness,
+          edge: ResizeEdge.right,
+          cursor: SystemMouseCursors.resizeLeftRight,
+        ),
+      ],
     );
   }
 }
