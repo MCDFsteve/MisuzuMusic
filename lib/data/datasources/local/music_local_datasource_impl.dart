@@ -767,6 +767,15 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   }
 
   @override
+  Future<void> deleteDatabase() async {
+    try {
+      await _databaseHelper.deleteDatabase();
+    } catch (e) {
+      throw DatabaseException('Failed to delete database: ${e.toString()}');
+    }
+  }
+
+  @override
   Future<void> clearAllTracks() async {
     try {
       await _databaseHelper.delete('tracks');

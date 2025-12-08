@@ -119,7 +119,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
                 : PlayerState.paused;
             break;
           case ProcessingState.completed:
-            state = PlayerState.stopped;
+            // 尝试自动切到下一首时，保持 loading 状态避免 UI 显示“暂无播放”
+            state = _queue.isNotEmpty ? PlayerState.loading : PlayerState.stopped;
             _handleTrackCompleted();
             break;
         }
@@ -890,13 +891,8 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     if (_requiresAudioSession) {
       unawaited(_ensureAudioSessionReady());
     }
-    switch (_playMode) {
-      case PlayMode.repeatAll:
-      case PlayMode.repeatOne:
-      case PlayMode.shuffle:
-        skipToNext();
-        break;
-    }
+    // 捕获异常，防止切歌失败后停在 stopped 状态
+    unawaited(_autoSkipToNext());
   }
 
   void _handleIdleState(ProcessingState previousProcessingState) {
@@ -963,6 +959,26 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       _notifyQueueChanged();
     } catch (error) {
       print('⚠️ AudioService: 自动跳过失败 -> $error');
+    }
+  }
+
+  Future<void> _autoSkipToNext() async {
+    try {
+      await skipToNext();
+    } catch (error, stackTrace) {
+      print('⚠️ AudioService: 自动切到下一首失败 -> $error');
+      if (_queue.length > 1) {
+        // 尝试跳过当前故障曲目
+        try {
+          await _skipTrackAfterPlaybackFailure();
+        } catch (recoveryError, recoveryStack) {
+          print('⚠️ AudioService: 自动切歌恢复失败 -> $recoveryError');
+          // ignore: avoid_print
+          print(recoveryStack);
+        }
+      }
+      // ignore: avoid_print
+      print(stackTrace);
     }
   }
 

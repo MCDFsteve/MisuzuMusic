@@ -846,7 +846,11 @@ class _HomePageContentState extends State<HomePageContent> {
     void addToBucket(String key, Track track) {
       final trimmed = key.trim().toLowerCase();
       if (trimmed.isEmpty) return;
-      buckets.putIfAbsent(trimmed, () => []).add(track);
+      final list = buckets.putIfAbsent(trimmed, () => []);
+      final alreadyExists = list.any((t) => t.id == track.id);
+      if (!alreadyExists) {
+        list.add(track);
+      }
     }
 
     for (final item in normalizedTracks) {
@@ -1909,7 +1913,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
   Future<void> _selectICloudFolder() async {
     if (!Platform.isIOS) {
-      debugPrint('☁️ iCloud 挂载目前仅支持 iOS');
+      debugPrint('☁️ iCloud 挂载目前仅支持 iOS，当前平台: ${Platform.operatingSystem}');
       return;
     }
 
@@ -1922,24 +1926,39 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     try {
+      debugPrint('☁️ 准备获取 iCloud 文件列表，containerId: $containerId');
       final files = await _withBlockingLoader(() {
         return _icloudStorageSync.getCloudFiles(containerId: containerId);
       });
 
       if (!mounted || files == null) {
+        debugPrint(
+          '☁️ getCloudFiles 返回 null 或组件已卸载，mounted: $mounted, files: $files',
+        );
         return;
       }
 
+      debugPrint(
+        '☁️ getCloudFiles 成功返回，文件总数: ${files.length}，示例前 3 个: ${files.take(3).map((f) => _decodeICloudPath(f.relativePath)).toList()}',
+      );
+
       if (files.isEmpty) {
+        debugPrint(
+          '☁️ getCloudFiles 返回空列表，可能原因：容器无文件或插件捕获了 PlatformException（未登录/权限/容器 ID 不匹配）',
+        );
         _showErrorDialog(context, l10n.homeICloudEmptyFolder);
         return;
       }
 
       final selectedDirectory = await _showICloudDirectoryPicker(files);
       if (!mounted || selectedDirectory == null) {
+        debugPrint(
+          '☁️ 用户未选择目录或组件卸载，selectedDirectory: $selectedDirectory, mounted: $mounted',
+        );
         return;
       }
 
+      debugPrint('☁️ 用户选择的 iCloud 目录: "$selectedDirectory"');
       final cachedPath = await _withBlockingLoader(() {
         return _cacheICloudDirectory(
           files: files,
@@ -1949,9 +1968,13 @@ class _HomePageContentState extends State<HomePageContent> {
       });
 
       if (!mounted || cachedPath == null) {
+        debugPrint(
+          '☁️ 缓存 iCloud 目录失败或组件卸载，cachedPath: $cachedPath, mounted: $mounted',
+        );
         return;
       }
 
+      debugPrint('☁️ 已将 iCloud 目录缓存到本地: $cachedPath，开始扫描');
       context.read<MusicLibraryBloc>().add(ScanDirectoryEvent(cachedPath));
 
       if (!prefersMacLikeUi()) {
@@ -2161,6 +2184,9 @@ class _HomePageContentState extends State<HomePageContent> {
     await targetDir.create(recursive: true);
 
     final prefix = directory.isEmpty ? '' : '$directory/';
+    debugPrint(
+      '☁️ 开始缓存 iCloud 目录，原始文件数: ${files.length}, 选择目录: "$directory", prefix: "$prefix", 本地缓存目录: ${targetDir.path}',
+    );
     final filtered = files.where((file) {
       final relative = _decodeICloudPath(file.relativePath);
       if (relative.isEmpty) {
@@ -2170,8 +2196,15 @@ class _HomePageContentState extends State<HomePageContent> {
     }).toList();
 
     if (filtered.isEmpty) {
+      debugPrint(
+        '☁️ 过滤后没有文件，可能目录为空或路径解码失败，示例原始 relativePath: ${files.take(3).map((f) => f.relativePath).toList()}',
+      );
       throw Exception(l10n.homeICloudEmptyFolder);
     }
+
+    debugPrint(
+      '☁️ 过滤后待缓存文件数: ${filtered.length}，前 5 个: ${filtered.take(5).map((f) => _decodeICloudPath(f.relativePath)).toList()}',
+    );
 
     for (final cloudFile in filtered) {
       final relativePath = _decodeICloudPath(cloudFile.relativePath);
@@ -2193,11 +2226,15 @@ class _HomePageContentState extends State<HomePageContent> {
       if (localSourcePath.isNotEmpty) {
         final localSource = File(localSourcePath);
         if (await localSource.exists()) {
+          debugPrint('☁️ 本地已存在下载文件，直接复制: $localSourcePath -> ${destination.path}');
           await localSource.copy(destination.path);
           continue;
         }
       }
 
+      debugPrint(
+        '☁️ 本地未找到文件，尝试从 iCloud 下载: relative=$relativePath -> ${destination.path}',
+      );
       await _icloudStorageSync.download(
         containerId: containerId,
         relativePath: relativePath,

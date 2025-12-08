@@ -154,6 +154,7 @@ class DependencyInjection {
       sl.registerLazySingleton(() => GetAllAlbums(sl()));
       sl.registerLazySingleton(() => GetLibraryDirectories(sl()));
       sl.registerLazySingleton(() => RemoveLibraryDirectory(sl()));
+      sl.registerLazySingleton(() => ClearLibrary(sl()));
       sl.registerLazySingleton(() => GetWebDavSources(sl()));
       sl.registerLazySingleton(() => GetWebDavSourceById(sl()));
       sl.registerLazySingleton(() => SaveWebDavSource(sl()));

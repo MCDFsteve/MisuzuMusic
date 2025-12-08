@@ -55,6 +55,7 @@ abstract class MusicLocalDataSource {
   Future<PlaylistModel?> importPlaylistBinary(Uint8List bytes);
 
   // Library management
+  Future<void> deleteDatabase();
   Future<void> clearAllTracks();
   Future<int> getTracksCount();
   Future<int> getArtistsCount();

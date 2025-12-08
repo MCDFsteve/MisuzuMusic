@@ -1,4 +1,3 @@
-import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../../core/error/exceptions.dart' as app_exceptions;
@@ -475,8 +474,8 @@ class DatabaseHelper {
   // Delete database
   Future<void> deleteDatabase() async {
     try {
-      final databasesPath = await getDatabasesPath();
-      final path = join(databasesPath, _databaseName);
+      await close();
+      final path = await _pathProvider.databasePath(fileName: _databaseName);
       await databaseFactory.deleteDatabase(path);
       _database = null;
     } catch (e) {

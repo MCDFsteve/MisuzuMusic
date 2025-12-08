@@ -340,6 +340,66 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     }
   }
 
+  Future<void> _showAllSummaryContextMenu(Offset position) async {
+    await MacosContextMenu.show(
+      context: context,
+      globalPosition: position,
+      actions: [
+        MacosContextMenuAction(
+          label: '删除扫描结果',
+          icon: CupertinoIcons.trash,
+          destructive: true,
+          onSelected: _confirmClearLibrary,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmClearLibrary() async {
+    final confirmed = await showPlaylistModalDialog<bool>(
+      context: context,
+      builder: (_) => PlaylistModalScaffold(
+        title: '删除扫描结果',
+        maxWidth: 360,
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              CupertinoIcons.trash,
+              size: 52,
+              color: CupertinoColors.systemRed,
+            ),
+            SizedBox(height: 12),
+            Text(
+              '确定要删除扫描结果吗？这会删除本地扫描数据库文件并清空音乐库，需要重新扫描才能恢复。',
+              locale: Locale("zh-Hans", "zh"),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          SheetActionButton.secondary(
+            label: '取消',
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          SheetActionButton.primary(
+            label: '删除',
+            onPressed: () => Navigator.of(context).pop(true),
+            isDestructive: true,
+          ),
+        ],
+        contentSpacing: 16,
+        actionsSpacing: 14,
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    context.read<MusicLibraryBloc>().add(const ClearLibraryEvent());
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<MusicLibraryBloc, MusicLibraryState>(
@@ -497,6 +557,9 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                               : summary.isMystery
                               ? '卸载神秘音乐库'
                               : '移除音乐库'),
+                    onContextMenuRequested: summary.isAll
+                        ? (position) => _showAllSummaryContextMenu(position)
+                        : null,
                   );
                 },
               ),

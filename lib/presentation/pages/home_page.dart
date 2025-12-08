@@ -111,6 +111,7 @@ class HomePage extends StatelessWidget {
             ensureWebDavTrackMetadata: sl<EnsureWebDavTrackMetadata>(),
             getWebDavPassword: sl<GetWebDavPassword>(),
             removeLibraryDirectory: sl<RemoveLibraryDirectory>(),
+            clearLibrary: sl<ClearLibrary>(),
             deleteWebDavSource: sl<DeleteWebDavSource>(),
             watchTrackUpdates: sl<WatchTrackUpdates>(),
             configStore: sl<BinaryConfigStore>(),

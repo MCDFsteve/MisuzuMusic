@@ -89,6 +89,10 @@ class RemoveWebDavSourceEvent extends MusicLibraryEvent {
   List<Object?> get props => [source];
 }
 
+class ClearLibraryEvent extends MusicLibraryEvent {
+  const ClearLibraryEvent();
+}
+
 class LoadAllArtistsEvent extends MusicLibraryEvent {
   const LoadAllArtistsEvent();
 }
@@ -227,6 +231,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
   final GetWebDavPassword _getWebDavPassword;
   final RemoveLibraryDirectory _removeLibraryDirectory;
   final DeleteWebDavSource _deleteWebDavSource;
+  final ClearLibrary _clearLibrary;
   final WatchTrackUpdates _watchTrackUpdates;
   final BinaryConfigStore _configStore;
 
@@ -251,6 +256,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     required EnsureWebDavTrackMetadata ensureWebDavTrackMetadata,
     required GetWebDavPassword getWebDavPassword,
     required RemoveLibraryDirectory removeLibraryDirectory,
+    required ClearLibrary clearLibrary,
     required DeleteWebDavSource deleteWebDavSource,
     required WatchTrackUpdates watchTrackUpdates,
     required BinaryConfigStore configStore,
@@ -267,6 +273,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
        _ensureWebDavTrackMetadata = ensureWebDavTrackMetadata,
        _getWebDavPassword = getWebDavPassword,
        _removeLibraryDirectory = removeLibraryDirectory,
+       _clearLibrary = clearLibrary,
        _deleteWebDavSource = deleteWebDavSource,
        _watchTrackUpdates = watchTrackUpdates,
        _configStore = configStore,
@@ -279,6 +286,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     on<UnmountMysteryLibraryEvent>(_onUnmountMysteryLibrary);
     on<RemoveLibraryDirectoryEvent>(_onRemoveLibraryDirectory);
     on<RemoveWebDavSourceEvent>(_onRemoveWebDavSource);
+    on<ClearLibraryEvent>(_onClearLibrary);
     on<LoadAllArtistsEvent>(_onLoadAllArtists);
     on<LoadAllAlbumsEvent>(_onLoadAllAlbums);
     on<ChangeSortModeEvent>(_onChangeSortMode);
@@ -501,6 +509,21 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       add(const LoadAllTracks());
     } catch (e) {
       print('⚠️ BLoC: 移除 WebDAV 源失败 -> $e');
+    }
+  }
+
+  Future<void> _onClearLibrary(
+    ClearLibraryEvent event,
+    Emitter<MusicLibraryState> emit,
+  ) async {
+    try {
+      emit(const MusicLibraryLoading());
+      await _clearLibrary();
+      _allTracksCache = const [];
+      add(const LoadAllTracks());
+    } catch (e) {
+      print('⚠️ BLoC: 清空音乐库失败 -> $e');
+      emit(MusicLibraryError('删除扫描结果失败: ${e.toString()}'));
     }
   }
 

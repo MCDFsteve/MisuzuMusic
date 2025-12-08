@@ -13,18 +13,21 @@ class SheetActionButton extends StatefulWidget {
     required this.onPressed,
     required this.variant,
     this.isBusy = false,
+    this.isDestructive = false,
   });
 
   factory SheetActionButton.primary({
     required String label,
     required VoidCallback? onPressed,
     bool isBusy = false,
+    bool isDestructive = false,
   }) {
     return SheetActionButton._(
       label: label,
       onPressed: onPressed,
       variant: SheetActionVariant.primary,
       isBusy: isBusy,
+      isDestructive: isDestructive,
     );
   }
 
@@ -32,12 +35,14 @@ class SheetActionButton extends StatefulWidget {
     required String label,
     required VoidCallback? onPressed,
     bool isBusy = false,
+    bool isDestructive = false,
   }) {
     return SheetActionButton._(
       label: label,
       onPressed: onPressed,
       variant: SheetActionVariant.secondary,
       isBusy: isBusy,
+      isDestructive: isDestructive,
     );
   }
 
@@ -45,6 +50,7 @@ class SheetActionButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final SheetActionVariant variant;
   final bool isBusy;
+  final bool isDestructive;
 
   @override
   State<SheetActionButton> createState() => _SheetActionButtonState();
@@ -83,7 +89,11 @@ class _SheetActionButtonState extends State<SheetActionButton> {
     final macTheme = MacosTheme.maybeOf(context);
     final brightness = macTheme?.brightness ?? theme.brightness;
     final isDark = brightness == Brightness.dark;
-    final primaryColor = macTheme?.primaryColor ?? theme.colorScheme.primary;
+    final defaultPrimaryColor =
+        macTheme?.primaryColor ?? theme.colorScheme.primary;
+    final primaryColor = widget.isDestructive
+        ? CupertinoColors.systemRed.resolveFrom(context)
+        : defaultPrimaryColor;
     final isPrimary = widget.variant == SheetActionVariant.primary;
     final enabled = _isEnabled;
 

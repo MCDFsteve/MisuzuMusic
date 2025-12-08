@@ -103,7 +103,7 @@ jobs:
           AppName={#MyAppName}
           AppVersion={#MyAppVersion}
           AppPublisher={#MyAppPublisher}
-          DefaultDirName={pf}\Misuzu Music
+          DefaultDirName={code:GetAppDir}
           DefaultGroupName=Misuzu Music
           OutputDir="$artifactDir"
           OutputBaseFilename="$outputBaseName"
@@ -112,6 +112,9 @@ jobs:
           ArchitecturesAllowed=$arch
           DisableWelcomePage=yes
           WizardStyle=modern
+          PrivilegesRequired=lowest
+          PrivilegesRequiredOverridesAllowed=dialog
+          UsePreviousPrivileges=yes
 
           [Languages]
           Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -126,6 +129,15 @@ jobs:
 
           [Run]
           Filename: "{app}\{#MyAppExeName}"; Description: "启动 Misuzu Music"; Flags: nowait postinstall skipifsilent
+
+          [Code]
+          function GetAppDir(Default: string): string;
+          begin
+            if IsAdminInstallMode then
+              Result := ExpandConstant('{pf}\Misuzu Music')
+            else
+              Result := ExpandConstant('{localappdata}\Programs\Misuzu Music');
+          end;
           "@ | Set-Content -Path $installerScript -Encoding UTF8
 
           $isccPath = Join-Path -Path "${env:ProgramFiles(x86)}" -ChildPath "Inno Setup 6\\ISCC.exe"

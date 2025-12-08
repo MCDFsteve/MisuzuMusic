@@ -75,6 +75,16 @@ class RemoveLibraryDirectory {
   }
 }
 
+class ClearLibrary {
+  final MusicLibraryRepository _repository;
+
+  ClearLibrary(this._repository);
+
+  Future<void> call() async {
+    await _repository.clearLibrary();
+  }
+}
+
 class ScanWebDavDirectory {
   final MusicLibraryRepository _repository;
 

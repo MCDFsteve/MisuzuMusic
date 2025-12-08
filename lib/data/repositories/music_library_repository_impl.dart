@@ -1026,7 +1026,8 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   @override
   Future<void> clearLibrary() async {
     try {
-      await _localDataSource.clearAllTracks();
+      await _localDataSource.deleteDatabase();
+      _neteaseArtworkCache.clear();
     } catch (e) {
       throw DatabaseException('Failed to clear library: ${e.toString()}');
     }
