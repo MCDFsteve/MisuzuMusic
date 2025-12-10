@@ -28,6 +28,7 @@ import '../models/webdav_models.dart';
 import '../services/cloud_playlist_api.dart';
 import '../services/netease_id_resolver.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/audio_extensions.dart';
 
 class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   final MusicLocalDataSource _localDataSource;
@@ -36,22 +37,6 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   final NeteaseIdResolver _neteaseIdResolver;
   final CloudPlaylistApi _cloudPlaylistApi;
   final Uuid _uuid = const Uuid();
-  static const Set<String> _supportedAudioExtensions = {
-    '.mp3',
-    '.flac',
-    '.aac',
-    '.wav',
-    '.ogg',
-    '.m4a',
-    '.opus',
-    '.wma',
-    '.aiff',
-    '.alac',
-    '.dsf',
-    '.ape',
-    '.wv',
-    '.mka',
-  };
   static const String _bundleRelativePath = '/.misuzu/library.bundle';
   static const String _playlogDirRelative = '/.misuzu/playlogs';
   static const int _playLogVersion = 1;
@@ -124,6 +109,58 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     } catch (e) {
       throw DatabaseException('Failed to search tracks: ${e.toString()}');
     }
+  }
+
+  @override
+  Future<List<Track>> importLocalTracks(
+    List<String> filePaths, {
+    bool addToLibrary = true,
+  }) async {
+    final result = <Track>[];
+    final seen = <String>{};
+
+    for (final rawPath in filePaths) {
+      try {
+        final file = File(rawPath);
+        if (!file.existsSync()) {
+          continue;
+        }
+
+        final normalizedPath = path.normalize(file.absolute.path);
+        if (!seen.add(normalizedPath)) {
+          continue;
+        }
+
+        final extension = path.extension(normalizedPath).toLowerCase();
+        if (!kSupportedAudioFileExtensions.contains(extension)) {
+          continue;
+        }
+
+        final existing =
+            await _localDataSource.getTrackByFilePath(normalizedPath);
+        final trackModel = await _createTrackFromFile(
+          file,
+          existingTrack: existing,
+        );
+        if (trackModel == null) {
+          continue;
+        }
+
+        if (addToLibrary) {
+          if (existing != null) {
+            await _localDataSource.updateTrack(trackModel);
+          } else {
+            await _localDataSource.insertTrack(trackModel);
+          }
+        }
+
+        result.add(trackModel.toEntity());
+      } catch (e) {
+        print('❌ 导入外部音频失败 [$rawPath] -> $e');
+      }
+    }
+
+    return result;
   }
 
   @override
@@ -1209,7 +1246,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     await for (final entity in directory.list(recursive: true)) {
       if (entity is File) {
         final extension = path.extension(entity.path).toLowerCase();
-        if (_supportedAudioExtensions.contains(extension)) {
+        if (kSupportedAudioFileExtensions.contains(extension)) {
           audioFiles.add(entity);
         }
       }
@@ -2229,7 +2266,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
           () => _RemoteFileAggregate(baseKey: baseKey),
         );
 
-        if (_supportedAudioExtensions.contains(extension)) {
+        if (kSupportedAudioFileExtensions.contains(extension)) {
           aggregate.audioFullPath = normalizedPath;
           aggregate.audioRelativePath = relativePath;
           final title = posix.basenameWithoutExtension(normalizedPath);

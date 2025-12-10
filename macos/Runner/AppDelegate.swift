@@ -4,7 +4,10 @@ import FlutterMacOS
 @main
 class AppDelegate: FlutterAppDelegate {
   private var hotKeyChannel: FlutterMethodChannel?
+  private var fileAssociationChannel: FlutterMethodChannel?
   private var channelsConfigured = false
+  private var pendingOpenFiles: [String] = []
+  private var dartReadyForFiles = false
   private lazy var menuLocalizationBundle: Bundle = {
     if let path = Bundle.main.path(forResource: "zh-Hans", ofType: "lproj"),
       let bundle = Bundle(path: path)
@@ -47,6 +50,20 @@ class AppDelegate: FlutterAppDelegate {
       name: "com.aimessoft.misuzumusic/hotkeys",
       binaryMessenger: controller.engine.binaryMessenger
     )
+    fileAssociationChannel = FlutterMethodChannel(
+      name: "com.aimessoft.misuzumusic/file_association",
+      binaryMessenger: controller.engine.binaryMessenger
+    )
+    fileAssociationChannel?.setMethodCallHandler({ [weak self] call, result in
+      guard call.method == "collectPendingFiles" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self?.dartReadyForFiles = true
+      let files = self?.pendingOpenFiles ?? []
+      self?.pendingOpenFiles.removeAll()
+      result(files)
+    })
 
     channelsConfigured = true
     NSLog("✅ macOS MethodChannels 初始化完成")
@@ -107,7 +124,38 @@ class AppDelegate: FlutterAppDelegate {
     NSWorkspace.shared.open(url)
   }
 
+  override func application(
+    _ sender: NSApplication,
+    openFile filename: String
+  ) -> Bool {
+    handleOpenFiles([filename])
+    return true
+  }
+
+  override func application(
+    _ application: NSApplication,
+    openFiles filenames: [String]
+  ) {
+    handleOpenFiles(filenames)
+  }
+
   // MARK: - Helpers
+
+  private func handleOpenFiles(_ filenames: [String]) {
+    guard !filenames.isEmpty else {
+      return
+    }
+
+    if let channel = fileAssociationChannel {
+      if dartReadyForFiles {
+        channel.invokeMethod("openFiles", arguments: filenames)
+      } else {
+        pendingOpenFiles.append(contentsOf: filenames)
+      }
+    } else {
+      pendingOpenFiles.append(contentsOf: filenames)
+    }
+  }
 
   private func localizeMenuTitles() {
     guard let mainMenu = NSApp.mainMenu else {

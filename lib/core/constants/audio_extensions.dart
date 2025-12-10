@@ -1,0 +1,16 @@
+const Set<String> kSupportedAudioFileExtensions = {
+  '.mp3',
+  '.flac',
+  '.aac',
+  '.wav',
+  '.ogg',
+  '.m4a',
+  '.opus',
+  '.wma',
+  '.aiff',
+  '.alac',
+  '.dsf',
+  '.ape',
+  '.wv',
+  '.mka',
+};

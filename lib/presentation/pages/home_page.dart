@@ -38,6 +38,7 @@ import '../../domain/usecases/player_usecases.dart';
 import '../../domain/usecases/lyrics_usecases.dart';
 import '../../data/services/song_detail_service.dart';
 import '../blocs/music_library/music_library_bloc.dart';
+import '../../core/services/file_association_service.dart';
 import '../blocs/playback_history/playback_history_cubit.dart';
 import '../blocs/playback_history/playback_history_state.dart';
 import '../blocs/player/player_bloc.dart';

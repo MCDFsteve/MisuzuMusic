@@ -25,6 +25,22 @@ class SearchTracks {
   }
 }
 
+class ImportLocalTracks {
+  final MusicLibraryRepository _repository;
+
+  ImportLocalTracks(this._repository);
+
+  Future<List<Track>> call(
+    List<String> filePaths, {
+    bool addToLibrary = true,
+  }) async {
+    return _repository.importLocalTracks(
+      filePaths,
+      addToLibrary: addToLibrary,
+    );
+  }
+}
+
 class ScanMusicDirectory {
   final MusicLibraryRepository _repository;
 

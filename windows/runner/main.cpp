@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include "flutter_window.h"
+#include "file_associations.h"
 #include "utils.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
@@ -30,6 +31,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (!window.Create(L"Misuzu Music", origin, size)) {
     return EXIT_FAILURE;
   }
+  RegisterFileAssociations();
   window.SetQuitOnClose(true);
 
   ::MSG msg;

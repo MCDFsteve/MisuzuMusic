@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Misuzu Music
+Comment=Local music player with lyrics
+Exec=misuzumusic %F
+Terminal=false
+Type=Application
+Icon=misuzumusic
+Categories=AudioVideo;Audio;Player;
+MimeType=audio/flac;audio/x-flac;audio/mpeg;audio/mp3;audio/x-mp3;audio/aac;audio/x-aac;audio/wav;audio/x-wav;audio/ogg;audio/x-ogg;audio/mp4;audio/x-m4a;audio/x-ms-wma;audio/x-aiff;audio/x-ape;audio/x-opus+ogg;audio/x-wavpack;audio/x-mka;

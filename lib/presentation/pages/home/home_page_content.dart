@@ -167,6 +167,8 @@ class _HomePageContentState extends State<HomePageContent> {
   String? _prefetchedLyricsTrackId;
   bool _isScanningDialogVisible = false;
   final IcloudStorageSync _icloudStorageSync = IcloudStorageSync();
+  late final FileAssociationService _fileAssociationService;
+  StreamSubscription<List<String>>? _fileAssociationSubscription;
 
   @override
   void initState() {
@@ -179,6 +181,16 @@ class _HomePageContentState extends State<HomePageContent> {
       }
     };
     FocusManager.instance.addListener(_focusManagerListener);
+
+    _fileAssociationService = sl<FileAssociationService>();
+    _fileAssociationSubscription =
+        _fileAssociationService.onFilesOpened.listen(_handleOpenedFiles);
+    final initialOpenFiles = _fileAssociationService.takePendingPaths();
+    if (initialOpenFiles.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleOpenedFiles(initialOpenFiles);
+      });
+    }
   }
 
   @override
@@ -186,6 +198,7 @@ class _HomePageContentState extends State<HomePageContent> {
     _searchDebounce?.cancel();
     FocusManager.instance.removeListener(_focusManagerListener);
     _shortcutFocusNode.dispose();
+    unawaited(_fileAssociationSubscription?.cancel());
     super.dispose();
   }
 
@@ -813,6 +826,31 @@ class _HomePageContentState extends State<HomePageContent> {
       return blocState;
     }
     return _cachedLibraryState;
+  }
+
+  Future<void> _handleOpenedFiles(List<String> filePaths) async {
+    if (!mounted || filePaths.isEmpty) {
+      return;
+    }
+
+    try {
+      final tracks = await sl<ImportLocalTracks>()(filePaths);
+      if (tracks.isEmpty) {
+        debugPrint('[FileAssociation] 未找到可播放的音频: $filePaths');
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      context
+          .read<PlayerBloc>()
+          .add(PlayerSetQueue(tracks, startIndex: 0, autoPlay: true));
+      context.read<MusicLibraryBloc>().add(const LoadAllTracks());
+    } catch (error) {
+      debugPrint('❌ 处理外部打开文件失败: $error');
+    }
   }
 
   List<Track> _normalizedLibraryTracks(MusicLibraryLoaded library) {

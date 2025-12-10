@@ -9,6 +9,10 @@ abstract class MusicLibraryRepository {
   Future<List<Track>> getTracksByArtist(String artist);
   Future<List<Track>> getTracksByAlbum(String album);
   Future<List<Track>> searchTracks(String query);
+  Future<List<Track>> importLocalTracks(
+    List<String> filePaths, {
+    bool addToLibrary = true,
+  });
   Future<void> addTrack(Track track);
   Future<void> updateTrack(Track track);
   Future<void> deleteTrack(String id);

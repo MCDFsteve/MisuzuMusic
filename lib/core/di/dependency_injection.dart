@@ -39,6 +39,7 @@ import '../storage/binary_config_store.dart';
 import '../../data/storage/playlist_file_storage.dart';
 import '../../data/storage/netease_session_store.dart';
 import '../services/desktop_lyrics_bridge.dart';
+import '../services/file_association_service.dart';
 
 final sl = GetIt.instance;
 
@@ -127,6 +128,7 @@ class DependencyInjection {
       );
 
       sl.registerLazySingleton(() => DesktopLyricsBridge());
+      sl.registerLazySingleton(() => FileAssociationService());
 
       print('🎧 初始化音频处理程序...');
       final audioHandler = await AudioService.init(
@@ -146,6 +148,7 @@ class DependencyInjection {
       print('⚙️ 注册用例...');
       sl.registerLazySingleton(() => GetAllTracks(sl()));
       sl.registerLazySingleton(() => SearchTracks(sl()));
+      sl.registerLazySingleton(() => ImportLocalTracks(sl()));
       sl.registerLazySingleton(() => ScanMusicDirectory(sl()));
       sl.registerLazySingleton(() => ScanWebDavDirectory(sl()));
       sl.registerLazySingleton(() => MountMysteryLibrary(sl()));

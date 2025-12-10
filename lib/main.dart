@@ -23,6 +23,7 @@ import 'presentation/desktop_lyrics/desktop_lyrics_window_app.dart';
 import 'presentation/desktop_lyrics/desktop_lyrics_window_manager.dart';
 import 'presentation/desktop_lyrics/desktop_lyrics_server.dart';
 import 'presentation/developer/developer_log_collector.dart';
+import 'core/services/file_association_service.dart';
 
 Future<void> _configureMainWindow() async {
   if (!(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
@@ -84,6 +85,7 @@ Future<void> main(List<String> args) async {
       }
 
       await DependencyInjection.init();
+      await sl<FileAssociationService>().initialize(initialPaths: args);
 
       runApp(const MisuzuMusicApp());
     },
