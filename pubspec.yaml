@@ -93,11 +93,11 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
   rename: ^2.1.1
 
-flutter_icons:
+flutter_launcher_icons:
+  image_path: icons/icon.png
+  android: true
+  ios: true
   macos:
-    generate: true
-    image_path: icons/icon2.png
-  ios:
     generate: true
     image_path: icons/icon2.png
   windows:

@@ -44,6 +44,8 @@ final RegExp _desktopLyricsHanCharacterRegExp = RegExp(
   r'[\u3400-\u4DBF\u4E00-\u9FFF]',
 );
 
+const double _compactLayoutWidthThreshold = 860.0;
+
 enum _CompactLyricsStage { cover, lyrics, detail }
 
 class LyricsOverlay extends StatefulWidget {
@@ -477,6 +479,11 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     });
     final bool shouldShowDetail = nextStage == _CompactLyricsStage.detail;
     _setTrackDetailPanelVisibility(shouldShowDetail);
+  }
+
+  bool _isCompactLyricsLayout(BuildContext context) {
+    final double width = MediaQuery.of(context).size.width;
+    return !widget.isMac && width < _compactLayoutWidthThreshold;
   }
 
   Future<void> _ensureTrackDetailLoaded({bool force = false}) async {
@@ -1209,6 +1216,13 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   }
 
   void _handleLyricsLineTap(LyricsLine line) {
+    final bool isCompactLyricsView =
+        _compactLyricsStage == _CompactLyricsStage.lyrics &&
+        _isCompactLyricsLayout(context);
+    if (isCompactLyricsView && _activeDesktopLine == line) {
+      _cycleCompactLyricsStage();
+      return;
+    }
     if (_activeDesktopLine == line) {
       return;
     }
@@ -1627,7 +1641,8 @@ class _LyricsLayout extends StatelessWidget {
           final bool isDarkMode = isMac
               ? MacosTheme.of(context).brightness == Brightness.dark
               : Theme.of(context).brightness == Brightness.dark;
-          final bool useCompactLayout = !isMac && constraints.maxWidth < 860;
+          final bool useCompactLayout =
+              !isMac && constraints.maxWidth < _compactLayoutWidthThreshold;
           final double coverSize = _resolveCoverSize(constraints.maxWidth);
 
           final Widget lyricsPanel = _LyricsPanel(
