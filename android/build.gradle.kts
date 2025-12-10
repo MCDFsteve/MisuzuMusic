@@ -1,7 +1,13 @@
 allprojects {
     repositories {
+        // 优先使用镜像，避免直连 plugins.gradle.org/mavenCentral 触发 TLS 握手失败
+        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        maven { url = uri("$rootDir/../../flutter/bin/cache/artifacts/engine") }
+        maven { url = uri("https://storage.flutter-io.cn/download.flutter.io") }
         google()
-        mavenCentral()
     }
 }
 

@@ -778,8 +778,9 @@ class _MobileProgressSliderState extends State<_MobileProgressSlider> {
         );
 
     final canInteract = _canSeek;
-    final bool useLegacyIOSCupertinoSlider =
-        PlatformInfo.isIOS && !PlatformInfo.isIOS26OrHigher();
+    final bool useLegacyCupertinoSlider =
+        PlatformInfo.isAndroid ||
+        (PlatformInfo.isIOS && !PlatformInfo.isIOS26OrHigher());
     final sliderTheme = SliderTheme.of(context).copyWith(
       trackHeight: 4,
       activeTrackColor: widget.activeColor,
@@ -789,7 +790,7 @@ class _MobileProgressSliderState extends State<_MobileProgressSlider> {
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
     );
 
-    final sliderWidget = useLegacyIOSCupertinoSlider
+    final sliderWidget = useLegacyCupertinoSlider
         ? _LegacyIOSProgressSlider(
             value: sliderValue,
             min: 0.0,

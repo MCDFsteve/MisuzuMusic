@@ -12,6 +12,7 @@ import '../../../core/di/dependency_injection.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/modal_dialog.dart';
+import '../../../core/utils/platform_utils.dart';
 import '../../developer/developer_log_collector.dart';
 import '../../widgets/common/adaptive_scrollbar.dart';
 import '../../widgets/common/hover_glow_overlay.dart';
@@ -84,6 +85,9 @@ class _UnifiedSettingsView extends StatelessWidget {
 
   bool _isMobilePlatform(BuildContext context) {
     final platform = Theme.of(context).platform;
+    if (prefersMacLikeUi(platform)) {
+      return false;
+    }
     return platform == TargetPlatform.iOS || platform == TargetPlatform.android;
   }
 
@@ -985,12 +989,11 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
     final isDarkMode =
         (macTheme?.brightness ?? materialTheme.brightness) == Brightness.dark;
     final platform = materialTheme.platform;
-    final bool isLegacyIOS =
-        platform == TargetPlatform.iOS && !PlatformInfo.isIOS26OrHigher();
-    final bool useAdaptiveSegments =
+    final bool isLegacyMobileCupertino =
         platform == TargetPlatform.android ||
-            (platform == TargetPlatform.iOS &&
-                PlatformInfo.isIOS26OrHigher());
+        (platform == TargetPlatform.iOS && !PlatformInfo.isIOS26OrHigher());
+    final bool useAdaptiveSegments =
+        platform == TargetPlatform.iOS && PlatformInfo.isIOS26OrHigher();
     final baseTextStyle = macTheme?.typography.body ??
         materialTheme.textTheme.bodyMedium ??
         const TextStyle(fontSize: 14);
@@ -1033,7 +1036,7 @@ class _ThemeModeControlState extends State<_ThemeModeControl> {
           onSelected: _handleTap,
           isDarkMode: isDarkMode,
           textStyle: baseTextStyle,
-          expandToMaxWidth: isLegacyIOS,
+          expandToMaxWidth: isLegacyMobileCupertino,
         ),
       ],
     );
@@ -1128,12 +1131,11 @@ class _LanguageControlState extends State<_LanguageControl> {
     final isDarkMode =
         (macTheme?.brightness ?? materialTheme.brightness) == Brightness.dark;
     final platform = materialTheme.platform;
-    final bool isLegacyIOS =
-        platform == TargetPlatform.iOS && !PlatformInfo.isIOS26OrHigher();
-    final bool useAdaptiveSegments =
+    final bool isLegacyMobileCupertino =
         platform == TargetPlatform.android ||
-            (platform == TargetPlatform.iOS &&
-                PlatformInfo.isIOS26OrHigher());
+        (platform == TargetPlatform.iOS && !PlatformInfo.isIOS26OrHigher());
+    final bool useAdaptiveSegments =
+        platform == TargetPlatform.iOS && PlatformInfo.isIOS26OrHigher();
     final baseTextStyle = macTheme?.typography.body ??
         materialTheme.textTheme.bodyMedium ??
         const TextStyle(fontSize: 14);
@@ -1194,7 +1196,7 @@ class _LanguageControlState extends State<_LanguageControl> {
           onSelected: _handleTap,
           isDarkMode: isDarkMode,
           textStyle: baseTextStyle,
-          expandToMaxWidth: isLegacyIOS,
+          expandToMaxWidth: isLegacyMobileCupertino,
         ),
       ],
     );
