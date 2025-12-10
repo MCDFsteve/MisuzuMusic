@@ -116,6 +116,10 @@ jobs:
             exit 1
           fi
 
+          if [ -z "${KEY_ALIAS}" ]; then
+            echo "KEY_ALIAS 未设置"
+            exit 1
+          fi
           SIGNED=()
           for arch in "${!apks[@]}"; do
             src="${apks[$arch]}"
@@ -125,11 +129,11 @@ jobs:
             $ANDROID_HOME/build-tools/${BUILD_TOOLS_VERSION}/zipalign -v -p 4 "$src" "$aligned"
             $ANDROID_HOME/build-tools/${BUILD_TOOLS_VERSION}/apksigner sign \
               --ks android-signing-keystore.jks \
-              --ks-pass pass:${KEY_STORE_PASSWORD} \
-              --ks-key-alias ${KEY_ALIAS} \
-              --key-pass pass:${KEY_PASSWORD} \
-              --out "$out" \
-              "$aligned"
+              --ks-pass "pass:${KEY_STORE_PASSWORD}" \
+              --key-pass "pass:${KEY_PASSWORD}" \
+              --ks-key-alias "${KEY_ALIAS}" \
+              --in "$aligned" \
+              --out "$out"
 
             rm -f "$aligned" "$src"
             SIGNED+=("$out")
