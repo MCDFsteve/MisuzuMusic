@@ -128,10 +128,13 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/misuzumusic.desktop"
   DESTINATION "${INSTALL_BUNDLE_SHARE_DIR}/applications"
   COMPONENT Runtime)
 
-install(FILES "${CMAKE_SOURCE_DIR}/icons/icon.png"
-  DESTINATION "${INSTALL_BUNDLE_SHARE_DIR}/icons/hicolor/256x256/apps"
-  RENAME "misuzumusic.png"
-  COMPONENT Runtime)
+set(APP_ICON_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../icons/icon.png")
+if(EXISTS "${APP_ICON_SOURCE}")
+  install(FILES "${APP_ICON_SOURCE}"
+    DESTINATION "${INSTALL_BUNDLE_SHARE_DIR}/icons/hicolor/256x256/apps"
+    RENAME "misuzumusic.png"
+    COMPONENT Runtime)
+endif()
 
 # Install the AOT library on non-Debug builds only.
 if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
