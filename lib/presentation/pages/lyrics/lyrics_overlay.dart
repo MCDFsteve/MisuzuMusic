@@ -1209,6 +1209,9 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   }
 
   void _handleLyricsLineTap(LyricsLine line) {
+    if (_activeDesktopLine == line) {
+      return;
+    }
     context.read<PlayerBloc>().add(PlayerSeekTo(line.timestamp));
   }
 

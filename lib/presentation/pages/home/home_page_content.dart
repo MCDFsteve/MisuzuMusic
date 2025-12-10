@@ -143,10 +143,9 @@ class _HomePageContentState extends State<HomePageContent> {
   String _activeSearchQuery = '';
   List<LibrarySearchSuggestion> _searchSuggestions = const [];
   Timer? _searchDebounce;
-  Timer? _mobileNowPlayingVisibilityTimer;
   bool _lyricsVisible = false;
   bool _queuePanelVisible = false;
-  bool _mobileNowPlayingBarVisible = true;
+  final bool _mobileNowPlayingBarVisible = true;
   Track? _lyricsActiveTrack;
   MusicLibraryLoaded? _cachedLibraryState;
   Artist? _activeArtistDetail;
@@ -185,7 +184,6 @@ class _HomePageContentState extends State<HomePageContent> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
-    _mobileNowPlayingVisibilityTimer?.cancel();
     FocusManager.instance.removeListener(_focusManagerListener);
     _shortcutFocusNode.dispose();
     super.dispose();

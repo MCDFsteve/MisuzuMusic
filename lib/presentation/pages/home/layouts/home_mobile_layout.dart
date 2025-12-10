@@ -182,10 +182,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
           );
         }
 
-        final scrollAwareBody = NotificationListener<ScrollNotification>(
-          onNotification: _handleMobileScrollNotification,
-          child: interactiveBody,
-        );
+        final scrollAwareBody = interactiveBody;
 
         final visibleSectionIndices = _mobileDestinationSectionIndices;
         final navSelectedIndex =
@@ -231,39 +228,6 @@ extension _HomePageMobileLayout on _HomePageContentState {
         );
       },
     );
-  }
-
-  bool _handleMobileScrollNotification(ScrollNotification notification) {
-    final bool isUserScroll = notification is UserScrollNotification;
-    final bool isScrolling = notification is ScrollStartNotification ||
-        notification is ScrollUpdateNotification ||
-        notification is OverscrollNotification ||
-        notification is ScrollEndNotification;
-
-    if (isUserScroll || isScrolling) {
-      _handleMobileScrollActivity();
-    }
-    return false;
-  }
-
-  void _handleMobileScrollActivity() {
-    _mobileNowPlayingVisibilityTimer?.cancel();
-    _mobileNowPlayingVisibilityTimer = Timer(const Duration(milliseconds: 150),
-        () {
-      if (!mounted || _mobileNowPlayingBarVisible) {
-        return;
-      }
-      setState(() => _mobileNowPlayingBarVisible = true);
-    });
-
-    if (_mobileNowPlayingBarVisible) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_mobileNowPlayingBarVisible) {
-          return;
-        }
-        setState(() => _mobileNowPlayingBarVisible = false);
-      });
-    }
   }
 
   List<BottomNavigationBarItem> _buildLegacyCupertinoNavItems(
