@@ -1,0 +1,144 @@
+name: Build Android APK
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Target version used for artifact naming
+        required: true
+        type: string
+    secrets:
+      SIGNING_KEY:
+        description: Base64 编码的签名密钥 (.jks)
+        required: true
+      KEY_STORE_PASSWORD:
+        description: Keystore 密码
+        required: true
+      KEY_ALIAS:
+        description: 密钥别名
+        required: true
+      KEY_PASSWORD:
+        description: 密钥密码
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_VERSION: ${{ inputs.version }}
+      BUILD_TOOLS_VERSION: 34.0.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'pubspec.lock') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 安装构建工具并接受许可
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null
+          yes | sdkmanager "platforms;android-34" "build-tools;${BUILD_TOOLS_VERSION}"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+
+      - name: 获取依赖
+        run: flutter pub get
+
+      - name: 预下载 Gradle Wrapper
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew --version || true
+        continue-on-error: true
+
+      - name: 构建分架构 APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: 构建通用 APK
+        run: flutter build apk --release
+
+      - name: 对齐并签名 APK
+        id: sign
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SIGNING_KEY}" ]; then
+            echo "SIGNING_KEY 未设置"
+            exit 1
+          fi
+
+          echo "${SIGNING_KEY}" | base64 -d > android-signing-keystore.jks
+
+          SOURCE_DIR="build/app/outputs/flutter-apk"
+          OUTPUT_DIR="build/app/outputs/apk/release"
+          mkdir -p "$OUTPUT_DIR"
+
+          declare -A apks=()
+          [[ -f "$SOURCE_DIR/app-release.apk" ]] && apks["universal"]="$SOURCE_DIR/app-release.apk"
+          [[ -f "$SOURCE_DIR/app-armeabi-v7a-release.apk" ]] && apks["armeabi-v7a"]="$SOURCE_DIR/app-armeabi-v7a-release.apk"
+          [[ -f "$SOURCE_DIR/app-arm64-v8a-release.apk" ]] && apks["arm64-v8a"]="$SOURCE_DIR/app-arm64-v8a-release.apk"
+          [[ -f "$SOURCE_DIR/app-x86-release.apk" ]] && apks["x86"]="$SOURCE_DIR/app-x86-release.apk"
+          [[ -f "$SOURCE_DIR/app-x86_64-release.apk" ]] && apks["x86_64"]="$SOURCE_DIR/app-x86_64-release.apk"
+
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo "未找到任何 APK 输出"
+            exit 1
+          fi
+
+          SIGNED=()
+          for arch in "${!apks[@]}"; do
+            src="${apks[$arch]}"
+            aligned="aligned-${arch}.apk"
+            out="$OUTPUT_DIR/Misuzu-Music-android-${arch}-${APP_VERSION}.apk"
+
+            $ANDROID_HOME/build-tools/${BUILD_TOOLS_VERSION}/zipalign -v -p 4 "$src" "$aligned"
+            $ANDROID_HOME/build-tools/${BUILD_TOOLS_VERSION}/apksigner sign \
+              --ks android-signing-keystore.jks \
+              --ks-pass pass:${KEY_STORE_PASSWORD} \
+              --ks-key-alias ${KEY_ALIAS} \
+              --key-pass pass:${KEY_PASSWORD} \
+              --out "$out" \
+              "$aligned"
+
+            rm -f "$aligned" "$src"
+            SIGNED+=("$out")
+            echo "生成签名 APK: $out"
+          done
+
+          rm -f android-signing-keystore.jks
+          echo "signed_apks=$(IFS=';'; echo "${SIGNED[*]}")" >> "$GITHUB_OUTPUT"
+
+      - name: 上传 Android 构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: Misuzu-Music-android-${{ env.APP_VERSION }}
+          path: build/app/outputs/apk/release/Misuzu-Music-android-*.apk
+          if-no-files-found: error

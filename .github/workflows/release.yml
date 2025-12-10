@@ -63,6 +63,14 @@ jobs:
       runner: macos-14
     secrets: inherit
 
+  android:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.should_run == 'true' }}
+    uses: ./.github/workflows/android-build.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
+
   windows:
     needs: prepare
     if: ${{ needs.prepare.outputs.should_run == 'true' }}
@@ -85,9 +93,10 @@ jobs:
     needs:
       - prepare
       - macos
+      - android
       - windows
       - linux
-    if: ${{ needs.prepare.outputs.should_run == 'true' && needs.macos.result == 'success' && needs.windows.result == 'success' && needs.linux.result == 'success' }}
+    if: ${{ needs.prepare.outputs.should_run == 'true' && needs.macos.result == 'success' && needs.android.result == 'success' && needs.windows.result == 'success' && needs.linux.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: 下载构建产物
@@ -104,6 +113,7 @@ jobs:
             自动发布版本：${{ needs.prepare.outputs.version }}
 
             - macOS 通用 DMG
+            - Android APK（通用 + 分架构）
             - Windows x64 ZIP
             - Windows x64 安装程序 (EXE)
             - Linux x64 TAR.GZ
@@ -113,6 +123,7 @@ jobs:
     needs:
       - prepare
       - macos
+      - android
       - windows
       - linux
       - publish_release
