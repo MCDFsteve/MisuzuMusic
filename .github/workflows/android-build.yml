@@ -60,8 +60,11 @@ jobs:
       - name: 安装构建工具并接受许可
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null
-          yes | sdkmanager "platforms;android-34" "build-tools;${BUILD_TOOLS_VERSION}"
+          # sdkmanager 会提前关闭 stdin，yes 可能触发 SIGPIPE；关闭 pipefail 并静音 stderr 避免误报
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1
+          yes | sdkmanager "platforms;android-34" "build-tools;${BUILD_TOOLS_VERSION}" >/dev/null 2>&1
+          set -o pipefail
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
 
