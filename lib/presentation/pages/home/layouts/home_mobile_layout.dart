@@ -47,8 +47,9 @@ extension _HomePageMobileLayout on _HomePageContentState {
         );
 
         final bool useLegacyCupertinoTabBar =
-            defaultTargetPlatform == TargetPlatform.iOS &&
-            !PlatformInfo.isIOS26OrHigher();
+            defaultTargetPlatform == TargetPlatform.android ||
+            (defaultTargetPlatform == TargetPlatform.iOS &&
+                !PlatformInfo.isIOS26OrHigher());
         final double navReservedPadding = _mobileNowPlayingBottomPadding(
           context,
           useLegacyCupertinoTabBar: useLegacyCupertinoTabBar,
@@ -277,13 +278,18 @@ extension _HomePageMobileLayout on _HomePageContentState {
     final double safeAreaBottom = MediaQuery.of(context).padding.bottom;
     final bool isiOS = defaultTargetPlatform == TargetPlatform.iOS;
     final bool isAndroid = defaultTargetPlatform == TargetPlatform.android;
-    final double navBarHeight = isiOS
-        ? (useLegacyCupertinoTabBar
-              ? _FrostedLegacyCupertinoTabBar.barHeight
-              : 20.0)
-        : isAndroid
-        ? 72.0
-        : 64.0;
+    final bool useLegacyNavBar =
+        useLegacyCupertinoTabBar && (isiOS || isAndroid);
+    final double navBarHeight;
+    if (useLegacyNavBar) {
+      navBarHeight = _FrostedLegacyCupertinoTabBar.barHeight;
+    } else if (isiOS) {
+      navBarHeight = 20.0;
+    } else if (isAndroid) {
+      navBarHeight = 72.0;
+    } else {
+      navBarHeight = 64.0;
+    }
     final double visualGap = useLegacyCupertinoTabBar ? 80.0 : 80.0;
     return navBarHeight + safeAreaBottom + visualGap;
   }

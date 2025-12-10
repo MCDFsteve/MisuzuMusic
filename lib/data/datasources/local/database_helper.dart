@@ -110,19 +110,54 @@ class DatabaseHelper {
         'CREATE INDEX idx_playlist_tracks_position ON playlist_tracks(position)',
       );
 
-      // Create full-text search virtual table for tracks
+      await _createFtsStructures(db);
+    } catch (e) {
+      throw app_exceptions.DatabaseException(
+        'Failed to create database tables: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> _createFtsStructures(Database db) async {
+    var ftsCreated = false;
+
+    Future<void> createFtsTable(String module) async {
       await db.execute('''
-        CREATE VIRTUAL TABLE tracks_fts USING fts5(
+        CREATE VIRTUAL TABLE IF NOT EXISTS tracks_fts USING $module(
           title,
           artist,
           album,
           genre,
-          content=tracks,
-          content_rowid=rowid
+          content=tracks
         )
       ''');
+      ftsCreated = true;
+    }
 
-      // Create triggers to keep FTS table in sync
+    try {
+      await createFtsTable('fts5');
+    } catch (e) {
+      final message = e.toString().toLowerCase();
+      if (message.contains('fts5')) {
+        // 安卓系统 SQLite 默认不带 FTS5，退回 FTS4 以保证可用
+        print('FTS5 不可用，降级到 FTS4: $e');
+        try {
+          await createFtsTable('fts4');
+        } catch (fallbackError) {
+          print('FTS4 也不可用，跳过全文索引: $fallbackError');
+          return;
+        }
+      } else {
+        // 其他错误不阻塞数据库初始化，直接跳过全文索引
+        print('创建 FTS 表失败，跳过全文索引: $e');
+        return;
+      }
+    }
+
+    if (!ftsCreated) return;
+
+    // Create triggers to keep FTS table in sync
+    try {
       await db.execute('''
         CREATE TRIGGER tracks_fts_insert AFTER INSERT ON tracks BEGIN
           INSERT INTO tracks_fts(rowid, title, artist, album, genre)
@@ -146,9 +181,7 @@ class DatabaseHelper {
         END
       ''');
     } catch (e) {
-      throw app_exceptions.DatabaseException(
-        'Failed to create database tables: ${e.toString()}',
-      );
+      print('创建 FTS 触发器失败，跳过全文索引: $e');
     }
   }
 

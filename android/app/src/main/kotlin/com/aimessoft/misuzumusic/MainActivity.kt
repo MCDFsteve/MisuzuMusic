@@ -3,13 +3,13 @@ package com.aimessoft.misuzumusic
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
-import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import com.ryanheise.audioservice.AudioServiceActivity
 import java.io.File
 import java.io.FileOutputStream
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
   private val channelName = "com.aimessoft.misuzumusic/file_association"
   private var fileAssociationChannel: MethodChannel? = null
   private val pendingOpenFiles = mutableListOf<String>()
