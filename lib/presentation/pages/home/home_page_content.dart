@@ -1902,6 +1902,11 @@ class _HomePageContentState extends State<HomePageContent> {
     try {
       print('🎵 开始选择音乐文件夹...');
 
+      final hasPermission = await _ensureLocalFolderPermission();
+      if (!hasPermission) {
+        return;
+      }
+
       final result = await FilePicker.platform.getDirectoryPath(
         dialogTitle: l10n.homeSelectFolderTitle,
       );
@@ -1945,6 +1950,35 @@ class _HomePageContentState extends State<HomePageContent> {
         _showErrorDialog(context, e.toString());
       }
     }
+  }
+
+  Future<bool> _ensureLocalFolderPermission() async {
+    if (!Platform.isAndroid) {
+      return true;
+    }
+
+    final audioStatus = await Permission.audio.request();
+    if (audioStatus.isGranted) {
+      return true;
+    }
+
+    final storageStatus = await Permission.storage.request();
+    if (storageStatus.isGranted) {
+      return true;
+    }
+
+    if (mounted) {
+      _showErrorDialog(
+        context,
+        '需要存储/媒体读取权限才能扫描本地音乐，请在系统设置中允许访问。',
+      );
+
+      if (audioStatus.isPermanentlyDenied || storageStatus.isPermanentlyDenied) {
+        await openAppSettings();
+      }
+    }
+
+    return false;
   }
 
   Future<void> _selectICloudFolder() async {

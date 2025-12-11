@@ -1,11 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="$PROJECT_DIR$/../../flutter/packages/flutter_tools/gradle" name="gradle">
+                <projects>
+                  <project path="$PROJECT_DIR$/../../flutter/packages/flutter_tools/gradle" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
         <option name="testRunner" value="CHOOSE_PER_TEST" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="gradleJvm" value="#GRADLE_LOCAL_JAVA_HOME" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/../../flutter/packages/flutter_tools/gradle" />
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/../third_party/plugins/audio_service/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/adaptive_platform_ui-0.1.100/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/audio_session-0.2.2/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/audio_waveforms-1.3.0/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/file_picker-8.3.7/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.32/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/just_audio-0.10.5/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/media_kit_libs_android_audio-1.3.8/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/package_info_plus-9.0.0/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/path_provider_android-2.2.20/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/permission_handler_android-12.1.0/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/sqflite_android-2.4.2+2/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/sqlite3_flutter_libs-0.5.40/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.24/android" />
+          </set>
+        </option>
       </GradleProjectSettings>
     </option>
   </component>

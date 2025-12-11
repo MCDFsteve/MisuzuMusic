@@ -18,6 +18,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/di/dependency_injection.dart';
 import '../../core/constants/app_constants.dart';
