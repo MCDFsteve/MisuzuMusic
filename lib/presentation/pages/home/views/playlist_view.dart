@@ -91,6 +91,15 @@ class _PlaylistHistoryList extends StatelessWidget {
       );
     }
 
+    const double trackTileApproxHeight = 72.0;
+    const int bottomSpacerRows = 5;
+    final double bottomSpacerHeight =
+        prefersMacLikeUi() ? 0.0 : trackTileApproxHeight * bottomSpacerRows;
+    final EdgeInsetsGeometry listPadding = EdgeInsets.only(
+      top: 8,
+      bottom: 8 + bottomSpacerHeight,
+    );
+
     return AdaptiveScrollbar(
       isDarkMode: MacosTheme.of(context).brightness == Brightness.dark,
       builder: (controller) {
@@ -99,7 +108,7 @@ class _PlaylistHistoryList extends StatelessWidget {
           items: filteredEntries,
           pageSize: 100,
           preloadOffset: 600,
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: listPadding,
           cacheExtent: 0,
           separatorBuilder: (context, index) => Divider(
             height: 1,

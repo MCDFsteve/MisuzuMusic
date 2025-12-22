@@ -17,6 +17,7 @@ import '../common/lazy_list_view.dart';
 import 'context_menu/macos_context_menu.dart';
 import '../../utils/track_display_utils.dart';
 import '../../../l10n/l10n.dart';
+import '../../../core/utils/platform_utils.dart';
 
 class MacOSTrackListView extends StatelessWidget {
   const MacOSTrackListView({
@@ -45,6 +46,14 @@ class MacOSTrackListView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = MacosTheme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    const double trackTileApproxHeight = 72.0;
+    const int bottomSpacerRows = 5;
+    final double bottomSpacerHeight =
+        prefersMacLikeUi() ? 0.0 : trackTileApproxHeight * bottomSpacerRows;
+    final EdgeInsetsGeometry listPadding = EdgeInsets.only(
+      top: 8,
+      bottom: 8 + bottomSpacerHeight,
+    );
     return AdaptiveScrollbar(
       isDarkMode: isDarkMode,
       builder: (controller) {
@@ -53,7 +62,7 @@ class MacOSTrackListView extends StatelessWidget {
           items: tracks,
           pageSize: 120,
           preloadOffset: 800,
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: listPadding,
           cacheExtent: 0,
           separatorBuilder: (context, index) => Divider(
             height: 1,
