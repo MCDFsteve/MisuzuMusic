@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
@@ -45,6 +46,7 @@ final RegExp _desktopLyricsHanCharacterRegExp = RegExp(
 );
 
 const double _compactLayoutWidthThreshold = 860.0;
+const double _kMobileNowPlayingBarHeight = 118.0;
 
 enum _CompactLyricsStage { cover, lyrics, detail }
 
@@ -54,11 +56,13 @@ class LyricsOverlay extends StatefulWidget {
     required this.initialTrack,
     required this.isMac,
     this.bottomSafeInset = 0,
+    this.onLyricsPageActiveChanged,
   });
 
   final Track initialTrack;
   final bool isMac;
   final double bottomSafeInset;
+  final ValueChanged<bool>? onLyricsPageActiveChanged;
 
   @override
   State<LyricsOverlay> createState() => _LyricsOverlayState();
@@ -103,6 +107,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
   String? _trackQualityLabel;
   int _trackQualityRequestToken = 0;
   static final Map<String, Color?> _artworkGlowCache = {};
+  bool? _lastNotifiedLyricsPageActive;
 
   @override
   void initState() {
@@ -128,6 +133,16 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _playerSubscription = context.read<PlayerBloc>().stream.listen(
       _handlePlayerStateStream,
     );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notifyLyricsPageActiveIfNeeded();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _notifyLyricsPageActiveIfNeeded();
   }
 
   @override
@@ -154,6 +169,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       if (_desktopLyricsActive) {
         _scheduleDesktopLyricsUpdate(force: true);
       }
+      _notifyLyricsPageActiveIfNeeded();
     }
   }
 
@@ -432,6 +448,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     _showTrackDetailPanel = false;
     _compactLyricsStage = _CompactLyricsStage.cover;
     _trackDetailRequestToken++;
+    _notifyLyricsPageActiveIfNeeded();
   }
 
   void _ensureLyricsLoaded(Track track) {
@@ -474,16 +491,72 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
     final stages = _CompactLyricsStage.values;
     final nextIndex = (_compactLyricsStage.index + 1) % stages.length;
     final nextStage = stages[nextIndex];
+    _setCompactLyricsStage(nextStage);
+  }
+
+  void _setCompactLyricsStage(_CompactLyricsStage stage) {
+    if (!mounted || _compactLyricsStage == stage) {
+      return;
+    }
+
     setState(() {
-      _compactLyricsStage = nextStage;
+      _compactLyricsStage = stage;
     });
-    final bool shouldShowDetail = nextStage == _CompactLyricsStage.detail;
+
+    final bool shouldShowDetail = stage == _CompactLyricsStage.detail;
     _setTrackDetailPanelVisibility(shouldShowDetail);
+    _notifyLyricsPageActiveIfNeeded();
   }
 
   bool _isCompactLyricsLayout(BuildContext context) {
     final double width = MediaQuery.of(context).size.width;
     return !widget.isMac && width < _compactLayoutWidthThreshold;
+  }
+
+  bool _isLyricsPageActive(BuildContext context) {
+    return _isCompactLyricsLayout(context) &&
+        _compactLyricsStage == _CompactLyricsStage.lyrics;
+  }
+
+  void _notifyLyricsPageActiveIfNeeded() {
+    final callback = widget.onLyricsPageActiveChanged;
+    if (!mounted || callback == null) {
+      return;
+    }
+
+    final nextValue = _isLyricsPageActive(context);
+    if (_lastNotifiedLyricsPageActive == nextValue) {
+      return;
+    }
+    _lastNotifiedLyricsPageActive = nextValue;
+
+    void emit() {
+      if (!mounted) {
+        return;
+      }
+      callback(nextValue);
+    }
+
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => emit());
+      return;
+    }
+    emit();
+  }
+
+  double _resolveBottomSafeInset(BuildContext context) {
+    if (_isLyricsPageActive(context)) {
+      final double safeAreaBottom = MediaQuery.of(context).padding.bottom;
+      final double resolved =
+          (widget.bottomSafeInset - _kMobileNowPlayingBarHeight).clamp(
+            0.0,
+            double.infinity,
+          );
+      return math.max(safeAreaBottom, resolved);
+    }
+    return widget.bottomSafeInset;
   }
 
   Future<void> _ensureTrackDetailLoaded({bool force = false}) async {
@@ -1553,7 +1626,7 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
         trackDetailFileName: _trackDetailFileName,
         onToggleTrackDetail: _toggleTrackDetailPanel,
         onEditTrackDetail: _openTrackDetailEditor,
-        bottomSafeInset: widget.bottomSafeInset,
+        bottomSafeInset: _resolveBottomSafeInset(context),
         artworkGlowColor: _artworkGlowColor,
         trackQualityLabel: _trackQualityLabel,
         compactStage: _compactLyricsStage,

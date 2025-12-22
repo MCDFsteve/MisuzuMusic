@@ -144,6 +144,7 @@ class _HomePageContentState extends State<HomePageContent> {
   List<LibrarySearchSuggestion> _searchSuggestions = const [];
   Timer? _searchDebounce;
   bool _lyricsVisible = false;
+  bool _lyricsPageActive = false;
   bool _queuePanelVisible = false;
   final bool _mobileNowPlayingBarVisible = true;
   Track? _lyricsActiveTrack;
@@ -573,6 +574,9 @@ class _HomePageContentState extends State<HomePageContent> {
     setState(() {
       if (needsHideUpdate) {
         _lyricsVisible = false;
+        _lyricsPageActive = false;
+      } else if (trackChanged) {
+        _lyricsPageActive = false;
       }
       if (shouldHideQueueOverlay) {
         _queuePanelVisible = false;
@@ -1806,7 +1810,17 @@ class _HomePageContentState extends State<HomePageContent> {
       initialTrack: track,
       isMac: isMac,
       bottomSafeInset: bottomSafeInset,
+      onLyricsPageActiveChanged: _handleLyricsPageActiveChanged,
     );
+  }
+
+  void _handleLyricsPageActiveChanged(bool isActive) {
+    if (!mounted || _lyricsPageActive == isActive) {
+      return;
+    }
+    setState(() {
+      _lyricsPageActive = isActive;
+    });
   }
 
   void _toggleLyrics(PlayerBlocState state) {
@@ -1817,6 +1831,7 @@ class _HomePageContentState extends State<HomePageContent> {
       }
       setState(() {
         _lyricsVisible = true;
+        _lyricsPageActive = false;
         _lyricsActiveTrack = track;
       });
       return;
@@ -1824,6 +1839,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
     setState(() {
       _lyricsVisible = false;
+      _lyricsPageActive = false;
     });
   }
 
@@ -1834,6 +1850,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
     setState(() {
       _lyricsVisible = false;
+      _lyricsPageActive = false;
     });
   }
 
