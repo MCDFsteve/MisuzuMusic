@@ -21,10 +21,10 @@ import AVFoundation
       print("Failed to configure AVAudioSession: \(error)")
     }
 
-    if let controller = window?.rootViewController as? FlutterViewController {
+    if let registrar = self.registrar(forPlugin: "com.aimessoft.misuzumusic.file_association") {
       fileAssociationChannel = FlutterMethodChannel(
         name: channelName,
-        binaryMessenger: controller.binaryMessenger
+        binaryMessenger: registrar.messenger()
       )
       fileAssociationChannel?.setMethodCallHandler({ [weak self] call, result in
         guard call.method == "collectPendingFiles" else {
@@ -34,6 +34,8 @@ import AVFoundation
         self?.dartReadyForFiles = true
         result(self?.drainPendingFiles() ?? [])
       })
+    } else {
+      print("Failed to create file association channel: missing FlutterPluginRegistrar.")
     }
 
     if let url = launchOptions?[.url] as? URL {
@@ -49,32 +51,26 @@ import AVFoundation
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey : Any] = [:]
   ) -> Bool {
-    handleIncoming(urls: [url])
-    return true
+    let handledFiles = handleIncoming(urls: [url])
+    let handledFlutter = super.application(app, open: url, options: options)
+    return handledFiles || handledFlutter
   }
 
-  override func application(
-    _ application: UIApplication,
-    open inputURLs: [URL],
-    options: [UIApplication.OpenURLOptionsKey : Any] = [:]
-  ) -> Bool {
-    handleIncoming(urls: inputURLs)
-    return true
-  }
-
-  private func handleIncoming(urls: [URL]) {
-    guard !urls.isEmpty else { return }
+  @discardableResult
+  private func handleIncoming(urls: [URL]) -> Bool {
+    guard !urls.isEmpty else { return false }
     let paths = urls.compactMap { url -> String? in
       guard url.isFileURL else { return nil }
       return url.path
     }
-    guard !paths.isEmpty else { return }
+    guard !paths.isEmpty else { return false }
 
     if dartReadyForFiles, let channel = fileAssociationChannel {
       channel.invokeMethod("openFiles", arguments: paths)
     } else {
       pendingOpenFiles.append(contentsOf: paths)
     }
+    return true
   }
 
   private func drainPendingFiles() -> [String] {

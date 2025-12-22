@@ -40,30 +40,42 @@ extension _HomePageMobileLayout on _HomePageContentState {
         final theme = Theme.of(context);
         final bool isDarkMode = theme.brightness == Brightness.dark;
         final Color fallbackColor = theme.colorScheme.surface;
+        final bool hideNowPlayingForLyricsPage =
+            _lyricsVisible && _lyricsPageActive;
+        final bool showNowPlayingBar =
+            _mobileNowPlayingBarVisible && !hideNowPlayingForLyricsPage;
+        final bool showNavigationBar = !_lyricsVisible;
+        final double safeAreaBottomInset = mediaQuery.padding.bottom;
+        const double nowPlayingBarNavGap = 16.0;
+        final bool useIOS26NativeTabBar =
+            defaultTargetPlatform == TargetPlatform.iOS &&
+            PlatformInfo.isIOS26OrHigher();
+        final bool useLegacyCupertinoTabBar =
+            defaultTargetPlatform == TargetPlatform.android ||
+            (defaultTargetPlatform == TargetPlatform.iOS &&
+                !PlatformInfo.isIOS26OrHigher());
+        final bool navigationBarOverlaysBody =
+            useLegacyCupertinoTabBar || useIOS26NativeTabBar;
+        final double navigationBarHeight = useIOS26NativeTabBar
+            ? 50.0
+            : _FrostedLegacyCupertinoTabBar.barHeight;
+        final double navigationBarBottomInset =
+            showNavigationBar && navigationBarOverlaysBody
+                ? safeAreaBottomInset + navigationBarHeight
+                : 0.0;
+        final double nowPlayingGapInset =
+            showNowPlayingBar && showNavigationBar ? nowPlayingBarNavGap : 0.0;
 
         final mainContent = KeyedSubtree(
           key: const ValueKey<String>('mobile_content_stack'),
           child: _buildMainContent(),
         );
 
-        final bool useLegacyCupertinoTabBar =
-            defaultTargetPlatform == TargetPlatform.android ||
-            (defaultTargetPlatform == TargetPlatform.iOS &&
-                !PlatformInfo.isIOS26OrHigher());
-        final double navReservedPadding = _mobileNowPlayingBottomPadding(
-          context,
-          useLegacyCupertinoTabBar: useLegacyCupertinoTabBar,
-        );
-        final double navOverlapHeight = useLegacyCupertinoTabBar
-            ? _FrostedLegacyCupertinoTabBar.barHeight
-            : 20.0;
-        final double navReservedHeight = math.max(
-          0,
-          navReservedPadding - navOverlapHeight,
-        );
+        final double nowPlayingBottomInset =
+            (showNavigationBar ? navigationBarBottomInset : safeAreaBottomInset) +
+            nowPlayingGapInset;
         final double lyricsBottomInset =
-            navReservedHeight +
-            _HomePageContentState._mobileNowPlayingBarHeight;
+            nowPlayingBottomInset + _HomePageContentState._mobileNowPlayingBarHeight;
 
         final layeredBody = SafeArea(
           top: false,
@@ -101,7 +113,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: navReservedHeight,
+                bottom: nowPlayingBottomInset,
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   switchInCurve: Curves.easeOutQuad,
@@ -120,7 +132,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
                       child: SlideTransition(position: slide, child: child),
                     );
                   },
-                  child: _mobileNowPlayingBarVisible
+                  child: showNowPlayingBar
                       ? Padding(
                           key: const ValueKey('mobile_now_playing_visible'),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -201,26 +213,52 @@ extension _HomePageMobileLayout on _HomePageContentState {
           scaffoldBody = Stack(
             children: [
               Positioned.fill(child: scrollAwareBody),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _FrostedLegacyCupertinoTabBar(
-                  currentIndex: navSelectedIndex,
-                  isDarkMode: isDarkMode,
-                  items: _buildLegacyCupertinoNavItems(navItems),
-                  onTap: handleNavigationTap,
+              if (showNavigationBar)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOutCubic,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _FrostedLegacyCupertinoTabBar(
+                    currentIndex: navSelectedIndex,
+                    isDarkMode: isDarkMode,
+                    items: _buildLegacyCupertinoNavItems(navItems),
+                    onTap: handleNavigationTap,
+                    ignoreBottomSafeArea: false,
+                  ),
                 ),
-              ),
+            ],
+          );
+        } else if (useIOS26NativeTabBar) {
+          scaffoldBody = Stack(
+            children: [
+              Positioned.fill(child: scrollAwareBody),
+              if (showNavigationBar)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOutCubic,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: IOS26NativeTabBar(
+                    destinations: navItems,
+                    selectedIndex: navSelectedIndex,
+                    onTap: handleNavigationTap,
+                    tint: const Color(0xFF1B66FF),
+                  ),
+                ),
             ],
           );
         } else {
-          scaffoldBottomBar = AdaptiveBottomNavigationBar(
-            items: navItems,
-            selectedIndex: navSelectedIndex,
-            onTap: handleNavigationTap,
-            selectedItemColor: const Color(0xFF1B66FF),
-          );
+          if (showNavigationBar) {
+            scaffoldBottomBar = AdaptiveBottomNavigationBar(
+              items: navItems,
+              selectedIndex: navSelectedIndex,
+              onTap: handleNavigationTap,
+              selectedItemColor: const Color(0xFF1B66FF),
+            );
+          }
         }
 
         return AdaptiveScaffold(
@@ -771,12 +809,14 @@ class _FrostedLegacyCupertinoTabBar extends StatelessWidget {
     required this.items,
     required this.onTap,
     required this.isDarkMode,
+    this.ignoreBottomSafeArea = false,
   });
 
   final int currentIndex;
   final List<BottomNavigationBarItem> items;
   final ValueChanged<int> onTap;
   final bool isDarkMode;
+  final bool ignoreBottomSafeArea;
 
   static const double barHeight = 55.0;
   static const double _blurSigma = 20.0;
@@ -789,7 +829,7 @@ class _FrostedLegacyCupertinoTabBar extends StatelessWidget {
     final Color borderColor = (isDarkMode ? Colors.white : Colors.black)
         .withOpacity(0.1);
 
-    final tabBar = CupertinoTabBar(
+    Widget tabBar = CupertinoTabBar(
       currentIndex: currentIndex,
       onTap: onTap,
       items: items,
@@ -799,6 +839,16 @@ class _FrostedLegacyCupertinoTabBar extends StatelessWidget {
       activeColor: const Color(0xFF1B66FF),
       inactiveColor: CupertinoColors.inactiveGray,
     );
+
+    if (ignoreBottomSafeArea) {
+      final mediaQuery = MediaQuery.of(context);
+      tabBar = MediaQuery(
+        data: mediaQuery.copyWith(
+          viewPadding: mediaQuery.viewPadding.copyWith(bottom: 0),
+        ),
+        child: tabBar,
+      );
+    }
 
     return ClipRect(
       child: BackdropFilter(
