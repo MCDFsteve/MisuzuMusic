@@ -44,9 +44,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
             _lyricsVisible && _lyricsPageActive;
         final bool showNowPlayingBar =
             _mobileNowPlayingBarVisible && !hideNowPlayingForLyricsPage;
-        final bool hideNavigationBarForLyricsCover =
-            _lyricsVisible && !_lyricsPageActive;
-        final bool showNavigationBar = !hideNavigationBarForLyricsCover;
+        final bool showNavigationBar = !_lyricsVisible;
         final double safeAreaBottomInset = mediaQuery.padding.bottom;
         const double nowPlayingBarNavGap = 16.0;
         final bool useIOS26NativeTabBar =
