@@ -62,6 +62,13 @@ extension _HomePageMobileLayout on _HomePageContentState {
             safeAreaBottomInset +
             _HomePageContentState._mobileNowPlayingBarHeight +
             (useIOS26NativeTabBar ? 50.0 : _FrostedLegacyCupertinoTabBar.barHeight);
+        final double nowPlayingBottomInset =
+            useLegacyCupertinoTabBar || useIOS26NativeTabBar
+                ? safeAreaBottomInset +
+                    (useIOS26NativeTabBar
+                        ? 50.0
+                        : _FrostedLegacyCupertinoTabBar.barHeight)
+                : 0.0;
 
         final layeredBody = SafeArea(
           top: false,
@@ -99,7 +106,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 0,
+                bottom: nowPlayingBottomInset,
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   switchInCurve: Curves.easeOutQuad,
@@ -119,23 +126,16 @@ extension _HomePageMobileLayout on _HomePageContentState {
                     );
                   },
                   child: showNowPlayingBar
-                      ? SafeArea(
-                          top: false,
-                          left: false,
-                          right: false,
-                          child: Padding(
-                            key: const ValueKey('mobile_now_playing_visible'),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                            ),
-                            child: MobileNowPlayingBar(
-                              playerState: playerState,
-                              isLyricsActive: _lyricsVisible,
-                              onArtworkTap: currentTrack == null
-                                  ? null
-                                  : () => _toggleLyrics(playerState),
-                              onQueueTap: _showQueueBottomSheet,
-                            ),
+                      ? Padding(
+                          key: const ValueKey('mobile_now_playing_visible'),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: MobileNowPlayingBar(
+                            playerState: playerState,
+                            isLyricsActive: _lyricsVisible,
+                            onArtworkTap: currentTrack == null
+                                ? null
+                                : () => _toggleLyrics(playerState),
+                            onQueueTap: _showQueueBottomSheet,
                           ),
                         )
                       : const SizedBox.shrink(
@@ -203,10 +203,6 @@ extension _HomePageMobileLayout on _HomePageContentState {
         AdaptiveBottomNavigationBar? scaffoldBottomBar;
 
         if (useLegacyCupertinoTabBar) {
-          final double navBarBottomInset = showNowPlayingBar
-              ? safeAreaBottomInset +
-                  _HomePageContentState._mobileNowPlayingBarHeight
-              : 0;
           scaffoldBody = Stack(
             children: [
               Positioned.fill(child: scrollAwareBody),
@@ -215,22 +211,18 @@ extension _HomePageMobileLayout on _HomePageContentState {
                 curve: Curves.easeInOutCubic,
                 left: 0,
                 right: 0,
-                bottom: navBarBottomInset,
+                bottom: 0,
                 child: _FrostedLegacyCupertinoTabBar(
                   currentIndex: navSelectedIndex,
                   isDarkMode: isDarkMode,
                   items: _buildLegacyCupertinoNavItems(navItems),
                   onTap: handleNavigationTap,
-                  ignoreBottomSafeArea: showNowPlayingBar,
+                  ignoreBottomSafeArea: false,
                 ),
               ),
             ],
           );
         } else if (useIOS26NativeTabBar) {
-          final double navBarBottomInset = showNowPlayingBar
-              ? safeAreaBottomInset +
-                  _HomePageContentState._mobileNowPlayingBarHeight
-              : 0;
           scaffoldBody = Stack(
             children: [
               Positioned.fill(child: scrollAwareBody),
@@ -239,7 +231,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
                 curve: Curves.easeInOutCubic,
                 left: 0,
                 right: 0,
-                bottom: navBarBottomInset,
+                bottom: 0,
                 child: IOS26NativeTabBar(
                   destinations: navItems,
                   selectedIndex: navSelectedIndex,
