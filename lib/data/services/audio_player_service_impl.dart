@@ -83,8 +83,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       _restoringSession && _pendingRestorePosition != null;
 
   // Shuffle management
-  List<int> _shuffleIndexes = []; // 洗牌后的索引列表
-  int _shufflePosition = 0; // 当前在洗牌列表中的位置
+  /// 洗牌顺序（完整队列索引），用于在随机模式下支持上一曲/下一曲。
+  ///
+  /// `_shuffleIndexes[_shufflePosition]` 应指向当前正在播放的 `_currentIndex`。
+  List<int> _shuffleIndexes = [];
+  int _shufflePosition = 0; // 当前在洗牌顺序中的位置（指向当前曲目）
 
   StreamSubscription? _playerStateSubscription;
   StreamSubscription? _positionSubscription;
@@ -268,31 +271,26 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       case PlayMode.repeatOne:
         return current == null ? const [] : List<Track>.unmodifiable([current]);
       case PlayMode.shuffle:
+        if (_queue.length <= 1) {
+          return List<Track>.unmodifiable(_queue);
+        }
+
+        _syncShuffleOrderWithCurrent();
         final result = <Track>[];
-        final seenIds = <String>{};
+        for (final idx in _shuffleIndexes) {
+          if (idx >= 0 && idx < _queue.length) {
+            result.add(_queue[idx]);
+          }
+        }
+
+        // 当前曲目不在队列时兜底插入，避免 UI 上无法定位。
         if (current != null) {
-          result.add(current);
-          seenIds.add(current.id);
-        }
-        for (final id in _playNextTrackIds) {
-          final track = _findTrackById(id);
-          if (track != null && seenIds.add(track.id)) {
-            result.add(track);
+          final currentId = current.id;
+          if (result.indexWhere((track) => track.id == currentId) == -1) {
+            result.insert(0, current);
           }
         }
-        if (_shuffleIndexes.isNotEmpty && _queue.length > 1) {
-          final int start =
-              _shufflePosition.clamp(0, _shuffleIndexes.length).toInt();
-          for (int i = start; i < _shuffleIndexes.length; i++) {
-            final idx = _shuffleIndexes[i];
-            if (idx >= 0 && idx < _queue.length) {
-              final track = _queue[idx];
-              if (seenIds.add(track.id)) {
-                result.add(track);
-              }
-            }
-          }
-        }
+
         return List<Track>.unmodifiable(result);
       case PlayMode.repeatAll:
         return List<Track>.unmodifiable(_queue);
@@ -512,6 +510,15 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       print('🎵 AudioService: 文件路径 - ${playableTrack.filePath}');
 
       await _ensureAudioSessionReady();
+      final index = _queue.indexWhere(
+        (item) => _isSameTrack(item, playableTrack),
+      );
+      if (index != -1) {
+        _currentIndex = index;
+      }
+      if (_playMode == PlayMode.shuffle && _queue.length > 1) {
+        _syncShuffleOrderWithCurrent();
+      }
       _updateCurrentTrack(playableTrack);
       _notifyQueueChanged();
       if (!_hasPendingRestorePosition) {
@@ -538,12 +545,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         );
       }
 
-      final index = _queue.indexWhere(
-        (item) => _isSameTrack(item, playableTrack),
-      );
-      if (index != -1) {
-        _currentIndex = index;
-      }
       await _persistQueueState();
       if (_restoringSession && _pendingRestorePosition != null) {
       } else {
@@ -576,6 +577,15 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       );
 
       print('🎵 AudioService: 预加载音轨 - ${playableTrack.title}');
+      final index = _queue.indexWhere(
+        (item) => _isSameTrack(item, playableTrack),
+      );
+      if (index != -1) {
+        _currentIndex = index;
+      }
+      if (_playMode == PlayMode.shuffle && _queue.length > 1) {
+        _syncShuffleOrderWithCurrent();
+      }
       _updateCurrentTrack(playableTrack);
       _notifyQueueChanged();
       if (!_hasPendingRestorePosition) {
@@ -583,12 +593,6 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       }
       await _setAudioSource(playableTrack);
 
-      final index = _queue.indexWhere(
-        (item) => _isSameTrack(item, playableTrack),
-      );
-      if (index != -1) {
-        _currentIndex = index;
-      }
       await _persistQueueState();
       if (_restoringSession && _pendingRestorePosition != null) {
       } else {
@@ -799,7 +803,22 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
   List<Track> get queue => _effectiveQueueSnapshot();
 
   @override
-  int get currentIndex => _currentIndex;
+  int get currentIndex {
+    final snapshot = _effectiveQueueSnapshot();
+    if (snapshot.isEmpty) {
+      return 0;
+    }
+
+    final current = _currentTrack;
+    if (current != null) {
+      final idx = snapshot.indexWhere((track) => track.id == current.id);
+      if (idx != -1) {
+        return idx;
+      }
+    }
+
+    return _currentIndex.clamp(0, snapshot.length - 1).toInt();
+  }
 
   @override
   Future<void> setPlayMode(PlayMode mode) async {
@@ -821,12 +840,13 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
     final forcedIndex = _consumePlayNextIndex();
     if (forcedIndex != null) {
+      if (_playMode == PlayMode.shuffle && _queue.length > 1) {
+        _syncShuffleOrderWithCurrent();
+        _shufflePosition = _placeShuffleIndexNext(forcedIndex);
+      }
       _currentIndex = forcedIndex;
       await _persistQueueState();
       await play(_queue[_currentIndex]);
-      if (_playMode == PlayMode.shuffle) {
-        _generateShuffleOrder();
-      }
       _notifyQueueChanged();
       return;
     }
@@ -936,10 +956,11 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
     final forcedIndex = _consumePlayNextIndex();
     if (forcedIndex != null) {
-      _currentIndex = forcedIndex;
-      if (_playMode == PlayMode.shuffle) {
-        _generateShuffleOrder();
+      if (_playMode == PlayMode.shuffle && _queue.length > 1) {
+        _syncShuffleOrderWithCurrent();
+        _shufflePosition = _placeShuffleIndexNext(forcedIndex);
       }
+      _currentIndex = forcedIndex;
     } else {
       switch (_playMode) {
         case PlayMode.repeatAll:
@@ -991,69 +1012,131 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     });
   }
 
+  void _syncShuffleOrderWithCurrent() {
+    if (_queue.length <= 1) {
+      _shuffleIndexes.clear();
+      _shufflePosition = 0;
+      return;
+    }
+
+    if (_shuffleIndexes.length != _queue.length) {
+      _generateShuffleOrder();
+      return;
+    }
+
+    final seen = <int>{};
+    for (final idx in _shuffleIndexes) {
+      if (idx < 0 || idx >= _queue.length || !seen.add(idx)) {
+        _generateShuffleOrder();
+        return;
+      }
+    }
+
+    final pos = _shuffleIndexes.indexOf(_currentIndex);
+    if (pos == -1) {
+      _generateShuffleOrder();
+      return;
+    }
+    _shufflePosition = pos;
+  }
+
+  int _placeShuffleIndexNext(int queueIndex) {
+    if (_queue.length <= 1) {
+      return 0;
+    }
+
+    _syncShuffleOrderWithCurrent();
+    if (_shuffleIndexes.isEmpty) {
+      return 0;
+    }
+
+    final currentPos =
+        _shufflePosition.clamp(0, _shuffleIndexes.length - 1).toInt();
+    final fromPos = _shuffleIndexes.indexOf(queueIndex);
+    if (fromPos == -1) {
+      _generateShuffleOrder();
+      return _placeShuffleIndexNext(queueIndex);
+    }
+
+    final desiredPos = (currentPos + 1)
+        .clamp(0, _shuffleIndexes.length - 1)
+        .toInt();
+    if (fromPos == desiredPos) {
+      return desiredPos;
+    }
+
+    _shuffleIndexes.removeAt(fromPos);
+    var adjustedCurrentPos = currentPos;
+    if (fromPos < adjustedCurrentPos) {
+      adjustedCurrentPos -= 1;
+    }
+
+    final insertPos =
+        (adjustedCurrentPos + 1).clamp(0, _shuffleIndexes.length).toInt();
+    _shuffleIndexes.insert(insertPos, queueIndex);
+    _shufflePosition = adjustedCurrentPos;
+    return insertPos;
+  }
+
   int _getRandomIndex() {
     if (_queue.length <= 1) return 0;
+
+    _syncShuffleOrderWithCurrent();
 
     _logShuffle(
       '_getRandomIndex() position=$_shufflePosition length=${_shuffleIndexes.length}',
     );
 
-    // 如果洗牌列表为空，重新生成洗牌列表
-    if (_shuffleIndexes.isEmpty) {
-      _logShuffle('order empty; regenerate');
+    if (_shuffleIndexes.isEmpty || _shuffleIndexes.length != _queue.length) {
+      _logShuffle('order invalid; regenerate');
       _generateShuffleOrder();
     }
 
-    // 如果已播放完，重新生成洗牌列表
-    if (_shufflePosition >= _shuffleIndexes.length) {
+    if (_shufflePosition >= _shuffleIndexes.length - 1) {
       _logShuffle('order exhausted; regenerate');
       _generateShuffleOrder();
     }
 
-    // 从洗牌列表中获取下一个索引
+    if (_shuffleIndexes.length <= 1) {
+      _shufflePosition = 0;
+      return _shuffleIndexes.isNotEmpty ? _shuffleIndexes[0] : 0;
+    }
+
+    _shufflePosition = (_shufflePosition + 1)
+        .clamp(0, _shuffleIndexes.length - 1)
+        .toInt();
     final nextIndex = _shuffleIndexes[_shufflePosition];
     _logShuffle('next index=$nextIndex position=$_shufflePosition');
-    _shufflePosition++;
-    _logShuffle('advance to $_shufflePosition');
-
     return nextIndex;
   }
 
   int _getPreviousShuffleIndex() {
     if (_queue.length <= 1) return 0;
 
+    _syncShuffleOrderWithCurrent();
+
     _logShuffle(
       '_getPreviousShuffleIndex() position=$_shufflePosition length=${_shuffleIndexes.length}',
     );
 
-    // 如果洗牌列表为空，先生成洗牌列表
-    if (_shuffleIndexes.isEmpty) {
-      _logShuffle('order empty; regenerate');
+    if (_shuffleIndexes.isEmpty || _shuffleIndexes.length != _queue.length) {
+      _logShuffle('order invalid; regenerate');
       _generateShuffleOrder();
-      _shufflePosition = _shuffleIndexes.length; // 设置到末尾
-      _logShuffle('position set to end $_shufflePosition');
     }
 
-    // 如果可以回退
-    if (_shufflePosition > 1) {
-      _logShuffle('rewind from $_shufflePosition');
-      _shufflePosition -= 2; // 回退到上一个位置
-      final prevIndex = _shuffleIndexes[_shufflePosition];
-      _logShuffle('previous index=$prevIndex position=$_shufflePosition');
-      _shufflePosition++; // 恢复位置，为下次前进做准备
-      _logShuffle('restore pointer $_shufflePosition');
-      return prevIndex;
-    } else {
-      _logShuffle('cannot rewind at $_shufflePosition; regenerate');
-      // 如果已经是第一首，重新生成洗牌列表并从最后开始
-      _generateShuffleOrder();
-      _shufflePosition = _shuffleIndexes.length - 1;
-      final lastIndex = _shuffleIndexes[_shufflePosition];
-      _logShuffle('fallback index=$lastIndex position=$_shufflePosition');
-      _shufflePosition++; // 设置为下一个位置
-      _logShuffle('advance to $_shufflePosition');
-      return lastIndex;
+    if (_shuffleIndexes.isEmpty) {
+      return 0;
     }
+
+    if (_shufflePosition <= 0) {
+      return _shuffleIndexes[0];
+    }
+
+    _shufflePosition =
+        (_shufflePosition - 1).clamp(0, _shuffleIndexes.length - 1).toInt();
+    final prevIndex = _shuffleIndexes[_shufflePosition];
+    _logShuffle('previous index=$prevIndex position=$_shufflePosition');
+    return prevIndex;
   }
 
   // 生成洗牌顺序的函数
@@ -1064,13 +1147,7 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       'regenerate order queue=${_queue.length} current=$_currentIndex',
     );
 
-    // 创建索引列表，但排除当前正在播放的歌曲
-    _shuffleIndexes = <int>[];
-    for (int i = 0; i < _queue.length; i++) {
-      if (i != _currentIndex) {
-        _shuffleIndexes.add(i);
-      }
-    }
+    _shuffleIndexes = List<int>.generate(_queue.length, (i) => i);
 
     // Fisher-Yates 洗牌算法
     final random = Random();
@@ -1079,6 +1156,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       final temp = _shuffleIndexes[i];
       _shuffleIndexes[i] = _shuffleIndexes[j];
       _shuffleIndexes[j] = temp;
+    }
+
+    final clampedCurrent = _currentIndex.clamp(0, _queue.length - 1).toInt();
+    final currentPos = _shuffleIndexes.indexOf(clampedCurrent);
+    if (currentPos > 0) {
+      final current = _shuffleIndexes.removeAt(currentPos);
+      _shuffleIndexes.insert(0, current);
+    } else if (currentPos == -1) {
+      _shuffleIndexes.remove(clampedCurrent);
+      _shuffleIndexes.insert(0, clampedCurrent);
     }
 
     _shufflePosition = 0;
