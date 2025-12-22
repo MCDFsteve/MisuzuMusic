@@ -44,6 +44,9 @@ extension _HomePageMobileLayout on _HomePageContentState {
             _lyricsVisible && _lyricsPageActive;
         final bool showNowPlayingBar =
             _mobileNowPlayingBarVisible && !hideNowPlayingForLyricsPage;
+        final bool hideNavigationBarForLyricsCover =
+            _lyricsVisible && !_lyricsPageActive;
+        final bool showNavigationBar = !hideNavigationBarForLyricsCover;
         final double safeAreaBottomInset = mediaQuery.padding.bottom;
         const double nowPlayingBarNavGap = 16.0;
         final bool useIOS26NativeTabBar =
@@ -53,25 +56,28 @@ extension _HomePageMobileLayout on _HomePageContentState {
             defaultTargetPlatform == TargetPlatform.android ||
             (defaultTargetPlatform == TargetPlatform.iOS &&
                 !PlatformInfo.isIOS26OrHigher());
+        final bool navigationBarOverlaysBody =
+            useLegacyCupertinoTabBar || useIOS26NativeTabBar;
+        final double navigationBarHeight = useIOS26NativeTabBar
+            ? 50.0
+            : _FrostedLegacyCupertinoTabBar.barHeight;
+        final double navigationBarBottomInset =
+            showNavigationBar && navigationBarOverlaysBody
+                ? safeAreaBottomInset + navigationBarHeight
+                : 0.0;
+        final double nowPlayingGapInset =
+            showNowPlayingBar && showNavigationBar ? nowPlayingBarNavGap : 0.0;
 
         final mainContent = KeyedSubtree(
           key: const ValueKey<String>('mobile_content_stack'),
           child: _buildMainContent(),
         );
 
-        final double lyricsBottomInset =
-            safeAreaBottomInset +
-            (showNowPlayingBar ? nowPlayingBarNavGap : 0.0) +
-            _HomePageContentState._mobileNowPlayingBarHeight +
-            (useIOS26NativeTabBar ? 50.0 : _FrostedLegacyCupertinoTabBar.barHeight);
         final double nowPlayingBottomInset =
-            (useLegacyCupertinoTabBar || useIOS26NativeTabBar
-                    ? safeAreaBottomInset +
-                        (useIOS26NativeTabBar
-                            ? 50.0
-                            : _FrostedLegacyCupertinoTabBar.barHeight)
-                    : 0.0) +
-            (showNowPlayingBar ? nowPlayingBarNavGap : 0.0);
+            (showNavigationBar ? navigationBarBottomInset : safeAreaBottomInset) +
+            nowPlayingGapInset;
+        final double lyricsBottomInset =
+            nowPlayingBottomInset + _HomePageContentState._mobileNowPlayingBarHeight;
 
         final layeredBody = SafeArea(
           top: false,
@@ -209,48 +215,52 @@ extension _HomePageMobileLayout on _HomePageContentState {
           scaffoldBody = Stack(
             children: [
               Positioned.fill(child: scrollAwareBody),
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeInOutCubic,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _FrostedLegacyCupertinoTabBar(
-                  currentIndex: navSelectedIndex,
-                  isDarkMode: isDarkMode,
-                  items: _buildLegacyCupertinoNavItems(navItems),
-                  onTap: handleNavigationTap,
-                  ignoreBottomSafeArea: false,
+              if (showNavigationBar)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOutCubic,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _FrostedLegacyCupertinoTabBar(
+                    currentIndex: navSelectedIndex,
+                    isDarkMode: isDarkMode,
+                    items: _buildLegacyCupertinoNavItems(navItems),
+                    onTap: handleNavigationTap,
+                    ignoreBottomSafeArea: false,
+                  ),
                 ),
-              ),
             ],
           );
         } else if (useIOS26NativeTabBar) {
           scaffoldBody = Stack(
             children: [
               Positioned.fill(child: scrollAwareBody),
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeInOutCubic,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: IOS26NativeTabBar(
-                  destinations: navItems,
-                  selectedIndex: navSelectedIndex,
-                  onTap: handleNavigationTap,
-                  tint: const Color(0xFF1B66FF),
+              if (showNavigationBar)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOutCubic,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: IOS26NativeTabBar(
+                    destinations: navItems,
+                    selectedIndex: navSelectedIndex,
+                    onTap: handleNavigationTap,
+                    tint: const Color(0xFF1B66FF),
+                  ),
                 ),
-              ),
             ],
           );
         } else {
-          scaffoldBottomBar = AdaptiveBottomNavigationBar(
-            items: navItems,
-            selectedIndex: navSelectedIndex,
-            onTap: handleNavigationTap,
-            selectedItemColor: const Color(0xFF1B66FF),
-          );
+          if (showNavigationBar) {
+            scaffoldBottomBar = AdaptiveBottomNavigationBar(
+              items: navItems,
+              selectedIndex: navSelectedIndex,
+              onTap: handleNavigationTap,
+              selectedItemColor: const Color(0xFF1B66FF),
+            );
+          }
         }
 
         return AdaptiveScaffold(
