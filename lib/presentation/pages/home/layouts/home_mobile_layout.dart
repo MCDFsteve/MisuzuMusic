@@ -45,6 +45,7 @@ extension _HomePageMobileLayout on _HomePageContentState {
         final bool showNowPlayingBar =
             _mobileNowPlayingBarVisible && !hideNowPlayingForLyricsPage;
         final double safeAreaBottomInset = mediaQuery.padding.bottom;
+        const double nowPlayingBarNavGap = 16.0;
         final bool useIOS26NativeTabBar =
             defaultTargetPlatform == TargetPlatform.iOS &&
             PlatformInfo.isIOS26OrHigher();
@@ -60,15 +61,17 @@ extension _HomePageMobileLayout on _HomePageContentState {
 
         final double lyricsBottomInset =
             safeAreaBottomInset +
+            (showNowPlayingBar ? nowPlayingBarNavGap : 0.0) +
             _HomePageContentState._mobileNowPlayingBarHeight +
             (useIOS26NativeTabBar ? 50.0 : _FrostedLegacyCupertinoTabBar.barHeight);
         final double nowPlayingBottomInset =
-            useLegacyCupertinoTabBar || useIOS26NativeTabBar
-                ? safeAreaBottomInset +
-                    (useIOS26NativeTabBar
-                        ? 50.0
-                        : _FrostedLegacyCupertinoTabBar.barHeight)
-                : 0.0;
+            (useLegacyCupertinoTabBar || useIOS26NativeTabBar
+                    ? safeAreaBottomInset +
+                        (useIOS26NativeTabBar
+                            ? 50.0
+                            : _FrostedLegacyCupertinoTabBar.barHeight)
+                    : 0.0) +
+            (showNowPlayingBar ? nowPlayingBarNavGap : 0.0);
 
         final layeredBody = SafeArea(
           top: false,
