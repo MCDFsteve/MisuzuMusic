@@ -19,6 +19,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   flutter::DartProject project(L"data");
+  // Disable thread merge to improve frame pacing on high-refresh displays.
+  // Attention: This may impact plugin performance and may be incompatible with future Flutter releases.
+  project.set_ui_thread_policy(flutter::UIThreadPolicy::RunOnSeparateThread);
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();

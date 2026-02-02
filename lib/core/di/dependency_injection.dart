@@ -39,6 +39,7 @@ import '../storage/binary_config_store.dart';
 import '../../data/storage/playlist_file_storage.dart';
 import '../../data/storage/netease_session_store.dart';
 import '../services/desktop_lyrics_bridge.dart';
+import '../services/carplay_service.dart';
 import '../services/file_association_service.dart';
 
 final sl = GetIt.instance;
@@ -140,6 +141,9 @@ class DependencyInjection {
         ),
       );
       sl.registerSingleton<AudioHandler>(audioHandler);
+
+      sl.registerLazySingleton(() => CarPlayService(sl(), sl()));
+      await sl<CarPlayService>().initialize();
 
       sl.registerLazySingleton(() => ThemeController(sl()));
       sl.registerLazySingleton(() => LocaleController(sl()));
