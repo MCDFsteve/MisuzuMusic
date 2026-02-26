@@ -89,7 +89,6 @@ dev_dependencies:
   mockito: ^5.4.2
   bloc_test: ^9.1.4
   build_runner: ^2.4.7
-  hive_generator: ^2.0.1
   flutter_launcher_icons: ^0.13.1
   rename: ^2.1.1
 
