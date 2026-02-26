@@ -372,6 +372,9 @@ String? _queueArtworkUrl(Track track) {
   if (track.isNeteaseTrack) {
     return track.httpHeaders?['x-netease-cover'];
   }
+  if (track.isJellyfinTrack) {
+    return JellyfinLibraryConstants.buildArtworkUrl(track.httpHeaders);
+  }
   return MysteryLibraryConstants.buildArtworkUrl(
     track.httpHeaders,
     thumbnail: true,
@@ -396,10 +399,65 @@ class _QueueBadge extends StatelessWidget {
   }
 }
 
-class _PlaybackQueueSheet extends StatelessWidget {
+class _PlaybackQueueSheet extends StatefulWidget {
   const _PlaybackQueueSheet({required this.onPlayTrack});
 
   final void Function(List<Track> queue, int index) onPlayTrack;
+
+  @override
+  State<_PlaybackQueueSheet> createState() => _PlaybackQueueSheetState();
+}
+
+class _PlaybackQueueSheetState extends State<_PlaybackQueueSheet> {
+  static const double _initialChildSize = 0.7;
+  static const double _minChildSize = 0.5;
+  static const double _maxChildSize = 0.95;
+  static const double _closeDragThreshold = 72;
+  static const double _closeVelocityThreshold = 900;
+
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+  double _dragDistance = 0;
+
+  void _handleDragStart(DragStartDetails details) {
+    _dragDistance = 0;
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    _dragDistance =
+        (_dragDistance + details.delta.dy).clamp(0.0, double.infinity).toDouble();
+    if (!_sheetController.isAttached) {
+      return;
+    }
+    final currentPixels = _sheetController.pixels;
+    final nextPixels = currentPixels - details.delta.dy;
+    final minPixels = _sheetController.sizeToPixels(_minChildSize);
+    final maxPixels = _sheetController.sizeToPixels(_maxChildSize);
+    final clampedPixels =
+        nextPixels.clamp(minPixels, maxPixels).toDouble();
+    final nextSize = _sheetController.pixelsToSize(clampedPixels);
+    _sheetController.jumpTo(nextSize);
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final shouldClose = velocity > _closeVelocityThreshold ||
+        (_dragDistance > _closeDragThreshold && velocity >= 0);
+    if (shouldClose) {
+      Navigator.of(context).maybePop();
+    }
+    _dragDistance = 0;
+  }
+
+  void _handleDragCancel() {
+    _dragDistance = 0;
+  }
+
+  @override
+  void dispose() {
+    _sheetController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -417,9 +475,11 @@ class _PlaybackQueueSheet extends StatelessWidget {
         top: false,
         bottom: false,
         child: DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
+          controller: _sheetController,
+          initialChildSize: _initialChildSize,
+          minChildSize: _minChildSize,
+          maxChildSize: _maxChildSize,
+          shouldCloseOnMinExtent: false,
           expand: false,
           builder: (context, controller) {
             return BlocBuilder<PlayerBloc, PlayerBlocState>(
@@ -441,7 +501,10 @@ class _PlaybackQueueSheet extends StatelessWidget {
                     children: [
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: () => Navigator.of(context).pop(),
+                        onVerticalDragStart: _handleDragStart,
+                        onVerticalDragUpdate: _handleDragUpdate,
+                        onVerticalDragEnd: _handleDragEnd,
+                        onVerticalDragCancel: _handleDragCancel,
                         child: Column(
                           children: [
                             const SizedBox(height: 8),
@@ -479,7 +542,7 @@ class _PlaybackQueueSheet extends StatelessWidget {
                           queue: snapshot.queue,
                           currentIndex: snapshot.currentIndex,
                           onTap: (index) {
-                            onPlayTrack(snapshot.queue, index);
+                            widget.onPlayTrack(snapshot.queue, index);
                             Navigator.of(context).pop();
                           },
                           controller: controller,

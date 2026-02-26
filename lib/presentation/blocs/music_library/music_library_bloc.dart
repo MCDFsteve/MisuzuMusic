@@ -7,6 +7,7 @@ import '../../../core/storage/binary_config_store.dart';
 import '../../../core/storage/storage_keys.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../../domain/entities/webdav_entities.dart';
+import '../../../domain/entities/jellyfin_entities.dart';
 import '../../../domain/usecases/music_usecases.dart';
 
 // Events
@@ -52,6 +53,19 @@ class ScanWebDavDirectoryEvent extends MusicLibraryEvent {
   List<Object> get props => [source, password];
 }
 
+class ScanJellyfinLibraryEvent extends MusicLibraryEvent {
+  final JellyfinSource source;
+  final String accessToken;
+
+  const ScanJellyfinLibraryEvent({
+    required this.source,
+    required this.accessToken,
+  });
+
+  @override
+  List<Object> get props => [source, accessToken];
+}
+
 class MountMysteryLibraryEvent extends MusicLibraryEvent {
   final Uri baseUri;
   final String code;
@@ -84,6 +98,15 @@ class RemoveWebDavSourceEvent extends MusicLibraryEvent {
   final WebDavSource source;
 
   const RemoveWebDavSourceEvent(this.source);
+
+  @override
+  List<Object?> get props => [source];
+}
+
+class RemoveJellyfinSourceEvent extends MusicLibraryEvent {
+  final JellyfinSource source;
+
+  const RemoveJellyfinSourceEvent(this.source);
 
   @override
   List<Object?> get props => [source];
@@ -143,6 +166,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
   final String? searchQuery;
   final List<String> libraryDirectories;
   final List<WebDavSource> webDavSources;
+  final List<JellyfinSource> jellyfinSources;
   final TrackSortMode sortMode;
 
   const MusicLibraryLoaded({
@@ -152,6 +176,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
     required this.albums,
     required this.libraryDirectories,
     required this.webDavSources,
+    required this.jellyfinSources,
     this.searchQuery,
     this.sortMode = TrackSortMode.titleAZ,
   });
@@ -164,6 +189,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
     albums,
     libraryDirectories,
     webDavSources,
+    jellyfinSources,
     searchQuery,
     sortMode,
   ];
@@ -175,6 +201,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
     List<Album>? albums,
     List<String>? libraryDirectories,
     List<WebDavSource>? webDavSources,
+    List<JellyfinSource>? jellyfinSources,
     String? searchQuery,
     TrackSortMode? sortMode,
   }) {
@@ -185,6 +212,7 @@ class MusicLibraryLoaded extends MusicLibraryState {
       albums: albums ?? this.albums,
       libraryDirectories: libraryDirectories ?? this.libraryDirectories,
       webDavSources: webDavSources ?? this.webDavSources,
+      jellyfinSources: jellyfinSources ?? this.jellyfinSources,
       searchQuery: searchQuery ?? this.searchQuery,
       sortMode: sortMode ?? this.sortMode,
     );
@@ -195,15 +223,22 @@ class MusicLibraryScanComplete extends MusicLibraryState {
   final int tracksAdded;
   final String directoryPath;
   final WebDavSource? webDavSource;
+  final JellyfinSource? jellyfinSource;
 
   const MusicLibraryScanComplete({
     required this.tracksAdded,
     required this.directoryPath,
     this.webDavSource,
+    this.jellyfinSource,
   });
 
   @override
-  List<Object?> get props => [tracksAdded, directoryPath, webDavSource];
+  List<Object?> get props => [
+    tracksAdded,
+    directoryPath,
+    webDavSource,
+    jellyfinSource,
+  ];
 }
 
 class MusicLibraryError extends MusicLibraryState {
@@ -224,13 +259,17 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
   final GetAllAlbums _getAllAlbums;
   final GetLibraryDirectories _getLibraryDirectories;
   final ScanWebDavDirectory _scanWebDavDirectory;
+  final ScanJellyfinLibrary _scanJellyfinLibrary;
   final MountMysteryLibrary _mountMysteryLibrary;
   final UnmountMysteryLibrary _unmountMysteryLibrary;
   final GetWebDavSources _getWebDavSources;
+  final GetJellyfinSources _getJellyfinSources;
   final EnsureWebDavTrackMetadata _ensureWebDavTrackMetadata;
   final GetWebDavPassword _getWebDavPassword;
+  final GetJellyfinAccessToken _getJellyfinAccessToken;
   final RemoveLibraryDirectory _removeLibraryDirectory;
   final DeleteWebDavSource _deleteWebDavSource;
+  final DeleteJellyfinSource _deleteJellyfinSource;
   final ClearLibrary _clearLibrary;
   final WatchTrackUpdates _watchTrackUpdates;
   final BinaryConfigStore _configStore;
@@ -241,6 +280,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
 
   bool _webDavMetadataEnrichmentInProgress = false;
   bool _webDavAutoSyncTriggered = false;
+  bool _jellyfinAutoSyncTriggered = false;
 
   MusicLibraryBloc({
     required GetAllTracks getAllTracks,
@@ -250,14 +290,18 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     required GetAllAlbums getAllAlbums,
     required GetLibraryDirectories getLibraryDirectories,
     required ScanWebDavDirectory scanWebDavDirectory,
+    required ScanJellyfinLibrary scanJellyfinLibrary,
     required MountMysteryLibrary mountMysteryLibrary,
     required UnmountMysteryLibrary unmountMysteryLibrary,
     required GetWebDavSources getWebDavSources,
+    required GetJellyfinSources getJellyfinSources,
     required EnsureWebDavTrackMetadata ensureWebDavTrackMetadata,
     required GetWebDavPassword getWebDavPassword,
+    required GetJellyfinAccessToken getJellyfinAccessToken,
     required RemoveLibraryDirectory removeLibraryDirectory,
     required ClearLibrary clearLibrary,
     required DeleteWebDavSource deleteWebDavSource,
+    required DeleteJellyfinSource deleteJellyfinSource,
     required WatchTrackUpdates watchTrackUpdates,
     required BinaryConfigStore configStore,
   }) : _getAllTracks = getAllTracks,
@@ -267,14 +311,18 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
        _getAllAlbums = getAllAlbums,
        _getLibraryDirectories = getLibraryDirectories,
        _scanWebDavDirectory = scanWebDavDirectory,
+       _scanJellyfinLibrary = scanJellyfinLibrary,
        _mountMysteryLibrary = mountMysteryLibrary,
        _unmountMysteryLibrary = unmountMysteryLibrary,
        _getWebDavSources = getWebDavSources,
+       _getJellyfinSources = getJellyfinSources,
        _ensureWebDavTrackMetadata = ensureWebDavTrackMetadata,
        _getWebDavPassword = getWebDavPassword,
+       _getJellyfinAccessToken = getJellyfinAccessToken,
        _removeLibraryDirectory = removeLibraryDirectory,
        _clearLibrary = clearLibrary,
        _deleteWebDavSource = deleteWebDavSource,
+       _deleteJellyfinSource = deleteJellyfinSource,
        _watchTrackUpdates = watchTrackUpdates,
        _configStore = configStore,
        super(const MusicLibraryInitial()) {
@@ -282,10 +330,12 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     on<SearchTracksEvent>(_onSearchTracks);
     on<ScanDirectoryEvent>(_onScanDirectory);
     on<ScanWebDavDirectoryEvent>(_onScanWebDavDirectory);
+    on<ScanJellyfinLibraryEvent>(_onScanJellyfinLibrary);
     on<MountMysteryLibraryEvent>(_onMountMysteryLibrary);
     on<UnmountMysteryLibraryEvent>(_onUnmountMysteryLibrary);
     on<RemoveLibraryDirectoryEvent>(_onRemoveLibraryDirectory);
     on<RemoveWebDavSourceEvent>(_onRemoveWebDavSource);
+    on<RemoveJellyfinSourceEvent>(_onRemoveJellyfinSource);
     on<ClearLibraryEvent>(_onClearLibrary);
     on<LoadAllArtistsEvent>(_onLoadAllArtists);
     on<LoadAllAlbumsEvent>(_onLoadAllAlbums);
@@ -350,6 +400,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       emit(const MusicLibraryLoading());
 
       final webDavSources = await _getWebDavSources();
+      final jellyfinSources = await _getJellyfinSources();
       final tracks = await _getAllTracks();
       final artists = await _getAllArtists();
       final albums = await _getAllAlbums();
@@ -383,6 +434,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
           albums: albums,
           libraryDirectories: directories,
           webDavSources: webDavSources,
+          jellyfinSources: jellyfinSources,
           sortMode: sortMode,
         ),
       );
@@ -390,6 +442,10 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       if (!_webDavAutoSyncTriggered) {
         _webDavAutoSyncTriggered = true;
         unawaited(_autoSyncWebDavSources(webDavSources));
+      }
+      if (!_jellyfinAutoSyncTriggered) {
+        _jellyfinAutoSyncTriggered = true;
+        unawaited(_autoSyncJellyfinSources(jellyfinSources));
       }
 
       await _autoEnrichWebDavMetadata(tracks, emit);
@@ -413,6 +469,26 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
         await _scanWebDavDirectory(source: source, password: password);
       } catch (e) {
         print('⚠️ BLoC: 自动同步 WebDAV 源失败 -> $e');
+      }
+    }
+
+    add(const LoadAllTracks());
+  }
+
+  Future<void> _autoSyncJellyfinSources(List<JellyfinSource> sources) async {
+    if (sources.isEmpty) {
+      return;
+    }
+
+    for (final source in sources) {
+      final token = await _getJellyfinAccessToken(source.id);
+      if (token == null || token.isEmpty) {
+        continue;
+      }
+      try {
+        await _scanJellyfinLibrary(source: source, accessToken: token);
+      } catch (e) {
+        print('⚠️ BLoC: 自动同步 Jellyfin 源失败 -> $e');
       }
     }
 
@@ -452,6 +528,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
         final refreshedAlbums = await _getAllAlbums();
         final directories = await _getLibraryDirectories();
         final webDavSources = await _getWebDavSources();
+        final jellyfinSources = await _getJellyfinSources();
 
         final currentState = state;
         final currentSortMode = currentState is MusicLibraryLoaded
@@ -475,6 +552,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
             albums: refreshedAlbums,
             libraryDirectories: directories,
             webDavSources: webDavSources,
+            jellyfinSources: jellyfinSources,
             sortMode: currentSortMode,
           ),
         );
@@ -509,6 +587,18 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       add(const LoadAllTracks());
     } catch (e) {
       print('⚠️ BLoC: 移除 WebDAV 源失败 -> $e');
+    }
+  }
+
+  Future<void> _onRemoveJellyfinSource(
+    RemoveJellyfinSourceEvent event,
+    Emitter<MusicLibraryState> emit,
+  ) async {
+    try {
+      await _deleteJellyfinSource(event.source.id);
+      add(const LoadAllTracks());
+    } catch (e) {
+      print('⚠️ BLoC: 移除 Jellyfin 源失败 -> $e');
     }
   }
 
@@ -579,6 +669,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
       final albums = await _getAllAlbums();
       final directories = await _getLibraryDirectories();
       final webDavSources = await _getWebDavSources();
+      final jellyfinSources = await _getJellyfinSources();
 
       final visibleTracks = _filterVisibleTracks(tracks);
       final hiddenCount = tracks.length - visibleTracks.length;
@@ -604,6 +695,7 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
           albums: albums,
           libraryDirectories: directories,
           webDavSources: webDavSources,
+          jellyfinSources: jellyfinSources,
           searchQuery: event.query,
           sortMode: currentSortMode,
         ),
@@ -711,6 +803,58 @@ class MusicLibraryBloc extends Bloc<MusicLibraryEvent, MusicLibraryState> {
     } catch (e) {
       print('❌ BLoC: 扫描 WebDAV 目录失败: $e');
       emit(MusicLibraryError('扫描 WebDAV 目录失败: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onScanJellyfinLibrary(
+    ScanJellyfinLibraryEvent event,
+    Emitter<MusicLibraryState> emit,
+  ) async {
+    try {
+      final label = event.source.libraryName ?? event.source.name;
+      print('🎵 BLoC: 开始扫描 Jellyfin 媒体库: $label');
+      emit(MusicLibraryScanning(label));
+
+      final tracksBefore = await _getAllTracks();
+      final beforeCount = tracksBefore.length;
+
+      await _scanJellyfinLibrary(
+        source: event.source,
+        accessToken: event.accessToken,
+      );
+
+      final tracksAfter = await _getAllTracks();
+      final afterCount = tracksAfter.length;
+      final netChange = afterCount - beforeCount;
+      final removedCount = netChange < 0 ? -netChange : 0;
+      final tracksAdded = netChange > 0 ? netChange : 0;
+
+      if (removedCount > 0) {
+        print('🎵 BLoC: Jellyfin 扫描完成 - 已移除 $removedCount 首缺失歌曲');
+      }
+      print('🎵 BLoC: Jellyfin 扫描完成 - 添加了 $tracksAdded 首新歌曲');
+
+      JellyfinSource? updatedSource;
+      final sources = await _getJellyfinSources();
+      try {
+        updatedSource = sources.firstWhere((item) => item.id == event.source.id);
+      } catch (_) {
+        updatedSource = null;
+      }
+
+      emit(
+        MusicLibraryScanComplete(
+          tracksAdded: tracksAdded,
+          directoryPath: label,
+          jellyfinSource: updatedSource ?? event.source,
+        ),
+      );
+
+      await Future.delayed(const Duration(milliseconds: 500));
+      add(const LoadAllTracks());
+    } catch (e) {
+      print('❌ BLoC: 扫描 Jellyfin 媒体库失败: $e');
+      emit(MusicLibraryError('扫描 Jellyfin 媒体库失败: ${e.toString()}'));
     }
   }
 

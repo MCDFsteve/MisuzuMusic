@@ -72,7 +72,6 @@ class FrostedSearchDropdown extends StatelessWidget {
                 pageSize: 12,
                 preloadOffset: 60,
                 padding: EdgeInsets.zero,
-                cacheExtent: 0,
                 separatorBuilder: (context, index) => Divider(
                   height: 1,
                   thickness: 0.7,

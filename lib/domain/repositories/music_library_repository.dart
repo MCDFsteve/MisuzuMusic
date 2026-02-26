@@ -1,5 +1,6 @@
 import '../entities/music_entities.dart';
 import '../entities/webdav_entities.dart';
+import '../entities/jellyfin_entities.dart';
 
 // Repository interface for music library operations
 abstract class MusicLibraryRepository {
@@ -50,6 +51,10 @@ abstract class MusicLibraryRepository {
     required WebDavSource source,
     required String password,
   });
+  Future<void> scanJellyfinLibrary({
+    required JellyfinSource source,
+    required String accessToken,
+  });
   Future<int> mountMysteryLibrary({
     required Uri baseUri,
     required String code,
@@ -71,6 +76,22 @@ abstract class MusicLibraryRepository {
   Future<void> saveWebDavSource(WebDavSource source, {String? password});
   Future<void> deleteWebDavSource(String id);
   Future<String?> getWebDavPassword(String id);
+  Future<JellyfinAuthSession> authenticateJellyfin({
+    required String baseUrl,
+    required String username,
+    required String password,
+    bool ignoreTls,
+  });
+  Future<List<JellyfinLibrary>> getJellyfinLibraries({
+    required String baseUrl,
+    required String accessToken,
+    required String userId,
+    bool ignoreTls,
+  });
+  Future<List<JellyfinSource>> getJellyfinSources();
+  Future<JellyfinSource?> getJellyfinSourceById(String id);
+  Future<void> deleteJellyfinSource(String id);
+  Future<String?> getJellyfinAccessToken(String id);
   Future<void> testWebDavConnection({
     required WebDavSource source,
     required String password,

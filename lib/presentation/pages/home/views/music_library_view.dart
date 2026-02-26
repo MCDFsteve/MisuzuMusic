@@ -186,6 +186,32 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
       );
     }
 
+    for (final source in state.jellyfinSources) {
+      final remoteTracks = state.allTracks
+          .where(
+            (track) =>
+                track.sourceType == TrackSourceType.jellyfin &&
+                track.sourceId == source.id,
+          )
+          .toList();
+      if (remoteTracks.isEmpty) {
+        continue;
+      }
+
+      final previewTrack = _findPreviewTrack(remoteTracks);
+      final hasArtwork = previewTrack != null && _hasArtwork(previewTrack);
+      remoteSummaries.add(
+        _DirectorySummaryData(
+          filterKey: 'jellyfin://${source.id}',
+          displayName: source.name,
+          previewTrack: previewTrack,
+          totalTracks: remoteTracks.length,
+          hasArtwork: hasArtwork,
+          jellyfinSource: source,
+        ),
+      );
+    }
+
     final Map<String, List<Track>> mysteryGroups = {};
     final Map<String, String> mysteryDisplayNames = {};
     final Map<String, String?> mysteryCodes = {};
@@ -266,22 +292,41 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     return summaries;
   }
 
+  String _buildJellyfinSummarySubtitle(JellyfinSource? source) {
+    if (source == null) {
+      return 'Jellyfin';
+    }
+    final serverName = source.serverName?.trim();
+    if (serverName != null && serverName.isNotEmpty) {
+      return 'Jellyfin · $serverName';
+    }
+    final baseUrl = source.baseUrl.trim();
+    if (baseUrl.isNotEmpty) {
+      return 'Jellyfin · $baseUrl';
+    }
+    return 'Jellyfin';
+  }
+
   Future<void> _confirmRemoveSummary(_DirectorySummaryData summary) async {
     if (summary.isAll) {
       return;
     }
 
-    final isRemote = summary.isRemote;
     final isWebDav = summary.isWebDav;
+    final isJellyfin = summary.isJellyfin;
     final isMystery = summary.isMystery;
     final name = summary.displayName;
     final title = isWebDav
         ? '移除 WebDAV 音乐库'
+        : isJellyfin
+        ? '移除 Jellyfin 音乐库'
         : isMystery
         ? '卸载神秘音乐库'
         : '移除音乐文件夹';
     final message = isWebDav
         ? '确定要移除 "$name" 吗？移除后将不再同步该 WebDAV 源的歌曲。'
+        : isJellyfin
+        ? '确定要移除 "$name" 吗？移除后将不再同步该 Jellyfin 音乐库。'
         : isMystery
         ? '确定要卸载 "$name" 吗？卸载后将移除该神秘代码导入的所有歌曲。'
         : '确定要移除 "$name" 目录吗？这将从音乐库中移除该目录中的所有歌曲。';
@@ -297,6 +342,8 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
             Icon(
               isWebDav
                   ? CupertinoIcons.cloud
+                  : isJellyfin
+                  ? CupertinoIcons.music_note
                   : CupertinoIcons.exclamationmark_triangle,
               size: 52,
               color: isWebDav
@@ -333,6 +380,8 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
     final bloc = context.read<MusicLibraryBloc>();
     if (isWebDav && summary.webDavSource != null) {
       bloc.add(RemoveWebDavSourceEvent(summary.webDavSource!));
+    } else if (isJellyfin && summary.jellyfinSource != null) {
+      bloc.add(RemoveJellyfinSourceEvent(summary.jellyfinSource!));
     } else if (isMystery && summary.mysterySourceId != null) {
       bloc.add(UnmountMysteryLibraryEvent(summary.mysterySourceId!));
     } else if (summary.directoryPath != null) {
@@ -509,6 +558,8 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                   final summary = summariesData[index];
                   final subtitle = summary.isWebDav
                       ? '${summary.webDavSource!.baseUrl}${summary.webDavSource!.rootPath}'
+                      : summary.isJellyfin
+                      ? _buildJellyfinSummarySubtitle(summary.jellyfinSource)
                       : summary.isMystery
                       ? '神秘代码: ${summary.mysteryCode ?? summary.displayName}'
                       : (summary.directoryPath == null ||
@@ -519,11 +570,25 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                       ? [const Color(0xFF2F3542), const Color(0xFF1E272E)]
                       : null;
 
-                  final remoteArtworkUrl =
-                      MysteryLibraryConstants.buildArtworkUrl(
-                        summary.previewTrack?.httpHeaders,
-                        thumbnail: true,
-                      );
+                  String? remoteArtworkUrl;
+                  final previewTrack = summary.previewTrack;
+                  if (previewTrack != null) {
+                    if (previewTrack.isNeteaseTrack) {
+                      remoteArtworkUrl =
+                          previewTrack.httpHeaders?['x-netease-cover'];
+                    } else if (previewTrack.isJellyfinTrack) {
+                      remoteArtworkUrl =
+                          JellyfinLibraryConstants.buildArtworkUrl(
+                            previewTrack.httpHeaders,
+                          );
+                    } else {
+                      remoteArtworkUrl =
+                          MysteryLibraryConstants.buildArtworkUrl(
+                            previewTrack.httpHeaders,
+                            thumbnail: true,
+                          );
+                    }
+                  }
 
                   return CollectionSummaryCard(
                     title: summary.displayName,
@@ -534,6 +599,8 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                     hasArtwork: summary.hasArtwork,
                     fallbackIcon: summary.isWebDav
                         ? CupertinoIcons.cloud
+                        : summary.isJellyfin
+                        ? CupertinoIcons.music_note
                         : summary.isMystery
                         ? CupertinoIcons.music_note
                         : CupertinoIcons.folder_solid,
@@ -575,6 +642,11 @@ class _MusicLibraryViewState extends State<MusicLibraryView> {
                     if (key.startsWith('webdav://')) {
                       final sourceId = key.substring('webdav://'.length);
                       return track.sourceType == TrackSourceType.webdav &&
+                          track.sourceId == sourceId;
+                    }
+                    if (key.startsWith('jellyfin://')) {
+                      final sourceId = key.substring('jellyfin://'.length);
+                      return track.sourceType == TrackSourceType.jellyfin &&
                           track.sourceId == sourceId;
                     }
                     if (key.startsWith('mystery://')) {
@@ -690,6 +762,7 @@ class _DirectorySummaryData {
     required this.hasArtwork,
     this.directoryPath,
     this.webDavSource,
+    this.jellyfinSource,
     this.mysterySourceId,
     this.mysteryDisplayName,
     this.mysteryCode,
@@ -702,13 +775,15 @@ class _DirectorySummaryData {
   final bool hasArtwork;
   final String? directoryPath;
   final WebDavSource? webDavSource;
+  final JellyfinSource? jellyfinSource;
   final String? mysterySourceId;
   final String? mysteryDisplayName;
   final String? mysteryCode;
 
   bool get isWebDav => webDavSource != null;
+  bool get isJellyfin => jellyfinSource != null;
   bool get isMystery => mysterySourceId != null;
-  bool get isRemote => isWebDav || isMystery;
+  bool get isRemote => isWebDav || isJellyfin || isMystery;
   bool get isAll => filterKey == allKey;
 
   static const String allKey = '__all__';

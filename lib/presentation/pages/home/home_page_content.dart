@@ -240,6 +240,7 @@ class _HomePageContentState extends State<HomePageContent> {
               context,
               state.tracksAdded,
               webDavSource: state.webDavSource,
+              jellyfinSource: state.jellyfinSource,
             );
           } else if (state is MusicLibraryError) {
             _showErrorDialog(context, state.message);
@@ -1751,6 +1752,9 @@ class _HomePageContentState extends State<HomePageContent> {
     String? remoteArtworkUrl;
     if (track.sourceType == TrackSourceType.netease) {
       remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+    } else if (track.isJellyfinTrack) {
+      remoteArtworkUrl =
+          JellyfinLibraryConstants.buildArtworkUrl(track.httpHeaders);
     } else {
       remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
         track.httpHeaders,
@@ -1878,7 +1882,7 @@ class _HomePageContentState extends State<HomePageContent> {
     await showModalBottomSheet<void>(
       context: context,
       isDismissible: true,
-      enableDrag: true,
+      enableDrag: false,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.35),
@@ -1906,6 +1910,9 @@ class _HomePageContentState extends State<HomePageContent> {
         break;
       case LibraryMountMode.webdav:
         await _selectWebDavFolder();
+        break;
+      case LibraryMountMode.jellyfin:
+        await _selectJellyfinLibrary();
         break;
     }
   }
@@ -2350,11 +2357,11 @@ class _HomePageContentState extends State<HomePageContent> {
         return;
       }
 
-      print('🎵 iOS 选择的 MisuzuMusic 文件夹: $selectedPath');
+      print('🎵 iOS 选择的扫描目录: $selectedPath');
       context.read<MusicLibraryBloc>().add(ScanDirectoryEvent(selectedPath));
 
       if (!prefersMacLikeUi()) {
-        final folderName = p.basename(selectedPath);
+        final snackMessage = await _iosMisuzuScanMessage(selectedPath);
         _tryShowSnackBar(
           SnackBar(
             content: Row(
@@ -2366,7 +2373,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(l10n.homeScanningMisuzuFolder(folderName)),
+                  child: Text(snackMessage),
                 ),
               ],
             ),
@@ -2382,26 +2389,53 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
+  Future<String> _iosMisuzuScanMessage(String selectedPath) async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final normalizedSelected = p.normalize(selectedPath);
+    final appRootPath = p.normalize(documentsDir.path);
+    final misuzuRootPath =
+        p.normalize(p.join(documentsDir.path, _iosSandboxFolderName));
+
+    if (normalizedSelected == appRootPath) {
+      return l10n.homeScanningFolder(l10n.homeMisuzuAppRootName);
+    }
+    if (normalizedSelected == misuzuRootPath) {
+      return l10n.homeScanningFolder(l10n.homeMisuzuRootName);
+    }
+
+    final folderName = p.basename(selectedPath);
+    return l10n.homeScanningMisuzuFolder(folderName);
+  }
+
   Future<String?> _showMisuzuMusicFolderPicker() async {
     final documentsDir = await getApplicationDocumentsDirectory();
-    final rootDir = Directory(p.join(documentsDir.path, _iosSandboxFolderName));
-    if (!await rootDir.exists()) {
-      await rootDir.create(recursive: true);
+    final appRootDir = Directory(documentsDir.path);
+    final misuzuRootDir =
+        Directory(p.join(documentsDir.path, _iosSandboxFolderName));
+    if (!await misuzuRootDir.exists()) {
+      await misuzuRootDir.create(recursive: true);
     }
 
     final localL10n = l10n;
+    final filesRootLabel = _filesAppRootLabel(context, localL10n);
 
     Future<List<_MisuzuFolderOption>> loadOptions() async {
       final folders = <_MisuzuFolderOption>[
         _MisuzuFolderOption(
-          path: rootDir.path,
+          path: appRootDir.path,
+          name: localL10n.homeMisuzuAppRootName,
+          description: localL10n.homeMisuzuAppRootDescription(filesRootLabel),
+          isRoot: true,
+        ),
+        _MisuzuFolderOption(
+          path: misuzuRootDir.path,
           name: localL10n.homeMisuzuRootName,
           description: localL10n.homeMisuzuRootDescription,
           isRoot: true,
         ),
       ];
 
-      await for (final entity in rootDir.list(followLinks: false)) {
+      await for (final entity in misuzuRootDir.list(followLinks: false)) {
         if (entity is Directory) {
           final folderName = p.basename(entity.path);
           folders.add(
@@ -2448,8 +2482,9 @@ class _HomePageContentState extends State<HomePageContent> {
 
             final theme = Theme.of(context);
             final isDark = theme.brightness == Brightness.dark;
-            final subFolderCount = options.isEmpty ? 0 : options.length - 1;
-            final filesRootLabel = _filesAppRootLabel(context, l10n);
+            final rootCount = options.where((option) => option.isRoot).length;
+            final subFolderCount =
+                options.isEmpty ? 0 : options.length - rootCount;
 
             return _PlaylistModalScaffold(
               title: l10n.homePickMisuzuFolderTitle,
@@ -2601,6 +2636,103 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
+  Future<void> _selectJellyfinLibrary() async {
+    final connection = await _showJellyfinConnectionDialog();
+    if (connection == null) {
+      debugPrint('🎵 Jellyfin: 用户取消连接配置');
+      return;
+    }
+
+    JellyfinAuthSession? session;
+    try {
+      session = await _withBlockingLoader(() {
+        return sl<AuthenticateJellyfin>().call(
+          baseUrl: connection.baseUrl,
+          username: connection.username,
+          password: connection.password,
+          ignoreTls: connection.ignoreTls,
+        );
+      });
+    } catch (e) {
+      debugPrint('❌ Jellyfin: 认证失败 -> $e');
+      if (mounted) {
+        _showErrorDialog(context, e.toString());
+      }
+      return;
+    }
+    if (session == null) {
+      debugPrint('❌ Jellyfin: 认证返回为空');
+      return;
+    }
+    final authSession = session;
+
+    List<JellyfinLibrary>? libraries;
+    try {
+      libraries = await _withBlockingLoader(() {
+        return sl<GetJellyfinLibraries>().call(
+          baseUrl: connection.baseUrl,
+          accessToken: authSession.accessToken,
+          userId: authSession.userId,
+          ignoreTls: connection.ignoreTls,
+        );
+      });
+    } catch (e) {
+      debugPrint('❌ Jellyfin: 获取媒体库失败 -> $e');
+      if (mounted) {
+        _showErrorDialog(context, e.toString());
+      }
+      return;
+    }
+    if (libraries == null) {
+      debugPrint('❌ Jellyfin: 获取媒体库返回为空');
+      return;
+    }
+
+    if (!mounted) return;
+
+    if (libraries.isEmpty) {
+      _showErrorDialog(context, '未检测到 Jellyfin 音乐媒体库');
+      return;
+    }
+
+    final JellyfinLibrary? selectedLibrary = libraries.length == 1
+        ? libraries.first
+        : await _showJellyfinLibraryPicker(libraries);
+
+    if (selectedLibrary == null) {
+      debugPrint('🎵 Jellyfin: 用户取消媒体库选择');
+      return;
+    }
+
+    final friendlyName =
+        selectedLibrary.name.isNotEmpty
+            ? selectedLibrary.name
+            : l10n.homeJellyfinLibrary;
+
+    final source = JellyfinSource(
+      id: const Uuid().v4(),
+      name: friendlyName,
+      baseUrl: connection.baseUrl,
+      userId: session.userId,
+      libraryId: selectedLibrary.id,
+      username: connection.username,
+      libraryName: selectedLibrary.name,
+      serverName: session.serverName,
+      ignoreTls: connection.ignoreTls,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    if (!mounted) return;
+    debugPrint('🎵 Jellyfin: 提交扫描任务');
+    context.read<MusicLibraryBloc>().add(
+      ScanJellyfinLibraryEvent(
+        source: source,
+        accessToken: session.accessToken,
+      ),
+    );
+  }
+
   String _friendlyNameFromPath(String path) {
     final normalized = path.trim().isEmpty ? '/' : path;
     if (normalized == '/') {
@@ -2650,12 +2782,37 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
+  Future<_JellyfinConnectionFormResult?> _showJellyfinConnectionDialog() {
+    return showPlaylistModalDialog<_JellyfinConnectionFormResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const _JellyfinConnectionDialog(),
+    );
+  }
+
+  Future<JellyfinLibrary?> _showJellyfinLibraryPicker(
+    List<JellyfinLibrary> libraries,
+  ) {
+    return showPlaylistModalDialog<JellyfinLibrary>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) =>
+          _JellyfinLibraryPickerDialog(libraries: libraries),
+    );
+  }
+
   void _showScanCompleteDialog(
     BuildContext context,
     int tracksAdded, {
     WebDavSource? webDavSource,
+    JellyfinSource? jellyfinSource,
   }) {
-    final message = webDavSource == null
+    final message = jellyfinSource != null
+        ? l10n.homeJellyfinScanSummaryWithSource(
+            tracksAdded,
+            jellyfinSource.name,
+          )
+        : webDavSource == null
         ? l10n.homeWebDavScanSummary(tracksAdded)
         : l10n.homeWebDavScanSummaryWithSource(tracksAdded, webDavSource.name);
     if (prefersMacLikeUi()) {

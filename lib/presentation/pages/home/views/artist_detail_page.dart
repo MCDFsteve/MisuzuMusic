@@ -135,13 +135,21 @@ class _ArtistOverviewCard extends StatelessWidget {
     final secondaryColor = baseColor.withOpacity(isDark ? 0.78 : 0.7);
     final subtleColor = baseColor.withOpacity(isDark ? 0.68 : 0.6);
 
-    final remoteArtworkUrl = previewTrack == null
-        ? null
-        : (MysteryLibraryConstants.buildArtworkUrl(
-              previewTrack!.httpHeaders,
-              thumbnail: true,
-            ) ??
-            previewTrack!.httpHeaders?['x-netease-cover']);
+    String? remoteArtworkUrl;
+    if (previewTrack != null) {
+      if (previewTrack!.isNeteaseTrack) {
+        remoteArtworkUrl = previewTrack!.httpHeaders?['x-netease-cover'];
+      } else if (previewTrack!.isJellyfinTrack) {
+        remoteArtworkUrl = JellyfinLibraryConstants.buildArtworkUrl(
+          previewTrack!.httpHeaders,
+        );
+      } else {
+        remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+          previewTrack!.httpHeaders,
+          thumbnail: true,
+        );
+      }
+    }
 
     Widget artwork;
     if (previewTrack?.artworkPath != null &&

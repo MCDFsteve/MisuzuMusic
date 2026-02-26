@@ -109,7 +109,6 @@ class _PlaylistHistoryList extends StatelessWidget {
           pageSize: 100,
           preloadOffset: 600,
           padding: listPadding,
-          cacheExtent: 0,
           separatorBuilder: (context, index) => Divider(
             height: 1,
             thickness: 0.5,
@@ -124,6 +123,9 @@ class _PlaylistHistoryList extends StatelessWidget {
             String? remoteArtworkUrl;
             if (track.isNeteaseTrack) {
               remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+            } else if (track.isJellyfinTrack) {
+              remoteArtworkUrl =
+                  JellyfinLibraryConstants.buildArtworkUrl(track.httpHeaders);
             } else {
               remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
                 track.httpHeaders,

@@ -6,6 +6,12 @@
   "settingsAboutSubtitle": "See the project name, version, and repository link",
   "settingsDeveloperTitle": "Developer Options",
   "settingsDeveloperSubtitle": "Access debugging tools",
+  "settingsOnlineMetadataTitle": "Online metadata",
+  "settingsOnlineMetadataSubtitle": "Control automatic fetching of lyrics and cover art",
+  "settingsAutoFetchLyricsTitle": "Auto-fetch lyrics",
+  "settingsAutoFetchLyricsSubtitle": "Fetch lyrics from online services when available",
+  "settingsAutoFetchArtworkTitle": "Auto-fetch cover art",
+  "settingsAutoFetchArtworkSubtitle": "Download cover art from online sources when missing",
   "settingsUnknownVersion": "Unknown version",
   "settingsProjectNameLabel": "App Name",
   "settingsVersionLabel": "Version",
@@ -241,6 +247,13 @@
       "folder": {}
     }
   },
+  "homeMisuzuAppRootName": "Misuzu Music (root)",
+  "homeMisuzuAppRootDescription": "Files path: {filesRoot} > Misuzu Music",
+  "@homeMisuzuAppRootDescription": {
+    "placeholders": {
+      "filesRoot": {}
+    }
+  },
   "homeMisuzuRootName": "MisuzuMusic (root)",
   "homeMisuzuRootDescription": "Scan the entire MisuzuMusic folder",
   "homeMisuzuFilesPath": "Files path: MisuzuMusic/{folder}",
@@ -249,8 +262,8 @@
       "folder": {}
     }
   },
-  "homePickMisuzuFolderTitle": "Pick MisuzuMusic folder",
-  "homeMisuzuFilesHint": "Files path: {filesRoot} > Misuzu Music > MisuzuMusic",
+  "homePickMisuzuFolderTitle": "Pick a scan folder",
+  "homeMisuzuFilesHint": "Files path: {filesRoot} > Misuzu Music (root) or {filesRoot} > Misuzu Music > MisuzuMusic",
   "@homeMisuzuFilesHint": {
     "placeholders": {
       "filesRoot": {}
@@ -267,6 +280,7 @@
   "actionRefresh": "Refresh",
   "homeMisuzuNoSubfolders": "No subfolders detected yet. You can still pick the MisuzuMusic root.",
   "homeWebDavLibrary": "WebDAV library",
+  "homeJellyfinLibrary": "Jellyfin library",
   "homeWebDavScanSummary": "Added {count} new tracks",
   "@homeWebDavScanSummary": {
     "placeholders": {
@@ -275,8 +289,25 @@
       }
     }
   },
+  "homeJellyfinScanSummary": "Added {count} new tracks from Jellyfin",
+  "@homeJellyfinScanSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "homeWebDavScanSummaryWithSource": "Added {count} new tracks\nSource: {source}",
   "@homeWebDavScanSummaryWithSource": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "source": {}
+    }
+  },
+  "homeJellyfinScanSummaryWithSource": "Added {count} new tracks\nSource: {source}",
+  "@homeJellyfinScanSummaryWithSource": {
     "placeholders": {
       "count": {
         "type": "int"
@@ -302,8 +333,10 @@
   "libraryMountOptionMysteryTitle": "Mystery code",
   "libraryMountOptionWebDavTitle": "Mount WebDAV",
   "libraryMountOptionWebDavDescription": "Connect to a WebDAV server to stream or download music.",
+  "libraryMountOptionJellyfinTitle": "Mount Jellyfin",
+  "libraryMountOptionJellyfinDescription": "Connect to a Jellyfin server to load your music library.",
   "libraryMountInfoCardTitle": "Import via the MisuzuMusic folder",
-  "libraryMountInfoCardDescription": "iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open {filesRoot} > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it.\n3) Return to Misuzu Music and select the MisuzuMusic folder to start scanning.",
+  "libraryMountInfoCardDescription": "iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open {filesRoot} > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it; or use iTunes File Sharing to place songs in the Misuzu Music root.\n3) Return to Misuzu Music and select the MisuzuMusic folder or the root to start scanning.",
   "@libraryMountInfoCardDescription": {
     "placeholders": {
       "filesRoot": {}

@@ -27,6 +27,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDeveloperSubtitle => '访问调试输出等工具';
 
   @override
+  String get settingsOnlineMetadataTitle => '在线歌词与封面';
+
+  @override
+  String get settingsOnlineMetadataSubtitle => '控制是否自动联网获取歌词和封面';
+
+  @override
+  String get settingsAutoFetchLyricsTitle => '自动联网获取歌词';
+
+  @override
+  String get settingsAutoFetchLyricsSubtitle => '当本地没有歌词时自动从网络获取';
+
+  @override
+  String get settingsAutoFetchArtworkTitle => '自动联网获取封面';
+
+  @override
+  String get settingsAutoFetchArtworkSubtitle => '当本地缺少封面时自动从网络获取';
+
+  @override
   String get settingsUnknownVersion => '未知版本';
 
   @override
@@ -404,6 +422,14 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get homeMisuzuAppRootName => 'Misuzu Music（根目录）';
+
+  @override
+  String homeMisuzuAppRootDescription(Object filesRoot) {
+    return 'Files 路径：$filesRoot > Misuzu Music';
+  }
+
+  @override
   String get homeMisuzuRootName => 'MisuzuMusic（根目录）';
 
   @override
@@ -415,11 +441,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get homePickMisuzuFolderTitle => '选择 MisuzuMusic 文件夹';
+  String get homePickMisuzuFolderTitle => '选择扫描目录';
 
   @override
   String homeMisuzuFilesHint(Object filesRoot) {
-    return 'Files 路径：$filesRoot > Misuzu Music > MisuzuMusic';
+    return 'Files 路径：$filesRoot > Misuzu Music（根目录）或 $filesRoot > Misuzu Music > MisuzuMusic';
   }
 
   @override
@@ -437,12 +463,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeWebDavLibrary => 'WebDAV 音乐库';
 
   @override
+  String get homeJellyfinLibrary => 'Jellyfin 音乐库';
+
+  @override
   String homeWebDavScanSummary(int count) {
     return '添加了 $count 首新歌曲';
   }
 
   @override
+  String homeJellyfinScanSummary(int count) {
+    return '从 Jellyfin 添加了 $count 首新歌曲';
+  }
+
+  @override
   String homeWebDavScanSummaryWithSource(int count, Object source) {
+    return '添加了 $count 首新歌曲\n来源: $source';
+  }
+
+  @override
+  String homeJellyfinScanSummaryWithSource(int count, Object source) {
     return '添加了 $count 首新歌曲\n来源: $source';
   }
 
@@ -490,11 +529,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get libraryMountOptionWebDavDescription => '连接到 WebDAV 服务器以流式传输或下载音乐。';
 
   @override
+  String get libraryMountOptionJellyfinTitle => '挂载 Jellyfin';
+
+  @override
+  String get libraryMountOptionJellyfinDescription => '连接到 Jellyfin 服务器以加载音乐库。';
+
+  @override
   String get libraryMountInfoCardTitle => '通过 MisuzuMusic 文件夹导入';
 
   @override
   String libraryMountInfoCardDescription(Object filesRoot) {
-    return 'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「$filesRoot」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。';
+    return 'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「$filesRoot」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去；或通过 iTunes 文件共享直接把歌曲放到 Misuzu Music 根目录。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹或根目录开始扫描。';
   }
 
   @override

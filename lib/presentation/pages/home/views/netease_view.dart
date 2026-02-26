@@ -495,7 +495,6 @@ class _NeteasePlaylistSelectionSheetState
           items: playlists,
           pageSize: 40,
           preloadOffset: 120,
-          cacheExtent: 0,
           separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, playlist, index) {
             return _NeteasePlaylistEntryTile(

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/constants/jellyfin_library_constants.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
@@ -69,7 +70,6 @@ class MaterialMusicLibraryView extends StatelessWidget {
                 pageSize: 120,
                 preloadOffset: 800,
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                cacheExtent: 0,
                 separatorBuilder: (context, index) => Divider(
                   height: 1,
                   thickness: 0.5,
@@ -79,11 +79,21 @@ class MaterialMusicLibraryView extends StatelessWidget {
                 itemBuilder: (context, track, index) {
                   final displayInfo = deriveTrackDisplayInfo(track);
                   final normalizedTrack = applyDisplayInfo(track, displayInfo);
-                  final remoteArtworkUrl =
-                      MysteryLibraryConstants.buildArtworkUrl(
-                        track.httpHeaders,
-                        thumbnail: true,
-                      );
+                  String? remoteArtworkUrl;
+                  if (track.sourceType == TrackSourceType.netease) {
+                    remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+                  } else if (track.isJellyfinTrack) {
+                    remoteArtworkUrl =
+                        JellyfinLibraryConstants.buildArtworkUrl(
+                          track.httpHeaders,
+                        );
+                  } else {
+                    remoteArtworkUrl =
+                        MysteryLibraryConstants.buildArtworkUrl(
+                          track.httpHeaders,
+                          thumbnail: true,
+                        );
+                  }
                   return TrackListTile(
                     index: index + 1,
                     leading: ArtworkThumbnail(
@@ -112,8 +122,12 @@ class MaterialMusicLibraryView extends StatelessWidget {
                       final isRemoteTrack =
                           track.sourceType == TrackSourceType.webdav ||
                           track.filePath.startsWith('webdav://') ||
+                          track.sourceType == TrackSourceType.jellyfin ||
+                          track.filePath.startsWith('jellyfin://') ||
                           track.sourceType == TrackSourceType.mystery ||
-                          track.filePath.startsWith('mystery://');
+                          track.filePath.startsWith('mystery://') ||
+                          track.sourceType == TrackSourceType.netease ||
+                          track.filePath.startsWith('netease://');
 
                       if (isRemoteTrack) {
                         print('🎵 WebDAV 音轨，直接尝试远程播放');

@@ -10,6 +10,7 @@ import '../../blocs/player/player_bloc.dart';
 import 'macos_progress_bar.dart';
 import '../common/artwork_thumbnail.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/jellyfin_library_constants.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../utils/track_display_utils.dart';
@@ -78,6 +79,9 @@ class MacOSPlayerControlBar extends StatelessWidget {
           artworkPath = track.artworkPath;
           if (track.sourceType == TrackSourceType.netease) {
             remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+          } else if (track.isJellyfinTrack) {
+            remoteArtworkUrl =
+                JellyfinLibraryConstants.buildArtworkUrl(track.httpHeaders);
           } else {
             remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
               track.httpHeaders,

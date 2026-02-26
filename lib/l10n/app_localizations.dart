@@ -134,6 +134,42 @@ abstract class AppLocalizations {
   /// **'访问调试输出等工具'**
   String get settingsDeveloperSubtitle;
 
+  /// No description provided for @settingsOnlineMetadataTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'在线歌词与封面'**
+  String get settingsOnlineMetadataTitle;
+
+  /// No description provided for @settingsOnlineMetadataSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制是否自动联网获取歌词和封面'**
+  String get settingsOnlineMetadataSubtitle;
+
+  /// No description provided for @settingsAutoFetchLyricsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动联网获取歌词'**
+  String get settingsAutoFetchLyricsTitle;
+
+  /// No description provided for @settingsAutoFetchLyricsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'当本地没有歌词时自动从网络获取'**
+  String get settingsAutoFetchLyricsSubtitle;
+
+  /// No description provided for @settingsAutoFetchArtworkTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动联网获取封面'**
+  String get settingsAutoFetchArtworkTitle;
+
+  /// No description provided for @settingsAutoFetchArtworkSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'当本地缺少封面时自动从网络获取'**
+  String get settingsAutoFetchArtworkSubtitle;
+
   /// No description provided for @settingsUnknownVersion.
   ///
   /// In zh, this message translates to:
@@ -806,6 +842,18 @@ abstract class AppLocalizations {
   /// **'正在扫描 MisuzuMusic/{folder}'**
   String homeScanningMisuzuFolder(Object folder);
 
+  /// No description provided for @homeMisuzuAppRootName.
+  ///
+  /// In zh, this message translates to:
+  /// **'Misuzu Music（根目录）'**
+  String get homeMisuzuAppRootName;
+
+  /// No description provided for @homeMisuzuAppRootDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'Files 路径：{filesRoot} > Misuzu Music'**
+  String homeMisuzuAppRootDescription(Object filesRoot);
+
   /// No description provided for @homeMisuzuRootName.
   ///
   /// In zh, this message translates to:
@@ -827,13 +875,13 @@ abstract class AppLocalizations {
   /// No description provided for @homePickMisuzuFolderTitle.
   ///
   /// In zh, this message translates to:
-  /// **'选择 MisuzuMusic 文件夹'**
+  /// **'选择扫描目录'**
   String get homePickMisuzuFolderTitle;
 
   /// No description provided for @homeMisuzuFilesHint.
   ///
   /// In zh, this message translates to:
-  /// **'Files 路径：{filesRoot} > Misuzu Music > MisuzuMusic'**
+  /// **'Files 路径：{filesRoot} > Misuzu Music（根目录）或 {filesRoot} > Misuzu Music > MisuzuMusic'**
   String homeMisuzuFilesHint(Object filesRoot);
 
   /// No description provided for @homeMisuzuSubfolderCount.
@@ -860,17 +908,35 @@ abstract class AppLocalizations {
   /// **'WebDAV 音乐库'**
   String get homeWebDavLibrary;
 
+  /// No description provided for @homeJellyfinLibrary.
+  ///
+  /// In zh, this message translates to:
+  /// **'Jellyfin 音乐库'**
+  String get homeJellyfinLibrary;
+
   /// No description provided for @homeWebDavScanSummary.
   ///
   /// In zh, this message translates to:
   /// **'添加了 {count} 首新歌曲'**
   String homeWebDavScanSummary(int count);
 
+  /// No description provided for @homeJellyfinScanSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'从 Jellyfin 添加了 {count} 首新歌曲'**
+  String homeJellyfinScanSummary(int count);
+
   /// No description provided for @homeWebDavScanSummaryWithSource.
   ///
   /// In zh, this message translates to:
   /// **'添加了 {count} 首新歌曲\n来源: {source}'**
   String homeWebDavScanSummaryWithSource(int count, Object source);
+
+  /// No description provided for @homeJellyfinScanSummaryWithSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加了 {count} 首新歌曲\n来源: {source}'**
+  String homeJellyfinScanSummaryWithSource(int count, Object source);
 
   /// No description provided for @homeScanCompletedTitle.
   ///
@@ -950,6 +1016,18 @@ abstract class AppLocalizations {
   /// **'连接到 WebDAV 服务器以流式传输或下载音乐。'**
   String get libraryMountOptionWebDavDescription;
 
+  /// No description provided for @libraryMountOptionJellyfinTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂载 Jellyfin'**
+  String get libraryMountOptionJellyfinTitle;
+
+  /// No description provided for @libraryMountOptionJellyfinDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接到 Jellyfin 服务器以加载音乐库。'**
+  String get libraryMountOptionJellyfinDescription;
+
   /// No description provided for @libraryMountInfoCardTitle.
   ///
   /// In zh, this message translates to:
@@ -959,7 +1037,7 @@ abstract class AppLocalizations {
   /// No description provided for @libraryMountInfoCardDescription.
   ///
   /// In zh, this message translates to:
-  /// **'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「{filesRoot}」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。'**
+  /// **'iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「{filesRoot}」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去；或通过 iTunes 文件共享直接把歌曲放到 Misuzu Music 根目录。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹或根目录开始扫描。'**
   String libraryMountInfoCardDescription(Object filesRoot);
 
   /// No description provided for @filesRootOnMyIphone.

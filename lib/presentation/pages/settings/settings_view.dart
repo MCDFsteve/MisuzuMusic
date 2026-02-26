@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -10,6 +11,7 @@ import '../../../l10n/app_localizations.dart';
 
 import '../../../core/di/dependency_injection.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/settings/online_metadata_controller.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/modal_dialog.dart';
 import '../../../core/utils/platform_utils.dart';
@@ -43,7 +45,10 @@ class SettingsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeController = sl<ThemeController>();
     final localeController = sl<LocaleController>();
-    final listenable = Listenable.merge([themeController, localeController]);
+    final metadataController = sl<OnlineMetadataController>();
+    final listenable = Listenable.merge(
+      [themeController, localeController, metadataController],
+    );
 
     return AnimatedBuilder(
       animation: listenable,
@@ -55,6 +60,7 @@ class SettingsView extends StatelessWidget {
           onChanged: themeController.setThemeMode,
           currentLocale: localeController.locale,
           onLocaleChanged: localeController.setLocale,
+          metadataController: metadataController,
         );
       },
     );
@@ -67,12 +73,14 @@ class _UnifiedSettingsView extends StatelessWidget {
     required this.onChanged,
     required this.currentLocale,
     required this.onLocaleChanged,
+    required this.metadataController,
   });
 
   final ThemeMode currentMode;
   final ValueChanged<ThemeMode> onChanged;
   final Locale? currentLocale;
   final Future<void> Function(Locale?) onLocaleChanged;
+  final OnlineMetadataController metadataController;
 
   @override
   Widget build(BuildContext context) {
@@ -138,6 +146,40 @@ class _UnifiedSettingsView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _SettingsSection(
+                            title: l10n.settingsOnlineMetadataTitle,
+                            subtitle: l10n.settingsOnlineMetadataSubtitle,
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 20),
+                          _SettingsSwitchTile(
+                            title: l10n.settingsAutoFetchLyricsTitle,
+                            subtitle: l10n.settingsAutoFetchLyricsSubtitle,
+                            value: metadataController.autoFetchLyrics,
+                            onChanged: (value) => unawaited(
+                              metadataController.setAutoFetchLyrics(value),
+                            ),
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 12),
+                          _SettingsSwitchTile(
+                            title: l10n.settingsAutoFetchArtworkTitle,
+                            subtitle: l10n.settingsAutoFetchArtworkSubtitle,
+                            value: metadataController.autoFetchArtwork,
+                            onChanged: (value) => unawaited(
+                              metadataController.setAutoFetchArtwork(value),
+                            ),
+                            isDarkMode: isDarkMode,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _SettingsCard(
+                      isDarkMode: isDarkMode,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SettingsSection(
                             title: l10n.settingsAboutTitle,
                             subtitle: l10n.settingsAboutSubtitle,
                             isDarkMode: isDarkMode,
@@ -179,6 +221,7 @@ class _UnifiedSettingsView extends StatelessWidget {
     final bottomPadding = mediaPadding.bottom + 24 + extraBottomSpacing;
     final sections = <Widget>[
       _buildAdaptiveAppearanceSection(context),
+      _buildAdaptiveOnlineMetadataSection(context),
       _buildAdaptiveAboutSection(context),
       _buildAdaptiveDeveloperSection(context),
     ];
@@ -227,6 +270,56 @@ class _UnifiedSettingsView extends StatelessWidget {
           _LanguageControl(
             currentLocale: currentLocale,
             onLocaleChanged: onLocaleChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdaptiveOnlineMetadataSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+    final secondary = theme.textTheme.bodySmall?.color?.withOpacity(0.8) ??
+        theme.colorScheme.onSurfaceVariant.withOpacity(0.8);
+
+    return _SettingsCard(
+      isDarkMode: isDarkMode,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.settingsOnlineMetadataTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ) ??
+                const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l10n.settingsOnlineMetadataSubtitle,
+            style: theme.textTheme.bodySmall?.copyWith(color: secondary),
+          ),
+          const SizedBox(height: 16),
+          _SettingsSwitchTile(
+            title: l10n.settingsAutoFetchLyricsTitle,
+            subtitle: l10n.settingsAutoFetchLyricsSubtitle,
+            value: metadataController.autoFetchLyrics,
+            onChanged: (value) => unawaited(
+              metadataController.setAutoFetchLyrics(value),
+            ),
+            isDarkMode: isDarkMode,
+          ),
+          const SizedBox(height: 12),
+          _SettingsSwitchTile(
+            title: l10n.settingsAutoFetchArtworkTitle,
+            subtitle: l10n.settingsAutoFetchArtworkSubtitle,
+            value: metadataController.autoFetchArtwork,
+            onChanged: (value) => unawaited(
+              metadataController.setAutoFetchArtwork(value),
+            ),
+            isDarkMode: isDarkMode,
           ),
         ],
       ),
@@ -637,6 +730,84 @@ class _DeveloperOptionTile extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsSwitchTile extends StatelessWidget {
+  const _SettingsSwitchTile({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+    required this.isDarkMode,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool isDarkMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color background = isDarkMode
+        ? Colors.white.withValues(alpha: 0.05)
+        : Colors.black.withValues(alpha: 0.04);
+    final Color titleColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.95)
+        : Colors.black.withValues(alpha: 0.9);
+    final Color subtitleColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.6)
+        : Colors.black.withValues(alpha: 0.6);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Material(
+        color: background,
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () => onChanged(!value),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: titleColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: subtitleColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Switch.adaptive(value: value, onChanged: onChanged),
+            ),
+          ],
         ),
       ),
     );

@@ -25,32 +25,23 @@ class ArtworkThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = borderRadius ?? BorderRadius.circular(size / 6);
+    final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final cacheSize = (size * devicePixelRatio).round();
 
     if (artworkPath != null && artworkPath!.isNotEmpty) {
-      final file = File(artworkPath!);
-      if (file.existsSync()) {
-        try {
-          if (file.lengthSync() <= 12) {
-            file.deleteSync();
-          } else {
-            return ClipRRect(
-              borderRadius: radius,
-              child: Image.file(
-                file,
-                width: size,
-                height: size,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    _buildPlaceholder(radius),
-              ),
-            );
-          }
-        } catch (_) {
-          try {
-            file.deleteSync();
-          } catch (_) {}
-        }
-      }
+      return ClipRRect(
+        borderRadius: radius,
+        child: Image.file(
+          File(artworkPath!),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildPlaceholder(radius),
+        ),
+      );
     }
 
     if (remoteImageUrl != null && remoteImageUrl!.isNotEmpty) {
@@ -61,6 +52,8 @@ class ArtworkThumbnail extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
           errorBuilder: (context, error, stackTrace) =>
               _buildPlaceholder(radius),
         ),

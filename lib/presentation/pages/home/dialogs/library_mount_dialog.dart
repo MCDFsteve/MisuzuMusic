@@ -1,6 +1,6 @@
 part of 'package:misuzu_music/presentation/pages/home_page.dart';
 
-enum LibraryMountMode { local, icloud, webdav }
+enum LibraryMountMode { local, icloud, webdav, jellyfin }
 
 Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
   final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
@@ -42,6 +42,13 @@ Future<LibraryMountMode?> showLibraryMountModeDialog(BuildContext context) {
           title: dialogL10n.libraryMountOptionWebDavTitle,
           description: dialogL10n.libraryMountOptionWebDavDescription,
           onTap: () => Navigator.of(dialogContext).pop(LibraryMountMode.webdav),
+        ),
+        const SizedBox(height: 12),
+        _PlaylistCreationModeOption(
+          icon: CupertinoIcons.music_note,
+          title: dialogL10n.libraryMountOptionJellyfinTitle,
+          description: dialogL10n.libraryMountOptionJellyfinDescription,
+          onTap: () => Navigator.of(dialogContext).pop(LibraryMountMode.jellyfin),
         ),
       ];
 

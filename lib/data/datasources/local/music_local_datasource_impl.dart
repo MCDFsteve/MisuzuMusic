@@ -163,6 +163,11 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
       return track.copyWith(contentHash: hash);
     }
 
+    if (track.sourceType == TrackSourceType.jellyfin) {
+      final hash = track.contentHash ?? track.id;
+      return track.copyWith(contentHash: hash);
+    }
+
     if (track.sourceType == TrackSourceType.mystery) {
       final hash =
           track.contentHash ??

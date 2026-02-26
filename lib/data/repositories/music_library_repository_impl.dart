@@ -15,14 +15,17 @@ import 'package:webdav_client/webdav_client.dart' as webdav;
 import '../../core/error/exceptions.dart';
 import '../../core/storage/binary_config_store.dart';
 import '../../core/storage/storage_keys.dart';
+import '../../core/constants/jellyfin_library_constants.dart';
 import '../../core/constants/mystery_library_constants.dart';
 import '../../core/utils/track_field_normalizer.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
+import '../../domain/entities/jellyfin_entities.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../datasources/local/music_local_datasource.dart';
 import '../datasources/remote/netease_api_client.dart';
 import '../models/music_models.dart';
+import '../models/jellyfin_models.dart';
 import '../models/webdav_bundle.dart';
 import '../models/webdav_models.dart';
 import '../services/cloud_playlist_api.dart';
@@ -609,6 +612,172 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   }
 
   @override
+  Future<void> scanJellyfinLibrary({
+    required JellyfinSource source,
+    required String accessToken,
+  }) async {
+    var normalizedSource = source.copyWith(
+      baseUrl: _normalizeBaseUrl(source.baseUrl),
+      updatedAt: DateTime.now(),
+      createdAt: source.createdAt ?? DateTime.now(),
+    );
+
+    final savedSources = await getJellyfinSources();
+    JellyfinSource? existingSource;
+    for (final item in savedSources) {
+      final sameIdentity =
+          item.baseUrl == normalizedSource.baseUrl &&
+          item.userId == normalizedSource.userId &&
+          item.libraryId == normalizedSource.libraryId;
+      if (sameIdentity || item.id == normalizedSource.id) {
+        existingSource = item;
+        break;
+      }
+    }
+
+    if (existingSource != null && existingSource.id != normalizedSource.id) {
+      normalizedSource = JellyfinSource(
+        id: existingSource.id,
+        name: normalizedSource.name,
+        baseUrl: normalizedSource.baseUrl,
+        userId: normalizedSource.userId,
+        libraryId: normalizedSource.libraryId,
+        username: normalizedSource.username,
+        libraryName: normalizedSource.libraryName,
+        serverName: normalizedSource.serverName ?? existingSource.serverName,
+        ignoreTls: normalizedSource.ignoreTls,
+        createdAt: existingSource.createdAt,
+        updatedAt: DateTime.now(),
+      );
+    }
+
+    await _saveJellyfinSource(normalizedSource, accessToken: accessToken);
+
+    try {
+      final items = await _fetchJellyfinAudioItems(
+        source: normalizedSource,
+        accessToken: accessToken,
+      );
+
+      final existingTracks = await _localDataSource.getTracksBySource(
+        TrackSourceType.jellyfin,
+        normalizedSource.id,
+      );
+      final existingById = {
+        for (final track in existingTracks) track.id: track,
+      };
+
+      final seenIds = <String>{};
+      final now = DateTime.now();
+
+      for (final item in items) {
+        final itemId = _readNonEmptyString(item['Id']);
+        if (itemId == null || itemId.isEmpty) {
+          continue;
+        }
+
+        final trackId = _buildJellyfinTrackId(normalizedSource.id, itemId);
+        final existing = existingById[trackId];
+
+        final titleRaw =
+            _readNonEmptyString(item['Name']) ?? existing?.title ?? itemId;
+        final artistRaw =
+            _joinJellyfinNames(item['Artists']) ??
+            _joinJellyfinNames(item['AlbumArtists']) ??
+            _readNonEmptyString(item['AlbumArtist']) ??
+            existing?.artist;
+        final albumRaw =
+            _readNonEmptyString(item['Album']) ?? existing?.album;
+
+        final normalizedFields = normalizeTrackFields(
+          title: titleRaw,
+          artist: artistRaw ?? 'Unknown Artist',
+          album: albumRaw ?? 'Unknown Album',
+          fallbackFileName: titleRaw,
+        );
+
+        final duration =
+            _parseJellyfinDuration(item['RunTimeTicks']) ??
+            existing?.duration ??
+            Duration.zero;
+        final trackNumber =
+            _parseNullableInt(item['IndexNumber']) ?? existing?.trackNumber;
+        final year =
+            _parseNullableInt(item['ProductionYear']) ?? existing?.year;
+        final genre =
+            _joinJellyfinNames(item['Genres']) ?? existing?.genre;
+        final dateAdded =
+            _parseJellyfinDate(item['DateCreated']) ??
+            existing?.dateAdded ??
+            now;
+
+        final bitrate = _parseJellyfinBitrate(item) ?? existing?.bitrate;
+        final sampleRate =
+            _parseJellyfinSampleRate(item) ?? existing?.sampleRate;
+
+        final imageTag = _readPrimaryImageTag(item);
+        final artworkUrl = _buildJellyfinImageUrl(
+          baseUrl: normalizedSource.baseUrl,
+          itemId: itemId,
+          accessToken: accessToken,
+          tag: imageTag,
+        );
+
+        final headers = <String, String>{
+          if (existing?.httpHeaders != null) ...existing!.httpHeaders!,
+          JellyfinLibraryConstants.headerItemId: itemId,
+          JellyfinLibraryConstants.headerLibraryId: normalizedSource.libraryId,
+          if (normalizedSource.serverName != null &&
+              normalizedSource.serverName!.isNotEmpty)
+            JellyfinLibraryConstants.headerServerName:
+                normalizedSource.serverName!,
+          if (artworkUrl != null && artworkUrl.isNotEmpty)
+            JellyfinLibraryConstants.headerImageUrl: artworkUrl,
+        };
+
+        final trackModel = TrackModel(
+          id: trackId,
+          title: normalizedFields.title,
+          artist: normalizedFields.artist,
+          album: normalizedFields.album,
+          filePath: _buildJellyfinFilePath(normalizedSource.id, itemId),
+          duration: duration,
+          dateAdded: dateAdded,
+          artworkPath: existing?.artworkPath,
+          trackNumber: trackNumber,
+          year: year,
+          genre: genre,
+          sourceType: TrackSourceType.jellyfin,
+          sourceId: normalizedSource.id,
+          remotePath: itemId,
+          httpHeaders: headers,
+          contentHash: existing?.contentHash ?? trackId,
+          bitrate: bitrate,
+          sampleRate: sampleRate,
+        );
+
+        if (existing == null) {
+          await _localDataSource.insertTrack(trackModel);
+        } else {
+          await _localDataSource.updateTrack(trackModel);
+        }
+        seenIds.add(trackModel.id);
+      }
+
+      final removedIds = existingTracks
+          .where((track) => !seenIds.contains(track.id))
+          .map((track) => track.id)
+          .toList();
+      if (removedIds.isNotEmpty) {
+        await _localDataSource.deleteTracksByIds(removedIds);
+      }
+    } catch (e) {
+      print('❌ Jellyfin: 扫描媒体库失败 -> $e');
+      throw NetworkException('扫描 Jellyfin 媒体库失败: ${e.toString()}');
+    }
+  }
+
+  @override
   Future<int> mountMysteryLibrary({
     required Uri baseUri,
     required String code,
@@ -1150,6 +1319,37 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     }
   }
 
+  Future<void> _saveJellyfinSource(
+    JellyfinSource source, {
+    required String accessToken,
+  }) async {
+    await _configStore.init();
+    final normalized = source.copyWith(
+      baseUrl: _normalizeBaseUrl(source.baseUrl),
+      updatedAt: DateTime.now(),
+      createdAt: source.createdAt ?? DateTime.now(),
+    );
+
+    final existing = await getJellyfinSources();
+    final models = <JellyfinSourceModel>[];
+    for (final item in existing) {
+      final sameIdentity =
+          item.baseUrl == normalized.baseUrl &&
+          item.userId == normalized.userId &&
+          item.libraryId == normalized.libraryId;
+      if (item.id == normalized.id || sameIdentity) {
+        continue;
+      }
+      models.add(JellyfinSourceModel.fromEntity(item));
+    }
+    models.add(JellyfinSourceModel.fromEntity(normalized));
+
+    final serialized = models.map((model) => model.toMap()).toList();
+    await _configStore.setValue(StorageKeys.jellyfinSources, serialized);
+
+    await _setJellyfinToken(normalized.id, accessToken);
+  }
+
   @override
   Future<void> deleteWebDavSource(String id) async {
     await _configStore.init();
@@ -1173,6 +1373,188 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   Future<String?> getWebDavPassword(String id) async {
     final passwords = await _loadWebDavPasswords();
     return passwords[id];
+  }
+
+  @override
+  Future<JellyfinAuthSession> authenticateJellyfin({
+    required String baseUrl,
+    required String username,
+    required String password,
+    bool ignoreTls = false,
+  }) async {
+    final normalizedBase = _normalizeBaseUrl(baseUrl);
+    final deviceId = await _getOrCreateJellyfinDeviceId();
+    final client = _createJellyfinHttpClient(ignoreTls);
+
+    try {
+      final authUri = Uri.parse('$normalizedBase/Users/AuthenticateByName');
+      final request = await client.postUrl(authUri);
+      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+      request.headers.set(
+        'X-Emby-Authorization',
+        _buildJellyfinClientInfo(deviceId),
+      );
+      request.headers.set(HttpHeaders.userAgentHeader, 'MisuzuMusic/1.0');
+      request.add(
+        utf8.encode(
+          json.encode({'Username': username, 'Pw': password}),
+        ),
+      );
+
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+      if (response.statusCode != 200) {
+        throw NetworkException(
+          'Jellyfin 认证失败',
+          'HTTP ${response.statusCode} ${response.reasonPhrase ?? ''}\n$body',
+        );
+      }
+
+      final decoded = json.decode(body);
+      if (decoded is! Map) {
+        throw const NetworkException('Jellyfin 返回数据异常');
+      }
+
+      final token = _readNonEmptyString(decoded['AccessToken']);
+      final user = decoded['User'];
+      final userId = user is Map ? _readNonEmptyString(user['Id']) : null;
+
+      if (token == null || userId == null) {
+        throw const NetworkException('Jellyfin 返回数据异常');
+      }
+
+      final serverName = await _fetchJellyfinServerName(
+        client,
+        normalizedBase,
+        deviceId: deviceId,
+      );
+
+      return JellyfinAuthSession(
+        accessToken: token,
+        userId: userId,
+        serverName: serverName,
+      );
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  @override
+  Future<List<JellyfinLibrary>> getJellyfinLibraries({
+    required String baseUrl,
+    required String accessToken,
+    required String userId,
+    bool ignoreTls = false,
+  }) async {
+    final normalizedBase = _normalizeBaseUrl(baseUrl);
+    final deviceId = await _getOrCreateJellyfinDeviceId();
+    final client = _createJellyfinHttpClient(ignoreTls);
+
+    try {
+      final uri = Uri.parse('$normalizedBase/Users/$userId/Views');
+      final data = await _fetchJellyfinJson(
+        client,
+        uri,
+        accessToken: accessToken,
+        deviceId: deviceId,
+      );
+
+      final items = data['Items'];
+      if (items is! List) {
+        return const [];
+      }
+
+      final results = <JellyfinLibrary>[];
+      for (final raw in items) {
+        if (raw is! Map) {
+          continue;
+        }
+        final id = _readNonEmptyString(raw['Id']);
+        final name = _readNonEmptyString(raw['Name']);
+        if (id == null || name == null) {
+          continue;
+        }
+        final collectionType =
+            _readNonEmptyString(raw['CollectionType'])?.toLowerCase();
+        if (collectionType != 'music') {
+          continue;
+        }
+        results.add(
+          JellyfinLibrary(
+            id: id,
+            name: name,
+            collectionType: collectionType,
+          ),
+        );
+      }
+
+      results.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+      return results;
+    } catch (e) {
+      throw NetworkException('获取 Jellyfin 媒体库失败', e.toString());
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  @override
+  Future<List<JellyfinSource>> getJellyfinSources() async {
+    await _configStore.init();
+    final raw = _configStore.getValue<dynamic>(StorageKeys.jellyfinSources);
+    if (raw is List) {
+      final sources = raw
+          .whereType<Map>()
+          .map(
+            (map) =>
+                JellyfinSourceModel.fromMap(map.cast<String, dynamic>())
+                    .toEntity(),
+          )
+          .toList();
+      await _cleanupOrphanJellyfinTracks(sources);
+      return sources;
+    }
+    await _cleanupOrphanJellyfinTracks(const []);
+    return const [];
+  }
+
+  @override
+  Future<JellyfinSource?> getJellyfinSourceById(String id) async {
+    final sources = await getJellyfinSources();
+    try {
+      return sources.firstWhere((source) => source.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> deleteJellyfinSource(String id) async {
+    await _configStore.init();
+    final existing = await getJellyfinSources();
+    final filtered = existing.where((source) => source.id != id).toList();
+    final serialized = filtered
+        .map((source) => JellyfinSourceModel.fromEntity(source).toMap())
+        .toList();
+    await _configStore.setValue(StorageKeys.jellyfinSources, serialized);
+    await _removeJellyfinToken(id);
+
+    final tracks = await _localDataSource.getTracksBySource(
+      TrackSourceType.jellyfin,
+      id,
+    );
+    if (tracks.isNotEmpty) {
+      await _localDataSource.deleteTracksByIds(
+        tracks.map((track) => track.id).toList(),
+      );
+    }
+  }
+
+  @override
+  Future<String?> getJellyfinAccessToken(String id) async {
+    final tokens = await _loadJellyfinTokens();
+    return tokens[id];
   }
 
   @override
@@ -1465,6 +1847,9 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     if (_neteaseArtworkCache.containsKey(cacheKey)) {
       return _neteaseArtworkCache[cacheKey];
     }
+    if (!await _isAutoFetchArtworkEnabled()) {
+      return null;
+    }
 
     try {
       int? songId;
@@ -1538,6 +1923,12 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       _neteaseArtworkCache[cacheKey] = null;
       return null;
     }
+  }
+
+  Future<bool> _isAutoFetchArtworkEnabled() async {
+    await _configStore.init();
+    final stored = _configStore.getValue<bool>(StorageKeys.autoFetchArtwork);
+    return stored ?? true;
   }
 
   Future<String?> _cacheWebDavArtwork(
@@ -1908,6 +2299,28 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     }
   }
 
+  Future<void> _cleanupOrphanJellyfinTracks(
+    List<JellyfinSource> sources,
+  ) async {
+    try {
+      final validIds = sources.map((source) => source.id).toSet();
+      final allTracks = await _localDataSource.getAllTracks();
+      final orphanIds = allTracks
+          .where(
+            (track) =>
+                track.sourceType == TrackSourceType.jellyfin &&
+                (track.sourceId == null || !validIds.contains(track.sourceId!)),
+          )
+          .map((track) => track.id)
+          .toList();
+      if (orphanIds.isNotEmpty) {
+        await _localDataSource.deleteTracksByIds(orphanIds);
+      }
+    } catch (e) {
+      print('⚠️ Jellyfin: 清理孤立音轨失败 -> $e');
+    }
+  }
+
   Future<void> _cleanupMissingLocalTracks({
     required String normalizedDirectory,
     required Set<String> discoveredPaths,
@@ -2067,6 +2480,43 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     return 'webdav://$sourceId$normalized';
   }
 
+  String _buildJellyfinFilePath(String sourceId, String itemId) {
+    final normalized = itemId.trim();
+    return 'jellyfin://$sourceId/$normalized';
+  }
+
+  String? _extractJellyfinSourceId(String filePath) {
+    const prefix = 'jellyfin://';
+    if (!filePath.startsWith(prefix)) {
+      return null;
+    }
+    final remainder = filePath.substring(prefix.length);
+    final slashIndex = remainder.indexOf('/');
+    if (slashIndex <= 0) {
+      return null;
+    }
+    return remainder.substring(0, slashIndex);
+  }
+
+  String? _extractJellyfinItemId(String filePath) {
+    const prefix = 'jellyfin://';
+    if (!filePath.startsWith(prefix)) {
+      return null;
+    }
+    final remainder = filePath.substring(prefix.length);
+    final slashIndex = remainder.indexOf('/');
+    if (slashIndex == -1) {
+      return remainder.isEmpty ? null : remainder;
+    }
+    final itemId = remainder.substring(slashIndex + 1);
+    return itemId.isEmpty ? null : itemId;
+  }
+
+  String _buildJellyfinTrackId(String sourceId, String itemId) {
+    final digest = sha1.convert(utf8.encode('$sourceId|$itemId'));
+    return digest.toString();
+  }
+
   Future<Map<String, String>> _loadWebDavPasswords() async {
     await _configStore.init();
     final raw = _configStore.getValue<dynamic>(StorageKeys.webDavPasswords);
@@ -2095,6 +2545,34 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     }
   }
 
+  Future<Map<String, String>> _loadJellyfinTokens() async {
+    await _configStore.init();
+    final raw = _configStore.getValue<dynamic>(StorageKeys.jellyfinTokens);
+    if (raw is Map) {
+      final result = <String, String>{};
+      raw.forEach((key, value) {
+        if (key is String && value is String) {
+          result[key] = value;
+        }
+      });
+      return result;
+    }
+    return {};
+  }
+
+  Future<void> _setJellyfinToken(String sourceId, String token) async {
+    final map = await _loadJellyfinTokens();
+    map[sourceId] = token;
+    await _configStore.setValue(StorageKeys.jellyfinTokens, map);
+  }
+
+  Future<void> _removeJellyfinToken(String sourceId) async {
+    final map = await _loadJellyfinTokens();
+    if (map.remove(sourceId) != null) {
+      await _configStore.setValue(StorageKeys.jellyfinTokens, map);
+    }
+  }
+
   Future<webdav.Client> _createWebDavClient(
     WebDavSource source,
     String password,
@@ -2119,6 +2597,269 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
     }
 
     return client;
+  }
+
+  HttpClient _createJellyfinHttpClient(bool ignoreTls) {
+    final client = HttpClient();
+    if (ignoreTls) {
+      client.badCertificateCallback = (cert, host, port) => true;
+    }
+    return client;
+  }
+
+  String _buildJellyfinClientInfo(String deviceId) {
+    return 'MediaBrowser Client="${AppConstants.appName}", '
+        'Device="${AppConstants.appName}", '
+        'DeviceId="$deviceId", '
+        'Version="${AppConstants.version}"';
+  }
+
+  Future<String> _getOrCreateJellyfinDeviceId() async {
+    await _configStore.init();
+    final existing = _configStore.getValue<String>(
+      StorageKeys.jellyfinDeviceId,
+    );
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
+    }
+    final created = _uuid.v4();
+    await _configStore.setValue(StorageKeys.jellyfinDeviceId, created);
+    return created;
+  }
+
+  Future<Map<String, dynamic>> _fetchJellyfinJson(
+    HttpClient client,
+    Uri uri, {
+    String? accessToken,
+    String? deviceId,
+    String method = 'GET',
+    Map<String, dynamic>? body,
+  }) async {
+    final request = await client.openUrl(method, uri);
+    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+    request.headers.set(HttpHeaders.userAgentHeader, 'MisuzuMusic/1.0');
+    if (deviceId != null && deviceId.isNotEmpty) {
+      request.headers.set(
+        'X-Emby-Authorization',
+        _buildJellyfinClientInfo(deviceId),
+      );
+    }
+    if (accessToken != null && accessToken.isNotEmpty) {
+      request.headers.set('X-Emby-Token', accessToken);
+    }
+    if (body != null) {
+      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+      request.add(utf8.encode(json.encode(body)));
+    }
+
+    final response = await request.close();
+    final text = await response.transform(utf8.decoder).join();
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw NetworkException(
+        'Jellyfin 请求失败',
+        'HTTP ${response.statusCode} ${response.reasonPhrase ?? ''}\n$text',
+      );
+    }
+    if (text.isEmpty) {
+      return const {};
+    }
+    final decoded = json.decode(text);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    if (decoded is Map) {
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    }
+    return const {};
+  }
+
+  Future<String?> _fetchJellyfinServerName(
+    HttpClient client,
+    String baseUrl, {
+    required String deviceId,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/System/Info/Public');
+      final data = await _fetchJellyfinJson(
+        client,
+        uri,
+        deviceId: deviceId,
+      );
+      return _readNonEmptyString(data['ServerName']);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchJellyfinAudioItems({
+    required JellyfinSource source,
+    required String accessToken,
+  }) async {
+    final client = _createJellyfinHttpClient(source.ignoreTls);
+    final deviceId = await _getOrCreateJellyfinDeviceId();
+    final items = <Map<String, dynamic>>[];
+    const limit = 500;
+    var startIndex = 0;
+
+    try {
+      while (true) {
+        final uri = Uri.parse(
+          '${source.baseUrl}/Users/${source.userId}/Items',
+        ).replace(
+          queryParameters: {
+            'ParentId': source.libraryId,
+            'Recursive': 'true',
+            'IncludeItemTypes': 'Audio',
+            'Fields':
+                'Album,Artists,AlbumArtists,AlbumArtist,Genres,RunTimeTicks,ProductionYear,IndexNumber,DateCreated,ImageTags,MediaSources',
+            'StartIndex': startIndex.toString(),
+            'Limit': limit.toString(),
+            'SortBy': 'SortName',
+            'SortOrder': 'Ascending',
+          },
+        );
+
+        final data = await _fetchJellyfinJson(
+          client,
+          uri,
+          accessToken: accessToken,
+          deviceId: deviceId,
+        );
+
+        final batch = data['Items'];
+        if (batch is! List || batch.isEmpty) {
+          break;
+        }
+
+        for (final raw in batch) {
+          if (raw is Map<String, dynamic>) {
+            items.add(raw);
+          } else if (raw is Map) {
+            items.add(raw.cast<String, dynamic>());
+          }
+        }
+
+        final total =
+            (data['TotalRecordCount'] as num?)?.toInt() ?? items.length;
+        startIndex += batch.length;
+        if (items.length >= total) {
+          break;
+        }
+      }
+    } finally {
+      client.close(force: true);
+    }
+
+    return items;
+  }
+
+  String? _readPrimaryImageTag(Map<String, dynamic> item) {
+    final tags = item['ImageTags'];
+    if (tags is Map) {
+      return _readNonEmptyString(tags['Primary']);
+    }
+    return null;
+  }
+
+  String? _buildJellyfinImageUrl({
+    required String baseUrl,
+    required String itemId,
+    required String accessToken,
+    String? tag,
+  }) {
+    final params = <String, String>{
+      'api_key': accessToken,
+      'quality': '90',
+      'width': '400',
+    };
+    if (tag != null && tag.isNotEmpty) {
+      params['tag'] = tag;
+    }
+    final uri = Uri.parse('$baseUrl/Items/$itemId/Images/Primary');
+    return uri.replace(queryParameters: params).toString();
+  }
+
+  Duration? _parseJellyfinDuration(dynamic ticksValue) {
+    if (ticksValue == null) {
+      return null;
+    }
+    double? ticks;
+    if (ticksValue is num) {
+      ticks = ticksValue.toDouble();
+    } else if (ticksValue is String) {
+      ticks = double.tryParse(ticksValue.trim());
+    }
+    if (ticks == null || ticks <= 0) {
+      return null;
+    }
+    final millis = (ticks / 10000).round();
+    if (millis <= 0) {
+      return null;
+    }
+    return Duration(milliseconds: millis);
+  }
+
+  DateTime? _parseJellyfinDate(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return DateTime.tryParse(value.trim());
+    }
+    return null;
+  }
+
+  String? _joinJellyfinNames(dynamic value) {
+    if (value is! List) {
+      return null;
+    }
+    final names = <String>[];
+    for (final item in value) {
+      if (item is String) {
+        final trimmed = item.trim();
+        if (trimmed.isNotEmpty) {
+          names.add(trimmed);
+        }
+      } else if (item is Map) {
+        final name = _readNonEmptyString(item['Name']);
+        if (name != null) {
+          names.add(name);
+        }
+      }
+    }
+    if (names.isEmpty) {
+      return null;
+    }
+    return names.join(' / ');
+  }
+
+  int? _parseJellyfinBitrate(Map<String, dynamic> item) {
+    final sources = item['MediaSources'];
+    if (sources is List && sources.isNotEmpty) {
+      final first = sources.first;
+      if (first is Map) {
+        final bitrate = first['Bitrate'] ?? first['AudioBitrate'];
+        return _parseNullableInt(bitrate);
+      }
+    }
+    return null;
+  }
+
+  int? _parseJellyfinSampleRate(Map<String, dynamic> item) {
+    final sources = item['MediaSources'];
+    if (sources is List && sources.isNotEmpty) {
+      final first = sources.first;
+      if (first is Map) {
+        final streams = first['MediaStreams'];
+        if (streams is List) {
+          for (final stream in streams) {
+            if (stream is Map && stream['Type'] == 'Audio') {
+              return _parseNullableInt(stream['SampleRate']);
+            }
+          }
+        }
+      }
+    }
+    return null;
   }
 
   Future<Uint8List?> _downloadWebDavBundle(

@@ -77,7 +77,7 @@ class LyricsRepositoryImpl implements LyricsRepository {
       final baseName = path.basenameWithoutExtension(audioFilePath);
 
       // Common lyrics file extensions
-      final lyricsExtensions = ['.lrc', '.txt'];
+      final lyricsExtensions = ['.lrc', '.ttml', '.txt'];
 
       // Primary attempt: exact match with full base name
       for (final extension in lyricsExtensions) {
@@ -200,6 +200,20 @@ class LyricsRepositoryImpl implements LyricsRepository {
       if (extension == '.lrc') {
         format = LyricsFormat.lrc;
         lines = _parseLrcContent(content);
+      } else if (extension == '.ttml' || extension == '.xml') {
+        format = LyricsFormat.lrc;
+        lines = _parseTtmlContent(content);
+        if (lines.isEmpty) {
+          format = LyricsFormat.text;
+          lines = _parseTextContent(_stripTtmlTags(content));
+        }
+      } else if (_looksLikeTtml(content)) {
+        format = LyricsFormat.lrc;
+        lines = _parseTtmlContent(content);
+        if (lines.isEmpty) {
+          format = LyricsFormat.text;
+          lines = _parseTextContent(_stripTtmlTags(content));
+        }
       } else {
         format = LyricsFormat.text;
         lines = _parseTextContent(content);
@@ -248,6 +262,9 @@ class LyricsRepositoryImpl implements LyricsRepository {
 
       var format = LyricsFormat.lrc;
       var lines = _parseLrcContent(cleaned);
+      if (lines.isEmpty && _looksLikeTtml(cleaned)) {
+        lines = _parseTtmlContent(cleaned);
+      }
       if (lines.isEmpty) {
         format = LyricsFormat.text;
         lines = _parseTextContent(cleaned);
@@ -747,6 +764,242 @@ class LyricsRepositoryImpl implements LyricsRepository {
     }
 
     return LyricsLineMerger.mergeByTimestamp(lines);
+  }
+
+  bool _looksLikeTtml(String content) {
+    final String normalized = content.toLowerCase();
+    return normalized.contains('<tt') &&
+        (normalized.contains('xmlns="http://www.w3.org/ns/ttml"') ||
+            normalized.contains('xmlns="http://www.w3.org/ns/ttml#"') ||
+            normalized.contains('<tt>') ||
+            normalized.contains('<tt '));
+  }
+
+  List<LyricsLine> _parseTtmlContent(String content) {
+    final lines = <LyricsLine>[];
+    final normalized = content
+        .replaceAll('\uFEFF', '')
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n');
+    final RegExp pPattern = RegExp(
+      r'<p\b([^>]*)>(.*?)</p>',
+      caseSensitive: false,
+      dotAll: true,
+    );
+
+    for (final match in pPattern.allMatches(normalized)) {
+      final String attrs = match.group(1) ?? '';
+      final String body = match.group(2) ?? '';
+      final String? begin =
+          _extractXmlAttribute(attrs, 'begin') ??
+          _extractXmlAttribute(body, 'begin');
+      if (begin == null) {
+        continue;
+      }
+
+      final Duration? timestamp = _parseTtmlTimestamp(begin);
+      if (timestamp == null) {
+        continue;
+      }
+
+      final String text = _normalizeTtmlText(body);
+      if (text.isEmpty) {
+        continue;
+      }
+
+      final parsed = _parseAnnotatedLine(text);
+      lines.add(
+        LyricsLine(
+          timestamp: timestamp,
+          originalText: parsed.text,
+          translatedText: null,
+          annotatedTexts: parsed.segments,
+        ),
+      );
+    }
+
+    return LyricsLineMerger.mergeByTimestamp(lines);
+  }
+
+  String? _extractXmlAttribute(String source, String name) {
+    final RegExp doubleQuote = RegExp(
+      '$name\\s*=\\s*\\\"([^\\\"]+)\\\"',
+      caseSensitive: false,
+    );
+    final RegExp singleQuote = RegExp(
+      "$name\\s*=\\s*'([^']+)'",
+      caseSensitive: false,
+    );
+    final Match? doubleMatch = doubleQuote.firstMatch(source);
+    if (doubleMatch != null) {
+      return doubleMatch.group(1);
+    }
+    final Match? singleMatch = singleQuote.firstMatch(source);
+    if (singleMatch != null) {
+      return singleMatch.group(1);
+    }
+    return null;
+  }
+
+  Duration? _parseTtmlTimestamp(String input) {
+    final String trimmed = input.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    if (trimmed.contains(':')) {
+      final parts = trimmed.split(':');
+      if (parts.length < 2) {
+        return null;
+      }
+
+      double seconds = 0;
+      int minutes = 0;
+      int hours = 0;
+
+      final String secondsPart = parts.removeLast();
+      final double? secondsValue = double.tryParse(secondsPart);
+      if (secondsValue == null) {
+        return null;
+      }
+      seconds = secondsValue;
+
+      if (parts.isNotEmpty) {
+        final int? minutesValue = int.tryParse(parts.removeLast());
+        if (minutesValue == null) {
+          return null;
+        }
+        minutes = minutesValue;
+      }
+
+      if (parts.isNotEmpty) {
+        final int? hoursValue = int.tryParse(parts.removeLast());
+        if (hoursValue == null) {
+          return null;
+        }
+        hours = hoursValue;
+      }
+
+      final double totalSeconds =
+          hours * 3600 + minutes * 60 + seconds;
+      return Duration(milliseconds: (totalSeconds * 1000).round());
+    }
+
+    final String lower = trimmed.toLowerCase();
+    if (lower.endsWith('ms')) {
+      final double? value = double.tryParse(
+        lower.substring(0, lower.length - 2),
+      );
+      if (value == null) {
+        return null;
+      }
+      return Duration(milliseconds: value.round());
+    }
+    if (lower.endsWith('s')) {
+      final double? value = double.tryParse(
+        lower.substring(0, lower.length - 1),
+      );
+      if (value == null) {
+        return null;
+      }
+      return Duration(milliseconds: (value * 1000).round());
+    }
+    if (lower.endsWith('m')) {
+      final double? value = double.tryParse(
+        lower.substring(0, lower.length - 1),
+      );
+      if (value == null) {
+        return null;
+      }
+      return Duration(milliseconds: (value * 60000).round());
+    }
+    if (lower.endsWith('h')) {
+      final double? value = double.tryParse(
+        lower.substring(0, lower.length - 1),
+      );
+      if (value == null) {
+        return null;
+      }
+      return Duration(milliseconds: (value * 3600000).round());
+    }
+
+    final double? fallback = double.tryParse(lower);
+    if (fallback == null) {
+      return null;
+    }
+    return Duration(milliseconds: (fallback * 1000).round());
+  }
+
+  String _normalizeTtmlText(String input) {
+    const placeholder = '\u0001';
+    final String prepared = input.replaceAll(
+      RegExp(r'<br\s*/?>', caseSensitive: false),
+      placeholder,
+    );
+    final String stripped = _stripTtmlTags(prepared);
+    final String decoded = _decodeXmlEntities(stripped);
+    final String collapsed = decoded.replaceAll(RegExp(r'\s+'), ' ');
+    return collapsed.replaceAll(placeholder, '\n').trim();
+  }
+
+  String _stripTtmlTags(String input) {
+    return input
+        .replaceAll(RegExp(r'</?span\b[^>]*>', caseSensitive: false), '')
+        .replaceAll(RegExp(r'</?p\b[^>]*>', caseSensitive: false), '')
+        .replaceAll(RegExp(r'<[^>]+>'), '');
+  }
+
+  String _decodeXmlEntities(String input) {
+    final buffer = StringBuffer();
+    int lastIndex = 0;
+    final RegExp pattern = RegExp(
+      r'&(#x[0-9a-fA-F]+|#\d+|amp|lt|gt|quot|apos);',
+    );
+
+    for (final match in pattern.allMatches(input)) {
+      buffer.write(input.substring(lastIndex, match.start));
+      final String entity = match.group(1) ?? '';
+      String? replacement;
+
+      switch (entity) {
+        case 'amp':
+          replacement = '&';
+          break;
+        case 'lt':
+          replacement = '<';
+          break;
+        case 'gt':
+          replacement = '>';
+          break;
+        case 'quot':
+          replacement = '\"';
+          break;
+        case 'apos':
+          replacement = "'";
+          break;
+        default:
+          if (entity.startsWith('#x')) {
+            final int? codePoint = int.tryParse(
+              entity.substring(2),
+              radix: 16,
+            );
+            if (codePoint != null) {
+              replacement = String.fromCharCode(codePoint);
+            }
+          } else if (entity.startsWith('#')) {
+            final int? codePoint = int.tryParse(entity.substring(1));
+            if (codePoint != null) {
+              replacement = String.fromCharCode(codePoint);
+            }
+          }
+      }
+
+      buffer.write(replacement ?? match.group(0));
+      lastIndex = match.end;
+    }
+
+    buffer.write(input.substring(lastIndex));
+    return buffer.toString();
   }
 
   List<LyricsLine> _parseTextContent(String content) {

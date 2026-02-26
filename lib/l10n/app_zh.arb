@@ -6,6 +6,12 @@
   "settingsAboutSubtitle": "了解项目名称、版本号与仓库链接",
   "settingsDeveloperTitle": "开发者选项",
   "settingsDeveloperSubtitle": "访问调试输出等工具",
+  "settingsOnlineMetadataTitle": "在线歌词与封面",
+  "settingsOnlineMetadataSubtitle": "控制是否自动联网获取歌词和封面",
+  "settingsAutoFetchLyricsTitle": "自动联网获取歌词",
+  "settingsAutoFetchLyricsSubtitle": "当本地没有歌词时自动从网络获取",
+  "settingsAutoFetchArtworkTitle": "自动联网获取封面",
+  "settingsAutoFetchArtworkSubtitle": "当本地缺少封面时自动从网络获取",
   "settingsUnknownVersion": "未知版本",
   "settingsProjectNameLabel": "项目名称",
   "settingsVersionLabel": "版本号",
@@ -241,6 +247,13 @@
       "folder": {}
     }
   },
+  "homeMisuzuAppRootName": "Misuzu Music（根目录）",
+  "homeMisuzuAppRootDescription": "Files 路径：{filesRoot} > Misuzu Music",
+  "@homeMisuzuAppRootDescription": {
+    "placeholders": {
+      "filesRoot": {}
+    }
+  },
   "homeMisuzuRootName": "MisuzuMusic（根目录）",
   "homeMisuzuRootDescription": "扫描整个 MisuzuMusic 文件夹",
   "homeMisuzuFilesPath": "Files 路径：MisuzuMusic/{folder}",
@@ -249,8 +262,8 @@
       "folder": {}
     }
   },
-  "homePickMisuzuFolderTitle": "选择 MisuzuMusic 文件夹",
-  "homeMisuzuFilesHint": "Files 路径：{filesRoot} > Misuzu Music > MisuzuMusic",
+  "homePickMisuzuFolderTitle": "选择扫描目录",
+  "homeMisuzuFilesHint": "Files 路径：{filesRoot} > Misuzu Music（根目录）或 {filesRoot} > Misuzu Music > MisuzuMusic",
   "@homeMisuzuFilesHint": {
     "placeholders": {
       "filesRoot": {}
@@ -267,6 +280,7 @@
   "actionRefresh": "刷新",
   "homeMisuzuNoSubfolders": "暂未检测到子文件夹，也可以直接选择 MisuzuMusic 根目录。",
   "homeWebDavLibrary": "WebDAV 音乐库",
+  "homeJellyfinLibrary": "Jellyfin 音乐库",
   "homeWebDavScanSummary": "添加了 {count} 首新歌曲",
   "@homeWebDavScanSummary": {
     "placeholders": {
@@ -275,8 +289,25 @@
       }
     }
   },
+  "homeJellyfinScanSummary": "从 Jellyfin 添加了 {count} 首新歌曲",
+  "@homeJellyfinScanSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "homeWebDavScanSummaryWithSource": "添加了 {count} 首新歌曲\n来源: {source}",
   "@homeWebDavScanSummaryWithSource": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "source": {}
+    }
+  },
+  "homeJellyfinScanSummaryWithSource": "添加了 {count} 首新歌曲\n来源: {source}",
+  "@homeJellyfinScanSummaryWithSource": {
     "placeholders": {
       "count": {
         "type": "int"
@@ -302,8 +333,10 @@
   "libraryMountOptionMysteryTitle": "神秘代码",
   "libraryMountOptionWebDavTitle": "挂载 WebDAV",
   "libraryMountOptionWebDavDescription": "连接到 WebDAV 服务器以流式传输或下载音乐。",
+  "libraryMountOptionJellyfinTitle": "挂载 Jellyfin",
+  "libraryMountOptionJellyfinDescription": "连接到 Jellyfin 服务器以加载音乐库。",
   "libraryMountInfoCardTitle": "通过 MisuzuMusic 文件夹导入",
-  "libraryMountInfoCardDescription": "iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「{filesRoot}」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹开始扫描。",
+  "libraryMountInfoCardDescription": "iOS 会将外部文件复制到应用沙盒中，为避免空间占用，请按照以下步骤：\n1）在「文件」App 中进入「{filesRoot}」> Misuzu Music。\n2）打开 MisuzuMusic 文件夹，并将包含歌曲的文件夹拷贝进去；或通过 iTunes 文件共享直接把歌曲放到 Misuzu Music 根目录。\n3）返回 Misuzu Music，选择 MisuzuMusic 文件夹或根目录开始扫描。",
   "@libraryMountInfoCardDescription": {
     "placeholders": {
       "filesRoot": {}

@@ -12,6 +12,7 @@ import 'package:crypto/crypto.dart';
 import '../../core/constants/mystery_library_constants.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
+import '../../domain/entities/jellyfin_entities.dart';
 import '../../domain/repositories/playback_history_repository.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/netease_repository.dart';
@@ -1312,6 +1313,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
       return normalized;
     }
 
+    if (track.sourceType == TrackSourceType.jellyfin ||
+        track.filePath.startsWith('jellyfin://')) {
+      var normalized = track;
+      if (track.sourceType != TrackSourceType.jellyfin) {
+        normalized = track.copyWith(sourceType: TrackSourceType.jellyfin);
+        await _replaceTrackInQueue(track, normalized);
+      }
+      return normalized;
+    }
+
     if (track.sourceType == TrackSourceType.mystery ||
         track.filePath.startsWith('mystery://')) {
       var normalized = track;
@@ -1519,6 +1530,17 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
         }
       }
     }
+    if (a.sourceType == TrackSourceType.jellyfin) {
+      if (a.sourceId != null &&
+          b.sourceId != null &&
+          a.sourceId == b.sourceId) {
+        if (a.remotePath != null &&
+            b.remotePath != null &&
+            a.remotePath == b.remotePath) {
+          return true;
+        }
+      }
+    }
     if (a.sourceType == TrackSourceType.mystery) {
       if (a.sourceId != null &&
           b.sourceId != null &&
@@ -1581,6 +1603,16 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
     if (track.sourceType == TrackSourceType.webdav) {
       final streamInfo = await _buildWebDavStreamInfo(track);
+      await _audioPlayer.setUrl(
+        streamInfo.url.toString(),
+        headers: streamInfo.headers,
+      );
+      return;
+    }
+
+    if (track.sourceType == TrackSourceType.jellyfin ||
+        track.filePath.startsWith('jellyfin://')) {
+      final streamInfo = await _buildJellyfinStreamInfo(track);
       await _audioPlayer.setUrl(
         streamInfo.url.toString(),
         headers: streamInfo.headers,
@@ -1706,6 +1738,41 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     return _WebDavStreamInfo(url: uri, headers: headers);
   }
 
+  Future<_JellyfinStreamInfo> _buildJellyfinStreamInfo(Track track) async {
+    final sourceId =
+        track.sourceId ?? _extractJellyfinSourceId(track.filePath);
+    final itemId = track.remotePath ?? _extractJellyfinItemId(track.filePath);
+    if (sourceId == null || itemId == null) {
+      throw AudioPlaybackException(
+        'Jellyfin source missing for track ${track.title}',
+      );
+    }
+
+    final source = await _musicLibraryRepository.getJellyfinSourceById(
+      sourceId,
+    );
+    if (source == null) {
+      throw AudioPlaybackException('Jellyfin source not found: $sourceId');
+    }
+
+    final token = await _musicLibraryRepository.getJellyfinAccessToken(
+      sourceId,
+    );
+    if (token == null || token.isEmpty) {
+      throw AudioPlaybackException(
+        'Jellyfin credentials missing for source $sourceId',
+      );
+    }
+
+    final uri = _buildJellyfinStreamUri(source, itemId, token);
+    final headers = <String, String>{
+      'User-Agent': 'MisuzuMusic/1.0',
+      'X-Emby-Token': token,
+    };
+
+    return _JellyfinStreamInfo(url: uri, headers: headers);
+  }
+
   Uri _buildWebDavUri(WebDavSource source, String trackRemotePath) {
     final baseUri = Uri.parse('${source.baseUrl}/');
     final rootPath = _normalizeRemotePath(source.rootPath);
@@ -1728,6 +1795,52 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
     );
 
     return baseUri.replace(pathSegments: segments);
+  }
+
+  Uri _buildJellyfinStreamUri(
+    JellyfinSource source,
+    String itemId,
+    String token,
+  ) {
+    final baseUri = Uri.parse('${source.baseUrl}/');
+    final segments = baseUri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    segments.addAll(['Audio', itemId, 'stream']);
+    final query = <String, String>{
+      'static': 'true',
+      'api_key': token,
+      if (source.userId.isNotEmpty) 'userId': source.userId,
+      'deviceId': source.id,
+    };
+    return baseUri.replace(pathSegments: segments, queryParameters: query);
+  }
+
+  String? _extractJellyfinSourceId(String filePath) {
+    const prefix = 'jellyfin://';
+    if (!filePath.startsWith(prefix)) {
+      return null;
+    }
+    final remainder = filePath.substring(prefix.length);
+    final slashIndex = remainder.indexOf('/');
+    if (slashIndex <= 0) {
+      return null;
+    }
+    return remainder.substring(0, slashIndex);
+  }
+
+  String? _extractJellyfinItemId(String filePath) {
+    const prefix = 'jellyfin://';
+    if (!filePath.startsWith(prefix)) {
+      return null;
+    }
+    final remainder = filePath.substring(prefix.length);
+    final slashIndex = remainder.indexOf('/');
+    if (slashIndex == -1) {
+      return remainder.isEmpty ? null : remainder;
+    }
+    final itemId = remainder.substring(slashIndex + 1);
+    return itemId.isEmpty ? null : itemId;
   }
 
   String? _extractMysteryRelativePath(String filePath) {
@@ -1760,6 +1873,13 @@ class AudioPlayerServiceImpl implements AudioPlayerService {
 
 class _WebDavStreamInfo {
   const _WebDavStreamInfo({required this.url, required this.headers});
+
+  final Uri url;
+  final Map<String, String> headers;
+}
+
+class _JellyfinStreamInfo {
+  const _JellyfinStreamInfo({required this.url, required this.headers});
 
   final Uri url;
   final Map<String, String> headers;

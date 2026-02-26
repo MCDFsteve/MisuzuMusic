@@ -198,7 +198,9 @@ private final class CarPlayPlayableContentBridge: NSObject, MPPlayableContentDat
     let manager = MPPlayableContentManager.shared()
     manager.dataSource = self
     manager.delegate = self
-    manager.isEnabled = true
+    if manager.responds(to: Selector(("setEnabled:"))) {
+      manager.setValue(true, forKey: "enabled")
+    }
     manager.reloadData()
   }
 

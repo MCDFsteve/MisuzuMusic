@@ -5,7 +5,7 @@ abstract class Entity extends Equatable {
   const Entity();
 }
 
-enum TrackSourceType { local, webdav, mystery, netease }
+enum TrackSourceType { local, webdav, jellyfin, mystery, netease }
 
 // Track entity - represents a music track
 class Track extends Entity {
@@ -280,6 +280,17 @@ extension TrackSourceExtensions on Track {
     }
     final lowerSourceId = sourceId?.toLowerCase();
     if (lowerSourceId != null && lowerSourceId.startsWith('netease')) {
+      return true;
+    }
+    return false;
+  }
+
+  bool get isJellyfinTrack {
+    if (sourceType == TrackSourceType.jellyfin) {
+      return true;
+    }
+    final lowerFilePath = filePath.toLowerCase();
+    if (lowerFilePath.startsWith('jellyfin://')) {
       return true;
     }
     return false;

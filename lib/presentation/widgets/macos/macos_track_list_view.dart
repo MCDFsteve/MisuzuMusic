@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:macos_ui/macos_ui.dart';
 
+import '../../../core/constants/jellyfin_library_constants.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../blocs/player/player_bloc.dart';
@@ -63,7 +64,6 @@ class MacOSTrackListView extends StatelessWidget {
           pageSize: 120,
           preloadOffset: 800,
           padding: listPadding,
-          cacheExtent: 0,
           separatorBuilder: (context, index) => Divider(
             height: 1,
             thickness: 0.5,
@@ -77,10 +77,18 @@ class MacOSTrackListView extends StatelessWidget {
             if (_isNetworkSong(track)) {
               remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
             } else {
-              remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
-                track.httpHeaders,
-                thumbnail: true,
-              );
+              if (track.sourceType == TrackSourceType.netease) {
+                remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+              } else if (track.isJellyfinTrack) {
+                remoteArtworkUrl = JellyfinLibraryConstants.buildArtworkUrl(
+                  track.httpHeaders,
+                );
+              } else {
+                remoteArtworkUrl = MysteryLibraryConstants.buildArtworkUrl(
+                  track.httpHeaders,
+                  thumbnail: true,
+                );
+              }
             }
             return TrackListTile(
               index: index + 1,
@@ -127,6 +135,8 @@ class MacOSTrackListView extends StatelessWidget {
     final isRemoteTrack =
         track.sourceType == TrackSourceType.webdav ||
         track.filePath.startsWith('webdav://') ||
+        track.sourceType == TrackSourceType.jellyfin ||
+        track.filePath.startsWith('jellyfin://') ||
         track.sourceType == TrackSourceType.mystery ||
         track.filePath.startsWith('mystery://') ||
         track.sourceType == TrackSourceType.netease ||

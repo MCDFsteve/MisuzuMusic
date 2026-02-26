@@ -32,6 +32,7 @@ import '../../blocs/player/player_bloc.dart';
 import '../../widgets/common/artwork_thumbnail.dart';
 import '../../widgets/common/hover_glow_overlay.dart';
 import '../../widgets/common/lyrics_display.dart';
+import '../../../core/constants/jellyfin_library_constants.dart';
 import '../../../core/constants/mystery_library_constants.dart';
 import '../../../core/widgets/modal_dialog.dart' hide showPlaylistModalDialog;
 import '../../utils/track_display_utils.dart';
@@ -419,6 +420,11 @@ class _LyricsOverlayState extends State<LyricsOverlay> {
       final String? cover = track.httpHeaders?['x-netease-cover'];
       if (cover != null && cover.isNotEmpty) {
         return cover;
+      }
+    } else if (track.isJellyfinTrack) {
+      final url = JellyfinLibraryConstants.buildArtworkUrl(track.httpHeaders);
+      if (url != null && url.isNotEmpty) {
+        return url;
       }
     }
     return MysteryLibraryConstants.buildArtworkUrl(
@@ -1961,6 +1967,9 @@ class _CoverColumn extends StatelessWidget {
     String? remoteArtworkUrl;
     if (track.sourceType == TrackSourceType.netease) {
       remoteArtworkUrl = track.httpHeaders?['x-netease-cover'];
+    } else if (track.isJellyfinTrack) {
+      remoteArtworkUrl =
+          JellyfinLibraryConstants.buildArtworkUrl(track.httpHeaders);
     } else {
       remoteArtworkUrl =
           MysteryLibraryConstants.buildArtworkUrl(

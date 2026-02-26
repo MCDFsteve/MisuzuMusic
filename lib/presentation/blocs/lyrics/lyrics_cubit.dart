@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/settings/online_metadata_controller.dart';
 import '../../../domain/entities/lyrics_entities.dart';
 import '../../../domain/entities/music_entities.dart';
 import '../../../domain/usecases/lyrics_usecases.dart';
@@ -16,11 +17,13 @@ class LyricsCubit extends Cubit<LyricsState> {
     required LoadLyricsFromMetadata loadLyricsFromMetadata,
     required FetchOnlineLyrics fetchOnlineLyrics,
     required GetLyrics getLyrics,
+    required OnlineMetadataController onlineMetadataController,
   }) : _findLyricsFile = findLyricsFile,
        _loadLyricsFromFile = loadLyricsFromFile,
        _loadLyricsFromMetadata = loadLyricsFromMetadata,
        _fetchOnlineLyrics = fetchOnlineLyrics,
        _getLyrics = getLyrics,
+       _onlineMetadataController = onlineMetadataController,
        super(const LyricsInitial());
 
   final FindLyricsFile _findLyricsFile;
@@ -28,6 +31,7 @@ class LyricsCubit extends Cubit<LyricsState> {
   final LoadLyricsFromMetadata _loadLyricsFromMetadata;
   final FetchOnlineLyrics _fetchOnlineLyrics;
   final GetLyrics _getLyrics;
+  final OnlineMetadataController _onlineMetadataController;
   String? _activeTrackId;
 
   Future<void> loadLyricsForTrack(
@@ -40,6 +44,8 @@ class LyricsCubit extends Cubit<LyricsState> {
     emit(const LyricsLoading());
     try {
       final bool skipLocalSources = forceRemote;
+      final bool allowOnline =
+          forceRemote || _onlineMetadataController.autoFetchLyrics;
 
       final embeddedLyrics = skipLocalSources
           ? null
@@ -56,13 +62,20 @@ class LyricsCubit extends Cubit<LyricsState> {
           : await _loadLyricsFromAssociatedFile(track);
       if (_shouldAbort(requestTrackId)) return;
 
-      // Always attempt to refresh from cloud so server updates are reflected
-      final cloudLyrics = await _loadLyricsFromOnline(track, cloudOnly: true);
-      if (_shouldAbort(requestTrackId)) return;
-      if (cloudLyrics != null && cloudLyrics.lines.isNotEmpty) {
-        print('🎼 LyricsCubit: 使用云端歌词');
-        emit(LyricsLoaded(_withSource(cloudLyrics, LyricsSource.nipaplay)));
-        return;
+      if (allowOnline) {
+        // Always attempt to refresh from cloud so server updates are reflected
+        final cloudLyrics = await _loadLyricsFromOnline(
+          track,
+          cloudOnly: true,
+        );
+        if (_shouldAbort(requestTrackId)) return;
+        if (cloudLyrics != null && cloudLyrics.lines.isNotEmpty) {
+          print('🎼 LyricsCubit: 使用云端歌词');
+          emit(LyricsLoaded(_withSource(cloudLyrics, LyricsSource.nipaplay)));
+          return;
+        }
+      } else {
+        print('🎼 LyricsCubit: 已关闭自动在线歌词获取');
       }
 
       if (!skipLocalSources &&
@@ -83,12 +96,14 @@ class LyricsCubit extends Cubit<LyricsState> {
         }
       }
 
-      final onlineLyrics = await _loadLyricsFromOnline(track);
-      if (_shouldAbort(requestTrackId)) return;
-      if (onlineLyrics != null && onlineLyrics.lines.isNotEmpty) {
-        print('🎼 LyricsCubit: 使用网络歌曲歌词');
-        emit(LyricsLoaded(_withSource(onlineLyrics, LyricsSource.netease)));
-        return;
+      if (allowOnline) {
+        final onlineLyrics = await _loadLyricsFromOnline(track);
+        if (_shouldAbort(requestTrackId)) return;
+        if (onlineLyrics != null && onlineLyrics.lines.isNotEmpty) {
+          print('🎼 LyricsCubit: 使用网络歌曲歌词');
+          emit(LyricsLoaded(_withSource(onlineLyrics, LyricsSource.netease)));
+          return;
+        }
       }
 
       if (_shouldAbort(requestTrackId)) return;
@@ -153,17 +168,22 @@ class LyricsCubit extends Cubit<LyricsState> {
       }
 
       final directory = audioFile.parent;
-      final availableLrc = <String>[];
+      final availableLyrics = <String>[];
       for (final entity in directory.listSync(followLinks: false)) {
-        if (entity is File && entity.path.toLowerCase().endsWith('.lrc')) {
-          availableLrc.add(entity.path);
+        if (entity is File) {
+          final lowerPath = entity.path.toLowerCase();
+          if (lowerPath.endsWith('.lrc') ||
+              lowerPath.endsWith('.ttml') ||
+              lowerPath.endsWith('.txt')) {
+            availableLyrics.add(entity.path);
+          }
         }
       }
-      if (availableLrc.isEmpty) {
-        print('🎼 LyricsCubit: 同目录未找到任何 .lrc 文件');
+      if (availableLyrics.isEmpty) {
+        print('🎼 LyricsCubit: 同目录未找到任何歌词文件');
       } else {
-        print('🎼 LyricsCubit: 目录下的 .lrc 文件列表:');
-        for (final path in availableLrc) {
+        print('🎼 LyricsCubit: 目录下的歌词文件列表:');
+        for (final path in availableLyrics) {
           print('  • $path');
         }
       }

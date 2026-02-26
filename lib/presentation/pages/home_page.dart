@@ -23,12 +23,15 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../core/di/dependency_injection.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/mystery_library_constants.dart';
+import '../../core/constants/jellyfin_library_constants.dart';
 import '../../core/storage/binary_config_store.dart';
+import '../../core/settings/online_metadata_controller.dart';
 import '../../core/widgets/modal_dialog.dart';
 import '../../core/utils/romaji_transliterator.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
 import '../../domain/entities/netease_entities.dart';
+import '../../domain/entities/jellyfin_entities.dart';
 import '../../core/utils/platform_utils.dart';
 import '../../domain/repositories/music_library_repository.dart';
 import '../../domain/repositories/playback_history_repository.dart';
@@ -78,6 +81,8 @@ part 'home/widgets/playlist_message.dart';
 part 'home/widgets/playback_queue.dart';
 part 'home/dialogs/webdav_connection_dialog.dart';
 part 'home/dialogs/webdav_directory_picker_dialog.dart';
+part 'home/dialogs/jellyfin_connection_dialog.dart';
+part 'home/dialogs/jellyfin_library_picker_dialog.dart';
 part 'home/dialogs/playlist_modal_components.dart';
 part 'home/dialogs/playlist_creation_dialog.dart';
 part 'home/dialogs/library_mount_dialog.dart';
@@ -107,14 +112,18 @@ class HomePage extends StatelessWidget {
             getAllAlbums: sl<GetAllAlbums>(),
             getLibraryDirectories: sl<GetLibraryDirectories>(),
             scanWebDavDirectory: sl<ScanWebDavDirectory>(),
+            scanJellyfinLibrary: sl<ScanJellyfinLibrary>(),
             mountMysteryLibrary: sl<MountMysteryLibrary>(),
             unmountMysteryLibrary: sl<UnmountMysteryLibrary>(),
             getWebDavSources: sl<GetWebDavSources>(),
+            getJellyfinSources: sl<GetJellyfinSources>(),
             ensureWebDavTrackMetadata: sl<EnsureWebDavTrackMetadata>(),
             getWebDavPassword: sl<GetWebDavPassword>(),
+            getJellyfinAccessToken: sl<GetJellyfinAccessToken>(),
             removeLibraryDirectory: sl<RemoveLibraryDirectory>(),
             clearLibrary: sl<ClearLibrary>(),
             deleteWebDavSource: sl<DeleteWebDavSource>(),
+            deleteJellyfinSource: sl<DeleteJellyfinSource>(),
             watchTrackUpdates: sl<WatchTrackUpdates>(),
             configStore: sl<BinaryConfigStore>(),
           )..add(const LoadAllTracks()),
@@ -139,6 +148,7 @@ class HomePage extends StatelessWidget {
             loadLyricsFromMetadata: sl<LoadLyricsFromMetadata>(),
             fetchOnlineLyrics: sl<FetchOnlineLyrics>(),
             getLyrics: sl<GetLyrics>(),
+            onlineMetadataController: sl<OnlineMetadataController>(),
           ),
         ),
         BlocProvider(

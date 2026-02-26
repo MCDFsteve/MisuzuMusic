@@ -29,6 +29,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDeveloperSubtitle => 'Access debugging tools';
 
   @override
+  String get settingsOnlineMetadataTitle => 'Online metadata';
+
+  @override
+  String get settingsOnlineMetadataSubtitle =>
+      'Control automatic fetching of lyrics and cover art';
+
+  @override
+  String get settingsAutoFetchLyricsTitle => 'Auto-fetch lyrics';
+
+  @override
+  String get settingsAutoFetchLyricsSubtitle =>
+      'Fetch lyrics from online services when available';
+
+  @override
+  String get settingsAutoFetchArtworkTitle => 'Auto-fetch cover art';
+
+  @override
+  String get settingsAutoFetchArtworkSubtitle =>
+      'Download cover art from online sources when missing';
+
+  @override
   String get settingsUnknownVersion => 'Unknown version';
 
   @override
@@ -416,6 +437,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get homeMisuzuAppRootName => 'Misuzu Music (root)';
+
+  @override
+  String homeMisuzuAppRootDescription(Object filesRoot) {
+    return 'Files path: $filesRoot > Misuzu Music';
+  }
+
+  @override
   String get homeMisuzuRootName => 'MisuzuMusic (root)';
 
   @override
@@ -427,11 +456,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get homePickMisuzuFolderTitle => 'Pick MisuzuMusic folder';
+  String get homePickMisuzuFolderTitle => 'Pick a scan folder';
 
   @override
   String homeMisuzuFilesHint(Object filesRoot) {
-    return 'Files path: $filesRoot > Misuzu Music > MisuzuMusic';
+    return 'Files path: $filesRoot > Misuzu Music (root) or $filesRoot > Misuzu Music > MisuzuMusic';
   }
 
   @override
@@ -450,12 +479,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeWebDavLibrary => 'WebDAV library';
 
   @override
+  String get homeJellyfinLibrary => 'Jellyfin library';
+
+  @override
   String homeWebDavScanSummary(int count) {
     return 'Added $count new tracks';
   }
 
   @override
+  String homeJellyfinScanSummary(int count) {
+    return 'Added $count new tracks from Jellyfin';
+  }
+
+  @override
   String homeWebDavScanSummaryWithSource(int count, Object source) {
+    return 'Added $count new tracks\nSource: $source';
+  }
+
+  @override
+  String homeJellyfinScanSummaryWithSource(int count, Object source) {
     return 'Added $count new tracks\nSource: $source';
   }
 
@@ -505,11 +547,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'Connect to a WebDAV server to stream or download music.';
 
   @override
+  String get libraryMountOptionJellyfinTitle => 'Mount Jellyfin';
+
+  @override
+  String get libraryMountOptionJellyfinDescription =>
+      'Connect to a Jellyfin server to load your music library.';
+
+  @override
   String get libraryMountInfoCardTitle => 'Import via the MisuzuMusic folder';
 
   @override
   String libraryMountInfoCardDescription(Object filesRoot) {
-    return 'iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open $filesRoot > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it.\n3) Return to Misuzu Music and select the MisuzuMusic folder to start scanning.';
+    return 'iOS copies external files into the sandbox. To avoid using extra space, follow these steps:\n1) In the Files app, open $filesRoot > Misuzu Music.\n2) Open the MisuzuMusic folder and copy any folders containing songs into it; or use iTunes File Sharing to place songs in the Misuzu Music root.\n3) Return to Misuzu Music and select the MisuzuMusic folder or the root to start scanning.';
   }
 
   @override

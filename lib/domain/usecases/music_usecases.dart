@@ -1,6 +1,7 @@
 import '../repositories/music_library_repository.dart';
 import '../entities/music_entities.dart';
 import '../entities/webdav_entities.dart';
+import '../entities/jellyfin_entities.dart';
 
 class GetAllTracks {
   final MusicLibraryRepository _repository;
@@ -117,6 +118,22 @@ class ScanWebDavDirectory {
   }
 }
 
+class ScanJellyfinLibrary {
+  final MusicLibraryRepository _repository;
+
+  ScanJellyfinLibrary(this._repository);
+
+  Future<void> call({
+    required JellyfinSource source,
+    required String accessToken,
+  }) async {
+    return await _repository.scanJellyfinLibrary(
+      source: source,
+      accessToken: accessToken,
+    );
+  }
+}
+
 class MountMysteryLibrary {
   final MusicLibraryRepository _repository;
 
@@ -187,6 +204,86 @@ class GetWebDavPassword {
 
   Future<String?> call(String id) async {
     return _repository.getWebDavPassword(id);
+  }
+}
+
+class AuthenticateJellyfin {
+  final MusicLibraryRepository _repository;
+
+  AuthenticateJellyfin(this._repository);
+
+  Future<JellyfinAuthSession> call({
+    required String baseUrl,
+    required String username,
+    required String password,
+    bool ignoreTls = false,
+  }) async {
+    return _repository.authenticateJellyfin(
+      baseUrl: baseUrl,
+      username: username,
+      password: password,
+      ignoreTls: ignoreTls,
+    );
+  }
+}
+
+class GetJellyfinLibraries {
+  final MusicLibraryRepository _repository;
+
+  GetJellyfinLibraries(this._repository);
+
+  Future<List<JellyfinLibrary>> call({
+    required String baseUrl,
+    required String accessToken,
+    required String userId,
+    bool ignoreTls = false,
+  }) async {
+    return _repository.getJellyfinLibraries(
+      baseUrl: baseUrl,
+      accessToken: accessToken,
+      userId: userId,
+      ignoreTls: ignoreTls,
+    );
+  }
+}
+
+class GetJellyfinSources {
+  final MusicLibraryRepository _repository;
+
+  GetJellyfinSources(this._repository);
+
+  Future<List<JellyfinSource>> call() async {
+    return _repository.getJellyfinSources();
+  }
+}
+
+class GetJellyfinSourceById {
+  final MusicLibraryRepository _repository;
+
+  GetJellyfinSourceById(this._repository);
+
+  Future<JellyfinSource?> call(String id) async {
+    return _repository.getJellyfinSourceById(id);
+  }
+}
+
+class DeleteJellyfinSource {
+  final MusicLibraryRepository _repository;
+
+  DeleteJellyfinSource(this._repository);
+
+  Future<void> call(String id) async {
+    return _repository.deleteJellyfinSource(id);
+  }
+}
+
+class GetJellyfinAccessToken {
+  final MusicLibraryRepository _repository;
+
+  GetJellyfinAccessToken(this._repository);
+
+  Future<String?> call(String id) async {
+    return _repository.getJellyfinAccessToken(id);
   }
 }
 

@@ -249,7 +249,6 @@ class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
               items: playlists,
               pageSize: 40,
               preloadOffset: 120,
-              cacheExtent: 0,
               separatorBuilder: (_, __) => const SizedBox(height: 6),
               itemBuilder: (context, playlist, index) {
                 return _PlaylistEntryTile(
