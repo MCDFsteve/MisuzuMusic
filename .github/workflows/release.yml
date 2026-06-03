@@ -117,6 +117,7 @@ jobs:
             - Windows x64 ZIP
             - Windows x64 安装程序 (EXE)
             - Linux x64 TAR.GZ
+            - Linux x64 AppImage
           files: dist/*
 
   version_bump:

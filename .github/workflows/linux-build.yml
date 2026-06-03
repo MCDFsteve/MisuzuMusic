@@ -1,4 +1,4 @@
-name: Build Linux Tarball
+name: Build Linux Packages
 
 on:
   workflow_call:
@@ -15,7 +15,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       APP_VERSION: ${{ inputs.version }}
       TARGET_ARCH: ${{ inputs.arch }}
@@ -31,7 +31,12 @@ jobs:
             ninja-build \
             pkg-config \
             libgtk-3-dev \
-            libmpv-dev
+            libmpv-dev \
+            libqt5svg5 \
+            desktop-file-utils \
+            wget
+          sudo apt-get install -y --no-install-recommends libfuse2 || \
+            sudo apt-get install -y --no-install-recommends libfuse2t64 || true
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -52,9 +57,71 @@ jobs:
           fi
           ARTIFACT_NAME="Misuzu-Music-linux-${TARGET_ARCH}-${APP_VERSION}.tar.gz"
           tar -czf "$ARTIFACT_DIR/$ARTIFACT_NAME" -C "$OUTPUT_DIR" .
+      - name: 打包 AppImage
+        run: |
+          set -euo pipefail
+
+          if [[ "$TARGET_ARCH" != "x64" ]]; then
+            echo "linuxdeployqt AppImage 仅在 x64 runner 上打包，当前架构：$TARGET_ARCH" >&2
+            exit 1
+          fi
+
+          ARTIFACT_DIR="build/artifacts"
+          OUTPUT_DIR="build/linux/${TARGET_ARCH}/release/bundle"
+          APPDIR="build/linux/Misuzu-Music.AppDir"
+          APPIMAGE_NAME="Misuzu-Music-linux-${TARGET_ARCH}-${APP_VERSION}.AppImage"
+          APP_BINARY="misuzumusic"
+          DESKTOP_FILE="linux/misuzumusic.desktop"
+          ICON_FILE="icons/icon.png"
+
+          if [[ ! -d "$OUTPUT_DIR" ]]; then
+            echo "未找到 Linux 构建输出：$OUTPUT_DIR" >&2
+            exit 1
+          fi
+
+          rm -rf "$APPDIR"
+          mkdir -p "$APPDIR" "$ARTIFACT_DIR"
+          cp -a "$OUTPUT_DIR"/. "$APPDIR"/
+          cp "$DESKTOP_FILE" "$APPDIR/misuzumusic.desktop"
+          cp "$ICON_FILE" "$APPDIR/misuzumusic.png"
+          chmod +x "$APPDIR/$APP_BINARY"
+
+          if [[ -d "$APPDIR/lib" ]]; then
+            (
+              cd "$APPDIR/lib"
+              if [[ ! -e libmpv.so.1 && -e libmpv.so.2 ]]; then
+                ln -s libmpv.so.2 libmpv.so.1
+              fi
+            )
+          fi
+
+          rm -f ./*.AppImage linuxdeployqt
+          wget -q https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage -O linuxdeployqt
+          chmod +x linuxdeployqt
+
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          export LD_LIBRARY_PATH="$APPDIR/lib:${LD_LIBRARY_PATH:-}"
+          export LINUXDEPLOYQT_EXCLUDE_LIBS="libgio-2.0.so*;libglib-2.0.so*;libgobject-2.0.so*;libgmodule-2.0.so*;libgthread-2.0.so*;libgdk_pixbuf-2.0.so*;librsvg-2.so*;libEGL.so*;libGL.so*;libGLESv2.so*;libGLX.so*;libOpenGL.so*;libGLdispatch.so*;libgbm.so*;libdrm.so*;libvulkan.so*"
+
+          ./linuxdeployqt "$APPDIR/$APP_BINARY" -unsupported-allow-new-glibc -appimage -bundle-non-qt-libs
+
+          GENERATED_APPIMAGE="$(find . -maxdepth 1 -name "*.AppImage" -print -quit)"
+          if [[ -z "$GENERATED_APPIMAGE" ]]; then
+            echo "AppImage 生成失败，未找到输出文件" >&2
+            exit 1
+          fi
+
+          mv "$GENERATED_APPIMAGE" "$ARTIFACT_DIR/$APPIMAGE_NAME"
+          rm -f linuxdeployqt
       - name: 上传 Linux 构建产物
         uses: actions/upload-artifact@v4
         with:
           name: Misuzu-Music-linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.tar.gz
           path: build/artifacts/Misuzu-Music-linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.tar.gz
+          if-no-files-found: error
+      - name: 上传 Linux AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: Misuzu-Music-linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.AppImage
+          path: build/artifacts/Misuzu-Music-linux-${{ env.TARGET_ARCH }}-${{ env.APP_VERSION }}.AppImage
           if-no-files-found: error
