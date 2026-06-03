@@ -880,8 +880,6 @@ class _HomePageContentState extends State<HomePageContent> {
       return;
     }
 
-    final lowerName = name.toLowerCase();
-    final separatorPattern = RegExp(r'[/、,，&＆]+');
     final normalizedTracks = _normalizedLibraryTracks(library);
     final buckets = <String, List<Track>>{};
     void addToBucket(String key, Track track) {
@@ -896,23 +894,17 @@ class _HomePageContentState extends State<HomePageContent> {
 
     for (final item in normalizedTracks) {
       final artistValue = item.artist.trim();
-      addToBucket(artistValue, item);
-      final parts = artistValue.split(separatorPattern);
+      final parts = splitArtistNames(artistValue);
+      if (parts.length <= 1) {
+        addToBucket(artistValue, item);
+      }
       for (final part in parts) {
-        if (part.trim().isEmpty) continue;
         addToBucket(part, item);
       }
     }
 
-    final slashParts = name
-        .split(separatorPattern)
-        .map((part) => part.trim())
-        .where((part) => part.isNotEmpty)
-        .toList();
-    final candidateNames = <String>[
-      ...slashParts,
-      if (!slashParts.any((part) => part.toLowerCase() == lowerName)) name,
-    ];
+    final splitNames = splitArtistNames(name);
+    final candidateNames = splitNames.isEmpty ? <String>[name] : splitNames;
     final matchedArtists = <MapEntry<String, List<Track>>>[];
     final seenKeys = <String>{};
 

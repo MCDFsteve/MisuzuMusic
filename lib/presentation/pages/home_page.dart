@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -67,7 +66,7 @@ import 'lyrics/lyrics_overlay.dart';
 import 'settings/settings_view.dart';
 import '../utils/track_display_utils.dart';
 import '../../core/utils/track_field_normalizer.dart'
-    show isUnknownMetadataValue;
+    show isUnknownMetadataValue, splitArtistNames;
 import '../../l10n/app_localizations.dart';
 import '../../l10n/l10n.dart';
 

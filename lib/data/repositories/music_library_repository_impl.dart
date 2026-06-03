@@ -17,6 +17,7 @@ import '../../core/storage/binary_config_store.dart';
 import '../../core/storage/storage_keys.dart';
 import '../../core/constants/jellyfin_library_constants.dart';
 import '../../core/constants/mystery_library_constants.dart';
+import '../../core/utils/audio_metadata_fixups.dart';
 import '../../core/utils/track_field_normalizer.dart';
 import '../../domain/entities/music_entities.dart';
 import '../../domain/entities/webdav_entities.dart';
@@ -85,8 +86,36 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   @override
   Future<List<Track>> getTracksByArtist(String artist) async {
     try {
-      final trackModels = await _localDataSource.getTracksByArtist(artist);
-      return trackModels.map((model) => model.toEntity()).toList();
+      final directMatches = await _localDataSource.getTracksByArtist(artist);
+      final allTracks = await _localDataSource.getAllTracks();
+      final matchesById = <String, TrackModel>{
+        for (final model in directMatches) model.id: model,
+      };
+
+      for (final model in allTracks) {
+        if (_artistMatches(model.artist, artist)) {
+          matchesById[model.id] = model;
+        }
+      }
+
+      final tracks = matchesById.values
+          .map((model) => model.toEntity())
+          .toList();
+      tracks.sort((a, b) {
+        final albumCompare = a.album.toLowerCase().compareTo(
+          b.album.toLowerCase(),
+        );
+        if (albumCompare != 0) {
+          return albumCompare;
+        }
+        final aTrack = a.trackNumber ?? (1 << 30);
+        final bTrack = b.trackNumber ?? (1 << 30);
+        if (aTrack != bTrack) {
+          return aTrack.compareTo(bTrack);
+        }
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      });
+      return tracks;
     } catch (e) {
       throw DatabaseException(
         'Failed to get tracks by artist: ${e.toString()}',
@@ -250,8 +279,55 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   @override
   Future<List<Artist>> getAllArtists() async {
     try {
-      final artistModels = await _localDataSource.getAllArtists();
-      return artistModels.map((model) => model.toEntity()).toList();
+      final trackModels = await _localDataSource.getAllTracks();
+      final artists = <String, _ArtistAggregate>{};
+
+      for (final track in trackModels) {
+        final splitNames = splitArtistNames(track.artist);
+        final names = splitNames.isEmpty
+            ? <String>[track.artist.trim()]
+            : splitNames;
+        final seenForTrack = <String>{};
+
+        for (final name in names) {
+          final trimmed = name.trim();
+          if (trimmed.isEmpty) {
+            continue;
+          }
+
+          final key = trimmed.toLowerCase();
+          if (!seenForTrack.add(key)) {
+            continue;
+          }
+
+          final aggregate = artists.putIfAbsent(
+            key,
+            () => _ArtistAggregate(trimmed),
+          );
+          aggregate.trackIds.add(track.id);
+          final artworkPath = track.artworkPath;
+          if ((aggregate.artworkPath == null ||
+                  aggregate.artworkPath!.isEmpty) &&
+              artworkPath != null &&
+              artworkPath.isNotEmpty) {
+            aggregate.artworkPath = artworkPath;
+          }
+        }
+      }
+
+      final result = artists.values
+          .map(
+            (artist) => Artist(
+              name: artist.name,
+              trackCount: artist.trackIds.length,
+              artworkPath: artist.artworkPath,
+            ),
+          )
+          .toList();
+      result.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+      return result;
     } catch (e) {
       throw DatabaseException('Failed to get all artists: ${e.toString()}');
     }
@@ -260,8 +336,20 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   @override
   Future<Artist?> getArtistByName(String name) async {
     try {
-      final artistModel = await _localDataSource.getArtistByName(name);
-      return artistModel?.toEntity();
+      final tracks = await getTracksByArtist(name);
+      if (tracks.isEmpty) {
+        return null;
+      }
+
+      final artworkTrack = tracks.lastWhere(
+        (track) => track.artworkPath != null && track.artworkPath!.isNotEmpty,
+        orElse: () => tracks.first,
+      );
+      return Artist(
+        name: name,
+        trackCount: tracks.length,
+        artworkPath: artworkTrack.artworkPath,
+      );
     } catch (e) {
       throw DatabaseException('Failed to get artist by name: ${e.toString()}');
     }
@@ -1643,18 +1731,16 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
   }) async {
     try {
       // Read metadata
-      final metadata = await readMetadata(file, getImage: true);
+      final metadata = readCorrectedAudioMetadata(file, getImage: true);
 
       final fileName = path.basenameWithoutExtension(file.path);
-      final rawTitle = metadata?.title ?? fileName;
-      final rawArtist = metadata?.artist ?? 'Unknown Artist';
-      final rawAlbum = metadata?.album ?? 'Unknown Album';
-      final duration = metadata?.duration ?? Duration.zero;
-      final year = metadata?.year?.year;
-      final trackNumber = metadata?.trackNumber;
-      final genre = metadata?.genres?.isNotEmpty == true
-          ? metadata!.genres!.first
-          : null;
+      final rawTitle = metadata.title ?? fileName;
+      final rawArtist = metadata.artist ?? 'Unknown Artist';
+      final rawAlbum = metadata.album ?? 'Unknown Album';
+      final duration = metadata.duration ?? Duration.zero;
+      final year = metadata.year?.year;
+      final trackNumber = metadata.trackNumber;
+      final genre = metadata.genres.isNotEmpty ? metadata.genres.first : null;
 
       final normalized = normalizeTrackFields(
         title: rawTitle,
@@ -1676,7 +1762,7 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         file: file,
         duration: duration,
       );
-      final sampleRate = metadata?.sampleRate;
+      final sampleRate = metadata.sampleRate;
 
       if (artworkPath == null || artworkPath.isEmpty) {
         artworkPath = await _fetchArtworkFromNetease(
@@ -1733,6 +1819,21 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
         sampleRate: existingTrack?.sampleRate,
       );
     }
+  }
+
+  bool _artistMatches(String trackArtist, String artist) {
+    final target = artist.trim().toLowerCase();
+    if (target.isEmpty) {
+      return false;
+    }
+
+    if (trackArtist.trim().toLowerCase() == target) {
+      return true;
+    }
+
+    return splitArtistNames(
+      trackArtist,
+    ).any((name) => name.toLowerCase() == target);
   }
 
   Future<String?> _saveArtwork(
@@ -3043,6 +3144,14 @@ class MusicLibraryRepositoryImpl implements MusicLibraryRepository {
       // ignore
     }
   }
+}
+
+class _ArtistAggregate {
+  _ArtistAggregate(this.name);
+
+  final String name;
+  final Set<String> trackIds = <String>{};
+  String? artworkPath;
 }
 
 class _RemoteAudioFile {

@@ -10,6 +10,27 @@ class NormalizedTrackFields {
   final String album;
 }
 
+final RegExp _artistSeparatorPattern = RegExp(r'[/、,，&＆;；]+');
+
+List<String> splitArtistNames(String artist) {
+  final seen = <String>{};
+  final names = <String>[];
+
+  for (final part in artist.split(_artistSeparatorPattern)) {
+    final trimmed = part.trim();
+    if (trimmed.isEmpty) {
+      continue;
+    }
+
+    final key = trimmed.toLowerCase();
+    if (seen.add(key)) {
+      names.add(trimmed);
+    }
+  }
+
+  return names;
+}
+
 NormalizedTrackFields normalizeTrackFields({
   required String title,
   required String artist,
