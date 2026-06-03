@@ -74,8 +74,12 @@ jobs:
       - name: 预下载 Gradle Wrapper
         run: |
           cd android
-          chmod +x ./gradlew
-          ./gradlew --version || true
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+            ./gradlew --version
+          else
+            echo "gradlew 未提交，跳过 wrapper 预下载"
+          fi
         continue-on-error: true
 
       - name: 构建分架构 APK

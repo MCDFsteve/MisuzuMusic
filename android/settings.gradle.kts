@@ -11,15 +11,23 @@ pluginManagement {
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
     repositories {
-        // 解决 gradlePluginPortal TLS 握手/网络受限导致的依赖下载失败，优先走可访问的镜像
-        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/central") }
-        // Flutter engine 本地/镜像仓库，确保能解析 flutter_embedding_* 等构件
+        val preferOfficialRepositories = System.getenv("GITHUB_ACTIONS") == "true"
         maven { url = uri("$flutterSdkPath/bin/cache/artifacts/engine") }
         maven { url = uri("https://storage.flutter-io.cn/download.flutter.io") }
-        google()
+        if (preferOfficialRepositories) {
+            google()
+            mavenCentral()
+            gradlePluginPortal()
+        }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        if (!preferOfficialRepositories) {
+            google()
+            mavenCentral()
+            gradlePluginPortal()
+        }
     }
 }
 
@@ -32,16 +40,24 @@ dependencyResolutionManagement {
             require(flutterSdk != null) { "flutter.sdk not set in local.properties" }
             flutterSdk
         }
-    // 强制全局使用这里声明的仓库，避免子工程自行回落到无法访问的默认仓库
+    // Keep subprojects on the same repository set.
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        val preferOfficialRepositories = System.getenv("GITHUB_ACTIONS") == "true"
         maven { url = uri("$flutterSdkPath/bin/cache/artifacts/engine") }
         maven { url = uri("https://storage.flutter-io.cn/download.flutter.io") }
-        google()
+        if (preferOfficialRepositories) {
+            google()
+            mavenCentral()
+        }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        if (!preferOfficialRepositories) {
+            google()
+            mavenCentral()
+        }
     }
 }
 
