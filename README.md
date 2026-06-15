@@ -9,6 +9,10 @@
 - Windows / Linux / macOS：从 [GitHub Release ](https://github.com/MCDFsteve/MisuzuMusic/releases/) 下载对应安装包。
 - iOS：在 [App Store](https://apps.apple.com/us/app/misuzu-music/id6755328428?l=zh-Hans-CN) 获取 Misuzu Music。
 
+
+> **⚠️ 安全警告**
+> Arch Linux AUR 中的 `misuzu-music-bin` 包已被恶意用户接管，**请勿安装**。请从 GitHub Releases 获取。
+
 ## 功能：
 
 - 导入本地音乐，支持创建歌单和播放队列
